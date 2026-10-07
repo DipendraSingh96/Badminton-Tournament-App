@@ -11,11 +11,27 @@ export interface CostLine {
   id: string;
   label: string;
   amount: number;
+  /** Per-person costs: the rate and the headcount it was multiplied by. */
+  perPerson?: { rate: number; basis: "players" | "umpires" | "custom"; headcount: number };
+}
+
+export interface CategoryRevenue {
+  categoryId: string;
+  amount: number;
+  /** The working: entrants in the fee basis unit, split by fee. */
+  basis: "player" | "pair";
+  entrants: number;
+  external: number;
+  fee: number;
+  externalFee: number;
 }
 
 export interface FinanceResult {
   revenue: number;
-  revenueByCategory: { categoryId: string; amount: number }[];
+  revenueByCategory: CategoryRevenue[];
+  games: number;
+  shuttlesPerGame: number;
+  costPerShuttle: number;
   shuttles: number;
   shuttleCost: number;
   prizeCost: number;
@@ -29,37 +45,47 @@ export function playerCount(categories: Category[]): number {
   return categories.reduce((sum, c) => sum + c.expectedPairs * 2, 0);
 }
 
-export function categoryRevenue(category: Category): number {
+export function categoryRevenueWorking(category: Category): CategoryRevenue {
   const { fee } = category;
   const entrants =
     fee.basis === "player" ? category.expectedPairs * 2 : category.expectedPairs;
   const external = Math.min(fee.expectedExternal, entrants);
-  return (
-    (entrants - external) * fee.amount +
-    external * (fee.externalAmount ?? fee.amount)
-  );
+  const externalFee = fee.externalAmount ?? fee.amount;
+  return {
+    categoryId: category.id,
+    amount: (entrants - external) * fee.amount + external * externalFee,
+    basis: fee.basis,
+    entrants,
+    external,
+    fee: fee.amount,
+    externalFee,
+  };
 }
 
-function otherCostAmount(
-  cost: OtherCost,
-  players: number,
-  umpires: number,
-): number {
-  if (cost.type === "fixed") return cost.amount;
+export function categoryRevenue(category: Category): number {
+  return categoryRevenueWorking(category).amount;
+}
+
+function otherCostLine(cost: OtherCost, players: number, umpires: number): CostLine {
+  if (cost.type === "fixed") {
+    return { id: cost.id, label: cost.label, amount: cost.amount };
+  }
   const headcount =
     cost.basis === "players"
       ? players
       : cost.basis === "umpires"
         ? umpires
         : (cost.count ?? 0);
-  return cost.amount * headcount;
+  return {
+    id: cost.id,
+    label: cost.label,
+    amount: cost.amount * headcount,
+    perPerson: { rate: cost.amount, basis: cost.basis, headcount },
+  };
 }
 
 export function finance(inputs: Finance, context: FinanceContext): FinanceResult {
-  const revenueByCategory = context.categories.map((category) => ({
-    categoryId: category.id,
-    amount: categoryRevenue(category),
-  }));
+  const revenueByCategory = context.categories.map(categoryRevenueWorking);
   const revenue = revenueByCategory.reduce((sum, r) => sum + r.amount, 0);
 
   const shuttles = context.games * inputs.shuttlesPerGame;
@@ -67,11 +93,9 @@ export function finance(inputs: Finance, context: FinanceContext): FinanceResult
   const prizeCost = inputs.prizes.reduce((sum, p) => sum + p.amount, 0);
 
   const players = playerCount(context.categories);
-  const otherCosts = inputs.otherCosts.map((cost) => ({
-    id: cost.id,
-    label: cost.label,
-    amount: otherCostAmount(cost, players, context.umpires),
-  }));
+  const otherCosts = inputs.otherCosts.map((cost) =>
+    otherCostLine(cost, players, context.umpires),
+  );
 
   const totalCost =
     shuttleCost + prizeCost + otherCosts.reduce((sum, c) => sum + c.amount, 0);
@@ -79,6 +103,9 @@ export function finance(inputs: Finance, context: FinanceContext): FinanceResult
   return {
     revenue,
     revenueByCategory,
+    games: context.games,
+    shuttlesPerGame: inputs.shuttlesPerGame,
+    costPerShuttle: inputs.costPerShuttle,
     shuttles,
     shuttleCost,
     prizeCost,

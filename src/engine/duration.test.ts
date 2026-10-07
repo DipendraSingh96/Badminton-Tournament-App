@@ -33,17 +33,17 @@ describe("maxPointsPerGame", () => {
 
 describe("matchMinutes", () => {
   it("is the same typical and worst for a straight race, best of 1", () => {
-    expect(matchMinutes(rules())).toEqual({ typical: 14, worst: 14 });
+    expect(matchMinutes(rules())).toMatchObject({ typical: 14, worst: 14 });
   });
 
   it("scales the worst case by the longest possible game", () => {
     expect(
       matchMinutes(rules({ deuce: { type: "standard", max: 30 } })),
-    ).toEqual({ typical: 14, worst: 19 });
+    ).toMatchObject({ typical: 14, worst: 19 });
   });
 
   it("plays two games typically and three at worst in best of 3", () => {
-    expect(matchMinutes(rules({ bestOf: 3 }))).toEqual({
+    expect(matchMinutes(rules({ bestOf: 3 }))).toMatchObject({
       typical: 24,
       worst: 34,
     });

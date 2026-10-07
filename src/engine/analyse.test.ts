@@ -57,6 +57,17 @@ describe("analyseTournament", () => {
     expect(analysis.finance.shuttleCost).toBe(46);
   });
 
+  it("breaks court time needed down by stage, adding up to the totals", () => {
+    const result = analyseTournament(tournament());
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const { demand, capacity, games } = result.analysis;
+    expect(demand.map((d) => d.stage)).toEqual(["group", "knockout", "final"]);
+    expect(demand[0]).toEqual({ stage: "group", matches: 18, games: 18, typical: 270, worst: 270 });
+    expect(demand.reduce((s, d) => s + d.typical, 0)).toBe(capacity.needed.typical);
+    expect(demand.reduce((s, d) => s + d.worst, 0)).toBe(capacity.needed.worst);
+    expect(demand.reduce((s, d) => s + d.games, 0)).toBe(games);
+  });
+
   it("updates capacity and finance when entries change", () => {
     const base = tournament();
     const more = tournament();

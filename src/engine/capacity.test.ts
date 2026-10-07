@@ -18,7 +18,7 @@ function frame(overrides: Partial<Frame> = {}): Frame {
 
 describe("available", () => {
   it("multiplies time by courts", () => {
-    expect(available(frame())).toEqual({ minutes: 480, courtMinutes: 1920 });
+    expect(available(frame())).toMatchObject({ minutes: 480, courtMinutes: 1920 });
   });
 
   it("respects court windows that change during the day", () => {
@@ -42,7 +42,12 @@ describe("available", () => {
         ],
       }),
     );
-    expect(result).toEqual({ minutes: 420, courtMinutes: 840 });
+    expect(result).toMatchObject({ minutes: 420, courtMinutes: 840 });
+    expect(result.windows[0]).toMatchObject({
+      from: "2026-05-02T08:00:00.000Z",
+      to: "2026-05-02T15:00:00.000Z",
+      clipped: true,
+    });
   });
 });
 

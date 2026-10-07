@@ -2,11 +2,27 @@ import type { Frame } from "./types";
 
 const MS_PER_MINUTE = 60_000;
 
+/** A court window as counted: clipped to the playing window. */
+export interface CountedWindow {
+  /** UTC ISO timestamps after clipping. */
+  from: string;
+  to: string;
+  courts: number;
+  minutes: number;
+  courtMinutes: number;
+  /** True when part of the window falls outside the playing window. */
+  clipped: boolean;
+}
+
 export interface Available {
+  /** UTC ISO: start, and end less the buffer. */
+  start: string;
+  playingEnd: string;
   /** Playing window from start to end, less the buffer. */
   minutes: number;
   /** Court availability summed across windows inside the playing window. */
   courtMinutes: number;
+  windows: CountedWindow[];
 }
 
 export function available(frame: Frame): Available {
@@ -14,13 +30,32 @@ export function available(frame: Frame): Available {
   const end = Date.parse(frame.end) - frame.bufferMinutes * MS_PER_MINUTE;
   const minutes = Math.max(0, (end - start) / MS_PER_MINUTE);
 
-  const courtMinutes = frame.courtWindows.reduce((sum, window) => {
-    const from = Math.max(Date.parse(window.from), start);
-    const to = Math.min(Date.parse(window.to), end);
-    return sum + (Math.max(0, to - from) / MS_PER_MINUTE) * window.courts;
-  }, 0);
+  const windows: CountedWindow[] = [];
+  for (const window of frame.courtWindows) {
+    const rawFrom = Date.parse(window.from);
+    const rawTo = Date.parse(window.to);
+    const from = Math.max(rawFrom, start);
+    const to = Math.min(rawTo, end);
+    if (to <= from) continue;
+    const windowMinutes = (to - from) / MS_PER_MINUTE;
+    windows.push({
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+      courts: window.courts,
+      minutes: windowMinutes,
+      courtMinutes: windowMinutes * window.courts,
+      clipped: from !== rawFrom || to !== rawTo,
+    });
+  }
+  const courtMinutes = windows.reduce((sum, w) => sum + w.courtMinutes, 0);
 
-  return { minutes, courtMinutes };
+  return {
+    start: new Date(start).toISOString(),
+    playingEnd: new Date(Math.max(start, end)).toISOString(),
+    minutes,
+    courtMinutes,
+    windows,
+  };
 }
 
 export interface Demand {

@@ -13,12 +13,23 @@ export type AnalysisError =
   | { code: "format"; categoryId: string; errors: FormatError[] }
   | { code: "missingStageRules"; stage: Stage };
 
+/** Court time needed by one stage: its matches × its slot length. */
+export interface StageDemand {
+  stage: Stage;
+  matches: number;
+  games: number;
+  typical: number;
+  worst: number;
+}
+
 export interface Analysis {
   categories: { categoryId: string; format: CategoryFormat }[];
   matches: StageCounts;
   totalMatches: number;
   games: number;
   matchMinutes: Partial<Record<Stage, MatchMinutes>>;
+  /** Stages with matches, in play order. */
+  demand: StageDemand[];
   capacity: Capacity;
   finance: FinanceResult;
 }
@@ -52,18 +63,24 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   if (errors.length > 0) return { ok: false, errors };
 
   const minutes: Analysis["matchMinutes"] = {};
-  let typical = 0;
-  let worst = 0;
-  let games = 0;
+  const demand: StageDemand[] = [];
   for (const stage of STAGES) {
     const rules = inputs.stageRules[stage];
     if (!rules) continue;
     const slot = matchMinutes(rules);
     minutes[stage] = slot;
-    typical += matches[stage] * slot.typical;
-    worst += matches[stage] * slot.worst;
-    games += matches[stage] * typicalGames(rules);
+    if (matches[stage] === 0) continue;
+    demand.push({
+      stage,
+      matches: matches[stage],
+      games: matches[stage] * typicalGames(rules),
+      typical: matches[stage] * slot.typical,
+      worst: matches[stage] * slot.worst,
+    });
   }
+  const typical = demand.reduce((sum, d) => sum + d.typical, 0);
+  const worst = demand.reduce((sum, d) => sum + d.worst, 0);
+  const games = demand.reduce((sum, d) => sum + d.games, 0);
 
   const totalMatches = STAGES.reduce((sum, stage) => sum + matches[stage], 0);
 
@@ -75,6 +92,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       totalMatches,
       games,
       matchMinutes: minutes,
+      demand,
       capacity: capacity(inputs.frame, { matches: totalMatches, typical, worst }),
       finance: finance(inputs.finance, {
         categories: inputs.categories,

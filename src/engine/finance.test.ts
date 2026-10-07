@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryRevenue, finance } from "./finance";
+import { categoryRevenue, categoryRevenueWorking, finance } from "./finance";
 import type { Category, Finance } from "./types";
 
 function category(overrides: Partial<Category> = {}): Category {
@@ -39,6 +39,13 @@ describe("categoryRevenue", () => {
   });
 
   it("charges external entrants their own fee", () => {
+    expect(
+      categoryRevenueWorking(
+        category({
+          fee: { basis: "player", amount: 8, externalAmount: 12, expectedExternal: 5 },
+        }),
+      ),
+    ).toMatchObject({ entrants: 20, external: 5, fee: 8, externalFee: 12 });
     expect(
       categoryRevenue(
         category({
@@ -102,6 +109,7 @@ describe("finance", () => {
       context,
     );
     expect(result.otherCosts.map((c) => c.amount)).toEqual([20, 20, 18]);
+    expect(result.otherCosts.map((c) => c.perPerson?.headcount)).toEqual([20, 4, 6]);
   });
 
   it("shows the cost to organisers with zero fees and prizes", () => {

@@ -24,6 +24,13 @@ export function worstGames(rules: StageRules): number {
 export interface MatchMinutes {
   typical: number;
   worst: number;
+  /** The working behind the two figures. */
+  typicalGames: number;
+  worstGames: number;
+  minutesPerGame: number;
+  pointsPerGame: number;
+  maxPoints: number;
+  changeoverMinutes: number;
 }
 
 /**
@@ -31,12 +38,19 @@ export interface MatchMinutes {
  * time by the longest possible game relative to a normal one.
  */
 export function matchMinutes(rules: StageRules): MatchMinutes {
-  const longestGameFactor = maxPointsPerGame(rules) / rules.pointsPerGame;
+  const maxPoints = maxPointsPerGame(rules);
+  const longestGameFactor = maxPoints / rules.pointsPerGame;
   return {
     typical:
       typicalGames(rules) * rules.minutesPerGame + rules.changeoverMinutes,
     worst:
       worstGames(rules) * rules.minutesPerGame * longestGameFactor +
       rules.changeoverMinutes,
+    typicalGames: typicalGames(rules),
+    worstGames: worstGames(rules),
+    minutesPerGame: rules.minutesPerGame,
+    pointsPerGame: rules.pointsPerGame,
+    maxPoints,
+    changeoverMinutes: rules.changeoverMinutes,
   };
 }
