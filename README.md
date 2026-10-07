@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Badminton Tournament App
 
-## Getting Started
+A web app that helps organisers plan, price and run a badminton tournament. One tournament record drives both **Plan** mode (design and decide) and **Live** mode (run on the day).
 
-First, run the development server:
+Requirements live in [`docs/PRD.md`](docs/PRD.md). Working conventions are in [`CLAUDE.md`](CLAUDE.md).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Next.js (App Router) + TypeScript, Supabase (Postgres, Auth, Realtime, RLS), Tailwind + shadcn/ui, Vitest. Hosted on Vercel from `main`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Getting started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Requires Node 22 or later.
 
-## Learn More
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and publishable key (Supabase dashboard > Project Settings > API Keys).
+3. Start the dev server: `npm run dev`, then open http://localhost:3000
 
-To learn more about Next.js, take a look at the following resources:
+## Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the local dev server |
+| `npm test` | Run engine tests (Vitest) |
+| `npm run lint` | Lint, including the engine import guard |
+| `npm run typecheck` | Generate Next route types and run `tsc` |
+| `npm run build` | Production build |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Layout
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Path | Contents |
+|---|---|
+| `src/engine/` | Pure calculation functions and their tests. No UI, database or framework imports. |
+| `src/app/` | Pages and routes |
+| `src/components/` | Shared components (`ui/` holds shadcn/ui) |
+| `src/lib/` | Supabase clients and shared helpers |
+| `supabase/` | Supabase config, migrations and RLS policies |
+| `docs/` | PRD and specs |
