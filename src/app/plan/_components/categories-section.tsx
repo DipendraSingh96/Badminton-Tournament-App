@@ -48,11 +48,18 @@ function FormatPreview({ category }: { category: CategoryDraft }) {
       </p>
     );
   }
-  const { groupSizes, qualifiers, totalMatches } = result.format;
+  const { groupSizes, qualifiers, matches, totalMatches } = result.format;
+  const knockout = matches.knockout + matches.final;
   return (
-    <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-      Groups: {formatGroupSizes(groupSizes)} pairs · {qualifiers} qualify · {totalMatches} matches
-    </p>
+    <div className="flex flex-col gap-0.5 rounded-lg bg-muted px-3 py-2 text-sm">
+      <p>
+        Groups: {formatGroupSizes(groupSizes)} pairs · {qualifiers} qualify
+      </p>
+      <p className="tabular-nums">
+        Matches: {matches.group} group + {knockout} knockout (including the final)
+        {matches.bronze > 0 ? ` + ${matches.bronze} bronze` : ""} = {totalMatches} total
+      </p>
+    </div>
   );
 }
 

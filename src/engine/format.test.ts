@@ -100,6 +100,34 @@ describe("categoryFormat", () => {
     expect(result.format.totalMatches).toBe(24);
   });
 
+  it.each([
+    [true, 1, 64],
+    [false, 0, 63],
+  ])(
+    "8 groups of 4 with 2 qualifiers each, bronze %s",
+    (bronze, bronzeMatches, total) => {
+      const result = categoryFormat(
+        category({
+          expectedPairs: 32,
+          groups: { type: "fixed", groupCount: 8 },
+          qualifiersPerGroup: 2,
+          bronze,
+        }),
+      );
+      if (!result.ok) throw new Error(JSON.stringify(result.errors));
+      expect(result.format.groupSizes).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
+      expect(result.format.qualifiers).toBe(16);
+      // 8 × 6 group matches; 16 qualifiers play 15 knockout matches.
+      expect(result.format.matches).toEqual({
+        group: 48,
+        knockout: 14,
+        bronze: bronzeMatches,
+        final: 1,
+      });
+      expect(result.format.totalMatches).toBe(total);
+    },
+  );
+
   it("recomputes when entries change", () => {
     const before = categoryFormat(category({ expectedPairs: 12 }));
     const after = categoryFormat(category({ expectedPairs: 15 }));
