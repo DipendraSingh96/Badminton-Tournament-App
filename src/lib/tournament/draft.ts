@@ -12,6 +12,8 @@ export interface CourtWindowDraft {
   from: string;
   to: string;
   courts: N;
+  /** Hire per court per hour (£). */
+  rate: N;
 }
 
 export interface FrameDraft {
@@ -127,7 +129,7 @@ export function eventsInUse(draft: PlanDraft): EventType[] {
 }
 
 export function emptyCourtWindow(): CourtWindowDraft {
-  return { id: newId(), from: "", to: "", courts: null };
+  return { id: newId(), from: "", to: "", courts: null, rate: null };
 }
 
 export function emptyCategory(): CategoryDraft {

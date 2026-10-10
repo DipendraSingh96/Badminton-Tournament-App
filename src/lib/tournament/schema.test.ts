@@ -12,8 +12,8 @@ function completeDraft(): PlanDraft {
     startTime: "09:00",
     endTime: "17:00",
     courtWindows: [
-      { id: "w1", from: "09:00", to: "13:00", courts: 6 },
-      { id: "w2", from: "13:00", to: "17:00", courts: 4 },
+      { id: "w1", from: "09:00", to: "13:00", courts: 6, rate: 12 },
+      { id: "w2", from: "13:00", to: "17:00", courts: 4, rate: 9.5 },
     ],
     umpires: 6,
     bufferMinutes: 30,
@@ -186,5 +186,17 @@ describe("parsePlan", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues.map((i) => i.message)).toContain("Expected teams is required");
+  });
+
+  it("asks for a court rate on every window, allowing zero", () => {
+    const draft = completeDraft();
+    draft.frame.courtWindows[0]!.rate = null;
+    draft.frame.courtWindows[1]!.rate = 0;
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["frame", "courtWindows", 0, "rate"], message: "Court rate is required" },
+    ]);
   });
 });

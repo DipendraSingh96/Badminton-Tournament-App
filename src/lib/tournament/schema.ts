@@ -74,6 +74,7 @@ const frameSchema = z
           from: time("Courts from"),
           to: time("Courts until"),
           courts: whole("Courts", 1),
+          rate: amount("Court rate"),
         }),
       )
       .min(1, "Add at least one court window"),
@@ -277,6 +278,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     from: toUtc(frame.date, w.from, frame.timeZone),
     to: toUtc(frame.date, w.to, frame.timeZone),
     courts: w.courts,
+    ratePerCourtHour: w.rate,
   }));
 
   const engineCategories: Category[] = categories.map((c) => {

@@ -109,7 +109,7 @@ export function FinanceSection({ draft, update }: { draft: PlanDraft; update: Up
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          For example court hire, trophies, printing or umpire food.
+          For example trophies, printing or umpire food. Court hire is worked out from the court windows.
         </p>
         {draft.finance.otherCosts.map((cost, i) => {
           const set = <K extends keyof OtherCostDraft>(key: K) => (value: OtherCostDraft[K]) =>

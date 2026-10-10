@@ -74,7 +74,7 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
         {frame.courtWindows.map((window, i) => (
           <div
             key={window.id}
-            className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"
+            className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"
           >
             <TextField
               label="From"
@@ -97,7 +97,14 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
               value={window.courts}
               onChange={(v) => update((d) => void (d.frame.courtWindows[i]!.courts = v))}
             />
+            <NumberField
+              label="Rate per court/hour (£)"
+              path={["frame", "courtWindows", i, "rate"]}
+              value={window.rate}
+              onChange={(v) => update((d) => void (d.frame.courtWindows[i]!.rate = v))}
+            />
             <Button
+              className="col-span-2 justify-self-end sm:col-span-1"
               variant="ghost"
               size="icon"
               aria-label="Remove time window"
