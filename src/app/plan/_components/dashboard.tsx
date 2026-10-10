@@ -132,7 +132,7 @@ const STATUS: Record<CapacityStatus, { label: string; text: string; className: s
   fits: {
     label: "Fits",
     text: "Fits in the time and courts available, even if every match runs long.",
-    className: "bg-success/15 text-success",
+    className: "bg-brand text-brand-foreground",
   },
   fitsTypicalOnly: {
     label: "Tight",
@@ -342,7 +342,7 @@ function FinanceCard({
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           Finance
-          <Badge className={loss ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}>
+          <Badge className={loss ? "bg-destructive/15 text-destructive" : "bg-brand text-brand-foreground"}>
             {loss ? "Loss" : "Pays for itself"}
           </Badge>
         </CardTitle>

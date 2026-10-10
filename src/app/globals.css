@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme inline {
   --color-background: var(--background);
@@ -27,8 +27,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
-  --color-success: var(--success);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-strong: var(--brand-strong);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -50,77 +54,90 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Design tokens: sporty high-contrast (see docs/PRD.md, "Design direction").
+   One accent, shuttle yellow (--brand). --brand-strong is the same hue made
+   dark enough for lines and text on the light background. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.52 0.13 150);
-  --warning: oklch(0.58 0.14 70);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #fafaf9;
+  --foreground: #111111;
+  --card: #f1f1ee;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #fafaf9;
+  --secondary: #e9e9e5;
+  --secondary-foreground: #111111;
+  --muted: #e9e9e5;
+  --muted-foreground: #5b5d59;
+  --accent: #e4e4df;
+  --accent-foreground: #111111;
+  --brand: #d9f24a;
+  --brand-foreground: #111111;
+  --brand-strong: #5c6b00;
+  --destructive: #c4372b;
+  --destructive-foreground: #ffffff;
+  --warning: #e8ad35;
+  --warning-foreground: #111111;
+  --border: #e0e0db;
+  --input: #cfcfc9;
+  --ring: #111111;
+  --chart-1: #111111;
+  --chart-2: #5b5d59;
+  --chart-3: #9a9c97;
+  --chart-4: #c9cbc5;
+  --chart-5: #e0e0db;
+  --radius: 0.5rem;
+  --sidebar: #f1f1ee;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #111111;
+  --sidebar-primary-foreground: #fafaf9;
+  --sidebar-accent: #e4e4df;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e0e0db;
+  --sidebar-ring: #111111;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.72 0.15 150);
-  --warning: oklch(0.78 0.14 75);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f1110;
+    --foreground: #f2f2f0;
+    --card: #181b19;
+    --card-foreground: #f2f2f0;
+    --popover: #1d201e;
+    --popover-foreground: #f2f2f0;
+    --primary: #f2f2f0;
+    --primary-foreground: #111111;
+    --secondary: #232724;
+    --secondary-foreground: #f2f2f0;
+    --muted: #232724;
+    --muted-foreground: #a4a7a2;
+    --accent: #282c29;
+    --accent-foreground: #f2f2f0;
+    --brand: #d9f24a;
+    --brand-foreground: #111111;
+    --brand-strong: #d9f24a;
+    --destructive: #f0715f;
+    --destructive-foreground: #111111;
+    --warning: #e8b440;
+    --warning-foreground: #111111;
+    --border: #2b2f2c;
+    --input: #3a3f3b;
+    --ring: #d9f24a;
+    --chart-1: #f2f2f0;
+    --chart-2: #a4a7a2;
+    --chart-3: #6f726d;
+    --chart-4: #3a3f3b;
+    --chart-5: #2b2f2c;
+    --sidebar: #181b19;
+    --sidebar-foreground: #f2f2f0;
+    --sidebar-primary: #f2f2f0;
+    --sidebar-primary-foreground: #111111;
+    --sidebar-accent: #282c29;
+    --sidebar-accent-foreground: #f2f2f0;
+    --sidebar-border: #2b2f2c;
+    --sidebar-ring: #d9f24a;
+  }
 }
 
 @layer base {
@@ -132,5 +149,22 @@
   }
   html {
     @apply font-sans;
+    color-scheme: light dark;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold tracking-tight;
+    text-wrap: balance;
+  }
+}
+
+/* Feedback motion only; none for people who ask for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
   }
 }

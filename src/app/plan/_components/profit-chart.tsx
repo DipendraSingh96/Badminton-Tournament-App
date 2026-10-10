@@ -47,8 +47,8 @@ export function ProfitChart({
         {breakEven !== null ? (
           <ReferenceLine
             x={breakEven}
-            stroke="var(--success)"
-            label={{ value: "Break-even", position: "insideTopRight", fill: "var(--success)", fontSize: 12 }}
+            stroke="var(--brand-strong)"
+            label={{ value: "Break-even", position: "insideTopRight", fill: "var(--brand-strong)", fontSize: 12 }}
           />
         ) : null}
         <ChartTooltip
