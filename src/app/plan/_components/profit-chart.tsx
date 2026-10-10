@@ -6,7 +6,7 @@ import type { ProfitPoint } from "@/engine";
 import { formatMoney } from "./labels";
 
 const config = {
-  profit: { label: "Profit", color: "var(--chart-3)" },
+  profit: { label: "Profit", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 const compactMoney = new Intl.NumberFormat("en-GB", {

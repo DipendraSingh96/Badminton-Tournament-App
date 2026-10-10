@@ -53,7 +53,7 @@ export function courtTimeWorking(analysis: Analysis, inputs: TournamentInputs): 
   const clock = (iso: string) => formatClock(iso, inputs.frame.timeZone);
   const lines = available.windows.map(
     (w) =>
-      `${clock(w.from)}–${clock(w.to)}: ${formatMinutes(w.minutes)} × ${plural(w.courts, "court")} = ${formatMinutes(w.courtMinutes)}` +
+      `${clock(w.from)} to ${clock(w.to)}: ${formatMinutes(w.minutes)} × ${plural(w.courts, "court")} = ${formatMinutes(w.courtMinutes)}` +
       (w.clipped ? " (trimmed to the playing time)" : ""),
   );
   if (lines.length === 0) lines.push("No court windows fall inside the playing time");

@@ -30,6 +30,15 @@ export function formatGroupSizes(sizes: number[]): string {
   return [...counts].map(([size, count]) => `${count} × ${size}`).join(", ");
 }
 
+/** Short duration for headline figures, e.g. "18h 16m". */
+export function formatMinutesShort(total: number): string {
+  const minutes = Math.round(Math.abs(total));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 export function categoryName(draft: PlanDraft, id: string): string {
   const index = draft.categories.findIndex((c) => c.id === id);
   const category = draft.categories[index];

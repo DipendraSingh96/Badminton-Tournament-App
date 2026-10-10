@@ -30,6 +30,7 @@ import {
   analysisErrorMessages,
   categoryName,
   formatMinutes,
+  formatMinutesShort,
   formatGroupSizes,
   formatMoney,
   issueSection,
@@ -84,18 +85,32 @@ function Row({
         <span className={`flex items-center gap-1 ${labelClass}`}>
           <CaretRightIcon
             aria-hidden="true"
-            className="size-3.5 shrink-0 transition-transform group-open:rotate-90"
+            className="size-3.5 shrink-0 transition-transform group-open:rotate-90 group-open:text-brand-strong"
           />
           <span className="underline decoration-dotted underline-offset-4">{label}</span>
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md bg-muted px-3 py-2 text-xs font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md border-l-2 border-brand bg-background px-3 py-2 font-mono text-xs font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
       </ul>
     </details>
+  );
+}
+
+/** Headline figures for a card, large and monospaced. */
+function Stats({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <dl className="grid grid-cols-3 gap-3">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">{item.label}</dt>
+          <dd className="font-mono text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums sm:text-2xl">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -137,12 +152,12 @@ const STATUS: Record<CapacityStatus, { label: string; text: string; className: s
   fitsTypicalOnly: {
     label: "Tight",
     text: "Fits on a typical day, but not if matches run long.",
-    className: "bg-warning/15 text-warning",
+    className: "bg-warning text-warning-foreground",
   },
   doesNotFit: {
     label: "Doesn't fit",
     text: "Needs more court time than is available.",
-    className: "bg-destructive/15 text-destructive",
+    className: "bg-destructive text-destructive-foreground",
   },
 };
 
@@ -192,7 +207,14 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
         </CardTitle>
         <CardDescription>{status.text}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-4">
+        <Stats
+          items={[
+            { label: "Court time available", value: formatMinutesShort(capacity.available.courtMinutes) },
+            { label: "Needed, worst case", value: formatMinutesShort(capacity.needed.worst) },
+            { label: spare >= 0 ? "Spare" : "Short", value: formatMinutesShort(spare) },
+          ]}
+        />
         <div>
           <Row
             label="Playing time"
@@ -243,11 +265,15 @@ function MatchesCard({ draft, analysis }: { draft: PlanDraft; analysis: Analysis
     <Card>
       <CardHeader>
         <CardTitle>Matches</CardTitle>
-        <CardDescription>
-          {analysis.totalMatches} matches, about {analysis.games} games.
-        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-4">
+        <Stats
+          items={[
+            { label: "Matches", value: formatNumber(analysis.totalMatches) },
+            { label: "Games, typical", value: formatNumber(analysis.games) },
+            { label: "Group stage", value: formatNumber(analysis.matches.group) },
+          ]}
+        />
         <Table>
           <TableHeader>
             <TableRow>
@@ -342,12 +368,21 @@ function FinanceCard({
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           Finance
-          <Badge className={loss ? "bg-destructive/15 text-destructive" : "bg-brand text-brand-foreground"}>
+          <Badge className={loss ? "bg-destructive text-destructive-foreground" : "bg-brand text-brand-foreground"}>
             {loss ? "Loss" : "Pays for itself"}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col">
+        <div className="mb-4">
+          <Stats
+            items={[
+              { label: "Revenue", value: formatMoney(finance.revenue) },
+              { label: "Total cost", value: formatMoney(finance.totalCost) },
+              { label: loss ? "Cost to organisers" : "Profit", value: formatMoney(Math.abs(finance.profit)) },
+            ]}
+          />
+        </div>
         {finance.revenueByCategory.map((r) => (
           <Row
             key={r.categoryId}
