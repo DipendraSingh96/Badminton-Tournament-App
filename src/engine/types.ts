@@ -41,12 +41,40 @@ export interface Frame {
   bufferMinutes: number;
 }
 
+/** Badminton events. Open is doubles only: any mix of pairs together. */
+export type EventType = "MS" | "WS" | "MD" | "WD" | "XD" | "OPEN";
+
+export const EVENT_TYPES: readonly EventType[] = ["MS", "WS", "MD", "WD", "XD", "OPEN"];
+
+/** Players on court per side: 1 for singles, 2 for doubles. */
+export function playersPerEntry(event: EventType): number {
+  return event === "MS" || event === "WS" ? 1 : 2;
+}
+
+/** Chosen once per tournament. */
+export type Unit = "individual" | "team";
+
+/** Chosen once per tournament. */
+export type FormatType = "groupsKnockout" | "knockout" | "groups";
+
+/** Rubbers of one event type in every tie between two teams. */
+export interface LineUpItem {
+  event: EventType;
+  count: number;
+}
+
+/** What one entry in a category is. */
+export type EntryKind =
+  | { type: "individual"; event: EventType }
+  | { type: "team"; lineUp: LineUpItem[]; playersPerTeam: number };
+
 export type GroupMode =
   | { type: "fixed"; groupCount: number }
   | { type: "auto"; preferredSize: number };
 
 export interface EntryFee {
-  basis: "player" | "pair";
+  /** Per player, or per entry (a player, pair or team). */
+  basis: "player" | "entry";
   amount: number;
   /** Fee for external entrants; defaults to `amount`. */
   externalAmount?: number;
@@ -57,9 +85,13 @@ export interface EntryFee {
 export interface Category {
   id: string;
   name: string;
-  expectedPairs: number;
-  groups: GroupMode;
-  qualifiersPerGroup: number;
+  entry: EntryKind;
+  /** Players, pairs or teams, as the entry kind says. */
+  expectedEntries: number;
+  /** Needed when the format has groups. */
+  groups?: GroupMode;
+  /** Needed for groups then knockout. */
+  qualifiersPerGroup?: number;
   bronze: boolean;
   fee: EntryFee;
 }
@@ -90,6 +122,8 @@ export interface Finance {
 }
 
 export interface TournamentInputs {
+  unit: Unit;
+  format: FormatType;
   frame: Frame;
   categories: Category[];
   /** Only stages that have matches need rules. */

@@ -1,3 +1,4 @@
+import { playersPerCategoryEntry } from "./entry";
 import type { Category, Finance, OtherCost } from "./types";
 
 export interface FinanceContext {
@@ -19,7 +20,7 @@ export interface CategoryRevenue {
   categoryId: string;
   amount: number;
   /** The working: entrants in the fee basis unit, split by fee. */
-  basis: "player" | "pair";
+  basis: "player" | "entry";
   entrants: number;
   external: number;
   fee: number;
@@ -42,13 +43,15 @@ export interface FinanceResult {
 }
 
 export function playerCount(categories: Category[]): number {
-  return categories.reduce((sum, c) => sum + c.expectedPairs * 2, 0);
+  return categories.reduce((sum, c) => sum + c.expectedEntries * playersPerCategoryEntry(c), 0);
 }
 
 export function categoryRevenueWorking(category: Category): CategoryRevenue {
   const { fee } = category;
   const entrants =
-    fee.basis === "player" ? category.expectedPairs * 2 : category.expectedPairs;
+    fee.basis === "player"
+      ? category.expectedEntries * playersPerCategoryEntry(category)
+      : category.expectedEntries;
   const external = Math.min(fee.expectedExternal, entrants);
   const externalFee = fee.externalAmount ?? fee.amount;
   return {

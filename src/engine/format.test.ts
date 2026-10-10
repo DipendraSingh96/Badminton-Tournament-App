@@ -12,11 +12,12 @@ function category(overrides: Partial<Category> = {}): Category {
   return {
     id: "c1",
     name: "Sample",
-    expectedPairs: 12,
+    entry: { type: "individual", event: "MD" },
+    expectedEntries: 12,
     groups: { type: "fixed", groupCount: 3 },
     qualifiersPerGroup: 2,
     bronze: false,
-    fee: { basis: "pair", amount: 0, expectedExternal: 0 },
+    fee: { basis: "entry", amount: 0, expectedExternal: 0 },
     ...overrides,
   };
 }
@@ -86,18 +87,18 @@ describe("knockoutMatchCounts", () => {
 
 describe("categoryFormat", () => {
   it("counts matches per stage", () => {
-    const result = categoryFormat(category({ bronze: true }));
+    const result = categoryFormat(category({ bronze: true }), "groupsKnockout");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.format.groupSizes).toEqual([4, 4, 4]);
     expect(result.format.qualifiers).toBe(6);
-    expect(result.format.matches).toEqual({
+    expect(result.format.fixtures).toEqual({
       group: 18,
       knockout: 4,
       bronze: 1,
       final: 1,
     });
-    expect(result.format.totalMatches).toBe(24);
+    expect(result.format.totalFixtures).toBe(24);
   });
 
   it.each([
@@ -108,45 +109,47 @@ describe("categoryFormat", () => {
     (bronze, bronzeMatches, total) => {
       const result = categoryFormat(
         category({
-          expectedPairs: 32,
+          expectedEntries: 32,
           groups: { type: "fixed", groupCount: 8 },
           qualifiersPerGroup: 2,
           bronze,
         }),
+        "groupsKnockout",
       );
       if (!result.ok) throw new Error(JSON.stringify(result.errors));
       expect(result.format.groupSizes).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
       expect(result.format.qualifiers).toBe(16);
       // 8 × 6 group matches; 16 qualifiers play 15 knockout matches.
-      expect(result.format.matches).toEqual({
+      expect(result.format.fixtures).toEqual({
         group: 48,
         knockout: 14,
         bronze: bronzeMatches,
         final: 1,
       });
-      expect(result.format.totalMatches).toBe(total);
+      expect(result.format.totalFixtures).toBe(total);
     },
   );
 
   it("recomputes when entries change", () => {
-    const before = categoryFormat(category({ expectedPairs: 12 }));
-    const after = categoryFormat(category({ expectedPairs: 15 }));
+    const before = categoryFormat(category({ expectedEntries: 12 }), "groupsKnockout");
+    const after = categoryFormat(category({ expectedEntries: 15 }), "groupsKnockout");
     if (!before.ok || !after.ok) throw new Error("expected valid formats");
-    expect(after.format.matches.group).toBeGreaterThan(
-      before.format.matches.group,
+    expect(after.format.fixtures.group).toBeGreaterThan(
+      before.format.fixtures.group,
     );
   });
 
   it("rejects too few pairs", () => {
-    expect(categoryFormat(category({ expectedPairs: 1 }))).toEqual({
+    expect(categoryFormat(category({ expectedEntries: 1 }), "groupsKnockout")).toEqual({
       ok: false,
-      errors: [{ code: "tooFewPairs", minimum: 2 }],
+      errors: [{ code: "tooFewEntries", minimum: 2 }],
     });
   });
 
-  it("rejects more groups than pairs allow", () => {
+  it("rejects more groups than entries allow", () => {
     const result = categoryFormat(
-      category({ expectedPairs: 5, groups: { type: "fixed", groupCount: 3 } }),
+      category({ expectedEntries: 5, groups: { type: "fixed", groupCount: 3 } }),
+      "groupsKnockout",
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -158,13 +161,49 @@ describe("categoryFormat", () => {
 
   it("rejects more qualifiers than the smallest group", () => {
     const result = categoryFormat(
-      category({ expectedPairs: 7, qualifiersPerGroup: 4 }),
+      category({ expectedEntries: 7, qualifiersPerGroup: 4 }),
+      "groupsKnockout",
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors).toContainEqual({
       code: "invalidQualifiers",
       maximum: 2,
+    });
+  });
+
+  it("puts every entry into the bracket for knockout only", () => {
+    const result = categoryFormat(category({ expectedEntries: 12, bronze: true }), "knockout");
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    expect(result.format.groupSizes).toEqual([]);
+    expect(result.format.qualifiers).toBe(12);
+    // 12 entries, bracket of 16 with 4 byes: 11 fixtures, plus bronze.
+    expect(result.format.fixtures).toEqual({ group: 0, knockout: 10, bronze: 1, final: 1 });
+    expect(result.format.totalFixtures).toBe(12);
+  });
+
+  it("needs no group settings for knockout only", () => {
+    const result = categoryFormat(
+      category({ expectedEntries: 5, groups: undefined, qualifiersPerGroup: undefined }),
+      "knockout",
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("plays group fixtures only for groups only, with no qualifiers needed", () => {
+    const result = categoryFormat(
+      category({ expectedEntries: 12, qualifiersPerGroup: undefined, bronze: true }),
+      "groups",
+    );
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    expect(result.format.fixtures).toEqual({ group: 18, knockout: 0, bronze: 0, final: 0 });
+    expect(result.format.qualifiers).toBe(0);
+  });
+
+  it("asks for group settings when the format has groups", () => {
+    expect(categoryFormat(category({ groups: undefined }), "groups")).toEqual({
+      ok: false,
+      errors: [{ code: "missingGroups" }],
     });
   });
 });

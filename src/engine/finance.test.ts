@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { categoryRevenue, categoryRevenueWorking, finance } from "./finance";
+import { categoryRevenue, categoryRevenueWorking, finance, playerCount } from "./finance";
 import type { Category, Finance } from "./types";
 
 function category(overrides: Partial<Category> = {}): Category {
   return {
     id: "c1",
     name: "Sample",
-    expectedPairs: 10,
+    entry: { type: "individual", event: "MD" },
+    expectedEntries: 10,
     groups: { type: "fixed", groupCount: 2 },
     qualifiersPerGroup: 2,
     bronze: false,
-    fee: { basis: "pair", amount: 20, expectedExternal: 0 },
+    fee: { basis: "entry", amount: 20, expectedExternal: 0 },
     ...overrides,
   };
 }
@@ -64,11 +65,39 @@ describe("categoryRevenue", () => {
     expect(
       categoryRevenue(
         category({
-          expectedPairs: 2,
-          fee: { basis: "pair", amount: 10, externalAmount: 15, expectedExternal: 9 },
+          expectedEntries: 2,
+          fee: { basis: "entry", amount: 10, externalAmount: 15, expectedExternal: 9 },
         }),
       ),
     ).toBe(30);
+  });
+});
+
+describe("playerCount", () => {
+  it("counts one player per singles entry and two per doubles entry", () => {
+    expect(playerCount([category({ entry: { type: "individual", event: "MS" }, expectedEntries: 12 })])).toBe(12);
+    expect(playerCount([category({ entry: { type: "individual", event: "XD" }, expectedEntries: 12 })])).toBe(24);
+  });
+
+  it("counts each team's squad", () => {
+    expect(
+      playerCount([
+        category({
+          entry: { type: "team", lineUp: [{ event: "MD", count: 3 }], playersPerTeam: 8 },
+          expectedEntries: 6,
+        }),
+      ]),
+    ).toBe(48);
+  });
+
+  it("charges teams per team or per player", () => {
+    const team = { type: "team" as const, lineUp: [{ event: "MS" as const, count: 3 }], playersPerTeam: 5 };
+    expect(
+      categoryRevenue(category({ entry: team, expectedEntries: 4, fee: { basis: "entry", amount: 50, expectedExternal: 0 } })),
+    ).toBe(200);
+    expect(
+      categoryRevenue(category({ entry: team, expectedEntries: 4, fee: { basis: "player", amount: 8, expectedExternal: 0 } })),
+    ).toBe(160);
   });
 });
 
@@ -116,7 +145,7 @@ describe("finance", () => {
     const result = finance(inputs(), {
       ...context,
       categories: [
-        category({ fee: { basis: "pair", amount: 0, expectedExternal: 0 } }),
+        category({ fee: { basis: "entry", amount: 0, expectedExternal: 0 } }),
       ],
     });
     expect(result.revenue).toBe(0);

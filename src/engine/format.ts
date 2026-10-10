@@ -1,22 +1,29 @@
-import type { Category, GroupMode, StageCounts } from "./types";
+import type { Category, FormatType, GroupMode, StageCounts } from "./types";
 
 export type FormatError =
-  | { code: "tooFewPairs"; minimum: number }
+  | { code: "tooFewEntries"; minimum: number }
+  | { code: "missingGroups" }
   | { code: "invalidGroupCount"; maximum: number }
   | { code: "invalidQualifiers"; maximum: number };
 
+/**
+ * The structure of one category. Fixtures are contests between two entries:
+ * a match for individual entries, a tie of several rubbers for teams.
+ */
 export interface CategoryFormat {
+  /** Empty for knockout only. */
   groupSizes: number[];
+  /** Entries in the knockout: qualifiers, or every entry for knockout only. */
   qualifiers: number;
-  matches: StageCounts;
-  totalMatches: number;
+  fixtures: StageCounts;
+  totalFixtures: number;
 }
 
 export type FormatResult =
   | { ok: true; format: CategoryFormat }
   | { ok: false; errors: FormatError[] };
 
-/** A group of n pairs plays everyone once: n(n−1)/2 matches. */
+/** A group of n entries plays everyone once: n(n−1)/2 fixtures. */
 export function groupMatchCount(size: number): number {
   return (size * (size - 1)) / 2;
 }
@@ -61,23 +68,35 @@ export function knockoutMatchCounts(
   };
 }
 
-export function categoryFormat(category: Category): FormatResult {
-  const pairs = category.expectedPairs;
-  if (pairs < 2) {
-    return { ok: false, errors: [{ code: "tooFewPairs", minimum: 2 }] };
+function total(counts: StageCounts): number {
+  return counts.group + counts.knockout + counts.bronze + counts.final;
+}
+
+export function categoryFormat(category: Category, format: FormatType): FormatResult {
+  const entries = category.expectedEntries;
+  if (entries < 2) {
+    return { ok: false, errors: [{ code: "tooFewEntries", minimum: 2 }] };
   }
 
+  if (format === "knockout") {
+    const fixtures: StageCounts = { group: 0, ...knockoutMatchCounts(entries, category.bronze) };
+    return {
+      ok: true,
+      format: { groupSizes: [], qualifiers: entries, fixtures, totalFixtures: total(fixtures) },
+    };
+  }
+
+  if (!category.groups) return { ok: false, errors: [{ code: "missingGroups" }] };
+
   const errors: FormatError[] = [];
-  const groupSizes = proposeGroupSizes(pairs, category.groups);
+  const groupSizes = proposeGroupSizes(entries, category.groups);
   if (groupSizes.length === 0 || groupSizes.some((size) => size < 2)) {
-    errors.push({ code: "invalidGroupCount", maximum: Math.floor(pairs / 2) });
+    errors.push({ code: "invalidGroupCount", maximum: Math.floor(entries / 2) });
   }
 
   const smallest = Math.min(...groupSizes);
-  if (
-    category.qualifiersPerGroup < 1 ||
-    category.qualifiersPerGroup > smallest
-  ) {
+  const perGroup = category.qualifiersPerGroup ?? 0;
+  if (format === "groupsKnockout" && (perGroup < 1 || perGroup > smallest)) {
     errors.push({
       code: "invalidQualifiers",
       maximum: Number.isFinite(smallest) ? smallest : 0,
@@ -86,13 +105,16 @@ export function categoryFormat(category: Category): FormatResult {
 
   if (errors.length > 0) return { ok: false, errors };
 
-  const qualifiers = groupSizes.length * category.qualifiersPerGroup;
-  const matches: StageCounts = {
-    group: groupSizes.reduce((sum, size) => sum + groupMatchCount(size), 0),
-    ...knockoutMatchCounts(qualifiers, category.bronze),
-  };
-  const totalMatches =
-    matches.group + matches.knockout + matches.bronze + matches.final;
+  const group = groupSizes.reduce((sum, size) => sum + groupMatchCount(size), 0);
+  if (format === "groups") {
+    const fixtures: StageCounts = { group, knockout: 0, bronze: 0, final: 0 };
+    return { ok: true, format: { groupSizes, qualifiers: 0, fixtures, totalFixtures: group } };
+  }
 
-  return { ok: true, format: { groupSizes, qualifiers, matches, totalMatches } };
+  const qualifiers = groupSizes.length * perGroup;
+  const fixtures: StageCounts = { group, ...knockoutMatchCounts(qualifiers, category.bronze) };
+  return {
+    ok: true,
+    format: { groupSizes, qualifiers, fixtures, totalFixtures: total(fixtures) },
+  };
 }

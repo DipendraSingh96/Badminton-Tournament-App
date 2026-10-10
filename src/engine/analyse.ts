@@ -1,5 +1,6 @@
 import { capacity, type Capacity } from "./capacity";
 import { matchMinutes, typicalGames, type MatchMinutes } from "./duration";
+import { rubbersPerFixture } from "./entry";
 import { finance, type FinanceResult } from "./finance";
 import { categoryFormat, type CategoryFormat, type FormatError } from "./format";
 import {
@@ -22,8 +23,19 @@ export interface StageDemand {
   worst: number;
 }
 
+/** One category's structure and the matches it puts on court. */
+export interface CategoryAnalysis {
+  categoryId: string;
+  format: CategoryFormat;
+  /** Matches per fixture: 1, or the rubbers in a team tie. */
+  rubbersPerFixture: number;
+  /** Fixtures × rubbers, per stage. */
+  matches: StageCounts;
+  totalMatches: number;
+}
+
 export interface Analysis {
-  categories: { categoryId: string; format: CategoryFormat }[];
+  categories: CategoryAnalysis[];
   matches: StageCounts;
   totalMatches: number;
   games: number;
@@ -45,13 +57,24 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   const matches: StageCounts = { group: 0, knockout: 0, bronze: 0, final: 0 };
 
   for (const category of inputs.categories) {
-    const result = categoryFormat(category);
+    const result = categoryFormat(category, inputs.format);
     if (!result.ok) {
       errors.push({ code: "format", categoryId: category.id, errors: result.errors });
       continue;
     }
-    categories.push({ categoryId: category.id, format: result.format });
-    for (const stage of STAGES) matches[stage] += result.format.matches[stage];
+    const rubbers = rubbersPerFixture(category);
+    const categoryMatches: StageCounts = { group: 0, knockout: 0, bronze: 0, final: 0 };
+    for (const stage of STAGES) {
+      categoryMatches[stage] = result.format.fixtures[stage] * rubbers;
+      matches[stage] += categoryMatches[stage];
+    }
+    categories.push({
+      categoryId: category.id,
+      format: result.format,
+      rubbersPerFixture: rubbers,
+      matches: categoryMatches,
+      totalMatches: result.format.totalFixtures * rubbers,
+    });
   }
 
   for (const stage of STAGES) {
@@ -104,7 +127,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
 }
 
 export interface ProfitPoint {
-  pairs: number;
+  entries: number;
   revenue: number;
   totalCost: number;
   profit: number;
@@ -128,17 +151,17 @@ export function profitCurve(
   range: { from: number; to: number },
 ): ProfitCurve {
   const points: ProfitPoint[] = [];
-  for (let pairs = range.from; pairs <= range.to; pairs++) {
+  for (let entries = range.from; entries <= range.to; entries++) {
     const result = analyseTournament({
       ...inputs,
       categories: inputs.categories.map((c) =>
-        c.id === categoryId ? { ...c, expectedPairs: pairs } : c,
+        c.id === categoryId ? { ...c, expectedEntries: entries } : c,
       ),
     });
     if (!result.ok) continue;
     const { revenue, totalCost, profit } = result.analysis.finance;
-    points.push({ pairs, revenue, totalCost, profit });
+    points.push({ entries, revenue, totalCost, profit });
   }
-  const breakEven = points.find((p) => p.profit >= 0)?.pairs ?? null;
+  const breakEven = points.find((p) => p.profit >= 0)?.entries ?? null;
   return { points, breakEven };
 }

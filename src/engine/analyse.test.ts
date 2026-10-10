@@ -12,6 +12,8 @@ const stage: StageRules = {
 
 function tournament(): TournamentInputs {
   return {
+    unit: "individual",
+    format: "groupsKnockout",
     frame: {
       start: "2026-05-02T08:00:00Z",
       end: "2026-05-02T13:00:00Z",
@@ -26,11 +28,12 @@ function tournament(): TournamentInputs {
       {
         id: "c1",
         name: "Sample",
-        expectedPairs: 12,
+        entry: { type: "individual", event: "MD" },
+        expectedEntries: 12,
         groups: { type: "auto", preferredSize: 4 },
         qualifiersPerGroup: 2,
         bronze: false,
-        fee: { basis: "pair", amount: 30, expectedExternal: 0 },
+        fee: { basis: "entry", amount: 30, expectedExternal: 0 },
       },
     ],
     stageRules: { group: stage, knockout: stage, final: stage },
@@ -68,10 +71,37 @@ describe("analyseTournament", () => {
     expect(demand.reduce((s, d) => s + d.games, 0)).toBe(games);
   });
 
+  it("plays every rubber of a team tie as a match", () => {
+    const teams = tournament();
+    teams.unit = "team";
+    teams.format = "groups";
+    teams.categories[0] = {
+      ...teams.categories[0]!,
+      entry: {
+        type: "team",
+        lineUp: [
+          { event: "MS", count: 3 },
+          { event: "MD", count: 2 },
+        ],
+        playersPerTeam: 7,
+      },
+      expectedEntries: 6,
+      groups: { type: "fixed", groupCount: 2 },
+    };
+    const result = analyseTournament(teams);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const [category] = result.analysis.categories;
+    // 2 groups of 3 teams: 6 ties, each of 5 rubbers.
+    expect(category!.format.totalFixtures).toBe(6);
+    expect(category!.rubbersPerFixture).toBe(5);
+    expect(category!.totalMatches).toBe(30);
+    expect(result.analysis.capacity.needed.typical).toBe(30 * 15);
+  });
+
   it("updates capacity and finance when entries change", () => {
     const base = tournament();
     const more = tournament();
-    more.categories[0]!.expectedPairs = 20;
+    more.categories[0]!.expectedEntries = 20;
     const a = analyseTournament(base);
     const b = analyseTournament(more);
     if (!a.ok || !b.ok) throw new Error("expected valid analyses");
@@ -112,9 +142,9 @@ describe("analyseTournament", () => {
 describe("profitCurve", () => {
   it("finds the smallest entry count that breaks even", () => {
     const curve = profitCurve(tournament(), "c1", { from: 2, to: 20 });
-    expect(curve.points[0]!.pairs).toBe(2);
+    expect(curve.points[0]!.entries).toBe(2);
     expect(curve.breakEven).not.toBeNull();
-    const index = curve.points.findIndex((p) => p.pairs === curve.breakEven);
+    const index = curve.points.findIndex((p) => p.entries === curve.breakEven);
     expect(curve.points[index]!.profit).toBeGreaterThanOrEqual(0);
     expect(curve.points.slice(0, index).every((p) => p.profit < 0)).toBe(true);
   });
@@ -131,6 +161,6 @@ describe("profitCurve", () => {
     const fixed = tournament();
     fixed.categories[0]!.groups = { type: "fixed", groupCount: 3 };
     const curve = profitCurve(fixed, "c1", { from: 2, to: 8 });
-    expect(curve.points[0]!.pairs).toBe(6);
+    expect(curve.points[0]!.entries).toBe(6);
   });
 });
