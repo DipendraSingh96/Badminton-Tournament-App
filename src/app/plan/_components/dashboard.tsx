@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRightIcon } from "lucide-react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,7 +82,7 @@ function Row({
         className={`${rowClass} cursor-pointer list-none rounded-md hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden`}
       >
         <span className={`flex items-center gap-1 ${labelClass}`}>
-          <ChevronRightIcon
+          <CaretRightIcon
             aria-hidden="true"
             className="size-3.5 shrink-0 transition-transform group-open:rotate-90"
           />

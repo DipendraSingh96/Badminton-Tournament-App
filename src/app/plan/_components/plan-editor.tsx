@@ -1,7 +1,7 @@
 "use client";
 
 import { produce } from "immer";
-import { RotateCcwIcon } from "lucide-react";
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +55,7 @@ function Editor() {
             />
           </label>
           <Button variant="outline" onClick={startAgain}>
-            <RotateCcwIcon /> Start again
+            <ArrowCounterClockwiseIcon /> Start again
           </Button>
         </div>
 

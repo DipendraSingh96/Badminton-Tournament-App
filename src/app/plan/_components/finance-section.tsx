@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   emptyOtherCost,
@@ -90,7 +90,7 @@ export function FinanceSection({ draft, update }: { draft: PlanDraft; update: Up
                 aria-label="Remove prize"
                 onClick={() => update((d) => void d.finance.prizes.splice(i, 1))}
               >
-                <Trash2Icon />
+                <TrashIcon />
               </Button>
             </div>
           );
@@ -127,7 +127,7 @@ export function FinanceSection({ draft, update }: { draft: PlanDraft; update: Up
                   aria-label={`Remove ${cost.label || "cost"}`}
                   onClick={() => update((d) => void d.finance.otherCosts.splice(i, 1))}
                 >
-                  <Trash2Icon />
+                  <TrashIcon />
                 </Button>
               </div>
               <FieldGrid>

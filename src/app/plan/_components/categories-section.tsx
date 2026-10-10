@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { categoryFormat, type GroupMode } from "@/engine";
@@ -107,7 +107,7 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
                   })
                 }
               >
-                <Trash2Icon />
+                <TrashIcon />
               </Button>
             </div>
             <FieldGrid>

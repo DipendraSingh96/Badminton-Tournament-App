@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { emptyCourtWindow, type PlanDraft } from "@/lib/tournament/draft";
 import { FieldGrid, NumberField, Section, SelectField, TextField } from "./fields";
@@ -111,7 +111,7 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
               disabled={frame.courtWindows.length === 1}
               onClick={() => update((d) => void d.frame.courtWindows.splice(i, 1))}
             >
-              <Trash2Icon />
+              <TrashIcon />
             </Button>
           </div>
         ))}
