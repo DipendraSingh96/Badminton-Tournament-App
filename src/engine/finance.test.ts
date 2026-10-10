@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryRevenue, categoryRevenueWorking, finance, playerCount } from "./finance";
+import { categoryRevenue, categoryRevenueWorking, courtHire, finance, playerCount } from "./finance";
 import type { Category, Finance } from "./types";
 
 function category(overrides: Partial<Category> = {}): Category {
@@ -109,7 +109,7 @@ describe("playerCount", () => {
 });
 
 describe("finance", () => {
-  const context = { categories: [category()], games: 30, umpires: 4 };
+  const context = { categories: [category()], courtWindows: [], games: 30, umpires: 4 };
 
   it("totals revenue, costs and profit", () => {
     const result = finance(
@@ -157,5 +157,40 @@ describe("finance", () => {
     });
     expect(result.revenue).toBe(0);
     expect(result.profit).toBe(-60);
+  });
+});
+
+describe("courtHire", () => {
+  const window = (from: string, to: string, courts: number, ratePerCourtHour: number) => ({
+    from: `2026-05-02T${from}:00Z`,
+    to: `2026-05-02T${to}:00Z`,
+    courts,
+    ratePerCourtHour,
+  });
+
+  it("charges every booked hour on every court at the window's rate", () => {
+    const hire = courtHire([window("08:00", "12:00", 6, 12), window("12:00", "16:00", 4, 9.5)]);
+    expect(hire.windows.map((w) => w.amount)).toEqual([288, 152]);
+    expect(hire.total).toBe(440);
+  });
+
+  it("charges part hours", () => {
+    expect(courtHire([window("08:00", "09:30", 2, 10)]).total).toBe(30);
+  });
+
+  it("is free at a zero rate", () => {
+    expect(courtHire([window("08:00", "12:00", 6, 0)]).total).toBe(0);
+  });
+
+  it("is part of total cost and profit", () => {
+    const result = finance(inputs({ shuttlesPerGame: 0 }), {
+      categories: [category()],
+      courtWindows: [window("08:00", "10:00", 3, 10)],
+      games: 0,
+      umpires: 0,
+    });
+    expect(result.courtHire.total).toBe(60);
+    expect(result.totalCost).toBe(60);
+    expect(result.profit).toBe(200 - 60);
   });
 });

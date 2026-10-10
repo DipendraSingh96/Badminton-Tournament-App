@@ -150,6 +150,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       capacity: capacity(inputs.frame, { matches: totalMatches, typical, worst }),
       finance: finance(inputs.finance, {
         categories: inputs.categories,
+        courtWindows: inputs.frame.courtWindows,
         games,
         umpires: inputs.frame.umpires,
       }),

@@ -8,7 +8,7 @@ function frame(overrides: Partial<Frame> = {}): Frame {
     end: "2026-05-02T16:00:00Z",
     timeZone: "Europe/London",
     courtWindows: [
-      { from: "2026-05-02T08:00:00Z", to: "2026-05-02T16:00:00Z", courts: 4 },
+      { from: "2026-05-02T08:00:00Z", to: "2026-05-02T16:00:00Z", courts: 4, ratePerCourtHour: 10 },
     ],
     umpires: 4,
     bufferMinutes: 0,
@@ -25,8 +25,8 @@ describe("available", () => {
     const result = available(
       frame({
         courtWindows: [
-          { from: "2026-05-02T08:00:00Z", to: "2026-05-02T12:00:00Z", courts: 6 },
-          { from: "2026-05-02T12:00:00Z", to: "2026-05-02T16:00:00Z", courts: 3 },
+          { from: "2026-05-02T08:00:00Z", to: "2026-05-02T12:00:00Z", courts: 6, ratePerCourtHour: 10 },
+          { from: "2026-05-02T12:00:00Z", to: "2026-05-02T16:00:00Z", courts: 3, ratePerCourtHour: 10 },
         ],
       }),
     );
@@ -38,7 +38,7 @@ describe("available", () => {
       frame({
         bufferMinutes: 60,
         courtWindows: [
-          { from: "2026-05-02T07:00:00Z", to: "2026-05-02T17:00:00Z", courts: 2 },
+          { from: "2026-05-02T07:00:00Z", to: "2026-05-02T17:00:00Z", courts: 2, ratePerCourtHour: 10 },
         ],
       }),
     );

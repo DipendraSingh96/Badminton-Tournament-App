@@ -33,6 +33,8 @@ export interface CourtWindow {
   from: string;
   to: string;
   courts: number;
+  /** Hire charged per court per hour for this window. */
+  ratePerCourtHour: number;
 }
 
 export interface Frame {

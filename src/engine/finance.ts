@@ -1,8 +1,12 @@
 import { playersPerCategoryEntry } from "./entry";
-import type { Category, Finance, OtherCost } from "./types";
+import type { Category, CourtWindow, Finance, OtherCost } from "./types";
+
+const MS_PER_HOUR = 3_600_000;
 
 export interface FinanceContext {
   categories: Category[];
+  /** Booked court windows; every booked hour is charged. */
+  courtWindows: CourtWindow[];
   /** Games played across the tournament, at typical length. */
   games: number;
   umpires: number;
@@ -31,6 +35,41 @@ export interface CategoryRevenue {
   externalFee: number;
 }
 
+export interface CourtHireLine {
+  /** UTC ISO timestamps, as booked. */
+  from: string;
+  to: string;
+  courts: number;
+  hours: number;
+  rate: number;
+  amount: number;
+}
+
+export interface CourtHire {
+  windows: CourtHireLine[];
+  total: number;
+}
+
+/**
+ * Court hire for the whole booking: each window's booked hours × courts ×
+ * rate. Booked time is charged whether or not matches use it, buffer
+ * included, so windows are not clipped to the playing time.
+ */
+export function courtHire(windows: CourtWindow[]): CourtHire {
+  const lines = windows.map((w) => {
+    const hours = Math.max(0, Date.parse(w.to) - Date.parse(w.from)) / MS_PER_HOUR;
+    return {
+      from: w.from,
+      to: w.to,
+      courts: w.courts,
+      hours,
+      rate: w.ratePerCourtHour,
+      amount: hours * w.courts * w.ratePerCourtHour,
+    };
+  });
+  return { windows: lines, total: lines.reduce((sum, l) => sum + l.amount, 0) };
+}
+
 export interface FinanceResult {
   revenue: number;
   revenueByCategory: CategoryRevenue[];
@@ -39,6 +78,7 @@ export interface FinanceResult {
   costPerShuttle: number;
   shuttles: number;
   shuttleCost: number;
+  courtHire: CourtHire;
   prizeCost: number;
   otherCosts: CostLine[];
   totalCost: number;
@@ -105,8 +145,9 @@ export function finance(inputs: Finance, context: FinanceContext): FinanceResult
     otherCostLine(cost, players, context.umpires),
   );
 
+  const hire = courtHire(context.courtWindows);
   const totalCost =
-    shuttleCost + prizeCost + otherCosts.reduce((sum, c) => sum + c.amount, 0);
+    hire.total + shuttleCost + prizeCost + otherCosts.reduce((sum, c) => sum + c.amount, 0);
 
   return {
     revenue,
@@ -116,6 +157,7 @@ export function finance(inputs: Finance, context: FinanceContext): FinanceResult
     costPerShuttle: inputs.costPerShuttle,
     shuttles,
     shuttleCost,
+    courtHire: hire,
     prizeCost,
     otherCosts,
     totalCost,

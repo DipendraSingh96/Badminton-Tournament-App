@@ -17,7 +17,7 @@ function tournament(): TournamentInputs {
       end: "2026-05-02T13:00:00Z",
       timeZone: "Europe/London",
       courtWindows: [
-        { from: "2026-05-02T08:00:00Z", to: "2026-05-02T13:00:00Z", courts: 4 },
+        { from: "2026-05-02T08:00:00Z", to: "2026-05-02T13:00:00Z", courts: 4, ratePerCourtHour: 10 },
       ],
       umpires: 4,
       bufferMinutes: 0,
