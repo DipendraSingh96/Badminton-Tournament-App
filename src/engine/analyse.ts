@@ -1,10 +1,12 @@
 import { capacity, type Capacity } from "./capacity";
 import { matchMinutes, typicalGames, type MatchMinutes } from "./duration";
-import { rubbersPerFixture } from "./entry";
+import { eventsPerFixture, rubbersPerFixture } from "./entry";
 import { finance, type FinanceResult } from "./finance";
 import { categoryFormat, type CategoryFormat, type FormatError } from "./format";
 import {
+  EVENT_TYPES,
   STAGES,
+  type EventType,
   type Stage,
   type StageCounts,
   type TournamentInputs,
@@ -12,11 +14,20 @@ import {
 
 export type AnalysisError =
   | { code: "format"; categoryId: string; errors: FormatError[] }
-  | { code: "missingStageRules"; stage: Stage };
+  | { code: "missingStageRules"; stage: Stage }
+  | { code: "missingEventTiming"; event: EventType };
 
-/** Court time needed by one stage: its matches × its slot length. */
+/** Slot length for one event in one stage. */
+export interface Slot {
+  stage: Stage;
+  event: EventType;
+  minutes: MatchMinutes;
+}
+
+/** Court time needed by one event in one stage: matches × slot length. */
 export interface StageDemand {
   stage: Stage;
+  event: EventType;
   matches: number;
   games: number;
   typical: number;
@@ -39,8 +50,9 @@ export interface Analysis {
   matches: StageCounts;
   totalMatches: number;
   games: number;
-  matchMinutes: Partial<Record<Stage, MatchMinutes>>;
-  /** Stages with matches, in play order. */
+  /** Slot lengths for every stage and event that has matches. */
+  slots: Slot[];
+  /** Stage and event pairs with matches, in play order. */
   demand: StageDemand[];
   capacity: Capacity;
   finance: FinanceResult;
@@ -55,6 +67,9 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   const errors: AnalysisError[] = [];
   const categories: Analysis["categories"] = [];
   const matches: StageCounts = { group: 0, knockout: 0, bronze: 0, final: 0 };
+  /** Matches by stage and event. */
+  const byEvent = new Map<string, number>();
+  const key = (stage: Stage, event: EventType) => `${stage}:${event}`;
 
   for (const category of inputs.categories) {
     const result = categoryFormat(category, inputs.format);
@@ -65,8 +80,13 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
     const rubbers = rubbersPerFixture(category);
     const categoryMatches: StageCounts = { group: 0, knockout: 0, bronze: 0, final: 0 };
     for (const stage of STAGES) {
-      categoryMatches[stage] = result.format.fixtures[stage] * rubbers;
+      const fixtures = result.format.fixtures[stage];
+      categoryMatches[stage] = fixtures * rubbers;
       matches[stage] += categoryMatches[stage];
+      for (const { event, count } of eventsPerFixture(category)) {
+        if (fixtures * count === 0) continue;
+        byEvent.set(key(stage, event), (byEvent.get(key(stage, event)) ?? 0) + fixtures * count);
+      }
     }
     categories.push({
       categoryId: category.id,
@@ -82,24 +102,35 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       errors.push({ code: "missingStageRules", stage });
     }
   }
+  for (const event of EVENT_TYPES) {
+    const played = STAGES.some((stage) => byEvent.has(key(stage, event)));
+    if (played && !inputs.eventTiming[event]) {
+      errors.push({ code: "missingEventTiming", event });
+    }
+  }
 
   if (errors.length > 0) return { ok: false, errors };
 
-  const minutes: Analysis["matchMinutes"] = {};
+  const slots: Slot[] = [];
   const demand: StageDemand[] = [];
   for (const stage of STAGES) {
     const rules = inputs.stageRules[stage];
     if (!rules) continue;
-    const slot = matchMinutes(rules);
-    minutes[stage] = slot;
-    if (matches[stage] === 0) continue;
-    demand.push({
-      stage,
-      matches: matches[stage],
-      games: matches[stage] * typicalGames(rules),
-      typical: matches[stage] * slot.typical,
-      worst: matches[stage] * slot.worst,
-    });
+    for (const event of EVENT_TYPES) {
+      const count = byEvent.get(key(stage, event));
+      const timing = inputs.eventTiming[event];
+      if (!count || !timing) continue;
+      const slot = matchMinutes(rules, timing);
+      slots.push({ stage, event, minutes: slot });
+      demand.push({
+        stage,
+        event,
+        matches: count,
+        games: count * typicalGames(rules),
+        typical: count * slot.typical,
+        worst: count * slot.worst,
+      });
+    }
   }
   const typical = demand.reduce((sum, d) => sum + d.typical, 0);
   const worst = demand.reduce((sum, d) => sum + d.worst, 0);
@@ -114,7 +145,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       matches,
       totalMatches,
       games,
-      matchMinutes: minutes,
+      slots,
       demand,
       capacity: capacity(inputs.frame, { matches: totalMatches, typical, worst }),
       finance: finance(inputs.finance, {

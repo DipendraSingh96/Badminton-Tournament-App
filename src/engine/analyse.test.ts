@@ -6,8 +6,6 @@ const stage: StageRules = {
   pointsPerGame: 21,
   deuce: { type: "none" },
   bestOf: 1,
-  minutesPerGame: 12,
-  changeoverMinutes: 3,
 };
 
 function tournament(): TournamentInputs {
@@ -37,6 +35,7 @@ function tournament(): TournamentInputs {
       },
     ],
     stageRules: { group: stage, knockout: stage, final: stage },
+    eventTiming: { MD: { minutesPerGame: 12, changeoverMinutes: 3 } },
     finance: {
       shuttlesPerGame: 1,
       costPerShuttle: 2,
@@ -65,7 +64,7 @@ describe("analyseTournament", () => {
     if (!result.ok) throw new Error(JSON.stringify(result.errors));
     const { demand, capacity, games } = result.analysis;
     expect(demand.map((d) => d.stage)).toEqual(["group", "knockout", "final"]);
-    expect(demand[0]).toEqual({ stage: "group", matches: 18, games: 18, typical: 270, worst: 270 });
+    expect(demand[0]).toEqual({ stage: "group", event: "MD", matches: 18, games: 18, typical: 270, worst: 270 });
     expect(demand.reduce((s, d) => s + d.typical, 0)).toBe(capacity.needed.typical);
     expect(demand.reduce((s, d) => s + d.worst, 0)).toBe(capacity.needed.worst);
     expect(demand.reduce((s, d) => s + d.games, 0)).toBe(games);
@@ -74,6 +73,7 @@ describe("analyseTournament", () => {
   it("plays every rubber of a team tie as a match", () => {
     const teams = tournament();
     teams.unit = "team";
+    teams.eventTiming = { ...teams.eventTiming, MS: { minutesPerGame: 12, changeoverMinutes: 3 } };
     teams.format = "groups";
     teams.categories[0] = {
       ...teams.categories[0]!,
@@ -83,7 +83,6 @@ describe("analyseTournament", () => {
           { event: "MS", count: 3 },
           { event: "MD", count: 2 },
         ],
-        playersPerTeam: 7,
       },
       expectedEntries: 6,
       groups: { type: "fixed", groupCount: 2 },
@@ -96,6 +95,58 @@ describe("analyseTournament", () => {
     expect(category!.rubbersPerFixture).toBe(5);
     expect(category!.totalMatches).toBe(30);
     expect(result.analysis.capacity.needed.typical).toBe(30 * 15);
+  });
+
+  it("times each event with its own timing", () => {
+    const mixed = tournament();
+    mixed.eventTiming = {
+      MS: { minutesPerGame: 15, changeoverMinutes: 3 },
+      MD: { minutesPerGame: 12, changeoverMinutes: 3 },
+    };
+    mixed.categories = [
+      { ...mixed.categories[0]!, id: "ms", entry: { type: "individual", event: "MS" } },
+      { ...mixed.categories[0]!, id: "md", entry: { type: "individual", event: "MD" } },
+    ];
+    const result = analyseTournament(mixed);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const group = result.analysis.demand.filter((d) => d.stage === "group");
+    // Each category: 3 groups of 4 = 18 group matches.
+    expect(group).toEqual([
+      { stage: "group", event: "MS", matches: 18, games: 18, typical: 18 * 18, worst: 18 * 18 },
+      { stage: "group", event: "MD", matches: 18, games: 18, typical: 18 * 15, worst: 18 * 15 },
+    ]);
+    expect(result.analysis.capacity.needed.typical).toBe(
+      result.analysis.demand.reduce((sum, d) => sum + d.typical, 0),
+    );
+  });
+
+  it("times a team tie's singles and doubles rubbers separately", () => {
+    const teams = tournament();
+    teams.unit = "team";
+    teams.format = "groups";
+    teams.eventTiming = {
+      MS: { minutesPerGame: 15, changeoverMinutes: 3 },
+      MD: { minutesPerGame: 12, changeoverMinutes: 3 },
+    };
+    teams.categories[0] = {
+      ...teams.categories[0]!,
+      entry: { type: "team", lineUp: [{ event: "MS", count: 3 }, { event: "MD", count: 2 }] },
+      expectedEntries: 6,
+      groups: { type: "fixed", groupCount: 2 },
+    };
+    const result = analyseTournament(teams);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    // 6 ties: 18 singles rubbers at 18 min, 12 doubles rubbers at 15 min.
+    expect(result.analysis.capacity.needed.typical).toBe(18 * 18 + 12 * 15);
+  });
+
+  it("asks for timing for every event that is played", () => {
+    const untimed = tournament();
+    untimed.eventTiming = {};
+    expect(analyseTournament(untimed)).toEqual({
+      ok: false,
+      errors: [{ code: "missingEventTiming", event: "MD" }],
+    });
   });
 
   it("updates capacity and finance when entries change", () => {

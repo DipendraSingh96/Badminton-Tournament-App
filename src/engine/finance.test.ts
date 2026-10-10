@@ -79,19 +79,26 @@ describe("playerCount", () => {
     expect(playerCount([category({ entry: { type: "individual", event: "XD" }, expectedEntries: 12 })])).toBe(24);
   });
 
-  it("counts each team's squad", () => {
+  it("counts each team's squad from its line-up", () => {
     expect(
       playerCount([
         category({
-          entry: { type: "team", lineUp: [{ event: "MD", count: 3 }], playersPerTeam: 8 },
+          entry: {
+            type: "team",
+            lineUp: [
+              { event: "MS", count: 3 },
+              { event: "MD", count: 2 },
+            ],
+          },
           expectedEntries: 6,
         }),
       ]),
-    ).toBe(48);
+      // One player per rubber: 3 singles x 1 + 2 doubles x 2 = 7 per team.
+    ).toBe(42);
   });
 
   it("charges teams per team or per player", () => {
-    const team = { type: "team" as const, lineUp: [{ event: "MS" as const, count: 3 }], playersPerTeam: 5 };
+    const team = { type: "team" as const, lineUp: [{ event: "MS" as const, count: 3 }, { event: "XD" as const, count: 1 }] };
     expect(
       categoryRevenue(category({ entry: team, expectedEntries: 4, fee: { basis: "entry", amount: 50, expectedExternal: 0 } })),
     ).toBe(200);

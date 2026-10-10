@@ -13,10 +13,15 @@ export type DeuceRule =
   | { type: "cap"; cap: number }
   | { type: "standard"; max: number };
 
+/** Scoring for a stage; applies to every event played in it. */
 export interface StageRules {
   pointsPerGame: number;
   deuce: DeuceRule;
   bestOf: 1 | 3;
+}
+
+/** Timing for an event type; applies in every stage. */
+export interface EventTiming {
   /** Typical playing time for one game. */
   minutesPerGame: number;
   /** Organising time per match: walk-on, warm-up, changeover. */
@@ -66,7 +71,8 @@ export interface LineUpItem {
 /** What one entry in a category is. */
 export type EntryKind =
   | { type: "individual"; event: EventType }
-  | { type: "team"; lineUp: LineUpItem[]; playersPerTeam: number };
+  /** Each player plays one rubber, so the squad follows from the line-up. */
+  | { type: "team"; lineUp: LineUpItem[] };
 
 export type GroupMode =
   | { type: "fixed"; groupCount: number }
@@ -128,5 +134,7 @@ export interface TournamentInputs {
   categories: Category[];
   /** Only stages that have matches need rules. */
   stageRules: Partial<Record<Stage, StageRules>>;
+  /** Only events that are played need timing. */
+  eventTiming: Partial<Record<EventType, EventTiming>>;
   finance: Finance;
 }

@@ -1,4 +1,4 @@
-import type { StageRules } from "./types";
+import type { EventTiming, StageRules } from "./types";
 
 /** Most points a game can reach under the deuce rule. */
 export function maxPointsPerGame(rules: StageRules): number {
@@ -34,23 +34,23 @@ export interface MatchMinutes {
 }
 
 /**
- * Slot length for one match. Worst case plays every game and scales game
- * time by the longest possible game relative to a normal one.
+ * Slot length for one match of an event in a stage. Games and the longest
+ * game come from the stage's scoring; minutes and organising time from the
+ * event's timing. Worst case plays every game, each as long as possible.
  */
-export function matchMinutes(rules: StageRules): MatchMinutes {
+export function matchMinutes(rules: StageRules, timing: EventTiming): MatchMinutes {
   const maxPoints = maxPointsPerGame(rules);
   const longestGameFactor = maxPoints / rules.pointsPerGame;
   return {
-    typical:
-      typicalGames(rules) * rules.minutesPerGame + rules.changeoverMinutes,
+    typical: typicalGames(rules) * timing.minutesPerGame + timing.changeoverMinutes,
     worst:
-      worstGames(rules) * rules.minutesPerGame * longestGameFactor +
-      rules.changeoverMinutes,
+      worstGames(rules) * timing.minutesPerGame * longestGameFactor +
+      timing.changeoverMinutes,
     typicalGames: typicalGames(rules),
     worstGames: worstGames(rules),
-    minutesPerGame: rules.minutesPerGame,
+    minutesPerGame: timing.minutesPerGame,
     pointsPerGame: rules.pointsPerGame,
     maxPoints,
-    changeoverMinutes: rules.changeoverMinutes,
+    changeoverMinutes: timing.changeoverMinutes,
   };
 }
