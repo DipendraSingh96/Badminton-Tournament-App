@@ -19,6 +19,7 @@ import {
   type Analysis,
   type AnalysisResult,
   type CapacityStatus,
+  type FormatType,
   type Levers,
   type TournamentInputs,
 } from "@/engine";
@@ -29,6 +30,7 @@ import {
   STAGE_LABELS,
   analysisErrorMessages,
   categoryName,
+  entryNoun,
   formatMinutes,
   formatMinutesShort,
   formatGroupSizes,
@@ -260,7 +262,15 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
   );
 }
 
-function MatchesCard({ draft, analysis }: { draft: PlanDraft; analysis: Analysis }) {
+function MatchesCard({
+  draft,
+  analysis,
+  format,
+}: {
+  draft: PlanDraft;
+  analysis: Analysis;
+  format: FormatType;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -288,16 +298,16 @@ function MatchesCard({ draft, analysis }: { draft: PlanDraft; analysis: Analysis
             </TableRow>
           </TableHeader>
           <TableBody>
-            {analysis.categories.map(({ categoryId, format }) => (
+            {analysis.categories.map(({ categoryId, format, matches, totalMatches }) => (
               <TableRow key={categoryId}>
                 <TableCell className="font-medium">{categoryName(draft, categoryId)}</TableCell>
-                <TableCell>{formatGroupSizes(format.groupSizes)}</TableCell>
+                <TableCell>{format.groupSizes.length > 0 ? formatGroupSizes(format.groupSizes) : "None"}</TableCell>
                 {STAGES.map((stage) => (
                   <TableCell key={stage} className="text-right tabular-nums">
-                    {format.matches[stage]}
+                    {matches[stage]}
                   </TableCell>
                 ))}
-                <TableCell className="text-right tabular-nums">{format.totalMatches}</TableCell>
+                <TableCell className="text-right tabular-nums">{totalMatches}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -316,12 +326,12 @@ function MatchesCard({ draft, analysis }: { draft: PlanDraft; analysis: Analysis
           ) : null}
         </Table>
         <div>
-          {analysis.categories.map(({ categoryId, format }) => (
+          {analysis.categories.map((category) => (
             <Row
-              key={categoryId}
-              label={`How ${categoryName(draft, categoryId)} is counted`}
-              value={`${format.totalMatches} matches`}
-              working={categoryMatchesWorking(format)}
+              key={category.categoryId}
+              label={`How ${categoryName(draft, category.categoryId)} is counted`}
+              value={`${category.totalMatches} matches`}
+              working={categoryMatchesWorking(category, format)}
             />
           ))}
         </div>
@@ -388,7 +398,11 @@ function FinanceCard({
             key={r.categoryId}
             label={`Entries: ${categoryName(draft, r.categoryId)}`}
             value={formatMoney(r.amount)}
-            working={categoryRevenueWorking(r)}
+            working={(() => {
+              const category = inputs.categories.find((c) => c.id === r.categoryId);
+              const event = category?.entry.type === "individual" ? category.entry.event : null;
+              return categoryRevenueWorking(r, entryNoun(inputs.unit, event), entryNoun(inputs.unit, event, true));
+            })()}
           />
         ))}
         <Row
@@ -434,13 +448,18 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
 
   const category =
     inputs.categories.find((c) => c.id === chosenId) ?? inputs.categories[0];
-  const to = Math.max(upTo ?? category!.expectedPairs * 2, 3);
+  const to = Math.max(upTo ?? category!.expectedEntries * 2, 3);
 
   const curve = useMemo(
     () => (category ? profitCurve(inputs, category.id, { from: 2, to }) : null),
     [inputs, category, to],
   );
   if (!category || !curve) return null;
+  const nouns = entryNoun(
+    inputs.unit,
+    category.entry.type === "individual" ? category.entry.event : null,
+    true,
+  );
 
   return (
     <Card>
@@ -448,8 +467,8 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
         <CardTitle>Break-even</CardTitle>
         <CardDescription>
           {curve.breakEven !== null
-            ? `${categoryName(draft, category.id)} breaks even at ${curve.breakEven} pairs (expected ${category.expectedPairs}).`
-            : `${categoryName(draft, category.id)} doesn't break even at up to ${to} pairs.`}
+            ? `${categoryName(draft, category.id)} breaks even at ${curve.breakEven} ${nouns} (expected ${category.expectedEntries}).`
+            : `${categoryName(draft, category.id)} doesn't break even at up to ${to} ${nouns}.`}
           {inputs.categories.length > 1 ? " Other categories stay at their expected entries." : ""}
         </CardDescription>
       </CardHeader>
@@ -465,15 +484,20 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
             />
           ) : null}
           <NumberField
-            label="Show up to (pairs)"
+            label={`Show up to (${nouns})`}
             step="1"
             path={["dashboard", "upTo"]}
             value={upTo}
             onChange={setUpTo}
-            hint={`Default: ${category.expectedPairs * 2}`}
+            hint={`Default: ${category.expectedEntries * 2}`}
           />
         </div>
-        <ProfitChart points={curve.points} breakEven={curve.breakEven} expected={category.expectedPairs} />
+        <ProfitChart
+          points={curve.points}
+          breakEven={curve.breakEven}
+          expected={category.expectedEntries}
+          axisLabel={`${nouns.charAt(0).toUpperCase()}${nouns.slice(1)} entered`}
+        />
         <p className="text-xs text-muted-foreground">
           Each point re-runs the format, so match count and shuttle use change with entries.
         </p>
@@ -512,7 +536,7 @@ export function Dashboard({
   return (
     <>
       <CapacityCard analysis={analysis.analysis} inputs={parsed.inputs} />
-      <MatchesCard draft={draft} analysis={analysis.analysis} />
+      <MatchesCard draft={draft} analysis={analysis.analysis} format={parsed.inputs.format} />
       <FinanceCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
       <ProfitCard draft={draft} inputs={parsed.inputs} />
     </>

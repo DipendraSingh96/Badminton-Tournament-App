@@ -19,22 +19,24 @@ export function ProfitChart({
   points,
   breakEven,
   expected,
+  axisLabel,
 }: {
   points: ProfitPoint[];
   breakEven: number | null;
   expected: number;
+  axisLabel: string;
 }) {
   return (
     <ChartContainer config={config} className="aspect-[16/10] w-full">
       <LineChart data={points} margin={{ top: 8, right: 8, bottom: 16, left: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis
-          dataKey="pairs"
+          dataKey="entries"
           type="number"
           domain={["dataMin", "dataMax"]}
           allowDecimals={false}
           tickLine={false}
-          label={{ value: "Pairs entered", position: "insideBottom", offset: -8 }}
+          label={{ value: axisLabel, position: "insideBottom", offset: -8 }}
         />
         <YAxis tickFormatter={(v: number) => compactMoney.format(v)} tickLine={false} width={56} />
         <ReferenceLine y={0} stroke="var(--border)" strokeWidth={2} />
@@ -54,7 +56,7 @@ export function ProfitChart({
         <ChartTooltip
           content={
             <ChartTooltipContent
-              labelFormatter={(_, payload) => `${payload[0]?.payload.pairs} pairs`}
+              labelFormatter={(_, payload) => `${payload[0]?.payload.entries} entered`}
               formatter={(value) => formatMoney(Number(value))}
             />
           }

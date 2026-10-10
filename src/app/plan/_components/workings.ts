@@ -1,4 +1,4 @@
-import type { Analysis, CategoryFormat, MatchMinutes, TournamentInputs } from "@/engine";
+import type { Analysis, CategoryAnalysis, FormatType, MatchMinutes, TournamentInputs } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { STAGE_LABELS, categoryName, formatMinutes, formatMoney } from "./labels";
 
@@ -109,32 +109,46 @@ function nextPowerOfTwo(n: number): number {
   return size;
 }
 
-export function categoryMatchesWorking(format: CategoryFormat): string[] {
+export function categoryMatchesWorking(category: CategoryAnalysis, formatType: FormatType): string[] {
+  const { format, rubbersPerFixture } = category;
+  const team = rubbersPerFixture > 1;
+  const one = team ? "tie" : "match";
+  const many = team ? "ties" : "matches";
   const lines: string[] = [];
   const counts = new Map<number, number>();
   for (const size of format.groupSizes) counts.set(size, (counts.get(size) ?? 0) + 1);
   for (const [size, count] of counts) {
     const each = (size * (size - 1)) / 2;
     lines.push(
-      `${plural(count, "group")} of ${size}: each plays ${size} × ${size - 1} ÷ 2 = ${each}, so ${count} × ${each} = ${count * each}`,
+      `${plural(count, "group")} of ${size}: each plays ${size} × ${size - 1} ÷ 2 = ${plural(each, one, many)}, so ${count} × ${each} = ${count * each}`,
     );
   }
   const groups = format.groupSizes.length;
-  lines.push(
-    `${plural(groups, "group")} × ${format.qualifiers / groups} qualifiers = ${format.qualifiers} qualify`,
-  );
-  const { knockout, bronze, final } = format.matches;
-  if (final > 0) {
-    const bracket = nextPowerOfTwo(format.qualifiers);
+  if (formatType === "groupsKnockout") {
     lines.push(
-      `Knockout: ${format.qualifiers} qualifiers need ${format.qualifiers} − 1 = ${knockout + final} matches (${knockout} before the final, plus the final)` +
-        (bracket > format.qualifiers ? `. Bracket of ${bracket}, so ${bracket - format.qualifiers} byes` : ""),
+      `${plural(groups, "group")} × ${format.qualifiers / groups} qualifiers = ${format.qualifiers} qualify`,
     );
-  } else {
-    lines.push("Fewer than two qualifiers, so no knockout");
   }
-  if (bronze > 0) lines.push("Bronze match: 1");
-  lines.push(`Total = ${format.totalMatches} matches`);
+  const { knockout, bronze, final } = format.fixtures;
+  if (formatType !== "groups") {
+    const who = formatType === "knockout" ? "entries" : "qualifiers";
+    if (final > 0) {
+      const bracket = nextPowerOfTwo(format.qualifiers);
+      lines.push(
+        `Knockout: ${format.qualifiers} ${who} need ${format.qualifiers} − 1 = ${plural(knockout + final, one, many)} (${knockout} before the final, plus the final)` +
+          (bracket > format.qualifiers ? `. Bracket of ${bracket}, so ${bracket - format.qualifiers} byes` : ""),
+      );
+    } else {
+      lines.push(`Fewer than two ${who}, so no knockout`);
+    }
+    if (bronze > 0) lines.push(`Bronze: 1 ${one}`);
+  }
+  lines.push(`Total = ${plural(format.totalFixtures, one, many)}`);
+  if (team) {
+    lines.push(
+      `Each tie is ${rubbersPerFixture} rubbers, all played: ${format.totalFixtures} × ${rubbersPerFixture} = ${plural(category.totalMatches, "match", "matches")}`,
+    );
+  }
   return lines;
 }
 
@@ -142,13 +156,15 @@ export function categoryMatchesWorking(format: CategoryFormat): string[] {
 
 export function categoryRevenueWorking(
   revenue: Analysis["finance"]["revenueByCategory"][number],
+  noun: string,
+  nouns: string,
 ): string[] {
-  const unit = revenue.basis === "player" ? "player" : "pair";
+  const unit = revenue.basis === "player" ? "player" : noun;
   const internal = revenue.entrants - revenue.external;
   const lines = [
-    revenue.basis === "player"
-      ? `${plural(revenue.entrants / 2, "pair")} = ${plural(revenue.entrants, "player")}`
-      : `${plural(revenue.entrants, "pair")}`,
+    revenue.basis === "player" && revenue.playersPerEntry > 1
+      ? `${plural(revenue.entries, noun, nouns)} × ${revenue.playersPerEntry} players = ${plural(revenue.entrants, "player")}`
+      : plural(revenue.entries, noun, nouns),
   ];
   if (revenue.external > 0) {
     lines.push(`${plural(internal, unit)} × ${formatMoney(revenue.fee)} = ${formatMoney(internal * revenue.fee)}`);
@@ -198,7 +214,9 @@ export function otherCostWorking(cost: Analysis["finance"]["otherCosts"][number]
   if (!cost.perPerson) return [];
   const { rate, basis, headcount } = cost.perPerson;
   const lines = [`${plural(headcount, BASIS_LABEL[basis], basis === "custom" ? "people" : undefined)} × ${formatMoney(rate)} = ${formatMoney(cost.amount)}`];
-  if (basis === "players") lines.unshift("Players = expected pairs × 2, across all categories");
+  if (basis === "players") {
+    lines.unshift("Players = entries × players in each (1 for singles, 2 for doubles, the squad for a team), across all categories");
+  }
   return lines;
 }
 

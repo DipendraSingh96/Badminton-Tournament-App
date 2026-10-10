@@ -21,6 +21,10 @@ export interface CategoryRevenue {
   amount: number;
   /** The working: entrants in the fee basis unit, split by fee. */
   basis: "player" | "entry";
+  /** Expected entries (players, pairs or teams) and players in each. */
+  entries: number;
+  playersPerEntry: number;
+  /** Who pays: players, or entries, as the basis says. */
   entrants: number;
   external: number;
   fee: number;
@@ -48,16 +52,17 @@ export function playerCount(categories: Category[]): number {
 
 export function categoryRevenueWorking(category: Category): CategoryRevenue {
   const { fee } = category;
+  const playersPerEntry = playersPerCategoryEntry(category);
   const entrants =
-    fee.basis === "player"
-      ? category.expectedEntries * playersPerCategoryEntry(category)
-      : category.expectedEntries;
+    fee.basis === "player" ? category.expectedEntries * playersPerEntry : category.expectedEntries;
   const external = Math.min(fee.expectedExternal, entrants);
   const externalFee = fee.externalAmount ?? fee.amount;
   return {
     categoryId: category.id,
     amount: (entrants - external) * fee.amount + external * externalFee,
     basis: fee.basis,
+    entries: category.expectedEntries,
+    playersPerEntry,
     entrants,
     external,
     fee: fee.amount,
