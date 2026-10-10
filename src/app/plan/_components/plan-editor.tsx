@@ -14,6 +14,7 @@ import { Dashboard } from "./dashboard";
 import { IssuesContext, issueMap } from "./fields";
 import { FinanceSection } from "./finance-section";
 import { FrameSection } from "./frame-section";
+import { EventTimingSection } from "./event-timing-section";
 import { StageRulesSection } from "./stage-rules-section";
 
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
@@ -64,6 +65,7 @@ function Editor() {
             <FrameSection draft={draft} update={update} />
             <CategoriesSection draft={draft} update={update} />
             <StageRulesSection draft={draft} update={update} />
+            <EventTimingSection draft={draft} update={update} />
             <FinanceSection draft={draft} update={update} />
           </div>
           <div className="flex min-w-0 flex-col gap-4 *:shrink-0 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">

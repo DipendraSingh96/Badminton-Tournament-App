@@ -3,7 +3,14 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { EVENT_TYPES, categoryFormat, type FormatType, type GroupMode, type Unit } from "@/engine";
+import {
+  EVENT_TYPES,
+  categoryFormat,
+  playersPerEntry,
+  type FormatType,
+  type GroupMode,
+  type Unit,
+} from "@/engine";
 import { emptyCategory, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { EVENT_LABELS, FORMAT_LABELS, UNIT_LABELS } from "@/lib/tournament/events";
 import { FieldGrid, NumberField, Section, SelectField, SwitchField, TextField } from "./fields";
@@ -71,6 +78,7 @@ function FormatPreview({
   const knockout = fixtures.knockout + fixtures.final;
   const rubbers =
     unit === "team" ? EVENT_TYPES.reduce((sum, e) => sum + (category.lineUp[e] ?? 0), 0) : 1;
+  const squad = EVENT_TYPES.reduce((sum, e) => sum + (category.lineUp[e] ?? 0) * playersPerEntry(e), 0);
   const bracket = nextPowerOfTwo(qualifiers);
   const parts = [
     fixtures.group > 0 ? `${fixtures.group} group` : null,
@@ -95,9 +103,18 @@ function FormatPreview({
         {unit === "team" ? "Ties" : "Matches"}: {parts.join(" + ")} = {totalFixtures} total
       </p>
       {unit === "team" && rubbers > 0 ? (
-        <p className="tabular-nums">
-          {totalFixtures} ties × {rubbers} rubbers = {totalFixtures * rubbers} matches
-        </p>
+        <>
+          <p className="tabular-nums">
+            {totalFixtures} ties × {rubbers} rubbers = {totalFixtures * rubbers} matches
+          </p>
+          <p className="tabular-nums">
+            Squad: {squad} players (
+            {EVENT_TYPES.filter((e) => (category.lineUp[e] ?? 0) > 0)
+              .map((e) => `${category.lineUp[e]} ${EVENT_LABELS[e].toLowerCase()} × ${playersPerEntry(e)}`)
+              .join(" + ")}
+            )
+          </p>
+        </>
       ) : null}
     </div>
   );
@@ -180,13 +197,6 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
                         value={category.name}
                         onChange={set("name")}
                       />
-                      <NumberField
-                        label="Players per team"
-                        step="1"
-                        path={path("playersPerTeam")}
-                        value={category.playersPerTeam}
-                        onChange={set("playersPerTeam")}
-                      />
                     </>
                   )}
                 </div>
@@ -211,7 +221,7 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
                   <legend className="text-sm font-medium">Line-up of a tie</legend>
                   <p className="text-xs text-muted-foreground">
                     Rubbers of each event in every tie. All rubbers are played; the team that wins the
-                    most rubbers wins the tie.
+                    most rubbers wins the tie. Each player plays one rubber, so the line-up sets the squad.
                   </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {EVENT_TYPES.map((event) => (

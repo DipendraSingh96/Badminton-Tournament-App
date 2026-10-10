@@ -23,8 +23,8 @@ const BEST_OF = [
 export function StageRulesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
     <Section
-      title="Match rules and timing"
-      description="Set per stage. Leave a stage empty if no category plays it."
+      title="Scoring"
+      description="Set per stage and used for every event. Leave a stage empty if no category plays it."
     >
       {STAGES.map((stage: Stage, i) => {
         const rules = draft.stageRules[stage];
@@ -78,20 +78,6 @@ export function StageRulesSection({ draft, update }: { draft: PlanDraft; update:
                 value={rules.bestOf}
                 options={BEST_OF}
                 onChange={set("bestOf")}
-              />
-              <NumberField
-                label="Minutes per game"
-                hint="Typical playing time."
-                path={path("minutesPerGame")}
-                value={rules.minutesPerGame}
-                onChange={set("minutesPerGame")}
-              />
-              <NumberField
-                label="Organising time per match (minutes)"
-                hint="Walk-on, warm-up and changeover."
-                path={path("changeoverMinutes")}
-                value={rules.changeoverMinutes}
-                onChange={set("changeoverMinutes")}
               />
             </FieldGrid>
           </div>
