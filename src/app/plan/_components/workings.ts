@@ -236,10 +236,23 @@ export function otherCostWorking(cost: Analysis["finance"]["otherCosts"][number]
   return lines;
 }
 
+export function courtHireWorking(analysis: Analysis, inputs: TournamentInputs): string[] {
+  const { courtHire } = analysis.finance;
+  const clock = (iso: string) => formatClock(iso, inputs.frame.timeZone);
+  const lines = courtHire.windows.map(
+    (w) =>
+      `${clock(w.from)} to ${clock(w.to)}: ${plural(w.courts, "court")} × ${formatMinutes(w.hours * 60)} × ${formatMoney(w.rate)} = ${formatMoney(w.amount)}`,
+  );
+  if (courtHire.windows.length > 1) lines.push(`Total = ${formatMoney(courtHire.total)}`);
+  lines.push("All booked time is charged, including the buffer at the end of the day.");
+  return lines;
+}
+
 export function totalCostWorking(analysis: Analysis): string[] {
   const { finance } = analysis;
   return [
-    `Shuttles ${formatMoney(finance.shuttleCost)}`,
+    `Court hire ${formatMoney(finance.courtHire.total)}`,
+    `+ shuttles ${formatMoney(finance.shuttleCost)}`,
     `+ prizes ${formatMoney(finance.prizeCost)}`,
     ...finance.otherCosts.map((c) => `+ ${c.label} ${formatMoney(c.amount)}`),
     `= ${formatMoney(finance.totalCost)}`,

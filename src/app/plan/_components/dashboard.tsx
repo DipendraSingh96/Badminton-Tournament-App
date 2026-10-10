@@ -42,6 +42,7 @@ import { ProfitChart } from "./profit-chart";
 import {
   categoryMatchesWorking,
   categoryRevenueWorking,
+  courtHireWorking,
   courtTimeWorking,
   formatNumber,
   neededWorking,
@@ -411,6 +412,11 @@ function FinanceCard({
           working={finance.revenueByCategory.length > 1 ? revenueWorking(analysis, draft) : undefined}
         />
         <div className="my-2 border-t" />
+        <Row
+          label="Court hire"
+          value={formatMoney(finance.courtHire.total)}
+          working={courtHireWorking(analysis, inputs)}
+        />
         <Row
           label={`Shuttles (${formatNumber(finance.shuttles)})`}
           value={formatMoney(finance.shuttleCost)}
