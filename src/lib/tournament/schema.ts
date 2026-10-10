@@ -1,14 +1,20 @@
 import { TZDate } from "@date-fns/tz";
 import { z } from "zod";
 import {
+  EVENT_TYPES,
   STAGES,
   type Category,
   type CourtWindow,
+  type EntryKind,
+  type EventType,
+  type FormatType,
   type OtherCost,
   type StageRules,
   type TournamentInputs,
+  type Unit,
 } from "@/engine";
 import type { PlanDraft, StageRulesDraft } from "./draft";
+import { EVENT_LABELS } from "./events";
 
 // Validates a plan draft and converts it to engine inputs. Messages are
 // shown to organisers, so they use UK English and field labels.
@@ -92,25 +98,54 @@ const frameSchema = z
     });
   });
 
-const categorySchema = z
-  .object({
-    id: z.string(),
-    name: z.string().trim().min(1, "Name is required"),
-    expectedPairs: whole("Expected pairs", 2),
-    groupMode: z.enum(["auto", "fixed"], { error: "Choose how groups are set" }),
-    groupCount: z.number().nullable(),
-    preferredGroupSize: z.number().nullable(),
-    qualifiersPerGroup: whole("Qualifiers per group", 1),
-    bronze: z.boolean(),
-    feeBasis: z.enum(["player", "pair"], { error: "Choose how the fee is charged" }),
-    feeAmount: amount("Entry fee"),
-    externalFeeAmount: amount("External fee").nullable(),
-    expectedExternal: whole("Expected external entrants", 0).nullable(),
-  })
-  .superRefine((c, ctx) => {
-    if (c.groupMode === "fixed") check(ctx, whole("Number of groups", 1), c.groupCount, ["groupCount"]);
-    if (c.groupMode === "auto") check(ctx, whole("Preferred group size", 2), c.preferredGroupSize, ["preferredGroupSize"]);
-  });
+const lineUpCount = whole("Rubbers", 0).nullable();
+
+/** Category rules depend on the tournament's unit of play and format. */
+function categorySchema(unit: Unit | null, format: FormatType | null) {
+  return z
+    .object({
+      id: z.string(),
+      name: z.string().trim(),
+      event: z.enum(EVENT_TYPES).nullable(),
+      lineUp: z.object(
+        Object.fromEntries(EVENT_TYPES.map((e) => [e, lineUpCount])) as Record<EventType, typeof lineUpCount>,
+      ),
+      playersPerTeam: z.number().nullable(),
+      expectedEntries: whole("Expected entries", 2),
+      groupMode: z.enum(["auto", "fixed"]).nullable(),
+      groupCount: z.number().nullable(),
+      preferredGroupSize: z.number().nullable(),
+      qualifiersPerGroup: z.number().nullable(),
+      bronze: z.boolean(),
+      feeBasis: z.enum(["player", "entry"], { error: "Choose how the fee is charged" }),
+      feeAmount: amount("Entry fee"),
+      externalFeeAmount: amount("External fee").nullable(),
+      expectedExternal: whole("Expected external entrants", 0).nullable(),
+    })
+    .superRefine((c, ctx) => {
+      if (unit === "individual" && !c.event) {
+        ctx.addIssue({ code: "custom", message: "Choose an event", path: ["event"] });
+      }
+      if (unit === "team") {
+        if (!c.name) ctx.addIssue({ code: "custom", message: "Name is required", path: ["name"] });
+        const rubbers = EVENT_TYPES.reduce((sum, e) => sum + (c.lineUp[e] ?? 0), 0);
+        if (rubbers < 1) {
+          ctx.addIssue({ code: "custom", message: "Add at least one rubber to the line-up", path: ["lineUp"] });
+        }
+        check(ctx, whole("Players per team", 1), c.playersPerTeam, ["playersPerTeam"]);
+      }
+      if (format === "groupsKnockout" || format === "groups") {
+        if (!c.groupMode) {
+          ctx.addIssue({ code: "custom", message: "Choose how groups are set", path: ["groupMode"] });
+        }
+        if (c.groupMode === "fixed") check(ctx, whole("Number of groups", 1), c.groupCount, ["groupCount"]);
+        if (c.groupMode === "auto") check(ctx, whole("Preferred group size", 2), c.preferredGroupSize, ["preferredGroupSize"]);
+      }
+      if (format === "groupsKnockout") {
+        check(ctx, whole("Qualifiers per group", 1), c.qualifiersPerGroup, ["qualifiersPerGroup"]);
+      }
+    });
+}
 
 const stageRulesSchema = z
   .object({
@@ -190,8 +225,11 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     return null;
   };
 
+  if (!draft.unit) issues.push({ path: ["unit"], message: "Choose the unit of play" });
+  if (!draft.format) issues.push({ path: ["format"], message: "Choose a format" });
   const frame = collect(frameSchema, draft.frame, ["frame"]);
-  const categories = draft.categories.map((c, i) => collect(categorySchema, c, ["categories", i]));
+  const schema = categorySchema(draft.unit, draft.format);
+  const categories = draft.categories.map((c, i) => collect(schema, c, ["categories", i]));
   if (draft.categories.length === 0) {
     issues.push({ path: ["categories"], message: "Add at least one category" });
   }
@@ -225,7 +263,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   });
 
-  if (issues.length > 0 || !frame || !finance || categories.some((c) => !c)) {
+  const { unit, format } = draft;
+  if (issues.length > 0 || !unit || !format || !frame || !finance || categories.some((c) => !c)) {
     return { ok: false, issues };
   }
 
@@ -237,16 +276,30 @@ export function parsePlan(draft: PlanDraft): ParseResult {
 
   const engineCategories: Category[] = categories.map((c) => {
     const category = c!;
+    const entry: EntryKind =
+      unit === "individual"
+        ? { type: "individual", event: category.event! }
+        : {
+            type: "team",
+            lineUp: EVENT_TYPES.filter((e) => (category.lineUp[e] ?? 0) > 0).map((e) => ({
+              event: e,
+              count: category.lineUp[e]!,
+            })),
+            playersPerTeam: category.playersPerTeam!,
+          };
+    const hasGroups = format !== "knockout";
     return {
       id: category.id,
-      name: category.name,
-      expectedPairs: category.expectedPairs,
-      groups:
-        category.groupMode === "fixed"
+      name: category.name || (entry.type === "individual" ? EVENT_LABELS[entry.event] : ""),
+      entry,
+      expectedEntries: category.expectedEntries,
+      groups: !hasGroups
+        ? undefined
+        : category.groupMode === "fixed"
           ? { type: "fixed", groupCount: category.groupCount! }
           : { type: "auto", preferredSize: category.preferredGroupSize! },
-      qualifiersPerGroup: category.qualifiersPerGroup,
-      bronze: category.bronze,
+      qualifiersPerGroup: format === "groupsKnockout" ? category.qualifiersPerGroup! : undefined,
+      bronze: format !== "groups" && category.bronze,
       fee: {
         basis: category.feeBasis,
         amount: category.feeAmount,
@@ -272,6 +325,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   return {
     ok: true,
     inputs: {
+      unit,
+      format,
       frame: {
         start: toUtc(frame.date, frame.startTime, frame.timeZone),
         end: toUtc(frame.date, frame.endTime, frame.timeZone),

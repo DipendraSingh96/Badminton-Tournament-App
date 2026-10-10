@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { emptyDraft, type PlanDraft } from "./draft";
+import { emptyCategory, emptyDraft, type PlanDraft } from "./draft";
 import { parsePlan } from "./schema";
 
 function completeDraft(): PlanDraft {
   const draft = emptyDraft("Europe/London");
+  draft.unit = "individual";
+  draft.format = "groupsKnockout";
   draft.frame = {
     ...draft.frame,
     date: "2026-07-04",
@@ -18,9 +20,11 @@ function completeDraft(): PlanDraft {
   };
   draft.categories = [
     {
+      ...emptyCategory(),
       id: "c1",
-      name: "Mixed doubles",
-      expectedPairs: 16,
+      name: "",
+      event: "XD",
+      expectedEntries: 16,
       groupMode: "auto",
       groupCount: null,
       preferredGroupSize: 4,
@@ -61,7 +65,9 @@ describe("parsePlan", () => {
     if (result.ok) return;
     const messages = result.issues.map((i) => i.message);
     expect(messages).toContain("Date is required");
-    expect(messages).toContain("Expected pairs is required");
+    expect(messages).toContain("Expected entries is required");
+    expect(messages).toContain("Choose the unit of play");
+    expect(messages).toContain("Choose a format");
     expect(messages).toContain("Shuttles per game is required");
   });
 
@@ -77,6 +83,8 @@ describe("parsePlan", () => {
     const result = parsePlan(completeDraft());
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.categories[0]!.groups).toEqual({ type: "auto", preferredSize: 4 });
+    expect(result.inputs.categories[0]!.entry).toEqual({ type: "individual", event: "XD" });
+    expect(result.inputs.categories[0]!.name).toBe("Mixed doubles");
     expect(result.inputs.stageRules.group!.deuce).toEqual({ type: "standard", max: 30 });
     expect(result.inputs.finance.otherCosts[0]).toMatchObject({ basis: "umpires" });
   });
@@ -111,5 +119,49 @@ describe("parsePlan", () => {
       path: ["stageRules", "group", "deuceLimit"],
       message: "Maximum points must be at least 22",
     });
+  });
+
+  it("builds a team line-up from the rubber counts", () => {
+    const draft = completeDraft();
+    draft.unit = "team";
+    const category = draft.categories[0]!;
+    category.name = "Club team cup";
+    category.lineUp = { ...category.lineUp, MS: 3, MD: 2 };
+    category.playersPerTeam = 7;
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.categories[0]!.entry).toEqual({
+      type: "team",
+      lineUp: [
+        { event: "MS", count: 3 },
+        { event: "MD", count: 2 },
+      ],
+      playersPerTeam: 7,
+    });
+  });
+
+  it("asks a team event for a name, a line-up and a squad size", () => {
+    const draft = completeDraft();
+    draft.unit = "team";
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const messages = result.issues.map((i) => i.message);
+    expect(messages).toContain("Name is required");
+    expect(messages).toContain("Add at least one rubber to the line-up");
+    expect(messages).toContain("Players per team is required");
+  });
+
+  it("needs no group settings for knockout only", () => {
+    const draft = completeDraft();
+    draft.format = "knockout";
+    const category = draft.categories[0]!;
+    category.groupMode = null;
+    category.preferredGroupSize = null;
+    category.qualifiersPerGroup = null;
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.categories[0]!.groups).toBeUndefined();
+    expect(result.inputs.format).toBe("knockout");
   });
 });

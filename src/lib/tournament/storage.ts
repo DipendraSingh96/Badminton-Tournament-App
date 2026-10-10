@@ -4,7 +4,8 @@ import type { PlanDraft } from "./draft";
 // Storage can be unavailable (private windows, blocked site data), so every
 // access is guarded and failure just means nothing is remembered.
 
-const KEY = "badminton:plan-draft:v1";
+// v2: unit of play, format type and event types (v1 drafts are not read).
+const KEY = "badminton:plan-draft:v2";
 
 export function loadDraft(): PlanDraft | null {
   try {

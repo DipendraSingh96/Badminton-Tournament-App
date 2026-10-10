@@ -1,4 +1,4 @@
-import type { Stage } from "@/engine";
+import { EVENT_TYPES, type EventType, type FormatType, type Stage, type Unit } from "@/engine";
 
 // What the plan editor holds while the organiser types. Every number starts
 // empty (null): the app supplies no tournament values of its own. The schema
@@ -28,14 +28,22 @@ export interface FrameDraft {
 
 export interface CategoryDraft {
   id: string;
+  /** Optional for individual entries (defaults to the event); required for teams. */
   name: string;
-  expectedPairs: N;
+  /** Individual entries only. */
+  event: EventType | null;
+  /** Team events only: rubbers of each event type in a tie. */
+  lineUp: Record<EventType, N>;
+  /** Team events only. */
+  playersPerTeam: N;
+  /** Players, pairs or teams. */
+  expectedEntries: N;
   groupMode: "auto" | "fixed" | null;
   groupCount: N;
   preferredGroupSize: N;
   qualifiersPerGroup: N;
   bronze: boolean;
-  feeBasis: "player" | "pair" | null;
+  feeBasis: "player" | "entry" | null;
   feeAmount: N;
   externalFeeAmount: N;
   expectedExternal: N;
@@ -76,6 +84,10 @@ export interface FinanceDraft {
 
 export interface PlanDraft {
   name: string;
+  /** Chosen once per tournament. */
+  unit: Unit | null;
+  /** Chosen once per tournament. */
+  format: FormatType | null;
   frame: FrameDraft;
   categories: CategoryDraft[];
   stageRules: Record<Stage, StageRulesDraft>;
@@ -105,7 +117,10 @@ export function emptyCategory(): CategoryDraft {
   return {
     id: newId(),
     name: "",
-    expectedPairs: null,
+    event: null,
+    lineUp: Object.fromEntries(EVENT_TYPES.map((e) => [e, null])) as Record<EventType, N>,
+    playersPerTeam: null,
+    expectedEntries: null,
     groupMode: null,
     groupCount: null,
     preferredGroupSize: null,
@@ -129,6 +144,8 @@ export function emptyOtherCost(): OtherCostDraft {
 export function emptyDraft(timeZone: string): PlanDraft {
   return {
     name: "",
+    unit: null,
+    format: null,
     frame: {
       date: "",
       startTime: "",
