@@ -32,7 +32,7 @@ A tournament is made of these sections, all editable in Plan mode:
 ### 4.1 Frame (set first; the outer bounds and the type of competition)
 - **Date, time zone, and time available:** start time and end time. A ceiling, not a target. The tournament may finish earlier, never later.
 - **Buffer:** time held back at the end of the day for miscellaneous activity such as prize distribution.
-- **Courts:** number of courts, which may vary by time window (e.g. more courts earlier in the day, fewer later).
+- **Courts:** number of courts, which may vary by time window (e.g. more courts earlier in the day, fewer later). Each window has its own rate per court per hour.
 - **Umpires:** number available.
 
 ### 4.1a Unit of play and categories (set at the start of Categories and format)
@@ -69,7 +69,8 @@ Inputs:
 - Expected entries, and entry fee (per player or per pair; may differ per category or by player type)
 - Shuttles per game, cost per shuttle
 - Prizes by category and position
-- Other costs as a free list; each is a fixed amount or a per-person amount (e.g. umpire food, court hire, trophies, printing)
+- Court hire, calculated from the court windows: booked hours × courts × rate, for every window (all booked time is charged, including the buffer)
+- Other costs as a free list; each is a fixed amount or a per-person amount (e.g. umpire food, trophies, printing)
 
 Outputs: revenue, shuttle cost, total cost, profit or loss, break-even entries, cost breakdown, profit curve across entry counts.
 
@@ -98,7 +99,8 @@ Allocate every match to a court and slot in waves, from the match rules, time pe
 ### 5.4 Finance
 - Revenue = entries × fee
 - Shuttle cost = total matches × shuttles per game × cost per shuttle
-- Total cost = shuttles + prizes + other costs
+- Court hire = Σ over court windows of booked hours × courts × rate per court per hour
+- Total cost = court hire + shuttles + prizes + other costs
 - Profit = revenue − total cost
 - Break-even entries and profit curve: because entries change the format, and the format changes the match count, these are found by re-running the format for each entry count rather than from a single formula.
 
