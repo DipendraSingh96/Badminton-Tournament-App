@@ -120,6 +120,28 @@ function FormatPreview({
   );
 }
 
+/**
+ * What a number of teams means in people, from the line-up: e.g. 24 teams of
+ * 2 doubles rubbers = "= 48 pairs, 96 players".
+ */
+function teamCountHint(category: CategoryDraft): string {
+  const teams = category.expectedEntries;
+  let singles = 0;
+  let pairs = 0;
+  for (const event of EVENT_TYPES) {
+    const count = category.lineUp[event] ?? 0;
+    if (playersPerEntry(event) === 1) singles += count;
+    else pairs += count;
+  }
+  if (teams === null || singles + pairs === 0) return "Number of teams.";
+  const parts = [
+    singles > 0 ? `${teams * singles} singles players` : null,
+    pairs > 0 ? `${teams * pairs} ${teams * pairs === 1 ? "pair" : "pairs"}` : null,
+    `${teams * (singles + 2 * pairs)} players`,
+  ].filter(Boolean);
+  return `= ${parts.join(", ")}`;
+}
+
 export function CategoriesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   const { unit, format } = draft;
   return (
@@ -240,9 +262,9 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
 
               <FieldGrid>
                 <NumberField
-                  label="Expected entries"
+                  label={unit === "team" ? "Expected teams" : "Expected entries"}
                   step="1"
-                  hint={`Number of ${nouns}.`}
+                  hint={unit === "team" ? teamCountHint(category) : `Number of ${nouns}.`}
                   path={path("expectedEntries")}
                   value={category.expectedEntries}
                   onChange={set("expectedEntries")}

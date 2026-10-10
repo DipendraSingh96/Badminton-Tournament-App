@@ -177,4 +177,14 @@ describe("parsePlan", () => {
       { path: ["eventTiming", "XD", "changeoverMinutes"], message: "Organising time is required" },
     ]);
   });
+
+  it("asks a team event for expected teams", () => {
+    const draft = completeDraft();
+    draft.unit = "team";
+    draft.categories[0]!.expectedEntries = null;
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.map((i) => i.message)).toContain("Expected teams is required");
+  });
 });

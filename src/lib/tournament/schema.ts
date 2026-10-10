@@ -110,7 +110,7 @@ function categorySchema(unit: Unit | null, format: FormatType | null) {
       lineUp: z.object(
         Object.fromEntries(EVENT_TYPES.map((e) => [e, lineUpCount])) as Record<EventType, typeof lineUpCount>,
       ),
-      expectedEntries: whole("Expected entries", 2),
+      expectedEntries: whole(unit === "team" ? "Expected teams" : "Expected entries", 2),
       groupMode: z.enum(["auto", "fixed"]).nullable(),
       groupCount: z.number().nullable(),
       preferredGroupSize: z.number().nullable(),
