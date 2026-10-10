@@ -1,4 +1,5 @@
-import type { AnalysisError, FormatError, Stage } from "@/engine";
+import { playersPerEntry, type AnalysisError, type EventType, type FormatError, type Stage, type Unit } from "@/engine";
+import { EVENT_LABELS } from "@/lib/tournament/events";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import type { PlanIssue } from "@/lib/tournament/schema";
 
@@ -42,7 +43,17 @@ export function formatMinutesShort(total: number): string {
 export function categoryName(draft: PlanDraft, id: string): string {
   const index = draft.categories.findIndex((c) => c.id === id);
   const category = draft.categories[index];
-  return category?.name.trim() || `Category ${index + 1}`;
+  const fallback =
+    draft.unit === "individual" && category?.event ? EVENT_LABELS[category.event] : `Category ${index + 1}`;
+  return category?.name.trim() || fallback;
+}
+
+/** What one entry is called: player, pair, team, or entry when not yet known. */
+export function entryNoun(unit: Unit | null, event: EventType | null, plural = false): string {
+  const noun =
+    unit === "team" ? "team" : unit === "individual" && event ? (playersPerEntry(event) === 1 ? "player" : "pair") : "entry";
+  if (!plural) return noun;
+  return noun === "entry" ? "entries" : `${noun}s`;
 }
 
 /** Where an issue sits, in words, e.g. "Mixed doubles" or "Finance". */
@@ -55,6 +66,9 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
       const category = typeof key === "number" ? draft.categories[key] : undefined;
       return category ? categoryName(draft, category.id) : "Categories";
     }
+    case "unit":
+    case "format":
+      return "Categories and format";
     case "stageRules":
       return `Match rules: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
@@ -66,8 +80,10 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
 
 export function formatErrorMessage(error: FormatError): string {
   switch (error.code) {
-    case "tooFewPairs":
-      return `Needs at least ${error.minimum} pairs`;
+    case "tooFewEntries":
+      return `Needs at least ${error.minimum} entries`;
+    case "missingGroups":
+      return "Set how groups are made";
     case "invalidGroupCount":
       return `Too many groups for these entries: at most ${error.maximum}`;
     case "invalidQualifiers":

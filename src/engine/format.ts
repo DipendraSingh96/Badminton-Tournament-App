@@ -72,7 +72,10 @@ function total(counts: StageCounts): number {
   return counts.group + counts.knockout + counts.bronze + counts.final;
 }
 
-export function categoryFormat(category: Category, format: FormatType): FormatResult {
+/** The parts of a category its structure depends on. */
+export type FormatInputs = Pick<Category, "expectedEntries" | "groups" | "qualifiersPerGroup" | "bronze">;
+
+export function categoryFormat(category: FormatInputs, format: FormatType): FormatResult {
   const entries = category.expectedEntries;
   if (entries < 2) {
     return { ok: false, errors: [{ code: "tooFewEntries", minimum: 2 }] };
