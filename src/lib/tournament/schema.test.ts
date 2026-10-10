@@ -41,9 +41,8 @@ function completeDraft(): PlanDraft {
     deuce: "standard",
     deuceLimit: 30,
     bestOf: 1,
-    minutesPerGame: 12,
-    changeoverMinutes: 3,
   };
+  draft.eventTiming.XD = { minutesPerGame: 12, changeoverMinutes: 3 };
   draft.stageRules.knockout = { ...draft.stageRules.group };
   draft.stageRules.bronze = { ...draft.stageRules.group };
   draft.stageRules.final = { ...draft.stageRules.group, bestOf: 3 };
@@ -96,8 +95,6 @@ describe("parsePlan", () => {
       deuce: null,
       deuceLimit: null,
       bestOf: null,
-      minutesPerGame: null,
-      changeoverMinutes: null,
     };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
@@ -127,7 +124,8 @@ describe("parsePlan", () => {
     const category = draft.categories[0]!;
     category.name = "Club team cup";
     category.lineUp = { ...category.lineUp, MS: 3, MD: 2 };
-    category.playersPerTeam = 7;
+    draft.eventTiming.MS = { minutesPerGame: 15, changeoverMinutes: 3 };
+    draft.eventTiming.MD = { minutesPerGame: 12, changeoverMinutes: 3 };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.categories[0]!.entry).toEqual({
@@ -136,11 +134,14 @@ describe("parsePlan", () => {
         { event: "MS", count: 3 },
         { event: "MD", count: 2 },
       ],
-      playersPerTeam: 7,
+    });
+    expect(result.inputs.eventTiming).toEqual({
+      MS: { minutesPerGame: 15, changeoverMinutes: 3 },
+      MD: { minutesPerGame: 12, changeoverMinutes: 3 },
     });
   });
 
-  it("asks a team event for a name, a line-up and a squad size", () => {
+  it("asks a team event for a name and a line-up", () => {
     const draft = completeDraft();
     draft.unit = "team";
     const result = parsePlan(draft);
@@ -149,7 +150,6 @@ describe("parsePlan", () => {
     const messages = result.issues.map((i) => i.message);
     expect(messages).toContain("Name is required");
     expect(messages).toContain("Add at least one rubber to the line-up");
-    expect(messages).toContain("Players per team is required");
   });
 
   it("needs no group settings for knockout only", () => {
@@ -163,5 +163,18 @@ describe("parsePlan", () => {
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.categories[0]!.groups).toBeUndefined();
     expect(result.inputs.format).toBe("knockout");
+  });
+
+  it("asks for timing only for events in use", () => {
+    const draft = completeDraft();
+    draft.eventTiming.XD = { minutesPerGame: null, changeoverMinutes: null };
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const timingIssues = result.issues.filter((i) => i.path[0] === "eventTiming");
+    expect(timingIssues).toEqual([
+      { path: ["eventTiming", "XD", "minutesPerGame"], message: "Minutes per game is required" },
+      { path: ["eventTiming", "XD", "changeoverMinutes"], message: "Organising time is required" },
+    ]);
   });
 });

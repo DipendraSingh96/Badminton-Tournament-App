@@ -13,7 +13,7 @@ import {
   type TournamentInputs,
   type Unit,
 } from "@/engine";
-import type { PlanDraft, StageRulesDraft } from "./draft";
+import { eventsInUse, type PlanDraft, type StageRulesDraft } from "./draft";
 import { EVENT_LABELS } from "./events";
 
 // Validates a plan draft and converts it to engine inputs. Messages are
@@ -110,7 +110,6 @@ function categorySchema(unit: Unit | null, format: FormatType | null) {
       lineUp: z.object(
         Object.fromEntries(EVENT_TYPES.map((e) => [e, lineUpCount])) as Record<EventType, typeof lineUpCount>,
       ),
-      playersPerTeam: z.number().nullable(),
       expectedEntries: whole("Expected entries", 2),
       groupMode: z.enum(["auto", "fixed"]).nullable(),
       groupCount: z.number().nullable(),
@@ -132,7 +131,6 @@ function categorySchema(unit: Unit | null, format: FormatType | null) {
         if (rubbers < 1) {
           ctx.addIssue({ code: "custom", message: "Add at least one rubber to the line-up", path: ["lineUp"] });
         }
-        check(ctx, whole("Players per team", 1), c.playersPerTeam, ["playersPerTeam"]);
       }
       if (format === "groupsKnockout" || format === "groups") {
         if (!c.groupMode) {
@@ -153,8 +151,6 @@ const stageRulesSchema = z
     deuce: z.enum(["none", "cap", "standard"], { error: "Choose a deuce rule" }),
     deuceLimit: z.number().nullable(),
     bestOf: z.union([z.literal(1), z.literal(3)], { error: "Choose best of 1 or 3" }),
-    minutesPerGame: positive("Minutes per game"),
-    changeoverMinutes: amount("Organising time"),
   })
   .superRefine((s, ctx) => {
     if (s.deuce === "none") return;
@@ -192,6 +188,11 @@ const financeSchema = z.object({
         }
       }),
   ),
+});
+
+const eventTimingSchema = z.object({
+  minutesPerGame: positive("Minutes per game"),
+  changeoverMinutes: amount("Organising time"),
 });
 
 export interface PlanIssue {
@@ -249,10 +250,14 @@ export function parsePlan(draft: PlanDraft): ParseResult {
             ? { type: "cap", cap: parsed.deuceLimit! }
             : { type: "standard", max: parsed.deuceLimit! },
       bestOf: parsed.bestOf,
-      minutesPerGame: parsed.minutesPerGame,
-      changeoverMinutes: parsed.changeoverMinutes,
     };
     stageRules[stage] = rules;
+  }
+
+  const eventTiming: TournamentInputs["eventTiming"] = {};
+  for (const event of eventsInUse(draft)) {
+    const parsed = collect(eventTimingSchema, draft.eventTiming[event], ["eventTiming", event]);
+    if (parsed) eventTiming[event] = parsed;
   }
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
@@ -285,7 +290,6 @@ export function parsePlan(draft: PlanDraft): ParseResult {
               event: e,
               count: category.lineUp[e]!,
             })),
-            playersPerTeam: category.playersPerTeam!,
           };
     const hasGroups = format !== "knockout";
     return {
@@ -337,6 +341,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       },
       categories: engineCategories,
       stageRules,
+      eventTiming,
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,
         costPerShuttle: finance.costPerShuttle,

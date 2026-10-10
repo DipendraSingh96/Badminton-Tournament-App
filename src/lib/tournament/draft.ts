@@ -34,8 +34,6 @@ export interface CategoryDraft {
   event: EventType | null;
   /** Team events only: rubbers of each event type in a tie. */
   lineUp: Record<EventType, N>;
-  /** Team events only. */
-  playersPerTeam: N;
   /** Players, pairs or teams. */
   expectedEntries: N;
   groupMode: "auto" | "fixed" | null;
@@ -55,6 +53,9 @@ export interface StageRulesDraft {
   /** The cap or maximum, depending on `deuce`. */
   deuceLimit: N;
   bestOf: 1 | 3 | null;
+}
+
+export interface EventTimingDraft {
   minutesPerGame: N;
   changeoverMinutes: N;
 }
@@ -90,7 +91,10 @@ export interface PlanDraft {
   format: FormatType | null;
   frame: FrameDraft;
   categories: CategoryDraft[];
+  /** Scoring per stage. */
   stageRules: Record<Stage, StageRulesDraft>;
+  /** Timing per event type; only events in use need it. */
+  eventTiming: Record<EventType, EventTimingDraft>;
   finance: FinanceDraft;
 }
 
@@ -104,9 +108,22 @@ export function emptyStageRules(): StageRulesDraft {
     deuce: null,
     deuceLimit: null,
     bestOf: null,
-    minutesPerGame: null,
-    changeoverMinutes: null,
   };
+}
+
+/**
+ * Events the plan plays: each individual category's event, or every event
+ * in a team line-up with at least one rubber. In the order of EVENT_TYPES.
+ */
+export function eventsInUse(draft: PlanDraft): EventType[] {
+  const used = new Set<EventType>();
+  for (const category of draft.categories) {
+    if (draft.unit === "individual" && category.event) used.add(category.event);
+    if (draft.unit === "team") {
+      for (const event of EVENT_TYPES) if ((category.lineUp[event] ?? 0) > 0) used.add(event);
+    }
+  }
+  return EVENT_TYPES.filter((event) => used.has(event));
 }
 
 export function emptyCourtWindow(): CourtWindowDraft {
@@ -119,7 +136,6 @@ export function emptyCategory(): CategoryDraft {
     name: "",
     event: null,
     lineUp: Object.fromEntries(EVENT_TYPES.map((e) => [e, null])) as Record<EventType, N>,
-    playersPerTeam: null,
     expectedEntries: null,
     groupMode: null,
     groupCount: null,
@@ -162,6 +178,9 @@ export function emptyDraft(timeZone: string): PlanDraft {
       bronze: emptyStageRules(),
       final: emptyStageRules(),
     },
+    eventTiming: Object.fromEntries(
+      EVENT_TYPES.map((e) => [e, { minutesPerGame: null, changeoverMinutes: null }]),
+    ) as Record<EventType, EventTimingDraft>,
     finance: {
       shuttlesPerGame: null,
       costPerShuttle: null,
