@@ -40,7 +40,7 @@ A tournament is made of these sections, all editable in Plan mode:
   - **Individual entries:** players (singles) or pairs (doubles) enter and win individually.
   - **Teams:** teams made up of several players and pairs enter, and the winner is a team (e.g. Thomas Cup, Uber Cup).
 - **Event types:** men's singles, women's singles, men's doubles, women's doubles, mixed doubles, and Open doubles (men's, women's and mixed pairs competing together; doubles only).
-- **Categories:** any number. With individual entries, each category is one event type with its own eligibility and expected entries (players for singles, pairs for doubles). With teams, each category is a team competition with its own line-up (see 4.2), players per team and expected teams.
+- **Categories:** any number. With individual entries, each category is one event type with its own eligibility and expected entries (players for singles, pairs for doubles). With teams, each category is a team competition with its own line-up (see 4.2) and expected teams.
 
 ### 4.2 Format (tuned until demand fits the frame)
 **Format type**, chosen once per tournament: groups then knockout, knockout only, or groups only.
@@ -50,15 +50,15 @@ Per category, as the format type requires:
 - Qualifiers per group and knockout depth (quarterfinals, semifinals, bronze match yes/no, final)
 - Knockout pairing pattern (e.g. cross-group seeding)
 
-**Team line-up** (team events): the organiser sets how many rubbers of each event type a tie between two teams contains (e.g. three men's singles and two men's doubles). Every rubber is always played. The team that wins the most rubbers wins the tie.
+**Team line-up** (team events): the organiser sets how many rubbers of each event type a tie between two teams contains (e.g. three men's singles and two men's doubles). Every rubber is always played. The team that wins the most rubbers wins the tie. Each player plays one rubber only, so a team's squad is the players its line-up needs (one per singles rubber, two per doubles rubber). No reserves for now.
 
-**Match rules, set per stage** (group, early knockout rounds, bronze, final):
+**Scoring, set per stage** (group, early knockout rounds, bronze, final) and applied to every event:
 - Points per game
 - Deuce rule: none (straight race), hard cap, or standard with a maximum
 - Sets per match: best of 1 or best of 3
 
 ### 4.3 Schedule
-- **Time per game:** playing time plus organising time between games. Tunable separately per stage.
+- **Time per game, set per event type** (e.g. men's singles, mixed doubles): typical playing time per game, plus organising time per match.
 - **Buffer time**
 - Court allocation in waves, with dedicated court blocks per category and reallocation when a category finishes early
 - Rest time between a pair's consecutive matches
@@ -87,7 +87,7 @@ Finance shares its inputs with the other sections (entries, match count, time pe
 All calculation logic lives in a separate engine of pure functions with tests. It takes the tournament inputs and returns results; it contains no tournament-specific values.
 
 ### 5.1 Capacity
-Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = total matches × slot length, calculated at typical and worst-case duration (worst case derived from the match rules for each stage). Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
+Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = Σ matches × slot length for each stage and event type, calculated at typical and worst-case duration. The slot length takes the games and longest possible game from the stage's scoring, and the minutes per game and organising time from the event's timing. Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
 
 ### 5.2 Format
 Given the number of entries in a category, the format type and the chosen group structure, generate groups, fixtures (a group of n plays n(n−1)/2 fixtures), qualification places and bracket pairings. A knockout of n entries plays n − 1 fixtures, plus a bronze match if chosen. With individual entries each fixture is one match; in a team event each fixture is a tie of as many matches (rubbers) as the line-up sets. Group size and number of groups trade off: larger groups lengthen the group stage and shorten the knockout, and the reverse. Recompute whenever entries or structure change, including after registration closes and actual entries differ from expected.
