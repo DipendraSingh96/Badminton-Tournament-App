@@ -1,4 +1,13 @@
-import type { Analysis, CategoryAnalysis, FormatType, MatchMinutes, TournamentInputs } from "@/engine";
+import type {
+  Analysis,
+  CategoryAnalysis,
+  EventType,
+  FormatType,
+  MatchMinutes,
+  Stage,
+  TournamentInputs,
+} from "@/engine";
+import { EVENT_LABELS } from "@/lib/tournament/events";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { STAGE_LABELS, categoryName, formatMinutes, formatMoney } from "./labels";
 
@@ -32,6 +41,11 @@ export function formatClock(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
+/** The slot length for a stage and event the analysis reported demand for. */
+export function slotFor(analysis: Analysis, stage: Stage, event: EventType): MatchMinutes {
+  return analysis.slots.find((s) => s.stage === stage && s.event === event)!.minutes;
+}
+
 // Capacity
 
 export function playingTimeWorking(analysis: Analysis, inputs: TournamentInputs): string[] {
@@ -63,8 +77,8 @@ export function courtTimeWorking(analysis: Analysis, inputs: TournamentInputs): 
 
 export function neededWorking(analysis: Analysis, length: "typical" | "worst"): string[] {
   const lines = analysis.demand.map((d) => {
-    const slot = analysis.matchMinutes[d.stage]![length];
-    return `${STAGE_LABELS[d.stage]}: ${plural(d.matches, "match", "matches")} × ${formatNumber(slot)} min = ${exact(d[length])}`;
+    const slot = slotFor(analysis, d.stage, d.event)[length];
+    return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${formatNumber(slot)} min = ${exact(d[length])}`;
   });
   lines.push(`Total = ${exact(analysis.capacity.needed[length])}`);
   lines.push("Slot lengths are worked out under Matches.");
@@ -189,8 +203,8 @@ export function revenueWorking(analysis: Analysis, draft: PlanDraft): string[] {
 export function shuttleWorking(analysis: Analysis): string[] {
   const { finance } = analysis;
   const lines = analysis.demand.map((d) => {
-    const perMatch = analysis.matchMinutes[d.stage]!.typicalGames;
-    return `${STAGE_LABELS[d.stage]}: ${plural(d.matches, "match", "matches")} × ${plural(perMatch, "game")} = ${plural(d.games, "game")}`;
+    const perMatch = slotFor(analysis, d.stage, d.event).typicalGames;
+    return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${plural(perMatch, "game")} = ${plural(d.games, "game")}`;
   });
   lines.push(
     `${plural(finance.games, "game")} × ${plural(finance.shuttlesPerGame, "shuttle")} = ${plural(finance.shuttles, "shuttle")}`,
@@ -215,7 +229,9 @@ export function otherCostWorking(cost: Analysis["finance"]["otherCosts"][number]
   const { rate, basis, headcount } = cost.perPerson;
   const lines = [`${plural(headcount, BASIS_LABEL[basis], basis === "custom" ? "people" : undefined)} × ${formatMoney(rate)} = ${formatMoney(cost.amount)}`];
   if (basis === "players") {
-    lines.unshift("Players = entries × players in each (1 for singles, 2 for doubles, the squad for a team), across all categories");
+    lines.unshift(
+      "Players = entries × players in each (1 for singles, 2 for doubles; for a team, the players its line-up needs), across all categories",
+    );
   }
   return lines;
 }

@@ -69,8 +69,10 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
     case "unit":
     case "format":
       return "Categories and format";
+    case "eventTiming":
+      return `Timing: ${EVENT_LABELS[key as EventType]}`;
     case "stageRules":
-      return `Match rules: ${STAGE_LABELS[key as Stage]}`;
+      return `Scoring: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
       return "Finance";
     default:
@@ -93,7 +95,10 @@ export function formatErrorMessage(error: FormatError): string {
 
 export function analysisErrorMessages(draft: PlanDraft, error: AnalysisError): string[] {
   if (error.code === "missingStageRules") {
-    return [`Enter match rules for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
+    return [`Enter scoring for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
+  }
+  if (error.code === "missingEventTiming") {
+    return [`Enter timing for ${EVENT_LABELS[error.event].toLowerCase()}`];
   }
   return error.errors.map(
     (e) => `${categoryName(draft, error.categoryId)}: ${formatErrorMessage(e)}`,

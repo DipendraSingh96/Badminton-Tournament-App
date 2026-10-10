@@ -37,6 +37,7 @@ import {
   formatMoney,
   issueSection,
 } from "./labels";
+import { EVENT_LABELS } from "@/lib/tournament/events";
 import { ProfitChart } from "./profit-chart";
 import {
   categoryMatchesWorking,
@@ -336,13 +337,11 @@ function MatchesCard({
           ))}
         </div>
         <div>
-          {STAGES.map((stage) => {
-            const minutes = analysis.matchMinutes[stage];
-            if (!minutes || analysis.matches[stage] === 0) return null;
+          {analysis.slots.map(({ stage, event, minutes }) => {
             return (
               <Row
-                key={stage}
-                label={`${STAGE_LABELS[stage]} slot`}
+                key={`${stage}:${event}`}
+                label={`${STAGE_LABELS[stage]} slot, ${EVENT_LABELS[event].toLowerCase()}`}
                 value={
                   minutes.typical === minutes.worst
                     ? formatMinutes(minutes.typical)
