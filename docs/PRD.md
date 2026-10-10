@@ -30,20 +30,27 @@ A tournament is made of these sections, all editable in Plan mode:
 5. Rules
 
 ### 4.1 Frame (set first; the outer bounds and the type of competition)
-- **Time available:** start time and end time, or total hours. A ceiling, not a target. The tournament may finish earlier, never later.
+- **Date, time zone, and time available:** start time and end time. A ceiling, not a target. The tournament may finish earlier, never later.
+- **Buffer:** time held back at the end of the day for miscellaneous activity such as prize distribution.
 - **Courts:** number of courts, which may vary by time window (e.g. more courts earlier in the day, fewer later).
 - **Umpires:** number available.
-- **Discipline(s):** single discipline or multiple disciplines played together.
-- **Unit of competition:** individual, pair or team.
-- **Categories:** any number, each with its own discipline, eligibility, and expected entries.
 
-MVP supports pairs (doubles), one or more categories, group stage then knockout. See Out of scope.
+### 4.1a Unit of play and categories (set at the start of Categories and format)
+- **Unit of play**, chosen once per tournament:
+  - **Individual entries:** players (singles) or pairs (doubles) enter and win individually.
+  - **Teams:** teams made up of several players and pairs enter, and the winner is a team (e.g. Thomas Cup, Uber Cup).
+- **Event types:** men's singles, women's singles, men's doubles, women's doubles, mixed doubles, and Open doubles (men's, women's and mixed pairs competing together; doubles only).
+- **Categories:** any number. With individual entries, each category is one event type with its own eligibility and expected entries (players for singles, pairs for doubles). With teams, each category is a team competition with its own line-up (see 4.2), players per team and expected teams.
 
 ### 4.2 Format (tuned until demand fits the frame)
-Per category:
+**Format type**, chosen once per tournament: groups then knockout, knockout only, or groups only.
+
+Per category, as the format type requires:
 - Number of groups and group size (or let the app propose a split from the entry count)
 - Qualifiers per group and knockout depth (quarterfinals, semifinals, bronze match yes/no, final)
-- Knockout pairing pattern (e.g. cross-group seeding) 
+- Knockout pairing pattern (e.g. cross-group seeding)
+
+**Team line-up** (team events): the organiser sets how many rubbers of each event type a tie between two teams contains (e.g. three men's singles and two men's doubles). Every rubber is always played. The team that wins the most rubbers wins the tie.
 
 **Match rules, set per stage** (group, early knockout rounds, bronze, final):
 - Points per game
@@ -83,7 +90,7 @@ All calculation logic lives in a separate engine of pure functions with tests. I
 Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = total matches × slot length, calculated at typical and worst-case duration (worst case derived from the match rules for each stage). Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
 
 ### 5.2 Format
-Given the number of pairs in a category and the chosen group structure, generate groups, fixtures (a group of n plays n(n−1)/2 matches), qualification places and bracket pairings. Group size and number of groups trade off: larger groups lengthen the group stage and shorten the knockout, and the reverse. Recompute whenever entries or structure change, including after registration closes and actual entries differ from expected.
+Given the number of entries in a category, the format type and the chosen group structure, generate groups, fixtures (a group of n plays n(n−1)/2 fixtures), qualification places and bracket pairings. A knockout of n entries plays n − 1 fixtures, plus a bronze match if chosen. With individual entries each fixture is one match; in a team event each fixture is a tie of as many matches (rubbers) as the line-up sets. Group size and number of groups trade off: larger groups lengthen the group stage and shorten the knockout, and the reverse. Recompute whenever entries or structure change, including after registration closes and actual entries differ from expected.
 
 ### 5.3 Schedule
 Allocate every match to a court and slot in waves, from the match rules, time per game, buffer, rest policy and court availability. Estimate finish time, typical and worst case.
@@ -120,7 +127,7 @@ Each slice is demoable. Start each in plan mode.
 5. **Results page and PDF export.**
 
 ## 10. Out of scope (MVP)
-Team tournaments, singles, formats other than group stage plus knockout, online payments, notifications (email/SMS/push), multi-day events, public tournament discovery.
+Formats other than groups then knockout, knockout only, or groups only; online payments, notifications (email/SMS/push), multi-day events, public tournament discovery.
 
 ## 11. Design direction
 **Sporty high-contrast** (chosen by the product owner, 10 October 2026). It may be replaced by a direction from the UX designer; because every colour, radius and type choice is a design token in `src/app/globals.css`, that change does not require rewriting screens.
