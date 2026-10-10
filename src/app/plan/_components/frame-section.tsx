@@ -48,16 +48,9 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
           onChange={(v) => update((d) => void (d.frame.endTime = v))}
         />
         <NumberField
-          label="Umpires available"
-          step="1"
-          path={["frame", "umpires"]}
-          value={frame.umpires}
-          onChange={(v) => update((d) => void (d.frame.umpires = v))}
-        />
-        <NumberField
           label="Buffer (minutes)"
           step="1"
-          hint="Held back at the end of the day for overruns."
+          hint="Held back at the end of the day for miscellaneous activity like prize distribution."
           path={["frame", "bufferMinutes"]}
           value={frame.bufferMinutes}
           onChange={(v) => update((d) => void (d.frame.bufferMinutes = v))}
@@ -116,6 +109,16 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
           </div>
         ))}
       </div>
+
+      <FieldGrid>
+        <NumberField
+          label="Umpires available"
+          step="1"
+          path={["frame", "umpires"]}
+          value={frame.umpires}
+          onChange={(v) => update((d) => void (d.frame.umpires = v))}
+        />
+      </FieldGrid>
     </Section>
   );
 }
