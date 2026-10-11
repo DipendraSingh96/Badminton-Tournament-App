@@ -77,8 +77,8 @@ export function courtTimeWorking(analysis: Analysis, inputs: TournamentInputs): 
 
 export function neededWorking(analysis: Analysis, length: "typical" | "worst"): string[] {
   const lines = analysis.demand.map((d) => {
-    const slot = slotFor(analysis, d.stage, d.event)[length];
-    return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${formatNumber(slot)} min = ${exact(d[length])}`;
+    const slot = slotFor(analysis, d.stage, d.event);
+    return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${formatNumber(slot[length])} min (${slotSummary(slot, length)}) = ${exact(d[length])}`;
   });
   lines.push(`Total = ${exact(analysis.capacity.needed[length])}`);
   lines.push("Slot lengths are worked out under Matches.");
@@ -96,12 +96,33 @@ export function spareWorking(analysis: Analysis): string[] {
 
 // Matches
 
+function percent(fraction: number): string {
+  return `${formatNumber(fraction * 100)}%`;
+}
+
+function longestGameMinutes(slot: MatchMinutes): number {
+  return (slot.minutesPerGame * slot.maxPoints) / slot.pointsPerGame;
+}
+
+/** One-line working for a slot length, e.g. "2 games × 12 min + 3 min + 33%". */
+export function slotSummary(slot: MatchMinutes, length: "typical" | "worst"): string {
+  if (length === "typical") {
+    const base = `${plural(slot.baseGames, "game")} × ${formatNumber(slot.minutesPerGame)} min + ${formatNumber(slot.changeoverMinutes)} min`;
+    if (slot.allowance === 0) return base;
+    return `(${base}) + ${percent(slot.allowance)}${slot.capped ? ", capped at worst case" : ""}`;
+  }
+  return `${plural(slot.worstGames, "game")} × ${formatNumber(longestGameMinutes(slot))} min + ${formatNumber(slot.changeoverMinutes)} min`;
+}
+
 export function slotWorking(slot: MatchMinutes, length: "typical" | "worst"): string[] {
   const organising = `${formatMinutes(slot.changeoverMinutes)} organising`;
   if (length === "typical") {
+    const base = `${plural(slot.baseGames, "game")} × ${formatMinutes(slot.minutesPerGame)} + ${organising} = ${formatNumber(slot.typicalBeforeAllowance)} min`;
+    if (slot.worstGames === 1) return [base];
+    if (slot.allowance === 0) return [`${base} (best of 3 counted as 2 games; no allowance set)`];
     return [
-      `${plural(slot.typicalGames, "game")} × ${formatMinutes(slot.minutesPerGame)} + ${organising} = ${formatMinutes(slot.typical)}` +
-        (slot.typicalGames < slot.worstGames ? ` (best of ${slot.worstGames} usually takes ${slot.typicalGames} games)` : ""),
+      `${base}, + ${percent(slot.allowance)} best-of-3 allowance for third games = ${formatNumber(slot.typicalBeforeAllowance * (1 + slot.allowance))} min` +
+        (slot.capped ? `, capped at the worst case of ${formatNumber(slot.worst)} min` : ""),
     ];
   }
   if (slot.maxPoints === slot.pointsPerGame) {
@@ -110,7 +131,7 @@ export function slotWorking(slot: MatchMinutes, length: "typical" | "worst"): st
       "No deuce, so a game can't run past its target.",
     ];
   }
-  const longestGame = (slot.minutesPerGame * slot.maxPoints) / slot.pointsPerGame;
+  const longestGame = longestGameMinutes(slot);
   return [
     `Longest game: ${slot.maxPoints} points instead of ${slot.pointsPerGame}, so ${formatMinutes(slot.minutesPerGame)} × ${slot.maxPoints}/${slot.pointsPerGame} = ${formatNumber(longestGame)} min a game`,
     `${plural(slot.worstGames, "game")} × ${formatNumber(longestGame)} min + ${organising} = ${formatNumber(slot.worst)} min`,
