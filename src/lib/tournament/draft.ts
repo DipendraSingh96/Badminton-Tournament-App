@@ -97,6 +97,8 @@ export interface PlanDraft {
   stageRules: Record<Stage, StageRulesDraft>;
   /** Timing per event type; only events in use need it. */
   eventTiming: Record<EventType, EventTimingDraft>;
+  /** Percentage added to typical best-of-3 matches; needed when any stage is best of 3. */
+  bestOfThreeAllowance: N;
   finance: FinanceDraft;
 }
 
@@ -111,6 +113,11 @@ export function emptyStageRules(): StageRulesDraft {
     deuceLimit: null,
     bestOf: null,
   };
+}
+
+/** True when any stage is set to best of 3. */
+export function usesBestOfThree(draft: PlanDraft): boolean {
+  return Object.values(draft.stageRules).some((stage) => stage.bestOf === 3);
 }
 
 /**
@@ -183,6 +190,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     eventTiming: Object.fromEntries(
       EVENT_TYPES.map((e) => [e, { minutesPerGame: null, changeoverMinutes: null }]),
     ) as Record<EventType, EventTimingDraft>,
+    bestOfThreeAllowance: null,
     finance: {
       shuttlesPerGame: null,
       costPerShuttle: null,

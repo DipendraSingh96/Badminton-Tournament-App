@@ -43,6 +43,7 @@ function completeDraft(): PlanDraft {
     bestOf: 1,
   };
   draft.eventTiming.XD = { minutesPerGame: 12, changeoverMinutes: 3 };
+  draft.bestOfThreeAllowance = 33;
   draft.stageRules.knockout = { ...draft.stageRules.group };
   draft.stageRules.bronze = { ...draft.stageRules.group };
   draft.stageRules.final = { ...draft.stageRules.group, bestOf: 3 };
@@ -198,5 +199,29 @@ describe("parsePlan", () => {
     expect(result.issues).toEqual([
       { path: ["frame", "courtWindows", 0, "rate"], message: "Court rate is required" },
     ]);
+  });
+
+  it("asks for the best-of-3 allowance only when a stage is best of 3", () => {
+    const bestOfOne = completeDraft();
+    bestOfOne.stageRules.final = { ...bestOfOne.stageRules.final, bestOf: 1 };
+    bestOfOne.bestOfThreeAllowance = null;
+    const plain = parsePlan(bestOfOne);
+    if (!plain.ok) throw new Error(JSON.stringify(plain.issues));
+    expect(plain.inputs.bestOfThreeAllowance).toBe(0);
+
+    const draft = completeDraft();
+    draft.bestOfThreeAllowance = null;
+    const missing = parsePlan(draft);
+    expect(missing.ok).toBe(false);
+    if (missing.ok) return;
+    expect(missing.issues).toContainEqual({
+      path: ["bestOfThreeAllowance"],
+      message: "Best-of-3 allowance is required",
+    });
+
+    draft.bestOfThreeAllowance = 33;
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.bestOfThreeAllowance).toBeCloseTo(0.33);
   });
 });

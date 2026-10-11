@@ -13,7 +13,7 @@ import {
   type TournamentInputs,
   type Unit,
 } from "@/engine";
-import { eventsInUse, type PlanDraft, type StageRulesDraft } from "./draft";
+import { eventsInUse, usesBestOfThree, type PlanDraft, type StageRulesDraft } from "./draft";
 import { EVENT_LABELS } from "./events";
 
 // Validates a plan draft and converts it to engine inputs. Messages are
@@ -255,6 +255,12 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     stageRules[stage] = rules;
   }
 
+  let bestOfThreeAllowance = 0;
+  if (usesBestOfThree(draft)) {
+    const percent = collect(amount("Best-of-3 allowance"), draft.bestOfThreeAllowance, ["bestOfThreeAllowance"]);
+    if (percent !== null) bestOfThreeAllowance = percent / 100;
+  }
+
   const eventTiming: TournamentInputs["eventTiming"] = {};
   for (const event of eventsInUse(draft)) {
     const parsed = collect(eventTimingSchema, draft.eventTiming[event], ["eventTiming", event]);
@@ -344,6 +350,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       categories: engineCategories,
       stageRules,
       eventTiming,
+      bestOfThreeAllowance,
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,
         costPerShuttle: finance.costPerShuttle,

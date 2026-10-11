@@ -4,7 +4,7 @@ import { CopyIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { STAGES, type Stage } from "@/engine";
-import type { PlanDraft, StageRulesDraft } from "@/lib/tournament/draft";
+import { usesBestOfThree, type PlanDraft, type StageRulesDraft } from "@/lib/tournament/draft";
 import { FieldGrid, NumberField, Section, SelectField } from "./fields";
 import { STAGE_LABELS } from "./labels";
 import type { Update } from "./plan-editor";
@@ -26,6 +26,17 @@ export function StageRulesSection({ draft, update }: { draft: PlanDraft; update:
       title="Scoring"
       description="Set per stage and used for every event. Leave a stage empty if no category plays it."
     >
+      {usesBestOfThree(draft) ? (
+        <FieldGrid>
+          <NumberField
+            label="Best-of-3 allowance (%)"
+            hint="Extra time added to every best-of-3 match, because some go to a third game. 33% adds a third."
+            path={["bestOfThreeAllowance"]}
+            value={draft.bestOfThreeAllowance ?? null}
+            onChange={(v) => update((d) => void (d.bestOfThreeAllowance = v))}
+          />
+        </FieldGrid>
+      ) : null}
       {STAGES.map((stage: Stage, i) => {
         const rules = draft.stageRules[stage];
         const set = <K extends keyof StageRulesDraft>(key: K) => (value: StageRulesDraft[K]) =>

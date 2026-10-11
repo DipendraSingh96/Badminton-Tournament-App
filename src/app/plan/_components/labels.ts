@@ -71,6 +71,8 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
       return "Categories and format";
     case "eventTiming":
       return `Timing: ${EVENT_LABELS[key as EventType]}`;
+    case "bestOfThreeAllowance":
+      return "Scoring";
     case "stageRules":
       return `Scoring: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
