@@ -49,6 +49,27 @@ describe("matchMinutes", () => {
     });
   });
 
+  it("adds the best-of-3 allowance to the whole typical match", () => {
+    const slot = matchMinutes(rules({ bestOf: 3 }), { minutesPerGame: 12, changeoverMinutes: 3 }, 0.33);
+    expect(slot.typicalBeforeAllowance).toBe(27);
+    expect(slot.typical).toBeCloseTo(35.91);
+    expect(slot.worst).toBe(39);
+    expect(slot.typicalGames).toBeCloseTo(2.66);
+    expect(slot.capped).toBe(false);
+  });
+
+  it("leaves best of 1 unaffected by the allowance", () => {
+    expect(matchMinutes(rules(), timing, 0.33)).toMatchObject({ typical: 14, allowance: 0, typicalGames: 1 });
+  });
+
+  it("never lets typical exceed the worst case", () => {
+    const slot = matchMinutes(rules({ bestOf: 3 }), timing, 1);
+    // (2 x 10 + 4) x 2 = 48 would pass the worst case of 3 x 10 + 4 = 34.
+    expect(slot.typical).toBe(34);
+    expect(slot.capped).toBe(true);
+    expect(slot.typicalGames).toBe(3);
+  });
+
   it("takes minutes and organising time from the event's timing", () => {
     const singles: EventTiming = { minutesPerGame: 15, changeoverMinutes: 5 };
     expect(matchMinutes(rules({ bestOf: 3 }), singles)).toMatchObject({ typical: 35, worst: 50 });

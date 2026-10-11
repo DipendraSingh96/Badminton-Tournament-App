@@ -138,5 +138,10 @@ export interface TournamentInputs {
   stageRules: Partial<Record<Stage, StageRules>>;
   /** Only events that are played need timing. */
   eventTiming: Partial<Record<EventType, EventTiming>>;
+  /**
+   * Extra on the typical length of every best-of-3 match, as a fraction
+   * (0.33 adds a third), because some go to a third game.
+   */
+  bestOfThreeAllowance: number;
   finance: Finance;
 }

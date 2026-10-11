@@ -36,6 +36,7 @@ function tournament(): TournamentInputs {
     ],
     stageRules: { group: stage, knockout: stage, final: stage },
     eventTiming: { MD: { minutesPerGame: 12, changeoverMinutes: 3 } },
+    bestOfThreeAllowance: 0,
     finance: {
       shuttlesPerGame: 1,
       costPerShuttle: 2,
@@ -138,6 +139,21 @@ describe("analyseTournament", () => {
     if (!result.ok) throw new Error(JSON.stringify(result.errors));
     // 6 ties: 18 singles rubbers at 18 min, 12 doubles rubbers at 15 min.
     expect(result.analysis.capacity.needed.typical).toBe(18 * 18 + 12 * 15);
+  });
+
+  it("applies the best-of-3 allowance to best-of-3 stages only, time and shuttles", () => {
+    const plain = analyseTournament(tournament());
+    const withAllowance = tournament();
+    withAllowance.stageRules.final = { ...stage, bestOf: 3 };
+    withAllowance.bestOfThreeAllowance = 0.33;
+    const result = analyseTournament(withAllowance);
+    if (!plain.ok || !result.ok) throw new Error("expected valid analyses");
+    const final = result.analysis.demand.find((d) => d.stage === "final")!;
+    // Final: (2 x 12 + 3) x 1.33 = 35.91 min; 2.66 games.
+    expect(final.typical).toBeCloseTo(35.91);
+    expect(final.games).toBeCloseTo(2.66);
+    const group = result.analysis.demand.find((d) => d.stage === "group")!;
+    expect(group.typical).toBe(plain.analysis.demand.find((d) => d.stage === "group")!.typical);
   });
 
   it("asks for timing for every event that is played", () => {

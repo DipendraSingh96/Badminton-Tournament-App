@@ -120,13 +120,13 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       const count = byEvent.get(key(stage, event));
       const timing = inputs.eventTiming[event];
       if (!count || !timing) continue;
-      const slot = matchMinutes(rules, timing);
+      const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
       slots.push({ stage, event, minutes: slot });
       demand.push({
         stage,
         event,
         matches: count,
-        games: count * typicalGames(rules),
+        games: count * typicalGames(rules, inputs.bestOfThreeAllowance),
         typical: count * slot.typical,
         worst: count * slot.worst,
       });
