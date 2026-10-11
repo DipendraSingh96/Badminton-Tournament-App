@@ -56,6 +56,7 @@ Per category, as the format type requires:
 - Points per game
 - Deuce rule: none (straight race), hard cap, or standard with a maximum
 - Sets per match: best of 1 or best of 3
+- **Best-of-3 allowance**, set by the organiser once for the tournament: extra time added to the typical length of every best-of-3 match, organising time included, because some go to a third game (e.g. 33% adds a third)
 
 ### 4.3 Schedule
 - **Time per game, set per event type** (e.g. men's singles, mixed doubles): typical playing time per game, plus organising time per match.
@@ -88,7 +89,7 @@ Finance shares its inputs with the other sections (entries, match count, time pe
 All calculation logic lives in a separate engine of pure functions with tests. It takes the tournament inputs and returns results; it contains no tournament-specific values.
 
 ### 5.1 Capacity
-Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = Σ matches × slot length for each stage and event type, calculated at typical and worst-case duration. The slot length takes the games and longest possible game from the stage's scoring, and the minutes per game and organising time from the event's timing. Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
+Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = Σ matches × slot length for each stage and event type, calculated at typical and worst-case duration. The slot length takes the games and longest possible game from the stage's scoring, and the minutes per game and organising time from the event's timing. Typical best of 1 = minutes per game + organising. Typical best of 3 = (2 × minutes per game + organising) × (1 + best-of-3 allowance), capped at the worst case. Worst case plays every game at its longest possible length, plus organising. Typical shuttle use for best of 3 assumes 2 games plus the same allowance. Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
 
 ### 5.2 Format
 Given the number of entries in a category, the format type and the chosen group structure, generate groups, fixtures (a group of n plays n(n−1)/2 fixtures), qualification places and bracket pairings. A knockout of n entries plays n − 1 fixtures, plus a bronze match if chosen. With individual entries each fixture is one match; in a team event each fixture is a tie of as many matches (rubbers) as the line-up sets. Group size and number of groups trade off: larger groups lengthen the group stage and shorten the knockout, and the reverse. Recompute whenever entries or structure change, including after registration closes and actual entries differ from expected.
