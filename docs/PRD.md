@@ -71,12 +71,15 @@ Per category, as the format type requires:
 ### 4.4 Finance (a section of every tournament, not a separate module)
 Inputs:
 - Expected entries and, of those, expected external entries (counted in entries: players, pairs or teams); entry fee per player or per entry, with an optional external fee. With a per-player fee, external entries are multiplied by the players in an entry.
-- Shuttles per game, cost per shuttle
+- Shuttles per game, and the shuttle price either per shuttle or per tube (with the number of shuttles per tube set by the organiser; the cost per shuttle is calculated)
 - Prizes by category and position
 - Court hire, calculated per court: its booked availability within each of its hall's rate bands, × that band's rate (only booked time is charged, including the buffer)
 - Other costs as a free list; each is a fixed amount or a per-person amount (e.g. umpire food, trophies, printing)
+- Other money in as a free list; each is a fixed amount (e.g. sponsorship) or a per-person amount, per player or for a set number of people (e.g. spectator tickets)
 
-Outputs: revenue, shuttle cost, total cost, profit or loss, break-even entries, cost breakdown, profit curve across entry counts.
+Outputs: revenue (entry fees plus other money in), shuttle cost, total cost, profit or loss, break-even entries for a chosen category (others held at their expected entries), cost breakdown, profit curve across entry counts.
+
+**Suggested levers:** what-if suggestions, each re-running the plan with one input changed and showing the new fit status, court time needed and profit. They never change the plan. Only natural steps are used, so no step size is invented: one more court in a hall; best of 1 instead of best of 3 for a stage; no deuce for a stage; one fewer group or a preferred group size one larger; no bronze match; the exact fee rise that breaks even (when there is a loss); shuttles per game down to the next whole number (not below 1); without each other cost. Levers that improve neither fit nor profit are not shown.
 
 Finance shares its inputs with the other sections (entries, match count, time per game). It recalculates live as the organiser changes format or entries. It must work with zero fees and zero prizes, in which case it shows the cost to the organisers.
 
