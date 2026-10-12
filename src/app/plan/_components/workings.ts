@@ -1,6 +1,8 @@
 import type {
   Analysis,
   CategoryAnalysis,
+  Lever,
+  LeverChange,
   FormatType,
   MatchMinutes,
   Stage,
@@ -231,11 +233,76 @@ export function categoryRevenueWorking(
 }
 
 export function revenueWorking(analysis: Analysis, draft: PlanDraft): string[] {
-  const { revenueByCategory, revenue } = analysis.finance;
+  const { revenueByCategory, otherIncome, revenue } = analysis.finance;
   return [
     ...revenueByCategory.map((r) => `${categoryName(draft, r.categoryId)}: ${formatMoney(r.amount)}`),
+    ...otherIncome.map((i) => `${i.label}: ${formatMoney(i.amount)}`),
     `Total = ${formatMoney(revenue)}`,
   ];
+}
+
+export function incomeWorking(income: Analysis["finance"]["otherIncome"][number]): string[] {
+  if (!income.perPerson) return [];
+  const { rate, basis, headcount } = income.perPerson;
+  const lines = [
+    `${plural(headcount, basis === "players" ? "player" : "person", basis === "custom" ? "people" : undefined)} × ${formatMoney(rate)} = ${formatMoney(income.amount)}`,
+  ];
+  if (basis === "players") {
+    lines.unshift(
+      "Players = entries × players in each (1 for singles, 2 for doubles; for a team, the players its line-up needs), across all categories",
+    );
+  }
+  return lines;
+}
+
+const DEUCE_NAMES = { cap: "a points cap", standard: "win by two" } as const;
+
+/** What a lever changes, in words. */
+export function leverLabel(change: LeverChange, inputs: TournamentInputs, draft: PlanDraft): string {
+  switch (change.kind) {
+    case "addCourt":
+      return `${inputs.frame.halls.find((h) => h.id === change.hallId)?.name ?? "Hall"}: one more court`;
+    case "bestOfOne":
+      return `${STAGE_LABELS[change.stage]}: best of 1 instead of best of 3`;
+    case "noDeuce":
+      return `${STAGE_LABELS[change.stage]}: no deuce instead of ${DEUCE_NAMES[change.from]}`;
+    case "groupCount":
+      return `${categoryName(draft, change.categoryId)}: ${change.to} groups instead of ${change.from}`;
+    case "groupSize":
+      return `${categoryName(draft, change.categoryId)}: preferred group size ${change.to} instead of ${change.from}`;
+    case "noBronze":
+      return `${categoryName(draft, change.categoryId)}: no bronze match`;
+    case "breakEvenFee":
+      return `${categoryName(draft, change.categoryId)}: fee ${formatMoney(change.by)} more per ${change.basis === "player" ? "player" : "entry"}`;
+    case "fewerShuttles":
+      return `${formatNumber(change.to)} ${change.to === 1 ? "shuttle" : "shuttles"} per game instead of ${formatNumber(change.from)}`;
+    case "dropCost":
+      return `Without ${change.label.toLowerCase()}`;
+  }
+}
+
+function signed(text: string, value: number): string {
+  return value > 0 ? `+${text}` : value < 0 ? `−${text}` : text;
+}
+
+export function leverWorking(lever: Lever, before: Analysis): string[] {
+  const { outcome, delta } = lever;
+  const lines = [
+    `Court time needed: ${formatMinutes(before.capacity.needed.typical)} → ${formatMinutes(outcome.needed.typical)} (${signed(formatMinutes(delta.neededTypical), delta.neededTypical)})`,
+    `Worst case: ${formatMinutes(before.capacity.needed.worst)} → ${formatMinutes(outcome.needed.worst)} (${signed(formatMinutes(delta.neededWorst), delta.neededWorst)})`,
+  ];
+  if (delta.available !== 0) {
+    lines.push(
+      `Court time available: ${formatMinutes(before.capacity.available.courtMinutes)} → ${formatMinutes(outcome.available)} (${signed(formatMinutes(delta.available), delta.available)})`,
+    );
+  }
+  lines.push(
+    `Profit: ${formatMoney(before.finance.profit)} → ${formatMoney(outcome.profit)} (${signed(formatMoney(Math.abs(delta.profit)), delta.profit)})`,
+  );
+  if (lever.change.kind === "breakEvenFee") {
+    lines.push("The fee rise is the loss divided by those paying, rounded up to the penny; external fees rise by the same.");
+  }
+  return lines;
 }
 
 export function shuttleWorking(analysis: Analysis): string[] {

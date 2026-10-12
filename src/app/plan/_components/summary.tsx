@@ -33,16 +33,19 @@ export function Summary({
   draft,
   parsed,
   analysis,
+  breakEvenId,
   onGoTo,
 }: {
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
+  /** The category break-even varies; the first when unset or removed. */
+  breakEvenId: string | null;
   onGoTo: (issue: PlanIssue) => void;
 }) {
   const result = analysis?.ok ? analysis.analysis : null;
   const inputs = parsed.ok ? parsed.inputs : null;
-  const first = inputs?.categories[0];
+  const first = inputs?.categories.find((c) => c.id === breakEvenId) ?? inputs?.categories[0];
 
   const breakEven = useMemo(() => {
     if (!inputs || !first || !result) return null;

@@ -11,9 +11,8 @@ import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
-import { FeesSection } from "./fees-section";
 import { IssuesContext, issueMap, pathKey } from "./fields";
-import { FinanceSection } from "./finance-section";
+import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { Summary } from "./summary";
@@ -79,6 +78,25 @@ function tabFor(issue: PlanIssue): Tab | null {
   }
 }
 
+// The category break-even varies, chosen on the Finance tab.
+const BREAK_EVEN_KEY = "badminton:break-even-category";
+
+function loadBreakEven(): string | null {
+  try {
+    return window.localStorage.getItem(BREAK_EVEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveBreakEven(id: string) {
+  try {
+    window.localStorage.setItem(BREAK_EVEN_KEY, id);
+  } catch {
+    // Not remembered; the first category is used.
+  }
+}
+
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
@@ -86,6 +104,7 @@ function browserTimeZone(): string {
 function Editor() {
   const [draft, setDraft] = useState<PlanDraft>(() => loadDraft() ?? emptyDraft(browserTimeZone()));
   const [tab, setTab] = useState<Tab>(loadTab);
+  const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
   const layout = useDefaultLayout({ id: "badminton:plan-layout", storage: window.localStorage });
 
   useEffect(() => saveDraft(draft), [draft]);
@@ -98,6 +117,11 @@ function Editor() {
     () => (parsed.ok ? analyseTournament(parsed.inputs) : null),
     [parsed],
   );
+
+  function chooseBreakEven(id: string) {
+    setBreakEvenId(id);
+    saveBreakEven(id);
+  }
 
   function chooseTab(next: Tab) {
     setTab(next);
@@ -155,7 +179,7 @@ function Editor() {
             <ResizableHandle withHandle />
             <ResizablePanel id="workbench" defaultSize="34" minSize={360} maxSize="55">
               <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
-                <Summary draft={draft} parsed={parsed} analysis={analysis} onGoTo={goTo} />
+                <Summary draft={draft} parsed={parsed} analysis={analysis} breakEvenId={breakEvenId} onGoTo={goTo} />
                 <Tabs
                   value={tab}
                   onValueChange={(value) => chooseTab(value as Tab)}
@@ -174,12 +198,25 @@ function Editor() {
                     </TabsContent>
                     <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
                       <ScheduleTab draft={draft} update={update} />
-                      <DerivedCards tab="schedule" draft={draft} parsed={parsed} analysis={analysis} />
+                      <DerivedCards
+                        tab="schedule"
+                        draft={draft}
+                        parsed={parsed}
+                        analysis={analysis}
+                        breakEvenId={breakEvenId}
+                        onChooseBreakEven={chooseBreakEven}
+                      />
                     </TabsContent>
                     <TabsContent value="finance" className="flex flex-col gap-4 p-4">
-                      <FeesSection draft={draft} update={update} />
-                      <FinanceSection draft={draft} update={update} />
-                      <DerivedCards tab="finance" draft={draft} parsed={parsed} analysis={analysis} />
+                      <FinanceTab draft={draft} update={update} />
+                      <DerivedCards
+                        tab="finance"
+                        draft={draft}
+                        parsed={parsed}
+                        analysis={analysis}
+                        breakEvenId={breakEvenId}
+                        onChooseBreakEven={chooseBreakEven}
+                      />
                     </TabsContent>
                   </div>
                 </Tabs>

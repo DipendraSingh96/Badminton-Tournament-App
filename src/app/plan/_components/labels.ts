@@ -107,7 +107,13 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
     case "stageRules":
       return `Stage: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
-      return "Finance";
+      return key === "otherIncome"
+        ? "Finance: Other money in"
+        : key === "otherCosts"
+          ? "Finance: Other costs"
+          : key === "prizes"
+            ? "Finance: Prizes"
+            : "Finance: Shuttles";
     default:
       return "Plan";
   }

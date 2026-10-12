@@ -17,6 +17,7 @@ import {
   STAGES,
   fixturesPerEntry,
   profitCurve,
+  suggestLevers,
   type Analysis,
   type AnalysisResult,
   type CapacityStatus,
@@ -44,6 +45,9 @@ import {
   courtHireWorking,
   courtTimeWorking,
   formatNumber,
+  incomeWorking,
+  leverLabel,
+  leverWorking,
   neededWorking,
   otherCostWorking,
   playingTimeWorking,
@@ -499,11 +503,16 @@ function FinanceCard({
             })()}
           />
         ))}
+        {finance.otherIncome.map((income) => (
+          <Row key={income.id} label={income.label} value={formatMoney(income.amount)} working={incomeWorking(income)} />
+        ))}
         <Row
           strong
           label="Revenue"
           value={formatMoney(finance.revenue)}
-          working={finance.revenueByCategory.length > 1 ? revenueWorking(analysis, draft) : undefined}
+          working={
+            finance.revenueByCategory.length + finance.otherIncome.length > 1 ? revenueWorking(analysis, draft) : undefined
+          }
         />
         <div className="my-2 border-t" />
         <Row
@@ -541,12 +550,21 @@ function FinanceCard({
   );
 }
 
-function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInputs }) {
-  const [chosenId, setCategoryId] = useState<string | null>(null);
+function ProfitCard({
+  draft,
+  inputs,
+  breakEvenId,
+  onChooseBreakEven,
+}: {
+  draft: PlanDraft;
+  inputs: TournamentInputs;
+  breakEvenId: string | null;
+  onChooseBreakEven: (id: string) => void;
+}) {
   const [upTo, setUpTo] = useState<number | null>(null);
 
   const category =
-    inputs.categories.find((c) => c.id === chosenId) ?? inputs.categories[0];
+    inputs.categories.find((c) => c.id === breakEvenId) ?? inputs.categories[0];
   const to = Math.max(upTo ?? category!.expectedEntries * 2, 3);
 
   const curve = useMemo(
@@ -579,7 +597,7 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
               path={["dashboard", "category"]}
               value={category.id}
               options={inputs.categories.map((c) => ({ value: c.id, label: categoryName(draft, c.id) }))}
-              onChange={setCategoryId}
+              onChange={onChooseBreakEven}
             />
           ) : null}
           <NumberField
@@ -605,17 +623,86 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
   );
 }
 
+/** What-if suggestions: each re-runs the plan with one change. Never applied. */
+function LeversCard({
+  draft,
+  analysis,
+  inputs,
+}: {
+  draft: PlanDraft;
+  analysis: Analysis;
+  inputs: TournamentInputs;
+}) {
+  const levers = useMemo(() => suggestLevers(inputs, analysis), [inputs, analysis]);
+  const showFit = analysis.capacity.status !== "fits";
+  const toFit = showFit ? levers.filter((l) => l.improvesFit) : [];
+  // A lever that helps both is listed once, under fit.
+  const toProfit = levers
+    .filter((l) => l.improvesProfit && !toFit.includes(l))
+    .sort((a, b) => b.delta.profit - a.delta.profit);
+  const list = (items: typeof levers, measure: "fit" | "profit") =>
+    items.map((lever, i) => (
+      <div key={i} className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">{leverLabel(lever.change, inputs, draft)}</span>
+          <Badge className={STATUS[lever.outcome.status].className}>{STATUS[lever.outcome.status].label}</Badge>
+        </div>
+        <Row
+          label={`Needs ${formatMinutesShort(lever.outcome.needed.typical)} · ${lever.outcome.profit < 0 ? "loss" : "profit"} ${formatMoney(Math.abs(lever.outcome.profit))}`}
+          value={
+            measure === "fit"
+              ? `+${formatMinutesShort(lever.fitGain)} spare`
+              : `${lever.delta.profit >= 0 ? "+" : "−"}${formatMoney(Math.abs(lever.delta.profit))}`
+          }
+          working={leverWorking(lever, analysis)}
+        />
+      </div>
+    ));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Suggested levers</CardTitle>
+        <CardDescription>
+          Each re-runs the plan with one change. Suggestions only: change the input yourself to use one.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {toFit.length + toProfit.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No single change improves fit or profit.</p>
+        ) : null}
+        {toFit.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">To fit</h3>
+            {list(toFit, "fit")}
+          </div>
+        ) : null}
+        {toProfit.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">To improve profit</h3>
+            {list(toProfit, "profit")}
+          </div>
+        ) : null}
+        {toFit.length + toProfit.length > 0 ? <WorkingHint /> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Derived results shown inside a workbench tab, once the plan is complete. */
 export function DerivedCards({
   tab,
   draft,
   parsed,
   analysis,
+  breakEvenId,
+  onChooseBreakEven,
 }: {
   tab: "schedule" | "finance";
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
+  breakEvenId: string | null;
+  onChooseBreakEven: (id: string) => void;
 }) {
   if (!parsed.ok || !analysis?.ok) return null;
   if (tab === "schedule") {
@@ -631,7 +718,13 @@ export function DerivedCards({
   return (
     <>
       <FinanceCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
-      <ProfitCard draft={draft} inputs={parsed.inputs} />
+      <ProfitCard
+        draft={draft}
+        inputs={parsed.inputs}
+        breakEvenId={breakEvenId}
+        onChooseBreakEven={onChooseBreakEven}
+      />
+      <LeversCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
     </>
   );
 }
