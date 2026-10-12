@@ -104,7 +104,7 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 |---|---|---|
 | Lucide icons | **Phosphor** | The user kept the icon set already in use (CLAUDE.md says Phosphor). |
 | Do not invent a brand | **Neutral tokens** | The earlier sporty high-contrast direction was withdrawn on 12 Oct; neutral until a direction is supplied. |
-| Minutes per game and organising time on each stage card | **Per stage** (to be built in step 4) | The user chose the brief's model, reversing the 10 Oct per-event timing. The engine still has per-event timing until step 4. |
+| Minutes per game and organising time on each stage card | **Per stage** (built in step 4) | The user chose the brief's model, reversing the 10 Oct per-event timing. |
 | Stage cards: group, knockout, finals | **Four cards**: group, knockout rounds, bronze, final | The user kept bronze separate. |
 | Structure block shown once | **Per category** | Each category keeps its own groups, qualifiers and bronze. |
 | Category chips (one per event) | **Several categories per event**, each renameable | e.g. Men's doubles A and B. |
@@ -174,6 +174,14 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Removing a category also removes it from prizes and the eligibility rules.
 - Until steps 4 and 5, expected entries (and external entries), groups, qualifiers and bronze sit in an "Entries and structure" block on the Schedule structure tab, and entry fees in an "Entry fees" block on the Finance tab. Values a format doesn't use are kept, with a note.
 
+### Schedule structure (12 Oct)
+- Timing is per stage: each stage card holds points per game, deuce rule, games per match, minutes per game and organising time per match, and applies to every event and rubber in the stage. Drafts saved with per-event timing copy it to every stage only when all events in use agree; otherwise stage timing starts empty and is listed as missing.
+- Stages the format doesn't play (or bronze when no category has it) show as a collapsed "Not played" card and need no values; values already there are kept.
+- "Of which external" is counted in entries (pairs, teams), next to expected entries. A per-player fee multiplies it by the players in an entry. Saved values counted in players were converted.
+- A wave is one round of a group: every entry plays at most once in it. A group of n has n − 1 rounds when n is even and n when odd. Categories play their waves side by side, so the group stage has as many waves as its longest category.
+- With several halls, the app suggests groups per hall: each group stays in one hall, shared in proportion to each hall's court time, largest groups first. A suggestion only.
+- Storage moved to v5; v4 and v3 drafts migrate on load.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the first category until the Finance tab lets the organiser choose.
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
@@ -187,19 +195,18 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 | 1. Shell and layout | Done | Commits `3210483`, `13a0cb3` (12 Oct). |
 | 2. Venue canvas | Done | Commits `5a7ca2c` to `c56e3ac` (12 Oct). |
 | 3. Tournament setup tab and rules | Done | Commits `75d8383` to `a25ae1d` (12 Oct). |
-| 4. Schedule structure tab | Next | Includes moving timing to the stage cards, and redesigning the interim entries and structure block. |
-| 5. Finance tab and suggested levers | To do | Includes per-tube shuttles and other money in. |
+| 4. Schedule structure tab | Done | Commits `fef582d` onwards (12 Oct). |
+| 5. Finance tab and suggested levers | Next | Includes per-tube shuttles, other money in, and redesigning the interim entry fees block. |
 | 6. Timeline | To do | |
 | 7. Previous tournaments and duplicate | To do | |
 
 **Still interim**
-- The Schedule structure and Finance tabs hold the older form sections, plus the entries, structure and fee blocks moved out of setup, until steps 4 and 5 replace them.
+- The Finance tab holds the older form sections and the entry fees block until step 5 replaces them.
 - The timeline card is an empty placeholder.
 - The left panel shows only the current tournament; "New tournament" clears the plan.
 - Break-even in the summary uses the first category.
 
 ## 7. Open questions carried forward
-- Waves (step 4): how a group-stage wave is defined, and how the suggested wave distribution across halls should work.
 - Umpires: whether they belong anywhere other than on courts.
 - PRD §12: who registers pairs, the draw method, the score correction window.
 
