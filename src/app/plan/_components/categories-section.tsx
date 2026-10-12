@@ -192,7 +192,7 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
             <div key={category.id} className="flex flex-col gap-3">
               <Separator />
               <div className="flex items-end gap-2">
-                <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid flex-1 grid-cols-1 gap-3 @md:grid-cols-2">
                   {unit === "individual" ? (
                     <>
                       <SelectField
@@ -245,7 +245,7 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
                     Rubbers of each event in every tie. All rubbers are played; the team that wins the
                     most rubbers wins the tie. Each player plays one rubber, so the line-up sets the squad.
                   </p>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-3 @md:grid-cols-3">
                     {EVENT_TYPES.map((event) => (
                       <NumberField
                         key={event}

@@ -28,14 +28,12 @@ import type { ParseResult } from "@/lib/tournament/schema";
 import { NumberField, SelectField } from "./fields";
 import {
   STAGE_LABELS,
-  analysisErrorMessages,
   categoryName,
   entryNoun,
   formatMinutes,
   formatMinutesShort,
   formatGroupSizes,
   formatMoney,
-  issueSection,
 } from "./labels";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { ProfitChart } from "./profit-chart";
@@ -56,8 +54,6 @@ import {
   spareWorking,
   totalCostWorking,
 } from "./workings";
-
-const MAX_LISTED = 8;
 
 /** A figure. With a working, it opens to show how it was calculated. */
 function Row({
@@ -111,7 +107,7 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
       {items.map((item) => (
         <div key={item.label} className="flex flex-col gap-0.5">
           <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="font-mono text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums sm:text-2xl">{item.value}</dd>
+          <dd className="font-mono text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums @md:text-2xl">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -123,27 +119,6 @@ function WorkingHint() {
     <p className="text-xs text-muted-foreground">
       Select a figure to see how it was worked out.
     </p>
-  );
-}
-
-function ToDo({ title, description, items }: { title: string; description: string; items: string[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="flex list-disc flex-col gap-1 pl-5">
-          {items.slice(0, MAX_LISTED).map((item, i) => (
-            <li key={i}>{item}</li>
-          ))}
-        </ul>
-        {items.length > MAX_LISTED ? (
-          <p className="mt-2 text-muted-foreground">and {items.length - MAX_LISTED} more</p>
-        ) : null}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -511,37 +486,29 @@ function ProfitCard({ draft, inputs }: { draft: PlanDraft; inputs: TournamentInp
   );
 }
 
-export function Dashboard({
+/** Derived results shown inside a workbench tab, once the plan is complete. */
+export function DerivedCards({
+  tab,
   draft,
   parsed,
   analysis,
 }: {
+  tab: "schedule" | "finance";
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
 }) {
-  if (!parsed.ok) {
+  if (!parsed.ok || !analysis?.ok) return null;
+  if (tab === "schedule") {
     return (
-      <ToDo
-        title="Still to fill in"
-        description={`${parsed.issues.length} ${parsed.issues.length === 1 ? "item" : "items"} before results appear.`}
-        items={parsed.issues.map((issue) => `${issueSection(draft, issue)}: ${issue.message}`)}
-      />
-    );
-  }
-  if (!analysis || !analysis.ok) {
-    return (
-      <ToDo
-        title="Check the format"
-        description="These need changing before results appear."
-        items={(analysis?.ok === false ? analysis.errors : []).flatMap((e) => analysisErrorMessages(draft, e))}
-      />
+      <>
+        <CapacityCard analysis={analysis.analysis} inputs={parsed.inputs} />
+        <MatchesCard draft={draft} analysis={analysis.analysis} format={parsed.inputs.format} />
+      </>
     );
   }
   return (
     <>
-      <CapacityCard analysis={analysis.analysis} inputs={parsed.inputs} />
-      <MatchesCard draft={draft} analysis={analysis.analysis} format={parsed.inputs.format} />
       <FinanceCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
       <ProfitCard draft={draft} inputs={parsed.inputs} />
     </>

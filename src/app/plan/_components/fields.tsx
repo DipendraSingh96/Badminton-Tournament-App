@@ -48,7 +48,7 @@ function Field({
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
       <Label htmlFor={id}>{label}</Label>
       {children}
       {message ? (
@@ -224,5 +224,5 @@ export function Section({
 
 /** Two columns on wider screens, one on phones. */
 export function FieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>;
+  return <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">{children}</div>;
 }

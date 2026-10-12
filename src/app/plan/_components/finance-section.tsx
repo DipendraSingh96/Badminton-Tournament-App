@@ -68,7 +68,7 @@ export function FinanceSection({ draft, update }: { draft: PlanDraft; update: Up
             update((d) => void (d.finance.prizes[i]![key] = value));
           const path = (key: keyof PrizeDraft) => ["finance", "prizes", i, key];
           return (
-            <div key={prize.id} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_8rem_auto]">
+            <div key={prize.id} className="grid grid-cols-1 items-end gap-2 @lg:grid-cols-[1fr_1fr_8rem_auto]">
               <SelectField
                 label="Category"
                 path={path("categoryId")}

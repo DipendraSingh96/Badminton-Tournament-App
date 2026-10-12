@@ -3,36 +3,18 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { emptyCourtWindow, type PlanDraft } from "@/lib/tournament/draft";
-import { FieldGrid, NumberField, Section, SelectField, TextField } from "./fields";
+import { FieldGrid, NumberField, Section, TextField } from "./fields";
 import type { Update } from "./plan-editor";
 
-const TIME_ZONES = Intl.supportedValuesOf("timeZone").map((tz) => ({
-  value: tz,
-  label: tz.replaceAll("_", " "),
-}));
 
 export function FrameSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   const { frame } = draft;
   return (
     <Section
-      title="Frame"
-      description="The outer bounds. The tournament may finish earlier than the end time, never later."
+      title="Venue"
+      description="Playing hours, courts and their rates. The tournament may finish earlier than the end time, never later."
     >
       <FieldGrid>
-        <TextField
-          label="Date"
-          type="date"
-          path={["frame", "date"]}
-          value={frame.date}
-          onChange={(v) => update((d) => void (d.frame.date = v))}
-        />
-        <SelectField
-          label="Time zone"
-          path={["frame", "timeZone"]}
-          value={frame.timeZone || null}
-          options={TIME_ZONES}
-          onChange={(v) => update((d) => void (d.frame.timeZone = v))}
-        />
         <TextField
           label="Start time"
           type="time"
@@ -74,7 +56,7 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
         {frame.courtWindows.map((window, i) => (
           <div
             key={window.id}
-            className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+            className="grid grid-cols-2 items-end gap-2 @lg:grid-cols-[1fr_1fr_1fr_1fr_auto]"
           >
             <TextField
               label="From"
@@ -104,7 +86,7 @@ export function FrameSection({ draft, update }: { draft: PlanDraft; update: Upda
               onChange={(v) => update((d) => void (d.frame.courtWindows[i]!.rate = v))}
             />
             <Button
-              className="col-span-2 justify-self-end sm:col-span-1"
+              className="col-span-2 justify-self-end @lg:col-span-1"
               variant="ghost"
               size="icon"
               aria-label="Remove time window"
