@@ -1,31 +1,12 @@
 "use client";
 
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  EVENT_TYPES,
-  categoryFormat,
-  playersPerEntry,
-  type FormatType,
-  type GroupMode,
-  type Unit,
-} from "@/engine";
-import { emptyCategory, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
-import { EVENT_LABELS, FORMAT_LABELS, UNIT_LABELS } from "@/lib/tournament/events";
-import { FieldGrid, NumberField, Section, SelectField, SwitchField, TextField } from "./fields";
-import { entryNoun, formatErrorMessage, formatGroupSizes } from "./labels";
+import { EVENT_TYPES, categoryFormat, playersPerEntry, type FormatType, type GroupMode, type Unit } from "@/engine";
+import type { CategoryDraft, PlanDraft } from "@/lib/tournament/draft";
+import { EVENT_LABELS } from "@/lib/tournament/events";
+import { FieldGrid, NumberField, Section, SelectField, SwitchField } from "./fields";
+import { categoryName, entryNoun, formatErrorMessage, formatGroupSizes } from "./labels";
 import type { Update } from "./plan-editor";
-
-const UNITS = (Object.keys(UNIT_LABELS) as Unit[]).map((value) => ({ value, label: UNIT_LABELS[value] }));
-const FORMATS = (Object.keys(FORMAT_LABELS) as FormatType[]).map((value) => ({
-  value,
-  label: FORMAT_LABELS[value],
-}));
-const EVENTS = EVENT_TYPES.map((value) => ({
-  value,
-  label: value === "OPEN" ? "Open doubles (men's, women's and mixed pairs)" : EVENT_LABELS[value],
-}));
 
 const GROUP_MODES = [
   { value: "auto", label: "Propose from a preferred group size" },
@@ -142,124 +123,46 @@ function teamCountHint(category: CategoryDraft): string {
   return `= ${parts.join(", ")}`;
 }
 
-export function CategoriesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
+/** Values entered for a category that the chosen format doesn't use; kept in case the format changes back. */
+function unusedNotice(category: CategoryDraft, format: FormatType): string | null {
+  const groupSettings =
+    category.groupMode !== null ||
+    category.groupCount !== null ||
+    category.preferredGroupSize !== null ||
+    category.qualifiersPerGroup !== null;
+  if (format === "knockout" && groupSettings) {
+    return "Group settings are kept but not used with knockout only.";
+  }
+  if (format === "groups" && (category.qualifiersPerGroup !== null || category.bronze)) {
+    return "Qualifiers and the bronze match are kept but not used with groups only.";
+  }
+  return null;
+}
+
+/**
+ * Expected entries and each category's structure. Interim: the Schedule
+ * structure tab is redesigned in step 4.
+ */
+export function EntriesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   const { unit, format } = draft;
   return (
     <Section
-      title="Categories and format"
-      description="Choose how entries play and the format, then add each category. Tune the format until demand fits the frame."
-      action={
-        unit ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => update((d) => void d.categories.push(emptyCategory()))}
-          >
-            <PlusIcon /> Add category
-          </Button>
-        ) : null
-      }
+      title="Entries and structure"
+      description="Expected entries and how each category is split. Tune these until demand fits the day."
     >
-      <FieldGrid>
-        <SelectField
-          label="Unit of play"
-          path={["unit"]}
-          value={unit}
-          options={UNITS}
-          hint="Teams are made up of several players and pairs; the winner is a team."
-          onChange={(v) => update((d) => void (d.unit = v))}
-        />
-        <SelectField
-          label="Format"
-          path={["format"]}
-          value={format}
-          options={FORMATS}
-          hint="Applies to every category."
-          onChange={(v) => update((d) => void (d.format = v))}
-        />
-      </FieldGrid>
-
-      {!unit ? (
-        <p className="text-sm text-muted-foreground">Choose the unit of play to set up categories.</p>
+      {!unit || draft.categories.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
       ) : (
         draft.categories.map((category, i) => {
           const set = <K extends keyof CategoryDraft>(key: K) => (value: CategoryDraft[K]) =>
             update((d) => void (d.categories[i]![key] = value));
           const path = (key: keyof CategoryDraft) => ["categories", i, key];
-          const noun = entryNoun(unit, category.event);
           const nouns = entryNoun(unit, category.event, true);
+          const notice = format ? unusedNotice(category, format) : null;
           return (
             <div key={category.id} className="flex flex-col gap-3">
-              <Separator />
-              <div className="flex items-end gap-2">
-                <div className="grid flex-1 grid-cols-1 gap-3 @md:grid-cols-2">
-                  {unit === "individual" ? (
-                    <>
-                      <SelectField
-                        label="Event"
-                        path={path("event")}
-                        value={category.event}
-                        options={EVENTS}
-                        onChange={set("event")}
-                      />
-                      <TextField
-                        label="Name (optional)"
-                        placeholder={category.event ? EVENT_LABELS[category.event] : "e.g. Under-15 boys' singles"}
-                        path={path("name")}
-                        value={category.name}
-                        onChange={set("name")}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <TextField
-                        label="Competition name"
-                        placeholder="e.g. Club team cup"
-                        path={path("name")}
-                        value={category.name}
-                        onChange={set("name")}
-                      />
-                    </>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Remove ${category.name || "category"}`}
-                  disabled={draft.categories.length === 1}
-                  onClick={() =>
-                    update((d) => {
-                      d.categories.splice(i, 1);
-                      d.finance.prizes = d.finance.prizes.filter((p) => p.categoryId !== category.id);
-                    })
-                  }
-                >
-                  <TrashIcon />
-                </Button>
-              </div>
-
-              {unit === "team" ? (
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="text-sm font-medium">Line-up of a tie</legend>
-                  <p className="text-xs text-muted-foreground">
-                    Rubbers of each event in every tie. All rubbers are played; the team that wins the
-                    most rubbers wins the tie. Each player plays one rubber, so the line-up sets the squad.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 @md:grid-cols-3">
-                    {EVENT_TYPES.map((event) => (
-                      <NumberField
-                        key={event}
-                        label={EVENT_LABELS[event]}
-                        step="1"
-                        path={["categories", i, "lineUp", event]}
-                        value={category.lineUp[event]}
-                        onChange={(v) => update((d) => void (d.categories[i]!.lineUp[event] = v))}
-                      />
-                    ))}
-                  </div>
-                </fieldset>
-              ) : null}
-
+              {i > 0 ? <Separator /> : null}
+              <h3 className="text-sm font-medium">{categoryName(draft, category.id)}</h3>
               <FieldGrid>
                 <NumberField
                   label={unit === "team" ? "Expected teams" : "Expected entries"}
@@ -268,6 +171,14 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
                   path={path("expectedEntries")}
                   value={category.expectedEntries}
                   onChange={set("expectedEntries")}
+                />
+                <NumberField
+                  label={`Expected external ${category.feeBasis === "player" ? "players" : nouns}`}
+                  step="1"
+                  hint="Optional. How many of the entrants are external."
+                  path={path("expectedExternal")}
+                  value={category.expectedExternal}
+                  onChange={set("expectedExternal")}
                 />
                 {format === "groupsKnockout" || format === "groups" ? (
                   <>
@@ -315,42 +226,12 @@ export function CategoriesSection({ draft, update }: { draft: PlanDraft; update:
               {format === "groupsKnockout" || format === "knockout" ? (
                 <SwitchField label="Bronze match" checked={category.bronze} onChange={set("bronze")} />
               ) : null}
-              {format ? <FormatPreview category={category} unit={unit} format={format} /> : null}
-
-              <h3 className="text-sm font-medium">Entry fee</h3>
-              <FieldGrid>
-                <SelectField
-                  label="Charged"
-                  path={path("feeBasis")}
-                  value={category.feeBasis}
-                  options={[
-                    { value: "player", label: "Per player" },
-                    { value: "entry", label: noun === "entry" ? "Per entry" : `Per ${noun}` },
-                  ]}
-                  onChange={set("feeBasis")}
-                />
-                <NumberField
-                  label="Fee (£)"
-                  path={path("feeAmount")}
-                  value={category.feeAmount}
-                  onChange={set("feeAmount")}
-                />
-                <NumberField
-                  label="External fee (£)"
-                  hint="Optional. Leave empty if everyone pays the same."
-                  path={path("externalFeeAmount")}
-                  value={category.externalFeeAmount}
-                  onChange={set("externalFeeAmount")}
-                />
-                <NumberField
-                  label={`Expected external ${category.feeBasis === "player" ? "players" : nouns}`}
-                  step="1"
-                  hint="Optional."
-                  path={path("expectedExternal")}
-                  value={category.expectedExternal}
-                  onChange={set("expectedExternal")}
-                />
-              </FieldGrid>
+              {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
+              {format ? (
+                <FormatPreview category={category} unit={unit} format={format} />
+              ) : (
+                <p className="text-xs text-muted-foreground">Choose a format on the Tournament setup tab.</p>
+              )}
             </div>
           );
         })

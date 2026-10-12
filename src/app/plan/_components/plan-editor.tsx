@@ -10,12 +10,14 @@ import { analyseTournament } from "@/engine";
 import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
-import { CategoriesSection } from "./categories-section";
 import { DerivedCards } from "./dashboard";
+import { EntriesSection } from "./entries-section";
 import { EventTimingSection } from "./event-timing-section";
+import { FeesSection } from "./fees-section";
 import { IssuesContext, issueMap, pathKey } from "./fields";
 import { FinanceSection } from "./finance-section";
 import { BufferSection } from "./buffer-section";
+import { SetupTab } from "./setup-tab";
 import { StageRulesSection } from "./stage-rules-section";
 import { Summary } from "./summary";
 import { TopBar } from "./top-bar";
@@ -53,13 +55,21 @@ function saveTab(tab: Tab) {
   }
 }
 
+const SETUP_FIELDS: PropertyKey[] = ["name", "event", "lineUp"];
+const FEE_FIELDS: PropertyKey[] = ["feeBasis", "feeAmount", "externalFeeAmount"];
+
 /** Which workbench tab holds the field an issue points at; null for the middle area. */
 function tabFor(issue: PlanIssue): Tab | null {
   switch (issue.path[0]) {
     case "unit":
     case "format":
-    case "categories":
+    case "rules":
       return "setup";
+    case "categories": {
+      const field = issue.path[2];
+      if (field === undefined || SETUP_FIELDS.includes(field)) return "setup";
+      return FEE_FIELDS.includes(field) ? "finance" : "schedule";
+    }
     case "stageRules":
     case "eventTiming":
     case "bestOfThreeAllowance":
@@ -164,15 +174,17 @@ function Editor() {
                   </TabsList>
                   <div className="@container min-h-0 flex-1 overflow-y-auto bg-background">
                     <TabsContent value="setup" className="flex flex-col gap-4 p-4">
-                      <CategoriesSection draft={draft} update={update} />
+                      <SetupTab draft={draft} update={update} />
                     </TabsContent>
                     <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
+                      <EntriesSection draft={draft} update={update} />
                       <BufferSection draft={draft} update={update} />
                       <StageRulesSection draft={draft} update={update} />
                       <EventTimingSection draft={draft} update={update} />
                       <DerivedCards tab="schedule" draft={draft} parsed={parsed} analysis={analysis} />
                     </TabsContent>
                     <TabsContent value="finance" className="flex flex-col gap-4 p-4">
+                      <FeesSection draft={draft} update={update} />
                       <FinanceSection draft={draft} update={update} />
                       <DerivedCards tab="finance" draft={draft} parsed={parsed} analysis={analysis} />
                     </TabsContent>

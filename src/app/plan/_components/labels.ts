@@ -1,6 +1,6 @@
 import { playersPerEntry, type AnalysisError, type EventType, type FormatError, type Stage, type Unit } from "@/engine";
 import { EVENT_LABELS } from "@/lib/tournament/events";
-import { hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { defaultCategoryName, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import type { PlanIssue } from "@/lib/tournament/schema";
 
 export const STAGE_LABELS: Record<Stage, string> = {
@@ -43,9 +43,8 @@ export function formatMinutesShort(total: number): string {
 export function categoryName(draft: PlanDraft, id: string): string {
   const index = draft.categories.findIndex((c) => c.id === id);
   const category = draft.categories[index];
-  const fallback =
-    draft.unit === "individual" && category?.event ? EVENT_LABELS[category.event] : `Category ${index + 1}`;
-  return category?.name.trim() || fallback;
+  if (!category) return "Removed category";
+  return category.name.trim() || defaultCategoryName(draft, index);
 }
 
 /** What one entry is called: player, pair, team, or entry when not yet known. */
@@ -74,7 +73,9 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
     }
     case "unit":
     case "format":
-      return "Categories and format";
+      return "Tournament setup";
+    case "rules":
+      return "Rules";
     case "eventTiming":
       return `Timing: ${EVENT_LABELS[key as EventType]}`;
     case "bestOfThreeAllowance":
