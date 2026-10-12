@@ -182,8 +182,15 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - With several halls, the app suggests groups per hall: each group stays in one hall, shared in proportion to each hall's court time, largest groups first. A suggestion only.
 - Storage moved to v5; v4 and v3 drafts migrate on load.
 
+### Finance tab and levers (12 Oct)
+- Shuttle price is entered per shuttle or per tube; per tube needs the shuttles in a tube (an organiser input, not fixed at 12) and shows the calculated cost per shuttle. Drafts saved with a cost per shuttle keep it as a per-shuttle price.
+- Other money in mirrors other costs: a fixed amount, or per person (per player, or a set number of people). Revenue is entry fees plus other money in.
+- Break-even varies one category, chosen on the Finance tab (remembered in this browser); the summary follows the choice.
+- Suggested levers use natural steps only, so no step size is invented: one more court in a hall; best of 1 instead of best of 3; no deuce; a group more or fewer, or a preferred group size one larger or smaller; no bronze match; the exact fee rise that breaks even (when there's a loss, rounded up to the penny, external fee raised by the same); shuttles per game down to the next whole number (not below 1); without each other cost.
+- Each lever re-runs the whole plan. Levers that improve neither fit nor profit are hidden. "To fit" (shown when the plan doesn't fit) lists the court time gained, most first; "To improve profit" lists the profit gained. A lever that helps both is listed under fit. Levers never change the plan.
+
 ### Workbench and dashboard
-- Sticky summary always visible; break-even uses the first category until the Finance tab lets the organiser choose.
+- Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
 - The summary lists what is missing and jumps to the field.
 
@@ -196,15 +203,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 | 2. Venue canvas | Done | Commits `5a7ca2c` to `c56e3ac` (12 Oct). |
 | 3. Tournament setup tab and rules | Done | Commits `75d8383` to `a25ae1d` (12 Oct). |
 | 4. Schedule structure tab | Done | Commits `fef582d` onwards (12 Oct). |
-| 5. Finance tab and suggested levers | Next | Includes per-tube shuttles, other money in, and redesigning the interim entry fees block. |
-| 6. Timeline | To do | |
+| 5. Finance tab and suggested levers | Done | Commits from the step 5 PRD update onwards (12 Oct). |
+| 6. Timeline | Next | |
 | 7. Previous tournaments and duplicate | To do | |
 
 **Still interim**
-- The Finance tab holds the older form sections and the entry fees block until step 5 replaces them.
 - The timeline card is an empty placeholder.
 - The left panel shows only the current tournament; "New tournament" clears the plan.
-- Break-even in the summary uses the first category.
 
 ## 7. Open questions carried forward
 - Umpires: whether they belong anywhere other than on courts.
