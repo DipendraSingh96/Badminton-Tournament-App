@@ -30,10 +30,10 @@ A tournament is made of these sections, all editable in Plan mode:
 5. Rules
 
 ### 4.1 Frame (set first; the outer bounds and the type of competition)
-- **Date, time zone, and time available:** start time and end time. A ceiling, not a target. The tournament may finish earlier, never later.
-- **Buffer:** time held back at the end of the day for miscellaneous activity such as prize distribution.
-- **Courts:** number of courts, which may vary by time window (e.g. more courts earlier in the day, fewer later). Each window has its own rate per court per hour.
-- **Umpires:** number available.
+- **Date and time zone.** The day's times come from the venue: it runs from the earliest hall opening to the latest hall closing. A ceiling, not a target: the tournament may finish earlier, never later.
+- **Venue: halls.** Each hall has its hours (from, until), one or more **rate bands** (from, until, rate per court per hour, e.g. peak and off-peak) and its courts. Bands must cover the hall's hours with no overlap. A hall's settings can be copied from another hall.
+- **Courts.** Each court has its availability (defaults to its hall's hours; can be narrowed) and the umpires on it. Total umpires is the sum across courts.
+- **Buffer:** time held back at the end of the whole day for miscellaneous activity such as prize distribution. Play must end by the latest hall closing minus the buffer; a hall that closes earlier is unaffected.
 
 ### 4.1a Unit of play and categories (set at the start of Categories and format)
 - **Unit of play**, chosen once per tournament:
@@ -70,7 +70,7 @@ Inputs:
 - Expected entries, and entry fee (per player or per pair; may differ per category or by player type)
 - Shuttles per game, cost per shuttle
 - Prizes by category and position
-- Court hire, calculated from the court windows: booked hours × courts × rate, for every window (all booked time is charged, including the buffer)
+- Court hire, calculated per court: its booked availability within each of its hall's rate bands, × that band's rate (only booked time is charged, including the buffer)
 - Other costs as a free list; each is a fixed amount or a per-person amount (e.g. umpire food, trophies, printing)
 
 Outputs: revenue, shuttle cost, total cost, profit or loss, break-even entries, cost breakdown, profit curve across entry counts.
@@ -89,7 +89,7 @@ Finance shares its inputs with the other sections (entries, match count, time pe
 All calculation logic lives in a separate engine of pure functions with tests. It takes the tournament inputs and returns results; it contains no tournament-specific values.
 
 ### 5.1 Capacity
-Court-minutes available = time available × courts (respecting court availability windows). Court-minutes needed = Σ matches × slot length for each stage and event type, calculated at typical and worst-case duration. The slot length takes the games and longest possible game from the stage's scoring, and the minutes per game and organising time from the event's timing. Typical best of 1 = minutes per game + organising. Typical best of 3 = (2 × minutes per game + organising) × (1 + best-of-3 allowance), capped at the worst case. Worst case plays every game at its longest possible length, plus organising. Typical shuttle use for best of 3 assumes 2 games plus the same allowance. Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
+Court-minutes available = Σ over courts of each court's availability within the playing window (earliest hall opening to latest hall closing, less the buffer). Court-minutes needed = Σ matches × slot length for each stage and event type, calculated at typical and worst-case duration. The slot length takes the games and longest possible game from the stage's scoring, and the minutes per game and organising time from the event's timing. Typical best of 1 = minutes per game + organising. Typical best of 3 = (2 × minutes per game + organising) × (1 + best-of-3 allowance), capped at the worst case. Worst case plays every game at its longest possible length, plus organising. Typical shuttle use for best of 3 assumes 2 games plus the same allowance. Show whether the plan fits, how much spare there is, and which inputs to change if it doesn't.
 
 ### 5.2 Format
 Given the number of entries in a category, the format type and the chosen group structure, generate groups, fixtures (a group of n plays n(n−1)/2 fixtures), qualification places and bracket pairings. A knockout of n entries plays n − 1 fixtures, plus a bronze match if chosen. With individual entries each fixture is one match; in a team event each fixture is a tie of as many matches (rubbers) as the line-up sets. Group size and number of groups trade off: larger groups lengthen the group stage and shorten the knockout, and the reverse. Recompute whenever entries or structure change, including after registration closes and actual entries differ from expected.
@@ -100,7 +100,7 @@ Allocate every match to a court and slot in waves, from the match rules, time pe
 ### 5.4 Finance
 - Revenue = entries × fee
 - Shuttle cost = total matches × shuttles per game × cost per shuttle
-- Court hire = Σ over court windows of booked hours × courts × rate per court per hour
+- Court hire = Σ over courts, Σ over their hall's rate bands, of (hours the court is booked within the band × the band's rate per court per hour)
 - Total cost = court hire + shuttles + prizes + other costs
 - Profit = revenue − total cost
 - Break-even entries and profit curve: because entries change the format, and the format changes the match count, these are found by re-running the format for each entry count rather than from a single formula.
