@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchMinutes, maxPointsPerGame } from "./duration";
-import type { EventTiming, StageRules } from "./types";
+import type { StageRules, Timing } from "./types";
 
 function rules(overrides: Partial<StageRules> = {}): StageRules {
   return {
@@ -11,7 +11,7 @@ function rules(overrides: Partial<StageRules> = {}): StageRules {
   };
 }
 
-const timing: EventTiming = { minutesPerGame: 10, changeoverMinutes: 4 };
+const timing: Timing = { minutesPerGame: 10, changeoverMinutes: 4 };
 
 describe("maxPointsPerGame", () => {
   it("is the target with no deuce", () => {
@@ -70,8 +70,8 @@ describe("matchMinutes", () => {
     expect(slot.typicalGames).toBe(3);
   });
 
-  it("takes minutes and organising time from the event's timing", () => {
-    const singles: EventTiming = { minutesPerGame: 15, changeoverMinutes: 5 };
-    expect(matchMinutes(rules({ bestOf: 3 }), singles)).toMatchObject({ typical: 35, worst: 50 });
+  it("takes minutes and organising time from the stage's timing", () => {
+    const longer: Timing = { minutesPerGame: 15, changeoverMinutes: 5 };
+    expect(matchMinutes(rules({ bestOf: 3 }), longer)).toMatchObject({ typical: 35, worst: 50 });
   });
 });

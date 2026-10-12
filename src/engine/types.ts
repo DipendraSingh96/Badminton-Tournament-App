@@ -20,8 +20,8 @@ export interface StageRules {
   bestOf: 1 | 3;
 }
 
-/** Timing for an event type; applies in every stage. */
-export interface EventTiming {
+/** Timing for a stage; applies to every event played in it. */
+export interface Timing {
   /** Typical playing time for one game. */
   minutesPerGame: number;
   /** Organising time per match: walk-on, warm-up, changeover. */
@@ -103,7 +103,7 @@ export interface EntryFee {
   amount: number;
   /** Fee for external entrants; defaults to `amount`. */
   externalAmount?: number;
-  /** Expected external entrants, counted in the fee basis unit. */
+  /** Expected external entries (players, pairs or teams), of the expected entries. */
   expectedExternal: number;
 }
 
@@ -215,8 +215,8 @@ export interface TournamentInputs {
   categories: Category[];
   /** Only stages that have matches need rules. */
   stageRules: Partial<Record<Stage, StageRules>>;
-  /** Only events that are played need timing. */
-  eventTiming: Partial<Record<EventType, EventTiming>>;
+  /** Only stages that have matches need timing. */
+  stageTiming: Partial<Record<Stage, Timing>>;
   /**
    * Extra on the typical length of every best-of-3 match, as a fraction
    * (0.33 adds a third), because some go to a third game.

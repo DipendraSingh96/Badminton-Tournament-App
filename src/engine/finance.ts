@@ -110,7 +110,9 @@ export function categoryRevenueWorking(category: Category): CategoryRevenue {
   const playersPerEntry = playersPerCategoryEntry(category);
   const entrants =
     fee.basis === "player" ? category.expectedEntries * playersPerEntry : category.expectedEntries;
-  const external = Math.min(fee.expectedExternal, entrants);
+  // External entries are counted in entries; a per-player fee counts their players.
+  const external =
+    Math.min(fee.expectedExternal, category.expectedEntries) * (fee.basis === "player" ? playersPerEntry : 1);
   const externalFee = fee.externalAmount ?? fee.amount;
   return {
     categoryId: category.id,

@@ -40,14 +40,15 @@ describe("categoryRevenue", () => {
     ).toBe(160);
   });
 
-  it("charges external entrants their own fee", () => {
+  it("charges external entries their own fee, counting players for a per-player fee", () => {
+    // 5 external pairs of 10: 10 of the 20 players pay the external fee.
     expect(
       categoryRevenueWorking(
         category({
           fee: { basis: "player", amount: 8, externalAmount: 12, expectedExternal: 5 },
         }),
       ),
-    ).toMatchObject({ entrants: 20, external: 5, fee: 8, externalFee: 12 });
+    ).toMatchObject({ entrants: 20, external: 10, fee: 8, externalFee: 12 });
     expect(
       categoryRevenue(
         category({
@@ -59,10 +60,15 @@ describe("categoryRevenue", () => {
           },
         }),
       ),
-    ).toBe(15 * 8 + 5 * 12);
+    ).toBe(10 * 8 + 10 * 12);
+    expect(
+      categoryRevenue(
+        category({ fee: { basis: "entry", amount: 20, externalAmount: 30, expectedExternal: 5 } }),
+      ),
+    ).toBe(5 * 20 + 5 * 30);
   });
 
-  it("never counts more external entrants than entrants", () => {
+  it("never counts more external entries than entries", () => {
     expect(
       categoryRevenue(
         category({

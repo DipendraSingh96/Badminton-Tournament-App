@@ -1,4 +1,4 @@
-import type { EventTiming, StageRules } from "./types";
+import type { StageRules, Timing } from "./types";
 
 /** Most points a game can reach under the deuce rule. */
 export function maxPointsPerGame(rules: StageRules): number {
@@ -57,16 +57,15 @@ export interface MatchMinutes {
 }
 
 /**
- * Slot length for one match of an event in a stage. Games and the longest
- * game come from the stage's scoring; minutes and organising time from the
- * event's timing. A best-of-3 match typically lasts two games plus organising,
+ * Slot length for one match in a stage. Games and the longest game come from
+ * the stage's scoring; minutes and organising time from the stage's timing. A best-of-3 match typically lasts two games plus organising,
  * increased by the organiser's best-of-3 allowance for third games, and never
  * more than the worst case. Worst case plays every game, each as long as
  * possible.
  */
 export function matchMinutes(
   rules: StageRules,
-  timing: EventTiming,
+  timing: Timing,
   bestOfThreeAllowance = 0,
 ): MatchMinutes {
   const maxPoints = maxPointsPerGame(rules);

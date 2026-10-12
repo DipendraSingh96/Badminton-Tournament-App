@@ -7,9 +7,11 @@
 
 export * from "./analyse";
 export * from "./capacity";
+export * from "./distribution";
 export * from "./duration";
 export * from "./entry";
 export * from "./finance";
 export * from "./format";
 export * from "./types";
 export * from "./venue";
+export * from "./waves";

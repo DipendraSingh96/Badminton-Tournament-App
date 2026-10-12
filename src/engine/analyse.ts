@@ -2,8 +2,11 @@ import { capacity, type Capacity } from "./capacity";
 import { matchMinutes, typicalGames, type MatchMinutes } from "./duration";
 import { eventsPerFixture, rubbersPerFixture } from "./entry";
 import { finance, type FinanceResult } from "./finance";
+import { available } from "./capacity";
+import { distributeGroups, type HallShare } from "./distribution";
+import { categoryFormat, groupMatchCount, type CategoryFormat, type FormatError } from "./format";
 import { totalUmpires } from "./venue";
-import { categoryFormat, type CategoryFormat, type FormatError } from "./format";
+import { groupStageWaves, type GroupStageWaves } from "./waves";
 import {
   EVENT_TYPES,
   STAGES,
@@ -16,12 +19,11 @@ import {
 export type AnalysisError =
   | { code: "format"; categoryId: string; errors: FormatError[] }
   | { code: "missingStageRules"; stage: Stage }
-  | { code: "missingEventTiming"; event: EventType };
+  | { code: "missingStageTiming"; stage: Stage };
 
-/** Slot length for one event in one stage. */
+/** Slot length for one match in a stage, whatever the event. */
 export interface Slot {
   stage: Stage;
-  event: EventType;
   minutes: MatchMinutes;
 }
 
@@ -44,6 +46,8 @@ export interface CategoryAnalysis {
   /** Fixtures × rubbers, per stage. */
   matches: StageCounts;
   totalMatches: number;
+  /** Group-stage rounds; empty for knockout only. */
+  waves: GroupStageWaves;
 }
 
 export interface Analysis {
@@ -55,6 +59,10 @@ export interface Analysis {
   slots: Slot[];
   /** Stage and event pairs with matches, in play order. */
   demand: StageDemand[];
+  /** Group-stage waves across categories played side by side: the most of any category. */
+  waves: number;
+  /** Suggested groups per hall; empty with one hall or no group stage. */
+  groupsPerHall: HallShare[];
   capacity: Capacity;
   finance: FinanceResult;
 }
@@ -95,6 +103,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       rubbersPerFixture: rubbers,
       matches: categoryMatches,
       totalMatches: result.format.totalFixtures * rubbers,
+      waves: groupStageWaves(result.format.groupSizes),
     });
   }
 
@@ -102,11 +111,8 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
     if (matches[stage] > 0 && !inputs.stageRules[stage]) {
       errors.push({ code: "missingStageRules", stage });
     }
-  }
-  for (const event of EVENT_TYPES) {
-    const played = STAGES.some((stage) => byEvent.has(key(stage, event)));
-    if (played && !inputs.eventTiming[event]) {
-      errors.push({ code: "missingEventTiming", event });
+    if (matches[stage] > 0 && !inputs.stageTiming[stage]) {
+      errors.push({ code: "missingStageTiming", stage });
     }
   }
 
@@ -116,13 +122,13 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   const demand: StageDemand[] = [];
   for (const stage of STAGES) {
     const rules = inputs.stageRules[stage];
-    if (!rules) continue;
+    const timing = inputs.stageTiming[stage];
+    if (!rules || !timing || matches[stage] === 0) continue;
+    const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
+    slots.push({ stage, minutes: slot });
     for (const event of EVENT_TYPES) {
       const count = byEvent.get(key(stage, event));
-      const timing = inputs.eventTiming[event];
-      if (!count || !timing) continue;
-      const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
-      slots.push({ stage, event, minutes: slot });
+      if (!count) continue;
       demand.push({
         stage,
         event,
@@ -139,6 +145,26 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
 
   const totalMatches = STAGES.reduce((sum, stage) => sum + matches[stage], 0);
 
+  const groupSlot = slots.find((s) => s.stage === "group")?.minutes.typical ?? 0;
+  const groups = categories.flatMap((c) =>
+    c.format.groupSizes.map((size, groupIndex) => ({
+      categoryId: c.categoryId,
+      groupIndex,
+      courtMinutes: groupMatchCount(size) * c.rubbersPerFixture * groupSlot,
+    })),
+  );
+  const hallMinutes = new Map<string, number>();
+  for (const court of available(inputs.frame).courts) {
+    hallMinutes.set(court.hallId, (hallMinutes.get(court.hallId) ?? 0) + court.minutes);
+  }
+  const groupsPerHall =
+    inputs.frame.halls.length > 1 && groups.length > 0
+      ? distributeGroups(
+          groups,
+          inputs.frame.halls.map((h) => ({ hallId: h.id, courtMinutes: hallMinutes.get(h.id) ?? 0 })),
+        )
+      : [];
+
   return {
     ok: true,
     analysis: {
@@ -148,6 +174,8 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       games,
       slots,
       demand,
+      waves: Math.max(0, ...categories.map((c) => c.waves.waves)),
+      groupsPerHall,
       capacity: capacity(inputs.frame, { matches: totalMatches, typical, worst }),
       finance: finance(inputs.finance, {
         categories: inputs.categories,
