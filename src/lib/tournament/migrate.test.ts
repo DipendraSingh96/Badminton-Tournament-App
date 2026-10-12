@@ -54,25 +54,17 @@ describe("migrateV3", () => {
 });
 
 function v4Draft(): V4Draft {
-  const { stageRules, rules: _rules, ...rest } = emptyDraft("Europe/London");
-  const scoring = (stage: keyof typeof stageRules) => {
-    const { minutesPerGame: _m, changeoverMinutes: _c, ...kept } = stageRules[stage];
-    return { ...kept, pointsPerGame: 21 };
-  };
+  const scoring = () => ({ pointsPerGame: 21, deuce: null, deuceLimit: null, bestOf: null });
   return {
-    ...rest,
+    ...emptyDraft("Europe/London"),
+    rules: undefined,
     unit: "individual",
     categories: [
       { ...emptyCategory(), id: "ms", event: "MS", feeBasis: "player", expectedExternal: 3 },
       { ...emptyCategory(), id: "md", event: "MD", feeBasis: "player", expectedExternal: 6 },
       { ...emptyCategory(), id: "xd", event: "XD", feeBasis: "entry", expectedExternal: 4 },
     ],
-    stageRules: {
-      group: scoring("group"),
-      knockout: scoring("knockout"),
-      bronze: scoring("bronze"),
-      final: scoring("final"),
-    },
+    stageRules: { group: scoring(), knockout: scoring(), bronze: scoring(), final: scoring() },
     eventTiming: {
       MS: { minutesPerGame: 12, changeoverMinutes: 3 },
       MD: { minutesPerGame: 12, changeoverMinutes: 3 },

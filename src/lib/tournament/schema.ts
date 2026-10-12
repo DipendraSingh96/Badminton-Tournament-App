@@ -2,7 +2,6 @@ import { TZDate } from "@date-fns/tz";
 import { z } from "zod";
 import {
   EVENT_TYPES,
-  STAGES,
   bandCoverage,
   type Category,
   type Hall,
