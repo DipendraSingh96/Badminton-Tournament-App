@@ -1,5 +1,6 @@
 "use client";
 
+import { MinusIcon, PlusIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useId, type ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,67 @@ export function NumberField({
           onChange(parsed === null || Number.isNaN(parsed) ? null : parsed);
         }}
       />
+    </Field>
+  );
+}
+
+/** A whole-number input with − and + buttons, for small counts. */
+export function StepperField({
+  label,
+  path,
+  value,
+  onChange,
+  hint,
+  min = 0,
+}: {
+  label: string;
+  path: Path;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  hint?: string;
+  min?: number;
+}) {
+  const id = useId();
+  const filled = value !== null;
+  const invalid = useInvalid(path, filled);
+  const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
+  return (
+    <Field id={id} label={label} path={path} filled={filled} hint={hint}>
+      <div className="flex items-stretch overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+        <button
+          type="button"
+          aria-label={`Decrease ${label.toLowerCase()}`}
+          className="grid w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+          disabled={value === null || value <= min}
+          onClick={() => step(-1)}
+        >
+          <MinusIcon />
+        </button>
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          step={1}
+          min={min}
+          value={value ?? ""}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? `${id}-message` : undefined}
+          className="h-8 w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          onChange={(e) => {
+            const raw = e.target.value;
+            const parsed = raw === "" ? null : Number(raw);
+            onChange(parsed === null || Number.isNaN(parsed) ? null : parsed);
+          }}
+        />
+        <button
+          type="button"
+          aria-label={`Increase ${label.toLowerCase()}`}
+          className="grid w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={() => step(1)}
+        >
+          <PlusIcon />
+        </button>
+      </div>
     </Field>
   );
 }

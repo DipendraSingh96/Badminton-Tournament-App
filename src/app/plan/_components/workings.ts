@@ -46,13 +46,30 @@ export function slotFor(analysis: Analysis, stage: Stage, event: EventType): Mat
   return analysis.slots.find((s) => s.stage === stage && s.event === event)!.minutes;
 }
 
+/** "Hall 1, Court 3" for every court, numbered across the venue. */
+function courtNames(inputs: TournamentInputs): Map<string, string> {
+  const names = new Map<string, string>();
+  let number = 0;
+  for (const hall of inputs.frame.halls) {
+    for (const court of hall.courts) {
+      number += 1;
+      names.set(court.id, `${hall.name}, Court ${number}`);
+    }
+  }
+  return names;
+}
+
 // Capacity
 
 export function playingTimeWorking(analysis: Analysis, inputs: TournamentInputs): string[] {
   const { frame } = inputs;
   const { available } = analysis.capacity;
   const clock = (iso: string) => formatClock(iso, frame.timeZone);
-  const lines = [`Start ${clock(frame.start)}, end ${clock(frame.end)}`];
+  const lines = [
+    frame.halls.length > 1
+      ? `Halls open from ${clock(available.start)}; the last closes at ${clock(available.dayEnd)}`
+      : `Hall open ${clock(available.start)} to ${clock(available.dayEnd)}`,
+  ];
   if (frame.bufferMinutes > 0) {
     lines.push(
       `Less ${formatMinutes(frame.bufferMinutes)} buffer held back, so play must end by ${clock(available.playingEnd)}`,
@@ -65,13 +82,14 @@ export function playingTimeWorking(analysis: Analysis, inputs: TournamentInputs)
 export function courtTimeWorking(analysis: Analysis, inputs: TournamentInputs): string[] {
   const { available } = analysis.capacity;
   const clock = (iso: string) => formatClock(iso, inputs.frame.timeZone);
-  const lines = available.windows.map(
-    (w) =>
-      `${clock(w.from)} to ${clock(w.to)}: ${formatMinutes(w.minutes)} × ${plural(w.courts, "court")} = ${formatMinutes(w.courtMinutes)}` +
-      (w.clipped ? " (trimmed to the playing time)" : ""),
+  const names = courtNames(inputs);
+  const lines = available.courts.map(
+    (c) =>
+      `${names.get(c.courtId)}: ${clock(c.from)} to ${clock(c.to)} = ${formatMinutes(c.minutes)}` +
+      (c.clipped ? " (trimmed to the playing time)" : ""),
   );
-  if (lines.length === 0) lines.push("No court windows fall inside the playing time");
-  if (available.windows.length > 1) lines.push(`Total = ${formatMinutes(available.courtMinutes)}`);
+  if (lines.length === 0) lines.push("No courts are available in the playing time");
+  if (available.courts.length > 1) lines.push(`Total = ${formatMinutes(available.courtMinutes)}`);
   return lines;
 }
 
@@ -259,12 +277,12 @@ export function otherCostWorking(cost: Analysis["finance"]["otherCosts"][number]
 
 export function courtHireWorking(analysis: Analysis, inputs: TournamentInputs): string[] {
   const { courtHire } = analysis.finance;
-  const clock = (iso: string) => formatClock(iso, inputs.frame.timeZone);
-  const lines = courtHire.windows.map(
-    (w) =>
-      `${clock(w.from)} to ${clock(w.to)}: ${plural(w.courts, "court")} × ${formatMinutes(w.hours * 60)} × ${formatMoney(w.rate)} = ${formatMoney(w.amount)}`,
-  );
-  if (courtHire.windows.length > 1) lines.push(`Total = ${formatMoney(courtHire.total)}`);
+  const names = courtNames(inputs);
+  const lines = courtHire.courts.map((c) => {
+    const parts = c.bands.map((b) => `${formatMinutes(b.hours * 60)} × ${formatMoney(b.rate)} (${b.name})`);
+    return `${names.get(c.courtId)}: ${parts.length > 0 ? parts.join(" + ") : "no booked time"} = ${formatMoney(c.amount)}`;
+  });
+  if (courtHire.courts.length > 1) lines.push(`Total = ${formatMoney(courtHire.total)}`);
   lines.push("All booked time is charged, including the buffer at the end of the day.");
   return lines;
 }

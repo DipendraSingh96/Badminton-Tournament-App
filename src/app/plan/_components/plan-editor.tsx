@@ -15,12 +15,13 @@ import { DerivedCards } from "./dashboard";
 import { EventTimingSection } from "./event-timing-section";
 import { IssuesContext, issueMap, pathKey } from "./fields";
 import { FinanceSection } from "./finance-section";
-import { FrameSection } from "./frame-section";
+import { BufferSection } from "./buffer-section";
 import { StageRulesSection } from "./stage-rules-section";
 import { Summary } from "./summary";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
 import { TournamentList } from "./tournament-list";
+import { VenueCanvas } from "./venue-canvas";
 
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
 
@@ -65,6 +66,8 @@ function tabFor(issue: PlanIssue): Tab | null {
       return "schedule";
     case "finance":
       return "finance";
+    case "frame":
+      return issue.path[1] === "bufferMinutes" ? "schedule" : null;
     default:
       return null;
   }
@@ -127,7 +130,7 @@ function Editor() {
               <main className="@container h-full overflow-y-auto">
                 <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
                   <TournamentHeader draft={draft} update={update} />
-                  <FrameSection draft={draft} update={update} />
+                  <VenueCanvas draft={draft} update={update} />
                   <Card>
                     <CardHeader>
                       <CardTitle>Timeline</CardTitle>
@@ -164,6 +167,7 @@ function Editor() {
                       <CategoriesSection draft={draft} update={update} />
                     </TabsContent>
                     <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
+                      <BufferSection draft={draft} update={update} />
                       <StageRulesSection draft={draft} update={update} />
                       <EventTimingSection draft={draft} update={update} />
                       <DerivedCards tab="schedule" draft={draft} parsed={parsed} analysis={analysis} />

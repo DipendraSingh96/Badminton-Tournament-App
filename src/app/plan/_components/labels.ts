@@ -1,6 +1,6 @@
 import { playersPerEntry, type AnalysisError, type EventType, type FormatError, type Stage, type Unit } from "@/engine";
 import { EVENT_LABELS } from "@/lib/tournament/events";
-import type { PlanDraft } from "@/lib/tournament/draft";
+import { hallName, type PlanDraft } from "@/lib/tournament/draft";
 import type { PlanIssue } from "@/lib/tournament/schema";
 
 export const STAGE_LABELS: Record<Stage, string> = {
@@ -60,8 +60,14 @@ export function entryNoun(unit: Unit | null, event: EventType | null, plural = f
 export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
   const [section, key] = issue.path;
   switch (section) {
-    case "frame":
-      return "Frame";
+    case "frame": {
+      if (key === "halls") {
+        const index = issue.path[2];
+        const hall = typeof index === "number" ? draft.frame.halls[index] : undefined;
+        return hall ? hallName(hall, index as number) : "Venue";
+      }
+      return key === "bufferMinutes" ? "Buffer" : "Tournament";
+    }
     case "categories": {
       const category = typeof key === "number" ? draft.categories[key] : undefined;
       return category ? categoryName(draft, category.id) : "Categories";
