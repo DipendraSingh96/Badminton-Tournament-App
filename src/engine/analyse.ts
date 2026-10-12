@@ -2,6 +2,7 @@ import { capacity, type Capacity } from "./capacity";
 import { matchMinutes, typicalGames, type MatchMinutes } from "./duration";
 import { eventsPerFixture, rubbersPerFixture } from "./entry";
 import { finance, type FinanceResult } from "./finance";
+import { totalUmpires } from "./venue";
 import { categoryFormat, type CategoryFormat, type FormatError } from "./format";
 import {
   EVENT_TYPES,
@@ -150,9 +151,9 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       capacity: capacity(inputs.frame, { matches: totalMatches, typical, worst }),
       finance: finance(inputs.finance, {
         categories: inputs.categories,
-        courtWindows: inputs.frame.courtWindows,
+        halls: inputs.frame.halls,
         games,
-        umpires: inputs.frame.umpires,
+        umpires: totalUmpires(inputs.frame.halls),
       }),
     },
   };

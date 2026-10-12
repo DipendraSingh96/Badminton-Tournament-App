@@ -12,3 +12,4 @@ export * from "./entry";
 export * from "./finance";
 export * from "./format";
 export * from "./types";
+export * from "./venue";

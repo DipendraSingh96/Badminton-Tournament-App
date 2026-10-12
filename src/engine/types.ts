@@ -28,23 +28,40 @@ export interface EventTiming {
   changeoverMinutes: number;
 }
 
-export interface CourtWindow {
+/** A stretch of a hall's day charged at one rate (e.g. peak, off-peak). */
+export interface RateBand {
+  name: string;
   /** UTC ISO timestamps. */
   from: string;
   to: string;
-  courts: number;
-  /** Hire charged per court per hour for this window. */
+  /** Hire charged per court per hour within the band. */
   ratePerCourtHour: number;
 }
 
-export interface Frame {
-  /** UTC ISO timestamps. */
-  start: string;
-  end: string;
-  timeZone: string;
-  courtWindows: CourtWindow[];
+export interface Court {
+  id: string;
+  /** Booked availability, UTC ISO; within its hall's hours. */
+  from: string;
+  to: string;
   umpires: number;
-  /** Reserve held back at the end of the day. */
+}
+
+export interface Hall {
+  id: string;
+  name: string;
+  /** Hall hours, UTC ISO. */
+  from: string;
+  to: string;
+  /** Cover the hall's hours with no overlap. */
+  bands: RateBand[];
+  courts: Court[];
+}
+
+export interface Frame {
+  timeZone: string;
+  /** The day runs from the earliest hall opening to the latest closing. */
+  halls: Hall[];
+  /** Held back at the end of the whole day. */
   bufferMinutes: number;
 }
 

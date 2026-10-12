@@ -1,12 +1,12 @@
 import { playersPerCategoryEntry } from "./entry";
-import type { Category, CourtWindow, Finance, OtherCost } from "./types";
+import type { Category, Finance, Hall, OtherCost } from "./types";
 
 const MS_PER_HOUR = 3_600_000;
 
 export interface FinanceContext {
   categories: Category[];
-  /** Booked court windows; every booked hour is charged. */
-  courtWindows: CourtWindow[];
+  /** The venue; every booked court hour is charged. */
+  halls: Hall[];
   /** Games played across the tournament, at typical length. */
   games: number;
   umpires: number;
@@ -35,39 +35,54 @@ export interface CategoryRevenue {
   externalFee: number;
 }
 
-export interface CourtHireLine {
-  /** UTC ISO timestamps, as booked. */
-  from: string;
-  to: string;
-  courts: number;
+/** One court's hire within one rate band. */
+export interface CourtHireBand {
+  name: string;
   hours: number;
   rate: number;
   amount: number;
 }
 
+export interface CourtHireLine {
+  hallId: string;
+  courtId: string;
+  bands: CourtHireBand[];
+  amount: number;
+}
+
 export interface CourtHire {
-  windows: CourtHireLine[];
+  courts: CourtHireLine[];
   total: number;
 }
 
 /**
- * Court hire for the whole booking: each window's booked hours × courts ×
- * rate. Booked time is charged whether or not matches use it, buffer
- * included, so windows are not clipped to the playing time.
+ * Court hire for the whole booking, court by court: the court's booked
+ * availability within each of its hall's rate bands, × that band's rate.
+ * Booked time is charged whether or not matches use it, buffer included.
  */
-export function courtHire(windows: CourtWindow[]): CourtHire {
-  const lines = windows.map((w) => {
-    const hours = Math.max(0, Date.parse(w.to) - Date.parse(w.from)) / MS_PER_HOUR;
-    return {
-      from: w.from,
-      to: w.to,
-      courts: w.courts,
-      hours,
-      rate: w.ratePerCourtHour,
-      amount: hours * w.courts * w.ratePerCourtHour,
-    };
-  });
-  return { windows: lines, total: lines.reduce((sum, l) => sum + l.amount, 0) };
+export function courtHire(halls: Hall[]): CourtHire {
+  const courts: CourtHireLine[] = [];
+  for (const hall of halls) {
+    for (const court of hall.courts) {
+      const bookedFrom = Date.parse(court.from);
+      const bookedTo = Date.parse(court.to);
+      const bands = hall.bands
+        .map((band) => {
+          const overlap =
+            Math.min(bookedTo, Date.parse(band.to)) - Math.max(bookedFrom, Date.parse(band.from));
+          const hours = Math.max(0, overlap) / MS_PER_HOUR;
+          return { name: band.name, hours, rate: band.ratePerCourtHour, amount: hours * band.ratePerCourtHour };
+        })
+        .filter((b) => b.hours > 0);
+      courts.push({
+        hallId: hall.id,
+        courtId: court.id,
+        bands,
+        amount: bands.reduce((sum, b) => sum + b.amount, 0),
+      });
+    }
+  }
+  return { courts, total: courts.reduce((sum, c) => sum + c.amount, 0) };
 }
 
 export interface FinanceResult {
@@ -145,7 +160,7 @@ export function finance(inputs: Finance, context: FinanceContext): FinanceResult
     otherCostLine(cost, players, context.umpires),
   );
 
-  const hire = courtHire(context.courtWindows);
+  const hire = courtHire(context.halls);
   const totalCost =
     hire.total + shuttleCost + prizeCost + otherCosts.reduce((sum, c) => sum + c.amount, 0);
 

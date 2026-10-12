@@ -1,60 +1,65 @@
 import type { Frame } from "./types";
+import { dayBounds } from "./venue";
 
 const MS_PER_MINUTE = 60_000;
 
-/** A court window as counted: clipped to the playing window. */
-export interface CountedWindow {
+/** A court's availability as counted: clipped to the playing window. */
+export interface CountedCourt {
+  hallId: string;
+  courtId: string;
   /** UTC ISO timestamps after clipping. */
   from: string;
   to: string;
-  courts: number;
   minutes: number;
-  courtMinutes: number;
-  /** True when part of the window falls outside the playing window. */
+  /** True when part of its availability falls outside the playing window. */
   clipped: boolean;
 }
 
 export interface Available {
-  /** UTC ISO: start, and end less the buffer. */
+  /** UTC ISO: earliest hall opening, latest hall closing, and that less the buffer. */
   start: string;
+  dayEnd: string;
   playingEnd: string;
-  /** Playing window from start to end, less the buffer. */
+  /** Playing window from the first opening to the last closing, less the buffer. */
   minutes: number;
-  /** Court availability summed across windows inside the playing window. */
+  /** Court availability summed across every court inside the playing window. */
   courtMinutes: number;
-  windows: CountedWindow[];
+  courts: CountedCourt[];
 }
 
 export function available(frame: Frame): Available {
-  const start = Date.parse(frame.start);
-  const end = Date.parse(frame.end) - frame.bufferMinutes * MS_PER_MINUTE;
+  const bounds = dayBounds(frame.halls);
+  const start = Date.parse(bounds.start);
+  const dayEnd = Date.parse(bounds.end);
+  const end = dayEnd - frame.bufferMinutes * MS_PER_MINUTE;
   const minutes = Math.max(0, (end - start) / MS_PER_MINUTE);
 
-  const windows: CountedWindow[] = [];
-  for (const window of frame.courtWindows) {
-    const rawFrom = Date.parse(window.from);
-    const rawTo = Date.parse(window.to);
-    const from = Math.max(rawFrom, start);
-    const to = Math.min(rawTo, end);
-    if (to <= from) continue;
-    const windowMinutes = (to - from) / MS_PER_MINUTE;
-    windows.push({
-      from: new Date(from).toISOString(),
-      to: new Date(to).toISOString(),
-      courts: window.courts,
-      minutes: windowMinutes,
-      courtMinutes: windowMinutes * window.courts,
-      clipped: from !== rawFrom || to !== rawTo,
-    });
+  const courts: CountedCourt[] = [];
+  for (const hall of frame.halls) {
+    for (const court of hall.courts) {
+      const rawFrom = Date.parse(court.from);
+      const rawTo = Date.parse(court.to);
+      const from = Math.max(rawFrom, start);
+      const to = Math.min(rawTo, end);
+      courts.push({
+        hallId: hall.id,
+        courtId: court.id,
+        from: new Date(from).toISOString(),
+        to: new Date(Math.max(from, to)).toISOString(),
+        minutes: Math.max(0, to - from) / MS_PER_MINUTE,
+        clipped: from !== rawFrom || to !== rawTo,
+      });
+    }
   }
-  const courtMinutes = windows.reduce((sum, w) => sum + w.courtMinutes, 0);
+  const courtMinutes = courts.reduce((sum, c) => sum + c.minutes, 0);
 
   return {
-    start: new Date(start).toISOString(),
+    start: bounds.start,
+    dayEnd: bounds.end,
     playingEnd: new Date(Math.max(start, end)).toISOString(),
     minutes,
     courtMinutes,
-    windows,
+    courts,
   };
 }
 

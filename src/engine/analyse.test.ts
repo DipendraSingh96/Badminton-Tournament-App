@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyseTournament, profitCurve } from "./analyse";
+import { hall } from "./fixtures.test-helpers";
 import type { StageRules, TournamentInputs } from "./types";
 
 const stage: StageRules = {
@@ -13,13 +14,8 @@ function tournament(): TournamentInputs {
     unit: "individual",
     format: "groupsKnockout",
     frame: {
-      start: "2026-05-02T08:00:00Z",
-      end: "2026-05-02T13:00:00Z",
       timeZone: "Europe/London",
-      courtWindows: [
-        { from: "2026-05-02T08:00:00Z", to: "2026-05-02T13:00:00Z", courts: 4, ratePerCourtHour: 10 },
-      ],
-      umpires: 4,
+      halls: [hall("h1", "08:00", "13:00", { courtCount: 4, rate: 10, umpires: 1 })],
       bufferMinutes: 0,
     },
     categories: [
@@ -181,7 +177,7 @@ describe("analyseTournament", () => {
 
   it("flips to doesn't fit when courts are removed", () => {
     const fewer = tournament();
-    fewer.frame.courtWindows[0]!.courts = 1;
+    fewer.frame.halls[0]!.courts = fewer.frame.halls[0]!.courts.slice(0, 1);
     const result = analyseTournament(fewer);
     if (!result.ok) throw new Error("expected a valid analysis");
     expect(result.analysis.capacity.status).toBe("doesNotFit");

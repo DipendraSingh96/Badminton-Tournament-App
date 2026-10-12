@@ -1,53 +1,40 @@
 import { describe, expect, it } from "vitest";
 import { available, capacity } from "./capacity";
+import { at, hall } from "./fixtures.test-helpers";
 import type { Frame } from "./types";
 
 function frame(overrides: Partial<Frame> = {}): Frame {
   return {
-    start: "2026-05-02T08:00:00Z",
-    end: "2026-05-02T16:00:00Z",
     timeZone: "Europe/London",
-    courtWindows: [
-      { from: "2026-05-02T08:00:00Z", to: "2026-05-02T16:00:00Z", courts: 4, ratePerCourtHour: 10 },
-    ],
-    umpires: 4,
+    halls: [hall("h1", "08:00", "16:00", { courtCount: 4 })],
     bufferMinutes: 0,
     ...overrides,
   };
 }
 
 describe("available", () => {
-  it("multiplies time by courts", () => {
+  it("adds up every court's time in the playing window", () => {
     expect(available(frame())).toMatchObject({ minutes: 480, courtMinutes: 1920 });
   });
 
-  it("respects court windows that change during the day", () => {
-    const result = available(
-      frame({
-        courtWindows: [
-          { from: "2026-05-02T08:00:00Z", to: "2026-05-02T12:00:00Z", courts: 6, ratePerCourtHour: 10 },
-          { from: "2026-05-02T12:00:00Z", to: "2026-05-02T16:00:00Z", courts: 3, ratePerCourtHour: 10 },
-        ],
-      }),
-    );
-    expect(result.courtMinutes).toBe(240 * 6 + 240 * 3);
+  it("counts a narrower court only for its own availability", () => {
+    const narrow = hall("h1", "08:00", "16:00", { courtCount: 2 });
+    narrow.courts[1] = { ...narrow.courts[1]!, from: at("10:00"), to: at("14:00") };
+    expect(available(frame({ halls: [narrow] })).courtMinutes).toBe(480 + 240);
   });
 
-  it("clips windows to the playing window and holds back the buffer", () => {
+  it("runs the day across halls and holds the buffer back at the end of the whole day", () => {
     const result = available(
       frame({
         bufferMinutes: 60,
-        courtWindows: [
-          { from: "2026-05-02T07:00:00Z", to: "2026-05-02T17:00:00Z", courts: 2, ratePerCourtHour: 10 },
-        ],
+        halls: [hall("h1", "08:00", "16:00", { courtCount: 2 }), hall("h2", "09:00", "14:00", { courtCount: 1 })],
       }),
     );
-    expect(result).toMatchObject({ minutes: 420, courtMinutes: 840 });
-    expect(result.windows[0]).toMatchObject({
-      from: "2026-05-02T08:00:00.000Z",
-      to: "2026-05-02T15:00:00.000Z",
-      clipped: true,
-    });
+    // Day 08:00 to 16:00, play ends 15:00. Hall 2 closes at 14:00, unaffected.
+    expect(result).toMatchObject({ start: at("08:00"), dayEnd: at("16:00"), playingEnd: at("15:00"), minutes: 420 });
+    expect(result.courtMinutes).toBe(2 * 420 + 300);
+    expect(result.courts[0]).toMatchObject({ to: at("15:00"), clipped: true });
+    expect(result.courts[2]).toMatchObject({ to: at("14:00"), clipped: false });
   });
 });
 
@@ -67,7 +54,7 @@ describe("capacity", () => {
   });
 
   it("flips to doesn't fit when time shrinks, and suggests levers", () => {
-    const shorter = frame({ end: "2026-05-02T12:00:00Z" });
+    const shorter = frame({ halls: [hall("h1", "08:00", "12:00", { courtCount: 4 })] });
     const result = capacity(shorter, { matches: 40, typical: 1200, worst: 1600 });
     expect(result.status).toBe("doesNotFit");
     // 4 courts × 240 min = 960 available; 240 short at typical length.
