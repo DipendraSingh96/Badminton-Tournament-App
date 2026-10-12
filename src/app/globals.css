@@ -164,3 +164,12 @@
     animation-duration: 0s !important;
   }
 }
+
+/* Hatching for held-back time, e.g. the buffer on the timeline. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--foreground) 30%, transparent) 0 1.5px,
+    transparent 1.5px 6px
+  );
+}

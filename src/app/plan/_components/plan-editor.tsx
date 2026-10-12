@@ -3,10 +3,9 @@
 import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { analyseTournament } from "@/engine";
+import { analyseTournament, estimateSchedule } from "@/engine";
 import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
@@ -16,6 +15,7 @@ import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { Summary } from "./summary";
+import { Timeline, courtStatuses, dayRange, localSegments } from "./timeline";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
 import { TournamentList } from "./tournament-list";
@@ -105,6 +105,9 @@ function Editor() {
   const [draft, setDraft] = useState<PlanDraft>(() => loadDraft() ?? emptyDraft(browserTimeZone()));
   const [tab, setTab] = useState<Tab>(loadTab);
   const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
+  // The timeline's playhead, in minutes since midnight; not saved.
+  const [playhead, setPlayhead] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
   const layout = useDefaultLayout({ id: "badminton:plan-layout", storage: window.localStorage });
 
   useEffect(() => saveDraft(draft), [draft]);
@@ -116,6 +119,17 @@ function Editor() {
   const analysis = useMemo(
     () => (parsed.ok ? analyseTournament(parsed.inputs) : null),
     [parsed],
+  );
+  const schedule = useMemo(
+    () => (parsed.ok && analysis?.ok ? estimateSchedule(parsed.inputs, analysis.analysis) : null),
+    [parsed, analysis],
+  );
+  const segments = useMemo(() => localSegments(draft, schedule), [draft, schedule]);
+  const range = dayRange(draft);
+  const moment = playhead ?? range?.start ?? null;
+  const statuses = useMemo(
+    () => (moment !== null && schedule ? courtStatuses(draft, segments, moment) : null),
+    [draft, segments, moment, schedule],
   );
 
   function chooseBreakEven(id: string) {
@@ -160,19 +174,16 @@ function Editor() {
               <main className="@container h-full overflow-y-auto">
                 <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
                   <TournamentHeader draft={draft} update={update} />
-                  <VenueCanvas draft={draft} update={update} />
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Timeline</CardTitle>
-                      <CardDescription>
-                        The timeline shows each hall&apos;s courts and rate bands across the day once the venue is
-                        set up.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-24 rounded-lg border border-dashed" />
-                    </CardContent>
-                  </Card>
+                  <VenueCanvas draft={draft} update={update} statuses={statuses} />
+                  <Timeline
+                    draft={draft}
+                    schedule={schedule}
+                    segments={segments}
+                    playhead={playhead}
+                    onSeek={setPlayhead}
+                    playing={playing}
+                    onPlayingChange={setPlaying}
+                  />
                 </div>
               </main>
             </ResizablePanel>

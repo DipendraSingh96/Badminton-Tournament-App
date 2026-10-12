@@ -18,6 +18,7 @@ import {
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { BandStrip } from "./band-strip";
 import { CourtCard } from "./court-card";
+import type { CourtStatus } from "./timeline";
 import { NumberField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
 
@@ -172,12 +173,14 @@ export function HallCard({
   update,
   openCourtId,
   onOpenCourt,
+  statuses,
 }: {
   draft: PlanDraft;
   hallIndex: number;
   update: Update;
   openCourtId: string | null;
   onOpenCourt: (courtId: string | null) => void;
+  statuses: Map<string, CourtStatus> | null;
 }) {
   const hall = draft.frame.halls[hallIndex]!;
   const [settingsOpen, setSettingsOpen] = useState(!hall.from || !hall.to);
@@ -238,6 +241,7 @@ export function HallCard({
             open={openCourtId === court.id}
             dimmed={courtOpenHere && openCourtId !== court.id}
             onOpenChange={(open) => onOpenCourt(open ? court.id : null)}
+            status={statuses?.get(court.id) ?? null}
             update={update}
           />
         ))}

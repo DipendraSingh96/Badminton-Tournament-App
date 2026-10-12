@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { courtHours, type CourtDraft, type HallDraft } from "@/lib/tournament/draft";
 import { StepperField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
+import { STAGE_COLOURS, type CourtStatus } from "./timeline";
 
 /** A badminton court seen from above: outline, net, service and centre lines. */
 function CourtIllustration() {
@@ -38,6 +39,7 @@ export function CourtCard({
   open,
   dimmed,
   onOpenChange,
+  status,
   update,
 }: {
   hall: HallDraft;
@@ -47,6 +49,8 @@ export function CourtCard({
   open: boolean;
   dimmed: boolean;
   onOpenChange: (open: boolean) => void;
+  /** What the court is doing at the timeline's playhead. */
+  status: CourtStatus | null;
   update: Update;
 }) {
   const court = hall.courts[courtIndex]!;
@@ -73,6 +77,18 @@ export function CourtCard({
         <span className="text-xs text-muted-foreground tabular-nums">
           {hours.from && hours.to ? `${hours.from}–${hours.to}` : "Hours not set"} · {umpireText(court.umpires)}
         </span>
+        {status ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium" data-court-status>
+            {status.kind === "playing" ? (
+              <>
+                <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${STAGE_COLOURS[status.stage]}`} />
+                {status.label}
+              </>
+            ) : (
+              <span className="text-muted-foreground">{status.kind === "free" ? "Free" : "Not booked"}</span>
+            )}
+          </span>
+        ) : null}
       </PopoverTrigger>
       <PopoverContent side="right" align="start" sideOffset={12} className="w-80 gap-4 p-4">
         <div className="flex items-baseline justify-between gap-2">

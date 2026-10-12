@@ -6,9 +6,19 @@ import { Button } from "@/components/ui/button";
 import { emptyHall, type PlanDraft } from "@/lib/tournament/draft";
 import { HallCard } from "./hall-card";
 import type { Update } from "./plan-editor";
+import type { CourtStatus } from "./timeline";
 
 /** The venue: halls holding courts. Add a hall below the last one. */
-export function VenueCanvas({ draft, update }: { draft: PlanDraft; update: Update }) {
+export function VenueCanvas({
+  draft,
+  update,
+  statuses,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  /** What each court is doing at the timeline's playhead; null without an estimate. */
+  statuses: Map<string, CourtStatus> | null;
+}) {
   const [openCourtId, setOpenCourtId] = useState<string | null>(null);
   return (
     <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
@@ -28,6 +38,7 @@ export function VenueCanvas({ draft, update }: { draft: PlanDraft; update: Updat
           update={update}
           openCourtId={openCourtId}
           onOpenCourt={setOpenCourtId}
+          statuses={statuses}
         />
       ))}
     </section>
