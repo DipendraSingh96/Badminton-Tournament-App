@@ -78,11 +78,16 @@ Outputs: revenue, shuttle cost, total cost, profit or loss, break-even entries, 
 Finance shares its inputs with the other sections (entries, match count, time per game). It recalculates live as the organiser changes format or entries. It must work with zero fees and zero prizes, in which case it shows the cost to the organisers.
 
 ### 4.5 Rules (all configurable)
-- **Eligibility:** which people may enter which categories; limits on number of categories per person; mutually exclusive categories; internal-only or open categories; mixed internal/external pairs allowed or not
-- **Ranking and tiebreaks:** an ordered list of criteria (e.g. match wins, point difference, head-to-head, draw of lots)
-- **Handicap:** points added to a designated pair type, flat or varying by stage
-- **Withdrawals:** before the draw (resolved with byes) and during the event
-- **Walkovers:** automatic advance when an opponent withdraws or retires
+Set once per tournament on the Tournament setup tab and stored with it. Plan mode stores them; the draw, standings and Live mode apply them.
+- **Eligibility:**
+  - Most categories one person may enter (optional; empty means no limit)
+  - Mutually exclusive categories: pairs of categories one person can't both enter
+  - Members-only (internal) categories; every other category is open to external players
+  - Whether a member may pair with an external player
+- **Ranking and tiebreaks:** an ordered list chosen from matches won, game difference, point difference, head-to-head, points won (total), rubbers won (team events only) and draw of lots. At least one criterion; draw of lots can only be last.
+- **Handicap (Open doubles only):** off unless switched on. A points head start in every game, given to the weaker pair type when different pair types meet, the same in every stage. Three values: mixed vs men's pair (to the mixed pair), women's vs men's pair (to the women's pair), women's vs mixed pair (to the women's pair). Pairs of the same type get none. Applies to Open doubles categories and Open doubles rubbers in team ties.
+- **Withdrawals:** before the draw, the place becomes a bye. After play starts, the organiser's choice: the remaining matches are walkovers and played results stand, or all the withdrawn entry's results are voided.
+- **Walkovers:** the organiser's choice: a win in straight games at the stage's points per game (e.g. 21–0, 21–0), or a win with no games or points added.
 - **Match start and rest policies**
 
 ## 5. Calculations (engine)
