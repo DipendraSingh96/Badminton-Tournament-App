@@ -160,6 +160,20 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Court hire is calculated from the venue, not typed in.
 - Break-even is found by re-running the format at each entry count, because entries change the format and the match count.
 
+### Tournament setup and rules (12 Oct)
+- Tournament type is a segmented choice: individual and pair events, or team. Switching it once categories exist asks first and replaces them; nothing changes silently.
+- Individual and pair categories come from event chips grouped Individual (men's and women's singles) and Pair (men's, women's, mixed and Open doubles). Each click adds a category; an event can be added more than once and the chip shows the count. Unnamed categories take the event's name, numbered from the second ("Men's doubles 2").
+- Team tournaments have competition cards: a name and a line-up stepper per event, with the squad worked out from it.
+- Format is chosen from three option cards and applies to every category.
+- Rules are set once per tournament and stored; the draw, standings and Live mode will apply them:
+  - **Tiebreak order:** chosen and ordered from matches won, game difference, point difference, head-to-head, points won (total), rubbers won (teams only) and draw of lots (always last).
+  - **Handicap:** Open doubles only, including Open doubles rubbers in team ties. A points head start per game for the weaker pair type, per matchup: mixed vs men's (to the mixed pair), women's vs men's and women's vs mixed (to the women's pair). The same in every stage; off unless switched on.
+  - **Eligibility:** most categories one person may enter (optional), pairs of categories that can't be entered together, members-only categories, and whether a member may pair with an external player.
+  - **Withdrawals:** a bye before the draw. After play starts, a stored choice: walkovers with played results standing, or all their results voided.
+  - **Walkovers:** a stored choice: straight games at the stage's points per game (e.g. 21–0, 21–0), or a win with no games or points.
+- Removing a category also removes it from prizes and the eligibility rules.
+- Until steps 4 and 5, expected entries (and external entries), groups, qualifiers and bronze sit in an "Entries and structure" block on the Schedule structure tab, and entry fees in an "Entry fees" block on the Finance tab. Values a format doesn't use are kept, with a note.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the first category until the Finance tab lets the organiser choose.
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
@@ -172,20 +186,19 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 | Earlier slice 1 work (engine, plan form, dashboard) | Done | Commits from 7 to 11 Oct. |
 | 1. Shell and layout | Done | Commits `3210483`, `13a0cb3` (12 Oct). |
 | 2. Venue canvas | Done | Commits `5a7ca2c` to `c56e3ac` (12 Oct). |
-| 3. Tournament setup tab and rules | Next | |
-| 4. Schedule structure tab | To do | Includes moving timing to the stage cards. |
+| 3. Tournament setup tab and rules | Done | Commits `75d8383` to `a25ae1d` (12 Oct). |
+| 4. Schedule structure tab | Next | Includes moving timing to the stage cards, and redesigning the interim entries and structure block. |
 | 5. Finance tab and suggested levers | To do | Includes per-tube shuttles and other money in. |
 | 6. Timeline | To do | |
 | 7. Previous tournaments and duplicate | To do | |
 
 **Still interim**
-- The workbench tabs hold the older form sections until steps 3 to 5 replace them.
+- The Schedule structure and Finance tabs hold the older form sections, plus the entries, structure and fee blocks moved out of setup, until steps 4 and 5 replace them.
 - The timeline card is an empty placeholder.
 - The left panel shows only the current tournament; "New tournament" clears the plan.
 - Break-even in the summary uses the first category.
 
 ## 7. Open questions carried forward
-- Rules settings (step 3): what tiebreak criteria are offered, how handicap works, what eligibility rules look like, and the withdrawal and walkover rules.
 - Waves (step 4): how a group-stage wave is defined, and how the suggested wave distribution across halls should work.
 - Umpires: whether they belong anywhere other than on courts.
 - PRD §12: who registers pairs, the draw method, the score correction window.
