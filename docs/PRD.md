@@ -52,14 +52,17 @@ Per category, as the format type requires:
 
 **Team line-up** (team events): the organiser sets how many rubbers of each event type a tie between two teams contains (e.g. three men's singles and two men's doubles). Every rubber is always played. The team that wins the most rubbers wins the tie. Each player plays one rubber only, so a team's squad is the players its line-up needs (one per singles rubber, two per doubles rubber). No reserves for now.
 
-**Scoring, set per stage** (group, early knockout rounds, bronze, final) and applied to every event:
+**Scoring and timing, set per stage** (group, early knockout rounds, bronze, final) and applied to every event, including every rubber of a team tie:
 - Points per game
 - Deuce rule: none (straight race), hard cap, or standard with a maximum
 - Sets per match: best of 1 or best of 3
+- Minutes per game (typical playing time) and organising time per match (walk-on, warm-up, changeover)
 - **Best-of-3 allowance**, set by the organiser once for the tournament: extra time added to the typical length of every best-of-3 match, organising time included, because some go to a third game (e.g. 33% adds a third)
 
 ### 4.3 Schedule
-- **Time per game, set per event type** (e.g. men's singles, mixed doubles): typical playing time per game, plus organising time per match.
+- **Time per game, set per stage** (see 4.2).
+- **Waves:** a wave is one round of a group, in which every entry in the group plays at most once. A group of n entries has n − 1 rounds when n is even and n when n is odd; the group stage has as many waves as its largest group.
+- **Groups per hall** (several halls): a suggestion that keeps each group in one hall and shares groups across halls in proportion to each hall's court time.
 - **Buffer time**
 - Court allocation in waves, with dedicated court blocks per category and reallocation when a category finishes early
 - Rest time between a pair's consecutive matches
@@ -67,7 +70,7 @@ Per category, as the format type requires:
 
 ### 4.4 Finance (a section of every tournament, not a separate module)
 Inputs:
-- Expected entries, and entry fee (per player or per pair; may differ per category or by player type)
+- Expected entries and, of those, expected external entries (counted in entries: players, pairs or teams); entry fee per player or per entry, with an optional external fee. With a per-player fee, external entries are multiplied by the players in an entry.
 - Shuttles per game, cost per shuttle
 - Prizes by category and position
 - Court hire, calculated per court: its booked availability within each of its hall's rate bands, × that band's rate (only booked time is charged, including the buffer)
