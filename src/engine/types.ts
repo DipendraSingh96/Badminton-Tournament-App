@@ -139,11 +139,25 @@ export type OtherCost =
       count?: number;
     };
 
+/** Money in besides entry fees, e.g. sponsorship or spectator tickets. */
+export type OtherIncome =
+  | { id: string; label: string; type: "fixed"; amount: number }
+  | {
+      id: string;
+      label: string;
+      type: "perPerson";
+      amount: number;
+      basis: "players" | "custom";
+      /** Headcount when basis is "custom". */
+      count?: number;
+    };
+
 export interface Finance {
   shuttlesPerGame: number;
   costPerShuttle: number;
   prizes: Prize[];
   otherCosts: OtherCost[];
+  otherIncome: OtherIncome[];
 }
 
 /** Criteria for ranking a group, applied in the organiser's order. */

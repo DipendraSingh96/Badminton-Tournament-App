@@ -40,6 +40,7 @@ function tournament(): TournamentInputs {
       costPerShuttle: 2,
       prizes: [],
       otherCosts: [{ id: "hall", label: "Court hire", type: "fixed", amount: 200 }],
+      otherIncome: [],
     },
     rules: {
       tiebreaks: ["matchesWon", "pointDifference"],

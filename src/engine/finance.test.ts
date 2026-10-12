@@ -23,6 +23,7 @@ function inputs(overrides: Partial<Finance> = {}): Finance {
     costPerShuttle: 2,
     prizes: [],
     otherCosts: [],
+    otherIncome: [],
     ...overrides,
   };
 }
@@ -153,6 +154,25 @@ describe("finance", () => {
     );
     expect(result.otherCosts.map((c) => c.amount)).toEqual([20, 20, 18]);
     expect(result.otherCosts.map((c) => c.perPerson?.headcount)).toEqual([20, 4, 6]);
+  });
+
+  it("adds other money in to revenue, fixed or per person", () => {
+    const result = finance(
+      inputs({
+        otherIncome: [
+          { id: "s", label: "Sponsorship", type: "fixed", amount: 200 },
+          { id: "p", label: "Sponsor per player", type: "perPerson", amount: 2, basis: "players" },
+          { id: "t", label: "Spectator tickets", type: "perPerson", amount: 3, basis: "custom", count: 10 },
+        ],
+      }),
+      context,
+    );
+    expect(result.entryRevenue).toBe(200);
+    expect(result.otherIncome.map((i) => i.amount)).toEqual([200, 40, 30]);
+    expect(result.otherIncome[1]!.perPerson).toEqual({ rate: 2, basis: "players", headcount: 20 });
+    expect(result.incomeTotal).toBe(270);
+    expect(result.revenue).toBe(470);
+    expect(result.profit).toBe(470 - result.totalCost);
   });
 
   it("shows the cost to organisers with zero fees and prizes", () => {
