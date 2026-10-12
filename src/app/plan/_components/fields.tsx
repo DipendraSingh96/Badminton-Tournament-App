@@ -1,13 +1,14 @@
 "use client";
 
-import { MinusIcon, PlusIcon } from "@phosphor-icons/react";
-import { createContext, useContext, useId, type ReactNode } from "react";
+import { CheckCircleIcon, CircleIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import type { PlanIssue } from "@/lib/tournament/schema";
+import { cn } from "@/lib/utils";
 
 export type Path = PropertyKey[];
 
@@ -238,6 +239,165 @@ export function SelectField<T extends string | number>({
         ))}
       </NativeSelect>
     </Field>
+  );
+}
+
+/**
+ * A choice between a few options, with its label and message. Missing
+ * choices are listed on the summary, so the message only shows once chosen.
+ */
+function ChoiceGroup({
+  label,
+  path,
+  filled,
+  hint,
+  children,
+}: {
+  label: string;
+  path: Path;
+  filled: boolean;
+  hint?: ReactNode;
+  children: (labelId: string) => ReactNode;
+}) {
+  const id = useId();
+  const issues = useContext(IssuesContext);
+  const message = filled ? issues.get(pathKey(path)) : undefined;
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
+      <span id={id} className="text-sm leading-none font-medium">
+        {label}
+      </span>
+      {children(id)}
+      {message ? (
+        <p className="text-xs text-destructive">{message}</p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Arrow keys move between the options of a radio group, as in a native one. */
+function onRadioKeyDown(event: KeyboardEvent<HTMLElement>) {
+  const keys = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"];
+  if (!keys.includes(event.key)) return;
+  const radios = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+  const index = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (index === -1) return;
+  event.preventDefault();
+  const delta = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+  const next = radios[(index + delta + radios.length) % radios.length]!;
+  next.focus();
+  next.click();
+}
+
+/** Two to four short options side by side. */
+export function SegmentedField<T extends string | number>({
+  label,
+  path,
+  value,
+  options,
+  onChange,
+  hint,
+}: {
+  label: string;
+  path: Path;
+  value: T | null;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+  hint?: ReactNode;
+}) {
+  return (
+    <ChoiceGroup label={label} path={path} filled={value !== null} hint={hint}>
+      {(labelId) => (
+        <div
+          role="radiogroup"
+          aria-labelledby={labelId}
+          onKeyDown={onRadioKeyDown}
+          className="flex rounded-lg border border-input bg-muted/50 p-0.5"
+        >
+          {options.map((option, i) => {
+            const selected = option.value === value;
+            return (
+              <button
+                key={String(option.value)}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                tabIndex={selected || (value === null && i === 0) ? 0 : -1}
+                onClick={() => onChange(option.value)}
+                className={cn(
+                  "min-h-8 flex-1 rounded-md px-3 py-1 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  selected
+                    ? "bg-foreground font-medium text-background"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </ChoiceGroup>
+  );
+}
+
+/** Larger options, each with a line on what it means. */
+export function OptionCards<T extends string>({
+  label,
+  path,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  path: Path;
+  value: T | null;
+  options: readonly { value: T; label: string; description: string }[];
+  onChange: (value: T) => void;
+}) {
+  const id = useId();
+  return (
+    <ChoiceGroup label={label} path={path} filled={value !== null}>
+      {(labelId) => (
+        <div
+          role="radiogroup"
+          aria-labelledby={labelId}
+          onKeyDown={onRadioKeyDown}
+          className="grid grid-cols-1 gap-2 @md:grid-cols-3"
+        >
+          {options.map((option, i) => {
+            const selected = option.value === value;
+            const Icon = selected ? CheckCircleIcon : CircleIcon;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-labelledby={`${id}-${i}`}
+                aria-describedby={`${id}-${i}-description`}
+                tabIndex={selected || (value === null && i === 0) ? 0 : -1}
+                onClick={() => onChange(option.value)}
+                className={cn(
+                  "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  selected ? "border-foreground bg-background" : "border-input hover:bg-muted/50",
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Icon weight={selected ? "fill" : "regular"} className="size-4 shrink-0" />
+                  <span id={`${id}-${i}`}>{option.label}</span>
+                </span>
+                <span id={`${id}-${i}-description`} className="text-xs text-muted-foreground">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </ChoiceGroup>
   );
 }
 
