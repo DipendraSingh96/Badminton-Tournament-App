@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import {
   STAGES,
+  fixturesPerEntry,
   profitCurve,
   type Analysis,
   type AnalysisResult,
@@ -34,8 +35,8 @@ import {
   formatMinutesShort,
   formatGroupSizes,
   formatMoney,
+  groupRange,
 } from "./labels";
-import { EVENT_LABELS } from "@/lib/tournament/events";
 import { ProfitChart } from "./profit-chart";
 import {
   categoryMatchesWorking,
@@ -313,11 +314,11 @@ function MatchesCard({
           ))}
         </div>
         <div>
-          {analysis.slots.map(({ stage, event, minutes }) => {
+          {analysis.slots.map(({ stage, minutes }) => {
             return (
               <Row
-                key={`${stage}:${event}`}
-                label={`${STAGE_LABELS[stage]} slot, ${EVENT_LABELS[event].toLowerCase()}`}
+                key={stage}
+                label={`${STAGE_LABELS[stage]} slot`}
                 value={
                   minutes.typical === minutes.worst
                     ? formatMinutes(minutes.typical)
@@ -331,6 +332,124 @@ function MatchesCard({
             );
           })}
         </div>
+        <WorkingHint />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** "3", or "3, or 2 in groups of 3" when group sizes differ. */
+function perEntryText(groupSizes: number[]): string {
+  const counts = [...new Set(groupSizes)].sort((a, b) => b - a);
+  const [largest, ...rest] = counts;
+  if (largest === undefined) return "None";
+  return [
+    String(fixturesPerEntry(largest)),
+    ...rest.map((size) => `or ${fixturesPerEntry(size)} in groups of ${size}`),
+  ].join(", ");
+}
+
+/** Group sizes, matches per entry and waves in each category's group stage. */
+function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analysis }) {
+  const withGroups = analysis.categories.filter((c) => c.format.groupSizes.length > 0);
+  if (withGroups.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Group stage</CardTitle>
+        <CardDescription>
+          A wave is one round of every group: each entry plays at most once in it. Categories play their waves side by
+          side, so the group stage takes as many waves as its longest category.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <Stats
+          items={[
+            { label: "Waves", value: formatNumber(analysis.waves) },
+            { label: "Group matches", value: formatNumber(analysis.matches.group) },
+            {
+              label: "Most in one wave",
+              value: formatNumber(
+                analysis.categories.reduce((sum, c) => sum + c.waves.mostFixtures * c.rubbersPerFixture, 0),
+              ),
+            },
+          ]}
+        />
+        <div>
+          {withGroups.map((category) => {
+            const { groupSizes } = category.format;
+            const { waves, fixturesPerWave, mostFixtures } = category.waves;
+            const rubbers = category.rubbersPerFixture;
+            const unit = rubbers > 1 ? "ties" : "matches";
+            return (
+              <Row
+                key={category.categoryId}
+                label={categoryName(draft, category.categoryId)}
+                value={`${waves} ${waves === 1 ? "wave" : "waves"}`}
+                working={[
+                  `Groups: ${formatGroupSizes(groupSizes)}`,
+                  `Group matches: ${category.matches.group}`,
+                  `${rubbers > 1 ? "Ties" : "Matches"} per entry: ${perEntryText(groupSizes)}`,
+                  `Waves: ${waves}, from the largest group (a group of n plays n − 1 rounds when n is even, n when odd)`,
+                  `${unit[0]!.toUpperCase()}${unit.slice(1)} per wave: ${fixturesPerWave.join(", ")}`,
+                  rubbers > 1
+                    ? `Most in one wave: ${mostFixtures} ties × ${rubbers} rubbers = ${mostFixtures * rubbers} matches`
+                    : `Most in one wave: ${mostFixtures} matches`,
+                ]}
+              />
+            );
+          })}
+        </div>
+        <WorkingHint />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Suggested groups per hall, in proportion to each hall's court time. */
+function GroupsPerHallCard({
+  draft,
+  analysis,
+  inputs,
+}: {
+  draft: PlanDraft;
+  analysis: Analysis;
+  inputs: TournamentInputs;
+}) {
+  if (analysis.groupsPerHall.length === 0) return null;
+  const hallNames = new Map(inputs.frame.halls.map((h) => [h.id, h.name]));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Suggested groups per hall</CardTitle>
+        <CardDescription>
+          Each group stays in one hall. Groups are shared in proportion to each hall&apos;s court time, largest
+          first. A suggestion only.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1">
+        {analysis.groupsPerHall.map((hall) => {
+          const byCategory = new Map<string, number[]>();
+          for (const g of hall.groups) {
+            byCategory.set(g.categoryId, [...(byCategory.get(g.categoryId) ?? []), g.groupIndex]);
+          }
+          const groups =
+            [...byCategory]
+              .map(([categoryId, indexes]) => `${categoryName(draft, categoryId)} ${indexes.length === 1 ? "group" : "groups"} ${groupRange(indexes)}`)
+              .join("; ") || "No groups";
+          return (
+            <Row
+              key={hall.hallId}
+              label={`${hallNames.get(hall.hallId)} (${Math.round(hall.share * 100)}% of court time)`}
+              value={formatMinutes(hall.load)}
+              working={[
+                groups,
+                `Court time for these groups: ${formatMinutes(hall.load)}`,
+                `Its share of the group stage: ${Math.round(hall.share * 100)}% = ${formatMinutes(hall.target)}`,
+              ]}
+            />
+          );
+        })}
         <WorkingHint />
       </CardContent>
     </Card>
@@ -503,6 +622,8 @@ export function DerivedCards({
     return (
       <>
         <CapacityCard analysis={analysis.analysis} inputs={parsed.inputs} />
+        <GroupStageCard draft={draft} analysis={analysis.analysis} />
+        <GroupsPerHallCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
         <MatchesCard draft={draft} analysis={analysis.analysis} format={parsed.inputs.format} />
       </>
     );

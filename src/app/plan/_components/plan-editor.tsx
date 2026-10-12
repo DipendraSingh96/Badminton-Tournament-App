@@ -11,14 +11,11 @@ import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
-import { EntriesSection } from "./entries-section";
-import { EventTimingSection } from "./event-timing-section";
 import { FeesSection } from "./fees-section";
 import { IssuesContext, issueMap, pathKey } from "./fields";
 import { FinanceSection } from "./finance-section";
-import { BufferSection } from "./buffer-section";
+import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
-import { StageRulesSection } from "./stage-rules-section";
 import { Summary } from "./summary";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
@@ -71,7 +68,6 @@ function tabFor(issue: PlanIssue): Tab | null {
       return FEE_FIELDS.includes(field) ? "finance" : "schedule";
     }
     case "stageRules":
-    case "eventTiming":
     case "bestOfThreeAllowance":
       return "schedule";
     case "finance":
@@ -177,10 +173,7 @@ function Editor() {
                       <SetupTab draft={draft} update={update} />
                     </TabsContent>
                     <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
-                      <EntriesSection draft={draft} update={update} />
-                      <BufferSection draft={draft} update={update} />
-                      <StageRulesSection draft={draft} update={update} />
-                      <EventTimingSection draft={draft} update={update} />
+                      <ScheduleTab draft={draft} update={update} />
                       <DerivedCards tab="schedule" draft={draft} parsed={parsed} analysis={analysis} />
                     </TabsContent>
                     <TabsContent value="finance" className="flex flex-col gap-4 p-4">

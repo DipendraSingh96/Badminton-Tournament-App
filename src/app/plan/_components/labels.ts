@@ -1,5 +1,4 @@
 import { playersPerEntry, type AnalysisError, type EventType, type FormatError, type Stage, type Unit } from "@/engine";
-import { EVENT_LABELS } from "@/lib/tournament/events";
 import { defaultCategoryName, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import type { PlanIssue } from "@/lib/tournament/schema";
 
@@ -22,6 +21,33 @@ export function formatMinutes(total: number): string {
   const m = minutes % 60;
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/** Group names within a category: A, B, C… */
+export function groupLetter(index: number): string {
+  return index < 26 ? String.fromCharCode(65 + index) : `${index + 1}`;
+}
+
+/** Group indexes as letters with runs joined, e.g. [0, 1, 2, 4] → "A–C, E". */
+export function groupRange(indexes: number[]): string {
+  const sorted = [...indexes].sort((a, b) => a - b);
+  const runs: string[] = [];
+  let start = sorted[0];
+  for (let i = 0; i < sorted.length; i++) {
+    const current = sorted[i]!;
+    const next = sorted[i + 1];
+    if (next !== current + 1) {
+      runs.push(
+        start === current
+          ? groupLetter(current)
+          : current === start! + 1
+            ? `${groupLetter(start!)}, ${groupLetter(current)}`
+            : `${groupLetter(start!)}–${groupLetter(current)}`,
+      );
+      start = next;
+    }
+  }
+  return runs.join(", ");
 }
 
 /** Group sizes in short form, e.g. [4, 4, 3] → "2 × 4, 1 × 3". */
@@ -76,12 +102,10 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
       return "Tournament setup";
     case "rules":
       return "Rules";
-    case "eventTiming":
-      return `Timing: ${EVENT_LABELS[key as EventType]}`;
     case "bestOfThreeAllowance":
-      return "Scoring";
+      return "Stages";
     case "stageRules":
-      return `Scoring: ${STAGE_LABELS[key as Stage]}`;
+      return `Stage: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
       return "Finance";
     default:
@@ -106,8 +130,8 @@ export function analysisErrorMessages(draft: PlanDraft, error: AnalysisError): s
   if (error.code === "missingStageRules") {
     return [`Enter scoring for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
   }
-  if (error.code === "missingEventTiming") {
-    return [`Enter timing for ${EVENT_LABELS[error.event].toLowerCase()}`];
+  if (error.code === "missingStageTiming") {
+    return [`Enter timing for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
   }
   return error.errors.map(
     (e) => `${categoryName(draft, error.categoryId)}: ${formatErrorMessage(e)}`,
