@@ -62,6 +62,8 @@ Per category, as the format type requires:
 ### 4.3 Schedule
 - **Time per game, set per stage** (see 4.2).
 - **Waves:** a wave is one round of a group, in which every entry in the group plays at most once. A group of n entries has n − 1 rounds when n is even and n when n is odd; the group stage has as many waves as its largest group.
+- **Timeline:** one overall timeline with a lane per hall (rate bands shaded, a row per court showing its availability, the buffer hatched) and the estimated schedule laid over the courts. It works like a video timeline: a playhead can be dragged, set to a moment or played forward, and every court card on the venue shows what is running on it at that moment (stage, wave or knockout round, category).
+- **Schedule estimate** (until the scheduler is built): matches are placed in order on the first court that can start them, at typical length, within each court's hours. Group waves run in order; knockout rounds start once the group stage is over, each round after the previous one; the bronze match and final follow the semi-finals. A team tie's rubbers are separate matches. Rest between matches isn't modelled. Matches that fit nowhere are reported.
 - **Groups per hall** (several halls): a suggestion that keeps each group in one hall and shares groups across halls in proportion to each hall's court time.
 - **Buffer time**
 - Court allocation in waves, with dedicated court blocks per category and reallocation when a category finishes early
