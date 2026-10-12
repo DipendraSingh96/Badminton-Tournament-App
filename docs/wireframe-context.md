@@ -189,6 +189,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Suggested levers use natural steps only, so no step size is invented: one more court in a hall; best of 1 instead of best of 3; no deuce; a group more or fewer, or a preferred group size one larger or smaller; no bronze match; the exact fee rise that breaks even (when there's a loss, rounded up to the penny, external fee raised by the same); shuttles per game down to the next whole number (not below 1); without each other cost.
 - Each lever re-runs the whole plan. Levers that improve neither fit nor profit are hidden. "To fit" (shown when the plan doesn't fit) lists the court time gained, most first; "To improve profit" lists the profit gained. A lever that helps both is listed under fit. Levers never change the plan.
 
+### Timeline (12 Oct)
+- One timeline below the venue: a lane per hall with its rate bands (shaded, named with their rate), a row per court showing its availability, the buffer hatched, and markers for "Play must end", the estimated finish and the worst-case finish.
+- The user asked for it to behave like a video timeline: a playhead that can be dragged, clicked to a moment, stepped with the keyboard (5 minutes; Home and End) or played forward (a whole day in about 30 seconds). At the playhead's moment every court card on the venue shows what is running on it: stage, wave or knockout round, and category; or Free / Not booked.
+- Until the scheduler is built, the stages come from an estimate: matches placed in order on the first court that can start them, at typical length, within each court's hours. Group waves in order; a category's knockout rounds after its group stage, each round after the last; bronze and final after the semi-finals; team rubbers as separate matches; rest not modelled. Matches that fit nowhere are reported ("N matches don't fit in the day").
+- Knockout rounds come from the bracket: byes fill the first round, then quarter-finals, semi-finals and the final.
+- Stage colours use the neutral chart tokens (final strongest), with a legend; the playhead isn't saved.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
@@ -204,11 +211,11 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 | 3. Tournament setup tab and rules | Done | Commits `75d8383` to `a25ae1d` (12 Oct). |
 | 4. Schedule structure tab | Done | Commits `fef582d` onwards (12 Oct). |
 | 5. Finance tab and suggested levers | Done | Commits from the step 5 PRD update onwards (12 Oct). |
-| 6. Timeline | Next | |
-| 7. Previous tournaments and duplicate | To do | |
+| 6. Timeline | Done | Commits from the step 6 PRD update onwards (12 Oct). |
+| 7. Previous tournaments and duplicate | Next | |
 
 **Still interim**
-- The timeline card is an empty placeholder.
+- The timeline's stages come from an estimate until the scheduler is built.
 - The left panel shows only the current tournament; "New tournament" clears the plan.
 
 ## 7. Open questions carried forward
