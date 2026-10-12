@@ -59,11 +59,14 @@ function completeDraft(): PlanDraft {
   draft.stageRules.final = { ...draft.stageRules.group, bestOf: 3 };
   draft.finance = {
     shuttlesPerGame: 1,
-    costPerShuttle: 2.5,
+    shuttlePriceBasis: "shuttle",
+    shuttlePrice: 2.5,
+    shuttlesPerTube: null,
     prizes: [{ id: "p1", categoryId: "c1", position: "Winners", amount: 50 }],
     otherCosts: [
       { id: "o1", label: "Umpire food", type: "perPerson", amount: 8, basis: "umpires", count: null },
     ],
+    otherIncome: [],
   };
   draft.rules.tiebreaks = ["matchesWon", "pointDifference", "headToHead", "drawOfLots"];
   draft.rules.withdrawal = "byesThenWalkovers";
@@ -377,5 +380,46 @@ describe("parsePlan", () => {
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.categories.map((c) => c.name)).toEqual(["Mixed doubles", "Mixed doubles 2"]);
+  });
+
+  it("works out the cost per shuttle from a tube price", () => {
+    const draft = completeDraft();
+    draft.finance.shuttlePriceBasis = "tube";
+    draft.finance.shuttlePrice = 24;
+    const missing = parsePlan(draft);
+    expect(missing.ok).toBe(false);
+    if (missing.ok) return;
+    expect(missing.issues).toEqual([
+      { path: ["finance", "shuttlesPerTube"], message: "Shuttles per tube is required" },
+    ]);
+
+    draft.finance.shuttlesPerTube = 12;
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.finance.costPerShuttle).toBe(2);
+  });
+
+  it("builds other money in, fixed or per person", () => {
+    const draft = completeDraft();
+    draft.finance.otherIncome = [
+      { id: "s", label: "Sponsorship", type: "fixed", amount: 200, basis: null, count: null },
+      { id: "t", label: "Tickets", type: "perPerson", amount: 3, basis: "custom", count: 40 },
+      { id: "x", label: "", type: "perPerson", amount: 2, basis: null, count: null },
+    ];
+    const invalid = parsePlan(draft);
+    expect(invalid.ok).toBe(false);
+    if (invalid.ok) return;
+    expect(invalid.issues).toEqual([
+      { path: ["finance", "otherIncome", 2, "label"], message: "Income name is required" },
+      { path: ["finance", "otherIncome", 2, "basis"], message: "Choose who the income is per" },
+    ]);
+
+    draft.finance.otherIncome.pop();
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.finance.otherIncome).toEqual([
+      { id: "s", label: "Sponsorship", type: "fixed", amount: 200 },
+      { id: "t", label: "Tickets", type: "perPerson", amount: 3, basis: "custom", count: 40 },
+    ]);
   });
 });

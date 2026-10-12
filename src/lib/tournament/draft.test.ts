@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, removeCategory } from "./draft";
+import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, removeCategory } from "./draft";
+import { normaliseDraft } from "./storage";
 
 function draftWith(events: ("MD" | "XD")[]) {
   const draft = emptyDraft("Europe/London");
@@ -37,3 +38,21 @@ describe("removeCategory", () => {
   });
 });
 
+
+describe("normaliseDraft", () => {
+  it("keeps a price saved as cost per shuttle, per shuttle, and starts other money in empty", () => {
+    const { finance } = emptyDraft("Europe/London");
+    const early = { shuttlesPerGame: finance.shuttlesPerGame, prizes: [], otherCosts: [], costPerShuttle: 2.5 };
+    const draft = normaliseDraft({ ...emptyDraft("Europe/London"), finance: early });
+    expect(draft.finance).toMatchObject({ shuttlePriceBasis: "shuttle", shuttlePrice: 2.5, otherIncome: [] });
+    expect(draft.finance).not.toHaveProperty("costPerShuttle");
+    expect(costPerShuttle(draft.finance)).toBe(2.5);
+  });
+
+  it("leaves a current draft as it is", () => {
+    const current = emptyDraft("Europe/London");
+    current.finance = { ...current.finance, shuttlePriceBasis: "tube", shuttlePrice: 24, shuttlesPerTube: 12 };
+    expect(normaliseDraft(current).finance).toEqual(current.finance);
+    expect(costPerShuttle(current.finance)).toBe(2);
+  });
+});

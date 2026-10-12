@@ -10,6 +10,7 @@ import {
   type EventType,
   type FormatType,
   type OtherCost,
+  type OtherIncome,
   type Rules,
   type StageRules,
   type TournamentInputs,
@@ -226,37 +227,64 @@ const stageRulesSchema = z
     check(ctx, whole(label, s.pointsPerGame + 1), s.deuceLimit, ["deuceLimit"]);
   });
 
-const financeSchema = z.object({
-  shuttlesPerGame: amount("Shuttles per game"),
-  costPerShuttle: amount("Cost per shuttle"),
-  prizes: z.array(
-    z.object({
-      id: z.string(),
-      categoryId: z.string(),
-      position: z.string().trim().min(1, "Prize position is required"),
-      amount: amount("Prize amount"),
-    }),
-  ),
-  otherCosts: z.array(
-    z
-      .object({
+const financeSchema = z
+  .object({
+    shuttlesPerGame: amount("Shuttles per game"),
+    shuttlePriceBasis: z.enum(["shuttle", "tube"], { error: "Choose per shuttle or per tube" }),
+    shuttlePrice: amount("Shuttle price"),
+    shuttlesPerTube: z.number().nullable(),
+    prizes: z.array(
+      z.object({
         id: z.string(),
-        label: z.string().trim().min(1, "Cost name is required"),
-        type: z.enum(["fixed", "perPerson"], { error: "Choose fixed or per person" }),
-        amount: amount("Cost amount"),
-        basis: z.enum(["players", "umpires", "custom"]).nullable(),
-        count: z.number().nullable(),
-      })
-      .superRefine((cost, ctx) => {
-        if (cost.type !== "perPerson") return;
-        if (!cost.basis) {
-          ctx.addIssue({ code: "custom", message: "Choose who the cost is per", path: ["basis"] });
-        } else if (cost.basis === "custom") {
-          check(ctx, whole("Number of people", 0), cost.count, ["count"]);
-        }
+        categoryId: z.string(),
+        position: z.string().trim().min(1, "Prize position is required"),
+        amount: amount("Prize amount"),
       }),
-  ),
-});
+    ),
+    otherCosts: z.array(
+      z
+        .object({
+          id: z.string(),
+          label: z.string().trim().min(1, "Cost name is required"),
+          type: z.enum(["fixed", "perPerson"], { error: "Choose fixed or per person" }),
+          amount: amount("Cost amount"),
+          basis: z.enum(["players", "umpires", "custom"]).nullable(),
+          count: z.number().nullable(),
+        })
+        .superRefine((cost, ctx) => {
+          if (cost.type !== "perPerson") return;
+          if (!cost.basis) {
+            ctx.addIssue({ code: "custom", message: "Choose who the cost is per", path: ["basis"] });
+          } else if (cost.basis === "custom") {
+            check(ctx, whole("Number of people", 0), cost.count, ["count"]);
+          }
+        }),
+    ),
+    otherIncome: z.array(
+      z
+        .object({
+          id: z.string(),
+          label: z.string().trim().min(1, "Income name is required"),
+          type: z.enum(["fixed", "perPerson"], { error: "Choose fixed or per person" }),
+          amount: amount("Income amount"),
+          basis: z.enum(["players", "custom"]).nullable(),
+          count: z.number().nullable(),
+        })
+        .superRefine((income, ctx) => {
+          if (income.type !== "perPerson") return;
+          if (!income.basis) {
+            ctx.addIssue({ code: "custom", message: "Choose who the income is per", path: ["basis"] });
+          } else if (income.basis === "custom") {
+            check(ctx, whole("Number of people", 0), income.count, ["count"]);
+          }
+        }),
+    ),
+  })
+  .superRefine((f, ctx) => {
+    if (f.shuttlePriceBasis === "tube") {
+      check(ctx, whole("Shuttles per tube", 1), f.shuttlesPerTube, ["shuttlesPerTube"]);
+    }
+  });
 
 /** Checks the rules and builds them, or adds issues and returns null. */
 function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
@@ -483,6 +511,19 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         },
   );
 
+  const otherIncome: OtherIncome[] = finance.otherIncome.map((income) =>
+    income.type === "fixed"
+      ? { id: income.id, label: income.label, type: "fixed", amount: income.amount }
+      : {
+          id: income.id,
+          label: income.label,
+          type: "perPerson",
+          amount: income.amount,
+          basis: income.basis!,
+          count: income.count ?? undefined,
+        },
+  );
+
   return {
     ok: true,
     inputs: {
@@ -499,9 +540,11 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       bestOfThreeAllowance,
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,
-        costPerShuttle: finance.costPerShuttle,
+        costPerShuttle:
+          finance.shuttlePriceBasis === "tube" ? finance.shuttlePrice / finance.shuttlesPerTube! : finance.shuttlePrice,
         prizes: finance.prizes.map(({ categoryId, position, amount }) => ({ categoryId, position, amount })),
         otherCosts,
+        otherIncome,
       },
       rules,
     },

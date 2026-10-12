@@ -106,11 +106,26 @@ export interface OtherCostDraft {
   count: N;
 }
 
+export interface OtherIncomeDraft {
+  id: string;
+  label: string;
+  type: "fixed" | "perPerson" | null;
+  amount: N;
+  basis: "players" | "custom" | null;
+  count: N;
+}
+
 export interface FinanceDraft {
   shuttlesPerGame: N;
-  costPerShuttle: N;
+  /** Whether the price is for one shuttle or a tube. */
+  shuttlePriceBasis: "shuttle" | "tube" | null;
+  /** Price (£) per shuttle or per tube. */
+  shuttlePrice: N;
+  /** Per tube only. */
+  shuttlesPerTube: N;
   prizes: PrizeDraft[];
   otherCosts: OtherCostDraft[];
+  otherIncome: OtherIncomeDraft[];
 }
 
 export interface ExclusivePairDraft {
@@ -313,6 +328,18 @@ export function emptyPrize(categoryId: string): PrizeDraft {
   return { id: newId(), categoryId, position: "", amount: null };
 }
 
+export function emptyOtherIncome(): OtherIncomeDraft {
+  return { id: newId(), label: "", type: null, amount: null, basis: null, count: null };
+}
+
+/** Cost of one shuttle from the price entered; null until it can be worked out. */
+export function costPerShuttle(finance: FinanceDraft): number | null {
+  const { shuttlePriceBasis, shuttlePrice, shuttlesPerTube } = finance;
+  if (shuttlePrice === null || shuttlePriceBasis === null) return null;
+  if (shuttlePriceBasis === "shuttle") return shuttlePrice;
+  return shuttlesPerTube && shuttlesPerTube > 0 ? shuttlePrice / shuttlesPerTube : null;
+}
+
 export function emptyOtherCost(): OtherCostDraft {
   return { id: newId(), label: "", type: null, amount: null, basis: null, count: null };
 }
@@ -338,9 +365,12 @@ export function emptyDraft(timeZone: string): PlanDraft {
     bestOfThreeAllowance: null,
     finance: {
       shuttlesPerGame: null,
-      costPerShuttle: null,
+      shuttlePriceBasis: null,
+      shuttlePrice: null,
+      shuttlesPerTube: null,
       prizes: [],
       otherCosts: [],
+      otherIncome: [],
     },
     rules: emptyRules(),
   };
