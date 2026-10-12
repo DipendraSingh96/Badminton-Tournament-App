@@ -3,8 +3,10 @@ import { z } from "zod";
 import {
   EVENT_TYPES,
   STAGES,
+  bandCoverage,
   type Category,
-  type CourtWindow,
+  type Hall,
+  type Span,
   type EntryKind,
   type EventType,
   type FormatType,
@@ -61,43 +63,93 @@ const minutesOfDay = (hhmm: string) => {
   return h! * 60 + m!;
 };
 
-const frameSchema = z
+function clock(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+const isTime = (value: string | null): value is string => value !== null && /^\d{2}:\d{2}$/.test(value);
+
+const hallSchema = z
   .object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date is required"),
-    startTime: time("Start time"),
-    endTime: time("End time"),
-    timeZone: z.string().min(1, "Time zone is required"),
-    courtWindows: z
+    id: z.string(),
+    name: z.string(),
+    from: time("Hall opens"),
+    to: time("Hall closes"),
+    bands: z
       .array(
         z.object({
           id: z.string(),
-          from: time("Courts from"),
-          to: time("Courts until"),
-          courts: whole("Courts", 1),
-          rate: amount("Court rate"),
+          name: z.string(),
+          from: time("Band from"),
+          to: time("Band until"),
+          rate: amount("Rate"),
         }),
       )
-      .min(1, "Add at least one court window"),
-    umpires: whole("Umpires", 0),
-    bufferMinutes: whole("Buffer", 0),
+      .min(1, "Add at least one rate band"),
+    courts: z
+      .array(
+        z.object({
+          id: z.string(),
+          from: z.string().nullable(),
+          to: z.string().nullable(),
+          umpires: whole("Umpires", 0),
+        }),
+      )
+      .min(1, "Add at least one court"),
   })
-  .superRefine((frame, ctx) => {
-    if (minutesOfDay(frame.endTime) <= minutesOfDay(frame.startTime)) {
-      ctx.addIssue({ code: "custom", message: "End time must be after start time", path: ["endTime"] });
+  .superRefine((hall, ctx) => {
+    const open = minutesOfDay(hall.from);
+    const close = minutesOfDay(hall.to);
+    if (close <= open) {
+      ctx.addIssue({ code: "custom", message: "Hall must close after it opens", path: ["to"] });
+      return;
     }
-    const windows = frame.courtWindows
-      .map((w, i) => ({ i, from: minutesOfDay(w.from), to: minutesOfDay(w.to) }))
-      .sort((a, b) => a.from - b.from);
-    windows.forEach((w, n) => {
-      if (w.to <= w.from) {
-        ctx.addIssue({ code: "custom", message: "Court window must end after it starts", path: ["courtWindows", w.i, "to"] });
+    const spans: Span[] = [];
+    hall.bands.forEach((band, i) => {
+      const from = minutesOfDay(band.from);
+      const to = minutesOfDay(band.to);
+      if (to <= from) {
+        ctx.addIssue({ code: "custom", message: "Band must end after it starts", path: ["bands", i, "to"] });
+      } else if (from < open || to > close) {
+        ctx.addIssue({ code: "custom", message: "Band must be within the hall's hours", path: ["bands", i, "from"] });
+      } else {
+        spans.push({ from, to });
       }
-      const next = windows[n + 1];
-      if (next && next.from < w.to) {
-        ctx.addIssue({ code: "custom", message: "Court windows must not overlap", path: ["courtWindows", next.i, "from"] });
+    });
+    const coverage = bandCoverage({ from: open, to: close }, spans);
+    for (const gap of coverage.gaps) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Bands leave ${clock(gap.from)} to ${clock(gap.to)} uncovered`,
+        path: ["bands"],
+      });
+    }
+    for (const overlap of coverage.overlaps) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Bands overlap from ${clock(overlap.from)} to ${clock(overlap.to)}`,
+        path: ["bands"],
+      });
+    }
+    hall.courts.forEach((court, i) => {
+      const from = court.from ?? hall.from;
+      const to = court.to ?? hall.to;
+      if (!isTime(from) || !isTime(to)) {
+        ctx.addIssue({ code: "custom", message: "Court hours are required", path: ["courts", i, "from"] });
+      } else if (minutesOfDay(to) <= minutesOfDay(from)) {
+        ctx.addIssue({ code: "custom", message: "Court must be available until after it opens", path: ["courts", i, "to"] });
+      } else if (minutesOfDay(from) < open || minutesOfDay(to) > close) {
+        ctx.addIssue({ code: "custom", message: "Court hours must be within the hall's hours", path: ["courts", i, "from"] });
       }
     });
   });
+
+const frameSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date is required"),
+  timeZone: z.string().min(1, "Time zone is required"),
+  halls: z.array(hallSchema).min(1, "Add at least one hall"),
+  bufferMinutes: whole("Buffer", 0),
+});
 
 const lineUpCount = whole("Rubbers", 0).nullable();
 
@@ -280,11 +332,24 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     return { ok: false, issues };
   }
 
-  const courtWindows: CourtWindow[] = frame.courtWindows.map((w) => ({
-    from: toUtc(frame.date, w.from, frame.timeZone),
-    to: toUtc(frame.date, w.to, frame.timeZone),
-    courts: w.courts,
-    ratePerCourtHour: w.rate,
+  const utc = (hhmm: string) => toUtc(frame.date, hhmm, frame.timeZone);
+  const halls: Hall[] = frame.halls.map((hall, i) => ({
+    id: hall.id,
+    name: hall.name.trim() || `Hall ${i + 1}`,
+    from: utc(hall.from),
+    to: utc(hall.to),
+    bands: hall.bands.map((band, j) => ({
+      name: band.name.trim() || `Band ${j + 1}`,
+      from: utc(band.from),
+      to: utc(band.to),
+      ratePerCourtHour: band.rate,
+    })),
+    courts: hall.courts.map((court) => ({
+      id: court.id,
+      from: utc(court.from ?? hall.from),
+      to: utc(court.to ?? hall.to),
+      umpires: court.umpires,
+    })),
   }));
 
   const engineCategories: Category[] = categories.map((c) => {
@@ -340,11 +405,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       unit,
       format,
       frame: {
-        start: toUtc(frame.date, frame.startTime, frame.timeZone),
-        end: toUtc(frame.date, frame.endTime, frame.timeZone),
         timeZone: frame.timeZone,
-        courtWindows,
-        umpires: frame.umpires,
+        halls,
         bufferMinutes: frame.bufferMinutes,
       },
       categories: engineCategories,

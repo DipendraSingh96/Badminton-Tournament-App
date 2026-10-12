@@ -1,17 +1,21 @@
 import type { PlanDraft } from "./draft";
+import { migrateV3 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase.
 // Storage can be unavailable (private windows, blocked site data), so every
 // access is guarded and failure just means nothing is remembered.
 
-// v3: timing per event type; team squads follow the line-up. Earlier
-// drafts are not read.
-const KEY = "badminton:plan-draft:v3";
+// v4: venue of halls, rate bands and courts. v3 drafts (court windows) are
+// migrated on load; earlier drafts are not read.
+const KEY = "badminton:plan-draft:v4";
+const V3_KEY = "badminton:plan-draft:v3";
 
 export function loadDraft(): PlanDraft | null {
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as PlanDraft) : null;
+    if (raw) return JSON.parse(raw) as PlanDraft;
+    const old = window.localStorage.getItem(V3_KEY);
+    return old ? migrateV3(JSON.parse(old)) : null;
   } catch {
     return null;
   }
@@ -28,6 +32,7 @@ export function saveDraft(draft: PlanDraft): void {
 export function clearDraft(): void {
   try {
     window.localStorage.removeItem(KEY);
+    window.localStorage.removeItem(V3_KEY);
   } catch {
     // Nothing to clear.
   }

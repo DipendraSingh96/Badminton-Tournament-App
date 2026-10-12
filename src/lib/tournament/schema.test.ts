@@ -9,13 +9,22 @@ function completeDraft(): PlanDraft {
   draft.frame = {
     ...draft.frame,
     date: "2026-07-04",
-    startTime: "09:00",
-    endTime: "17:00",
-    courtWindows: [
-      { id: "w1", from: "09:00", to: "13:00", courts: 6, rate: 12 },
-      { id: "w2", from: "13:00", to: "17:00", courts: 4, rate: 9.5 },
+    halls: [
+      {
+        id: "h1",
+        name: "Main hall",
+        from: "09:00",
+        to: "17:00",
+        bands: [
+          { id: "b1", name: "Off-peak", from: "09:00", to: "13:00", rate: 12 },
+          { id: "b2", name: "Peak", from: "13:00", to: "17:00", rate: 15 },
+        ],
+        courts: [
+          { id: "c1", from: null, to: null, umpires: 1 },
+          { id: "c2", from: "10:00", to: "16:00", umpires: 2 },
+        ],
+      },
     ],
-    umpires: 6,
     bufferMinutes: 30,
   };
   draft.categories = [
@@ -75,8 +84,12 @@ describe("parsePlan", () => {
     const result = parsePlan(completeDraft());
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     // British Summer Time is UTC+1.
-    expect(result.inputs.frame.start).toBe("2026-07-04T08:00:00.000Z");
-    expect(result.inputs.frame.courtWindows[1]!.from).toBe("2026-07-04T12:00:00.000Z");
+    const [hall] = result.inputs.frame.halls;
+    expect(hall!.from).toBe("2026-07-04T08:00:00.000Z");
+    expect(hall!.bands[1]!.from).toBe("2026-07-04T12:00:00.000Z");
+    // A court left on the hall's hours takes them; a narrowed court keeps its own.
+    expect(hall!.courts[0]).toMatchObject({ from: "2026-07-04T08:00:00.000Z", to: "2026-07-04T16:00:00.000Z" });
+    expect(hall!.courts[1]).toMatchObject({ from: "2026-07-04T09:00:00.000Z", umpires: 2 });
   });
 
   it("builds engine inputs", () => {
@@ -102,16 +115,16 @@ describe("parsePlan", () => {
     expect(result.inputs.stageRules.bronze).toBeUndefined();
   });
 
-  it("rejects overlapping court windows and a deuce maximum below the target", () => {
+  it("rejects overlapping bands and a deuce maximum below the target", () => {
     const draft = completeDraft();
-    draft.frame.courtWindows[1]!.from = "12:00";
+    draft.frame.halls[0]!.bands[1]!.from = "12:00";
     draft.stageRules.group.deuceLimit = 21;
     const result = parsePlan(draft);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues).toContainEqual({
-      path: ["frame", "courtWindows", 1, "from"],
-      message: "Court windows must not overlap",
+      path: ["frame", "halls", 0, "bands"],
+      message: "Bands overlap from 12:00 to 13:00",
     });
     expect(result.issues).toContainEqual({
       path: ["stageRules", "group", "deuceLimit"],
@@ -189,15 +202,37 @@ describe("parsePlan", () => {
     expect(result.issues.map((i) => i.message)).toContain("Expected teams is required");
   });
 
-  it("asks for a court rate on every window, allowing zero", () => {
+  it("asks for a rate on every band, allowing zero", () => {
     const draft = completeDraft();
-    draft.frame.courtWindows[0]!.rate = null;
-    draft.frame.courtWindows[1]!.rate = 0;
+    draft.frame.halls[0]!.bands[0]!.rate = null;
+    draft.frame.halls[0]!.bands[1]!.rate = 0;
     const result = parsePlan(draft);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues).toEqual([
-      { path: ["frame", "courtWindows", 0, "rate"], message: "Court rate is required" },
+      { path: ["frame", "halls", 0, "bands", 0, "rate"], message: "Rate is required" },
+    ]);
+  });
+
+  it("reports a gap in the bands with its times", () => {
+    const draft = completeDraft();
+    draft.frame.halls[0]!.bands[1]!.from = "14:00";
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["frame", "halls", 0, "bands"], message: "Bands leave 13:00 to 14:00 uncovered" },
+    ]);
+  });
+
+  it("keeps a court within its hall's hours", () => {
+    const draft = completeDraft();
+    draft.frame.halls[0]!.courts[1]!.to = "18:00";
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["frame", "halls", 0, "courts", 1, "from"], message: "Court hours must be within the hall's hours" },
     ]);
   });
 

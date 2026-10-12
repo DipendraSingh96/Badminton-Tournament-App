@@ -6,25 +6,43 @@ import { EVENT_TYPES, type EventType, type FormatType, type Stage, type Unit } f
 
 type N = number | null;
 
-export interface CourtWindowDraft {
+// Times are "HH:mm" in the tournament's time zone.
+
+export interface RateBandDraft {
   id: string;
-  /** "HH:mm" in the tournament's time zone. */
+  /** Optional, e.g. "Peak"; shown as "Band N" when empty. */
+  name: string;
   from: string;
   to: string;
-  courts: N;
   /** Hire per court per hour (£). */
   rate: N;
+}
+
+export interface CourtDraft {
+  id: string;
+  /** Null follows the hall's hours, so the court moves with them. */
+  from: string | null;
+  to: string | null;
+  umpires: N;
+}
+
+export interface HallDraft {
+  id: string;
+  /** Optional; shown as "Hall N" when empty. */
+  name: string;
+  from: string;
+  to: string;
+  bands: RateBandDraft[];
+  courts: CourtDraft[];
 }
 
 export interface FrameDraft {
   /** "YYYY-MM-DD". */
   date: string;
-  /** "HH:mm" in the tournament's time zone. */
-  startTime: string;
-  endTime: string;
   timeZone: string;
-  courtWindows: CourtWindowDraft[];
-  umpires: N;
+  /** The day runs from the earliest hall opening to the latest closing. */
+  halls: HallDraft[];
+  /** Held back at the end of the whole day. */
   bufferMinutes: N;
 }
 
@@ -135,8 +153,35 @@ export function eventsInUse(draft: PlanDraft): EventType[] {
   return EVENT_TYPES.filter((event) => used.has(event));
 }
 
-export function emptyCourtWindow(): CourtWindowDraft {
-  return { id: newId(), from: "", to: "", courts: null, rate: null };
+export function emptyBand(): RateBandDraft {
+  return { id: newId(), name: "", from: "", to: "", rate: null };
+}
+
+export function emptyCourt(): CourtDraft {
+  return { id: newId(), from: null, to: null, umpires: null };
+}
+
+/** A new hall starts with one band (filled in once its hours are set) and one court. */
+export function emptyHall(): HallDraft {
+  return { id: newId(), name: "", from: "", to: "", bands: [emptyBand()], courts: [emptyCourt()] };
+}
+
+/** A court's hours: its own if narrowed, otherwise its hall's. */
+export function courtHours(hall: HallDraft, court: CourtDraft): { from: string; to: string } {
+  return { from: court.from ?? hall.from, to: court.to ?? hall.to };
+}
+
+/** Courts are numbered across the venue: Hall 1 has Courts 1-4, Hall 2 continues at 5. */
+export function courtNumber(halls: HallDraft[], hallIndex: number, courtIndex: number): number {
+  return halls.slice(0, hallIndex).reduce((sum, h) => sum + h.courts.length, 0) + courtIndex + 1;
+}
+
+export function hallName(hall: HallDraft, index: number): string {
+  return hall.name.trim() || `Hall ${index + 1}`;
+}
+
+export function bandName(band: RateBandDraft, index: number): string {
+  return band.name.trim() || `Band ${index + 1}`;
 }
 
 export function emptyCategory(): CategoryDraft {
@@ -173,11 +218,8 @@ export function emptyDraft(timeZone: string): PlanDraft {
     format: null,
     frame: {
       date: "",
-      startTime: "",
-      endTime: "",
       timeZone,
-      courtWindows: [emptyCourtWindow()],
-      umpires: null,
+      halls: [emptyHall()],
       bufferMinutes: null,
     },
     categories: [emptyCategory()],
