@@ -68,6 +68,30 @@ export function knockoutMatchCounts(
   };
 }
 
+/** One knockout round before the final: its bracket size and the matches played in it. */
+export interface KnockoutRound {
+  /** Places in the round: 8 for the quarter-finals, 4 for the semi-finals. */
+  size: number;
+  matches: number;
+}
+
+/**
+ * Knockout rounds before the final, first to last. Byes fill the bracket, so
+ * the first round plays qualifiers − bracket/2 matches and every later round
+ * half its size. Together they play qualifiers − 2 matches, the final the
+ * last one.
+ */
+export function knockoutRounds(qualifiers: number): KnockoutRound[] {
+  if (qualifiers < 3) return [];
+  let bracket = 1;
+  while (bracket < qualifiers) bracket *= 2;
+  const rounds: KnockoutRound[] = [];
+  for (let size = bracket; size >= 4; size /= 2) {
+    rounds.push({ size, matches: size === bracket ? qualifiers - bracket / 2 : size / 2 });
+  }
+  return rounds;
+}
+
 function total(counts: StageCounts): number {
   return counts.group + counts.knockout + counts.bronze + counts.final;
 }

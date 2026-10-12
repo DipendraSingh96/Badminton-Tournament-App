@@ -10,6 +10,7 @@ export * from "./capacity";
 export * from "./distribution";
 export * from "./duration";
 export * from "./entry";
+export * from "./estimate";
 export * from "./finance";
 export * from "./format";
 export * from "./levers";
