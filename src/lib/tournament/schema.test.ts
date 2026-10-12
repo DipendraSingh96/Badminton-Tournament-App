@@ -64,6 +64,9 @@ function completeDraft(): PlanDraft {
       { id: "o1", label: "Umpire food", type: "perPerson", amount: 8, basis: "umpires", count: null },
     ],
   };
+  draft.rules.tiebreaks = ["matchesWon", "pointDifference", "headToHead", "drawOfLots"];
+  draft.rules.withdrawal = "byesThenWalkovers";
+  draft.rules.walkover = "straightGamesAtTarget";
   return draft;
 }
 
@@ -74,7 +77,9 @@ describe("parsePlan", () => {
     if (result.ok) return;
     const messages = result.issues.map((i) => i.message);
     expect(messages).toContain("Date is required");
-    expect(messages).toContain("Expected entries is required");
+    expect(messages).toContain("Add at least one category");
+    expect(messages).toContain("Add at least one tiebreak");
+    expect(messages).toContain("Choose what happens when an entry withdraws");
     expect(messages).toContain("Choose the unit of play");
     expect(messages).toContain("Choose a format");
     expect(messages).toContain("Shuttles per game is required");
@@ -258,5 +263,91 @@ describe("parsePlan", () => {
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.bestOfThreeAllowance).toBeCloseTo(0.33);
+  });
+
+  it("builds the rules, with handicap off unless switched on", () => {
+    const result = parsePlan(completeDraft());
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.rules).toEqual({
+      tiebreaks: ["matchesWon", "pointDifference", "headToHead", "drawOfLots"],
+      handicap: { enabled: false },
+      eligibility: { exclusivePairs: [], membersOnly: [], allowMixedMemberExternalPairs: false },
+      withdrawal: "byesThenWalkovers",
+      walkover: "straightGamesAtTarget",
+    });
+  });
+
+  it("keeps draw of lots last and rubbers won to team events", () => {
+    const draft = completeDraft();
+    draft.rules.tiebreaks = ["drawOfLots", "rubbersWon"];
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["rules", "tiebreaks"], message: "Draw of lots can only be the last tiebreak" },
+      { path: ["rules", "tiebreaks"], message: "Rubbers won applies to team events only" },
+    ]);
+  });
+
+  it("asks for the Open doubles head starts only when handicap is on and Open doubles is played", () => {
+    const draft = completeDraft();
+    draft.rules.handicap.enabled = true;
+    // Mixed doubles only: the handicap has nothing to apply to.
+    const unused = parsePlan(draft);
+    if (!unused.ok) throw new Error(JSON.stringify(unused.issues));
+    expect(unused.inputs.rules.handicap).toEqual({ enabled: false });
+
+    draft.categories[0]!.event = "OPEN";
+    draft.eventTiming.OPEN = { minutesPerGame: 12, changeoverMinutes: 3 };
+    draft.rules.handicap.mixedVsMens = 2;
+    draft.rules.handicap.womensVsMens = 4;
+    const missing = parsePlan(draft);
+    expect(missing.ok).toBe(false);
+    if (missing.ok) return;
+    expect(missing.issues).toEqual([
+      { path: ["rules", "handicap", "womensVsMixed"], message: "Women's vs mixed head start is required" },
+    ]);
+
+    draft.rules.handicap.womensVsMixed = 2;
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.rules.handicap).toEqual({
+      enabled: true,
+      mixedVsMens: 2,
+      womensVsMens: 4,
+      womensVsMixed: 2,
+    });
+  });
+
+  it("checks eligibility rules against the categories", () => {
+    const draft = completeDraft();
+    draft.categories.push({ ...draft.categories[0]!, id: "c2", event: "MD" });
+    draft.eventTiming.MD = { minutesPerGame: 12, changeoverMinutes: 3 };
+    draft.rules.eligibility.maxCategoriesPerPerson = 0;
+    draft.rules.eligibility.exclusivePairs = [
+      { id: "x1", first: "c1", second: "c2" },
+      { id: "x2", first: "c2", second: "c1" },
+      { id: "x3", first: "c1", second: "c1" },
+      { id: "x4", first: "c1", second: null },
+    ];
+    draft.rules.eligibility.membersOnly = ["gone"];
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["rules", "eligibility", "maxCategoriesPerPerson"], message: "Most categories per person must be at least 1" },
+      { path: ["rules", "eligibility", "exclusivePairs", 1], message: "This pair is already listed" },
+      { path: ["rules", "eligibility", "exclusivePairs", 2], message: "Choose two different categories" },
+      { path: ["rules", "eligibility", "exclusivePairs", 3], message: "Choose two categories" },
+      { path: ["rules", "eligibility", "membersOnly"], message: "Members only lists a category that no longer exists" },
+    ]);
+  });
+
+  it("names a second category of the same event with a number", () => {
+    const draft = completeDraft();
+    draft.categories.push({ ...draft.categories[0]!, id: "c2" });
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.categories.map((c) => c.name)).toEqual(["Mixed doubles", "Mixed doubles 2"]);
   });
 });

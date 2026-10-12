@@ -1,4 +1,14 @@
-import { EVENT_TYPES, type EventType, type FormatType, type Stage, type Unit } from "@/engine";
+import {
+  EVENT_TYPES,
+  type EventType,
+  type FormatType,
+  type Stage,
+  type TiebreakCriterion,
+  type Unit,
+  type WalkoverRule,
+  type WithdrawalRule,
+} from "@/engine";
+import { EVENT_LABELS } from "./events";
 
 // What the plan editor holds while the organiser types. Every number starts
 // empty (null): the app supplies no tournament values of its own. The schema
@@ -103,6 +113,29 @@ export interface FinanceDraft {
   otherCosts: OtherCostDraft[];
 }
 
+export interface ExclusivePairDraft {
+  id: string;
+  first: string | null;
+  second: string | null;
+}
+
+export interface RulesDraft {
+  /** In the order they are applied. */
+  tiebreaks: TiebreakCriterion[];
+  /** Open doubles only: points head start per matchup, given to the weaker pair type. */
+  handicap: { enabled: boolean; mixedVsMens: N; womensVsMens: N; womensVsMixed: N };
+  eligibility: {
+    /** Empty means no limit. */
+    maxCategoriesPerPerson: N;
+    exclusivePairs: ExclusivePairDraft[];
+    /** Category ids. */
+    membersOnly: string[];
+    allowMixedMemberExternalPairs: boolean;
+  };
+  withdrawal: WithdrawalRule | null;
+  walkover: WalkoverRule | null;
+}
+
 export interface PlanDraft {
   name: string;
   /** Chosen once per tournament. */
@@ -118,6 +151,8 @@ export interface PlanDraft {
   /** Percentage added to typical best-of-3 matches; needed when any stage is best of 3. */
   bestOfThreeAllowance: N;
   finance: FinanceDraft;
+  /** Set once for the tournament. */
+  rules: RulesDraft;
 }
 
 export function newId(): string {
@@ -153,6 +188,40 @@ export function eventsInUse(draft: PlanDraft): EventType[] {
   return EVENT_TYPES.filter((event) => used.has(event));
 }
 
+/** True when Open doubles is played, as a category or as team rubbers. */
+export function openDoublesInUse(draft: PlanDraft): boolean {
+  return eventsInUse(draft).includes("OPEN");
+}
+
+/** True when any pair is played, so members and external players could pair up. */
+export function pairsInUse(draft: PlanDraft): boolean {
+  return eventsInUse(draft).some((event) => event !== "MS" && event !== "WS");
+}
+
+/**
+ * The name shown for a category left unnamed. An individual category takes
+ * its event, numbered from the second of that event: "Men's doubles",
+ * "Men's doubles 2". A team competition is "Competition N".
+ */
+export function defaultCategoryName(draft: PlanDraft, index: number): string {
+  const category = draft.categories[index];
+  if (draft.unit === "individual" && category?.event) {
+    const event = category.event;
+    const before = draft.categories.slice(0, index).filter((c) => c.event === event).length;
+    return before === 0 ? EVENT_LABELS[event] : `${EVENT_LABELS[event]} ${before + 1}`;
+  }
+  return `Competition ${index + 1}`;
+}
+
+/** Removes a category and every reference to it: prizes and eligibility rules. */
+export function removeCategory(draft: PlanDraft, id: string): void {
+  draft.categories = draft.categories.filter((c) => c.id !== id);
+  draft.finance.prizes = draft.finance.prizes.filter((p) => p.categoryId !== id);
+  const eligibility = draft.rules.eligibility;
+  eligibility.exclusivePairs = eligibility.exclusivePairs.filter((p) => p.first !== id && p.second !== id);
+  eligibility.membersOnly = eligibility.membersOnly.filter((c) => c !== id);
+}
+
 export function emptyBand(): RateBandDraft {
   return { id: newId(), name: "", from: "", to: "", rate: null };
 }
@@ -182,6 +251,25 @@ export function hallName(hall: HallDraft, index: number): string {
 
 export function bandName(band: RateBandDraft, index: number): string {
   return band.name.trim() || `Band ${index + 1}`;
+}
+
+export function emptyRules(): RulesDraft {
+  return {
+    tiebreaks: [],
+    handicap: { enabled: false, mixedVsMens: null, womensVsMens: null, womensVsMixed: null },
+    eligibility: {
+      maxCategoriesPerPerson: null,
+      exclusivePairs: [],
+      membersOnly: [],
+      allowMixedMemberExternalPairs: false,
+    },
+    withdrawal: null,
+    walkover: null,
+  };
+}
+
+export function emptyExclusivePair(): ExclusivePairDraft {
+  return { id: newId(), first: null, second: null };
 }
 
 export function emptyCategory(): CategoryDraft {
@@ -222,7 +310,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
       halls: [emptyHall()],
       bufferMinutes: null,
     },
-    categories: [emptyCategory()],
+    categories: [],
     stageRules: {
       group: emptyStageRules(),
       knockout: emptyStageRules(),
@@ -239,5 +327,6 @@ export function emptyDraft(timeZone: string): PlanDraft {
       prizes: [],
       otherCosts: [],
     },
+    rules: emptyRules(),
   };
 }

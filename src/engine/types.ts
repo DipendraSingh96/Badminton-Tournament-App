@@ -146,6 +146,68 @@ export interface Finance {
   otherCosts: OtherCost[];
 }
 
+/** Criteria for ranking a group, applied in the organiser's order. */
+export type TiebreakCriterion =
+  | "matchesWon"
+  | "gameDifference"
+  | "pointDifference"
+  | "headToHead"
+  | "pointsWon"
+  /** Team events only. */
+  | "rubbersWon"
+  /** Last only. */
+  | "drawOfLots";
+
+export const TIEBREAK_CRITERIA: readonly TiebreakCriterion[] = [
+  "matchesWon",
+  "gameDifference",
+  "pointDifference",
+  "headToHead",
+  "pointsWon",
+  "rubbersWon",
+  "drawOfLots",
+];
+
+/**
+ * Open doubles only: points head start in every game for the weaker pair
+ * type when different pair types meet. The same in every stage.
+ */
+export type Handicap =
+  | { enabled: false }
+  | {
+      enabled: true;
+      /** Given to the mixed pair. */
+      mixedVsMens: number;
+      /** Given to the women's pair. */
+      womensVsMens: number;
+      /** Given to the women's pair. */
+      womensVsMixed: number;
+    };
+
+export interface Eligibility {
+  /** No limit when absent. */
+  maxCategoriesPerPerson?: number;
+  /** Category ids one person can't both enter. */
+  exclusivePairs: [string, string][];
+  /** Category ids open to members only; the rest are open to external players. */
+  membersOnly: string[];
+  allowMixedMemberExternalPairs: boolean;
+}
+
+/** After play starts; before the draw a withdrawal is always a bye. */
+export type WithdrawalRule = "byesThenWalkovers" | "byesThenVoid";
+
+export type WalkoverRule = "straightGamesAtTarget" | "winOnly";
+
+/** Stored for the draw, standings and Live mode; not used in planning calculations. */
+export interface Rules {
+  tiebreaks: TiebreakCriterion[];
+  handicap: Handicap;
+  eligibility: Eligibility;
+  withdrawal: WithdrawalRule;
+  walkover: WalkoverRule;
+}
+
 export interface TournamentInputs {
   unit: Unit;
   format: FormatType;
@@ -161,4 +223,5 @@ export interface TournamentInputs {
    */
   bestOfThreeAllowance: number;
   finance: Finance;
+  rules: Rules;
 }

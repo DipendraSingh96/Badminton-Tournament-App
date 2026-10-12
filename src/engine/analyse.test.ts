@@ -39,6 +39,13 @@ function tournament(): TournamentInputs {
       prizes: [],
       otherCosts: [{ id: "hall", label: "Court hire", type: "fixed", amount: 200 }],
     },
+    rules: {
+      tiebreaks: ["matchesWon", "pointDifference"],
+      handicap: { enabled: false },
+      eligibility: { exclusivePairs: [], membersOnly: [], allowMixedMemberExternalPairs: true },
+      withdrawal: "byesThenWalkovers",
+      walkover: "straightGamesAtTarget",
+    },
   };
 }
 

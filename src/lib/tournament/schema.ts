@@ -11,12 +11,19 @@ import {
   type EventType,
   type FormatType,
   type OtherCost,
+  type Rules,
   type StageRules,
   type TournamentInputs,
   type Unit,
 } from "@/engine";
-import { eventsInUse, usesBestOfThree, type PlanDraft, type StageRulesDraft } from "./draft";
-import { EVENT_LABELS } from "./events";
+import {
+  defaultCategoryName,
+  eventsInUse,
+  openDoublesInUse,
+  usesBestOfThree,
+  type PlanDraft,
+  type StageRulesDraft,
+} from "./draft";
 
 // Validates a plan draft and converts it to engine inputs. Messages are
 // shown to organisers, so they use UK English and field labels.
@@ -248,6 +255,82 @@ const eventTimingSchema = z.object({
   changeoverMinutes: amount("Organising time"),
 });
 
+/** Checks the rules and builds them, or adds issues and returns null. */
+function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
+  const before = issues.length;
+  const { rules } = draft;
+  const add = (path: PropertyKey[], message: string) => issues.push({ path: ["rules", ...path], message });
+
+  const { tiebreaks } = rules;
+  if (tiebreaks.length === 0) add(["tiebreaks"], "Add at least one tiebreak");
+  if (new Set(tiebreaks).size !== tiebreaks.length) add(["tiebreaks"], "Each tiebreak can be used once");
+  const lots = tiebreaks.indexOf("drawOfLots");
+  if (lots !== -1 && lots !== tiebreaks.length - 1) add(["tiebreaks"], "Draw of lots can only be the last tiebreak");
+  if (draft.unit !== "team" && tiebreaks.includes("rubbersWon")) {
+    add(["tiebreaks"], "Rubbers won applies to team events only");
+  }
+
+  const handicapOn = rules.handicap.enabled && openDoublesInUse(draft);
+  if (handicapOn) {
+    const head = (label: string) => whole(label, 0);
+    for (const [key, label] of [
+      ["mixedVsMens", "Mixed vs men's head start"],
+      ["womensVsMens", "Women's vs men's head start"],
+      ["womensVsMixed", "Women's vs mixed head start"],
+    ] as const) {
+      const result = head(label).safeParse(rules.handicap[key]);
+      if (!result.success) add(["handicap", key], result.error.issues[0]!.message);
+    }
+  }
+
+  const { eligibility } = rules;
+  if (eligibility.maxCategoriesPerPerson !== null) {
+    const result = whole("Most categories per person", 1).safeParse(eligibility.maxCategoriesPerPerson);
+    if (!result.success) add(["eligibility", "maxCategoriesPerPerson"], result.error.issues[0]!.message);
+  }
+  const ids = new Set(draft.categories.map((c) => c.id));
+  const seen = new Set<string>();
+  eligibility.exclusivePairs.forEach((pair, i) => {
+    const path = ["eligibility", "exclusivePairs", i];
+    if (!pair.first || !pair.second || !ids.has(pair.first) || !ids.has(pair.second)) {
+      add(path, "Choose two categories");
+    } else if (pair.first === pair.second) {
+      add(path, "Choose two different categories");
+    } else {
+      const key = [pair.first, pair.second].sort().join("|");
+      if (seen.has(key)) add(path, "This pair is already listed");
+      seen.add(key);
+    }
+  });
+  if (eligibility.membersOnly.some((id) => !ids.has(id))) {
+    add(["eligibility", "membersOnly"], "Members only lists a category that no longer exists");
+  }
+
+  if (!rules.withdrawal) add(["withdrawal"], "Choose what happens when an entry withdraws");
+  if (!rules.walkover) add(["walkover"], "Choose how a walkover is scored");
+
+  if (issues.length > before || !rules.withdrawal || !rules.walkover) return null;
+  return {
+    tiebreaks: [...tiebreaks],
+    handicap: handicapOn
+      ? {
+          enabled: true,
+          mixedVsMens: rules.handicap.mixedVsMens!,
+          womensVsMens: rules.handicap.womensVsMens!,
+          womensVsMixed: rules.handicap.womensVsMixed!,
+        }
+      : { enabled: false },
+    eligibility: {
+      maxCategoriesPerPerson: eligibility.maxCategoriesPerPerson ?? undefined,
+      exclusivePairs: eligibility.exclusivePairs.map((p) => [p.first!, p.second!]),
+      membersOnly: [...eligibility.membersOnly],
+      allowMixedMemberExternalPairs: eligibility.allowMixedMemberExternalPairs,
+    },
+    withdrawal: rules.withdrawal,
+    walkover: rules.walkover,
+  };
+}
+
 export interface PlanIssue {
   path: PropertyKey[];
   message: string;
@@ -327,8 +410,10 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   });
 
+  const rules = parseRules(draft, issues);
+
   const { unit, format } = draft;
-  if (issues.length > 0 || !unit || !format || !frame || !finance || categories.some((c) => !c)) {
+  if (issues.length > 0 || !unit || !format || !frame || !finance || !rules || categories.some((c) => !c)) {
     return { ok: false, issues };
   }
 
@@ -352,7 +437,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     })),
   }));
 
-  const engineCategories: Category[] = categories.map((c) => {
+  const engineCategories: Category[] = categories.map((c, i) => {
     const category = c!;
     const entry: EntryKind =
       unit === "individual"
@@ -367,7 +452,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     const hasGroups = format !== "knockout";
     return {
       id: category.id,
-      name: category.name || (entry.type === "individual" ? EVENT_LABELS[entry.event] : ""),
+      name: category.name || defaultCategoryName(draft, i),
       entry,
       expectedEntries: category.expectedEntries,
       groups: !hasGroups
@@ -419,6 +504,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         prizes: finance.prizes.map(({ categoryId, position, amount }) => ({ categoryId, position, amount })),
         otherCosts,
       },
+      rules,
     },
   };
 }
