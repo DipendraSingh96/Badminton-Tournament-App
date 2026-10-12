@@ -50,8 +50,9 @@ function completeDraft(): PlanDraft {
     deuce: "standard",
     deuceLimit: 30,
     bestOf: 1,
+    minutesPerGame: 12,
+    changeoverMinutes: 3,
   };
-  draft.eventTiming.XD = { minutesPerGame: 12, changeoverMinutes: 3 };
   draft.bestOfThreeAllowance = 33;
   draft.stageRules.knockout = { ...draft.stageRules.group };
   draft.stageRules.bronze = { ...draft.stageRules.group };
@@ -114,6 +115,8 @@ describe("parsePlan", () => {
       deuce: null,
       deuceLimit: null,
       bestOf: null,
+      minutesPerGame: null,
+      changeoverMinutes: null,
     };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
@@ -143,8 +146,6 @@ describe("parsePlan", () => {
     const category = draft.categories[0]!;
     category.name = "Club team cup";
     category.lineUp = { ...category.lineUp, MS: 3, MD: 2 };
-    draft.eventTiming.MS = { minutesPerGame: 15, changeoverMinutes: 3 };
-    draft.eventTiming.MD = { minutesPerGame: 12, changeoverMinutes: 3 };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.categories[0]!.entry).toEqual({
@@ -154,10 +155,7 @@ describe("parsePlan", () => {
         { event: "MD", count: 2 },
       ],
     });
-    expect(result.inputs.eventTiming).toEqual({
-      MS: { minutesPerGame: 15, changeoverMinutes: 3 },
-      MD: { minutesPerGame: 12, changeoverMinutes: 3 },
-    });
+    expect(result.inputs.stageTiming.group).toEqual({ minutesPerGame: 12, changeoverMinutes: 3 });
   });
 
   it("asks a team event for a name and a line-up", () => {
@@ -184,16 +182,48 @@ describe("parsePlan", () => {
     expect(result.inputs.format).toBe("knockout");
   });
 
-  it("asks for timing only for events in use", () => {
+  it("builds timing per stage", () => {
     const draft = completeDraft();
-    draft.eventTiming.XD = { minutesPerGame: null, changeoverMinutes: null };
+    draft.stageRules.final = { ...draft.stageRules.final, minutesPerGame: 15, changeoverMinutes: 5 };
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.stageTiming.group).toEqual({ minutesPerGame: 12, changeoverMinutes: 3 });
+    expect(result.inputs.stageTiming.final).toEqual({ minutesPerGame: 15, changeoverMinutes: 5 });
+  });
+
+  it("asks for timing on a stage that is started", () => {
+    const draft = completeDraft();
+    draft.stageRules.group = { ...draft.stageRules.group, minutesPerGame: null, changeoverMinutes: null };
     const result = parsePlan(draft);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    const timingIssues = result.issues.filter((i) => i.path[0] === "eventTiming");
-    expect(timingIssues).toEqual([
-      { path: ["eventTiming", "XD", "minutesPerGame"], message: "Minutes per game is required" },
-      { path: ["eventTiming", "XD", "changeoverMinutes"], message: "Organising time is required" },
+    expect(result.issues).toEqual([
+      { path: ["stageRules", "group", "minutesPerGame"], message: "Minutes per game is required" },
+      { path: ["stageRules", "group", "changeoverMinutes"], message: "Organising time is required" },
+    ]);
+  });
+
+  it("ignores stages the format doesn't play, even half filled in", () => {
+    const draft = completeDraft();
+    draft.format = "groups";
+    draft.stageRules.knockout = { ...draft.stageRules.knockout, minutesPerGame: null };
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(Object.keys(result.inputs.stageRules)).toEqual(["group"]);
+    expect(Object.keys(result.inputs.stageTiming)).toEqual(["group"]);
+  });
+
+  it("keeps external entries within the expected entries", () => {
+    const draft = completeDraft();
+    draft.categories[0]!.expectedExternal = 17;
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      {
+        path: ["categories", 0, "expectedExternal"],
+        message: "Of which external can't be more than expected entries",
+      },
     ]);
   });
 
@@ -298,7 +328,6 @@ describe("parsePlan", () => {
     expect(unused.inputs.rules.handicap).toEqual({ enabled: false });
 
     draft.categories[0]!.event = "OPEN";
-    draft.eventTiming.OPEN = { minutesPerGame: 12, changeoverMinutes: 3 };
     draft.rules.handicap.mixedVsMens = 2;
     draft.rules.handicap.womensVsMens = 4;
     const missing = parsePlan(draft);
@@ -322,7 +351,6 @@ describe("parsePlan", () => {
   it("checks eligibility rules against the categories", () => {
     const draft = completeDraft();
     draft.categories.push({ ...draft.categories[0]!, id: "c2", event: "MD" });
-    draft.eventTiming.MD = { minutesPerGame: 12, changeoverMinutes: 3 };
     draft.rules.eligibility.maxCategoriesPerPerson = 0;
     draft.rules.eligibility.exclusivePairs = [
       { id: "x1", first: "c1", second: "c2" },

@@ -77,16 +77,16 @@ export interface CategoryDraft {
   expectedExternal: N;
 }
 
+/** A stage's scoring and timing; applies to every event played in it. */
 export interface StageRulesDraft {
   pointsPerGame: N;
   deuce: "none" | "cap" | "standard" | null;
   /** The cap or maximum, depending on `deuce`. */
   deuceLimit: N;
   bestOf: 1 | 3 | null;
-}
-
-export interface EventTimingDraft {
+  /** Typical playing time per game. */
   minutesPerGame: N;
+  /** Walk-on, warm-up and changeover per match. */
   changeoverMinutes: N;
 }
 
@@ -144,10 +144,8 @@ export interface PlanDraft {
   format: FormatType | null;
   frame: FrameDraft;
   categories: CategoryDraft[];
-  /** Scoring per stage. */
+  /** Scoring and timing per stage. */
   stageRules: Record<Stage, StageRulesDraft>;
-  /** Timing per event type; only events in use need it. */
-  eventTiming: Record<EventType, EventTimingDraft>;
   /** Percentage added to typical best-of-3 matches; needed when any stage is best of 3. */
   bestOfThreeAllowance: N;
   finance: FinanceDraft;
@@ -165,12 +163,32 @@ export function emptyStageRules(): StageRulesDraft {
     deuce: null,
     deuceLimit: null,
     bestOf: null,
+    minutesPerGame: null,
+    changeoverMinutes: null,
   };
+}
+
+/**
+ * Stages the format can play: groups unless knockout only; knockout rounds
+ * and the final unless groups only; bronze when a category has it switched
+ * on. Other stages need no scoring or timing.
+ */
+export function stagesInPlay(draft: PlanDraft): Stage[] {
+  const { format } = draft;
+  if (!format) return [];
+  const stages: Stage[] = [];
+  if (format !== "knockout") stages.push("group");
+  if (format !== "groups") {
+    stages.push("knockout");
+    if (draft.categories.some((c) => c.bronze)) stages.push("bronze");
+    stages.push("final");
+  }
+  return stages;
 }
 
 /** True when any stage is set to best of 3. */
 export function usesBestOfThree(draft: PlanDraft): boolean {
-  return Object.values(draft.stageRules).some((stage) => stage.bestOf === 3);
+  return stagesInPlay(draft).some((stage) => draft.stageRules[stage].bestOf === 3);
 }
 
 /**
@@ -317,9 +335,6 @@ export function emptyDraft(timeZone: string): PlanDraft {
       bronze: emptyStageRules(),
       final: emptyStageRules(),
     },
-    eventTiming: Object.fromEntries(
-      EVENT_TYPES.map((e) => [e, { minutesPerGame: null, changeoverMinutes: null }]),
-    ) as Record<EventType, EventTimingDraft>,
     bestOfThreeAllowance: null,
     finance: {
       shuttlesPerGame: null,

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, removeCategory, type PlanDraft } from "./draft";
-import { normaliseDraft } from "./storage";
+import { defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, removeCategory } from "./draft";
 
 function draftWith(events: ("MD" | "XD")[]) {
   const draft = emptyDraft("Europe/London");
@@ -38,13 +37,3 @@ describe("removeCategory", () => {
   });
 });
 
-describe("normaliseDraft", () => {
-  it("gives a draft saved before rules existed empty rules", () => {
-    const old: Omit<PlanDraft, "rules"> & { rules?: PlanDraft["rules"] } = emptyDraft("Europe/London");
-    delete old.rules;
-    const draft = normaliseDraft(old);
-    expect(draft.rules.tiebreaks).toEqual([]);
-    expect(draft.rules.withdrawal).toBeNull();
-    expect(draft.rules.handicap.enabled).toBe(false);
-  });
-});

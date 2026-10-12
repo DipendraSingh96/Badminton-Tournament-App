@@ -18,8 +18,8 @@ import {
 } from "@/engine";
 import {
   defaultCategoryName,
-  eventsInUse,
   openDoublesInUse,
+  stagesInPlay,
   usesBestOfThree,
   type PlanDraft,
   type StageRulesDraft,
@@ -179,9 +179,16 @@ function categorySchema(unit: Unit | null, format: FormatType | null) {
       feeBasis: z.enum(["player", "entry"], { error: "Choose how the fee is charged" }),
       feeAmount: amount("Entry fee"),
       externalFeeAmount: amount("External fee").nullable(),
-      expectedExternal: whole("Expected external entrants", 0).nullable(),
+      expectedExternal: whole("Of which external", 0).nullable(),
     })
     .superRefine((c, ctx) => {
+      if (c.expectedExternal !== null && c.expectedExternal > c.expectedEntries) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Of which external can't be more than expected entries",
+          path: ["expectedExternal"],
+        });
+      }
       if (unit === "individual" && !c.event) {
         ctx.addIssue({ code: "custom", message: "Choose an event", path: ["event"] });
       }
@@ -211,6 +218,8 @@ const stageRulesSchema = z
     deuce: z.enum(["none", "cap", "standard"], { error: "Choose a deuce rule" }),
     deuceLimit: z.number().nullable(),
     bestOf: z.union([z.literal(1), z.literal(3)], { error: "Choose best of 1 or 3" }),
+    minutesPerGame: positive("Minutes per game"),
+    changeoverMinutes: amount("Organising time"),
   })
   .superRefine((s, ctx) => {
     if (s.deuce === "none") return;
@@ -248,11 +257,6 @@ const financeSchema = z.object({
         }
       }),
   ),
-});
-
-const eventTimingSchema = z.object({
-  minutesPerGame: positive("Minutes per game"),
-  changeoverMinutes: amount("Organising time"),
 });
 
 /** Checks the rules and builds them, or adds issues and returns null. */
@@ -372,7 +376,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   }
 
   const stageRules: TournamentInputs["stageRules"] = {};
-  for (const stage of STAGES) {
+  const stageTiming: TournamentInputs["stageTiming"] = {};
+  for (const stage of stagesInPlay(draft)) {
     const raw = draft.stageRules[stage];
     if (isEmptyStage(raw)) continue;
     const parsed = collect(stageRulesSchema, raw, ["stageRules", stage]);
@@ -388,18 +393,13 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       bestOf: parsed.bestOf,
     };
     stageRules[stage] = rules;
+    stageTiming[stage] = { minutesPerGame: parsed.minutesPerGame, changeoverMinutes: parsed.changeoverMinutes };
   }
 
   let bestOfThreeAllowance = 0;
   if (usesBestOfThree(draft)) {
     const percent = collect(amount("Best-of-3 allowance"), draft.bestOfThreeAllowance, ["bestOfThreeAllowance"]);
     if (percent !== null) bestOfThreeAllowance = percent / 100;
-  }
-
-  const eventTiming: TournamentInputs["eventTiming"] = {};
-  for (const event of eventsInUse(draft)) {
-    const parsed = collect(eventTimingSchema, draft.eventTiming[event], ["eventTiming", event]);
-    if (parsed) eventTiming[event] = parsed;
   }
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
@@ -496,7 +496,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
       },
       categories: engineCategories,
       stageRules,
-      eventTiming,
+      stageTiming,
       bestOfThreeAllowance,
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,
