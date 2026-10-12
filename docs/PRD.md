@@ -133,14 +133,14 @@ Each slice is demoable. Start each in plan mode.
 Formats other than groups then knockout, knockout only, or groups only; online payments, notifications (email/SMS/push), multi-day events, public tournament discovery.
 
 ## 11. Design direction
-**Sporty high-contrast** (chosen by the product owner, 10 October 2026). It may be replaced by a direction from the UX designer; because every colour, radius and type choice is a design token in `src/app/globals.css`, that change does not require rewriting screens.
+To be supplied by the product owner (a UX designer). Until it is, the app uses **neutral design tokens**: shadcn/ui neutral greys, one neutral primary, and no brand accent. Every colour, radius, spacing and type choice is a design token in `src/app/globals.css`, so a visual direction can be applied later without rewriting screens. (The earlier sporty high-contrast direction was withdrawn on 12 October 2026.)
 
-- **Neutrals:** off-white `#FAFAF9` and near-black `#111111` in light mode; `#0F1110` and `#F2F2F0` in dark mode. Dark mode follows the device setting.
-- **One accent:** shuttle yellow `#D9F24A`, always with near-black text on it. A darker shade of the same hue is used for lines and text on light backgrounds. Red and amber are used only for status (doesn't fit, tight, loss).
-- **Type:** Geist, semibold headings with tight tracking; Geist Mono with tabular figures for numbers.
-- **Shape:** 8px controls, 14px containers, square badges. Cards are tinted surfaces without borders.
+- **Themes:** light and dark, with a toggle; the device setting is followed until the person chooses.
+- **Status colours** are semantic only: success (fits, pays for itself), warning (tight), destructive (doesn't fit, loss).
+- **Type:** Geist; Geist Mono with tabular figures for numbers.
 - **Icons:** Phosphor.
-- **Accessibility:** WCAG AA contrast for all text, and at least 3:1 for input outlines and focus rings, in both modes.
+- **Layout and content** of the Plan mode screens follow `docs/IA.md`.
+- **Accessibility:** WCAG AA contrast for all text, and at least 3:1 for input outlines and focus rings, in both themes.
 
 Live mode has the strictest requirements: score entry on a phone one-handed, and a court board readable from a distance on a large screen.
 

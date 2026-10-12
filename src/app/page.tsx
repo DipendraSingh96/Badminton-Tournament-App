@@ -8,7 +8,7 @@ const CHECKS = [
     question: "Does it fit?",
     detail: "Court time needed against the time and courts you have, typical and worst case.",
     chips: [
-      { label: "Fits", className: "bg-brand text-brand-foreground" },
+      { label: "Fits", className: "bg-success text-success-foreground" },
       { label: "Tight", className: "bg-warning text-warning-foreground" },
       { label: "Doesn't fit", className: "bg-destructive text-destructive-foreground" },
     ],
@@ -37,7 +37,7 @@ export default function Home() {
         </p>
         <Link
           href="/plan"
-          className={buttonVariants({ variant: "brand", size: "lg", className: "h-11 px-5 text-base" })}
+          className={buttonVariants({ variant: "default", size: "lg", className: "h-11 px-5 text-base" })}
         >
           Plan a tournament
           <ArrowRightIcon weight="bold" />

@@ -89,13 +89,13 @@ function Row({
         <span className={`flex items-center gap-1 ${labelClass}`}>
           <CaretRightIcon
             aria-hidden="true"
-            className="size-3.5 shrink-0 transition-transform group-open:rotate-90 group-open:text-brand-strong"
+            className="size-3.5 shrink-0 transition-transform group-open:rotate-90 group-open:text-foreground"
           />
           <span className="underline decoration-dotted underline-offset-4">{label}</span>
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md border-l-2 border-brand bg-background px-3 py-2 font-mono text-xs font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md border-l-2 border-foreground/30 bg-background px-3 py-2 font-mono text-xs font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
@@ -151,7 +151,7 @@ const STATUS: Record<CapacityStatus, { label: string; text: string; className: s
   fits: {
     label: "Fits",
     text: "Fits in the time and courts available, even if every match runs long.",
-    className: "bg-brand text-brand-foreground",
+    className: "bg-success text-success-foreground",
   },
   fitsTypicalOnly: {
     label: "Tight",
@@ -378,7 +378,7 @@ function FinanceCard({
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           Finance
-          <Badge className={loss ? "bg-destructive text-destructive-foreground" : "bg-brand text-brand-foreground"}>
+          <Badge className={loss ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}>
             {loss ? "Loss" : "Pays for itself"}
           </Badge>
         </CardTitle>
