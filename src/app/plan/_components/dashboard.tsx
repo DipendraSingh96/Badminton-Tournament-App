@@ -27,7 +27,7 @@ import {
 } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import type { ParseResult } from "@/lib/tournament/schema";
-import { NumberField, SelectField } from "./fields";
+import { InfoTip, NumberField, SelectField } from "./fields";
 import {
   STAGE_LABELS,
   categoryName,
@@ -119,12 +119,9 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
   );
 }
 
-function WorkingHint() {
-  return (
-    <p className="text-xs text-muted-foreground">
-      Select a figure to see how it was worked out.
-    </p>
-  );
+/** "Select a figure…", behind an ⓘ on a card title. */
+function FigureTip() {
+  return <InfoTip about="the figures">Select a figure to see how it was worked out.</InfoTip>;
 }
 
 const STATUS: Record<CapacityStatus, { label: string; text: string; className: string }> = {
@@ -186,7 +183,10 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          Capacity
+          <span className="flex items-center gap-1.5">
+            Capacity
+            <FigureTip />
+          </span>
           <Badge className={status.className}>{status.label}</Badge>
         </CardTitle>
         <CardDescription>{status.text}</CardDescription>
@@ -227,7 +227,6 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
             working={spareWorking(analysis)}
           />
         </div>
-        <WorkingHint />
         {levers ? (
           <LeverList
             levers={levers}
@@ -256,7 +255,10 @@ function MatchesCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Matches</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Matches
+          <FigureTip />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Stats
@@ -336,7 +338,6 @@ function MatchesCard({
             );
           })}
         </div>
-        <WorkingHint />
       </CardContent>
     </Card>
   );
@@ -360,7 +361,10 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Group stage</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Group stage
+          <FigureTip />
+        </CardTitle>
         <CardDescription>
           A wave is one round of every group: each entry plays at most once in it. Categories play their waves side by
           side, so the group stage takes as many waves as its longest category.
@@ -404,7 +408,6 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
             );
           })}
         </div>
-        <WorkingHint />
       </CardContent>
     </Card>
   );
@@ -425,7 +428,10 @@ function GroupsPerHallCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Suggested groups per hall</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Suggested groups per hall
+          <FigureTip />
+        </CardTitle>
         <CardDescription>
           Each group stays in one hall. Groups are shared in proportion to each hall&apos;s court time, largest
           first. A suggestion only.
@@ -454,7 +460,6 @@ function GroupsPerHallCard({
             />
           );
         })}
-        <WorkingHint />
       </CardContent>
     </Card>
   );
@@ -475,7 +480,10 @@ function FinanceCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          Finance
+          <span className="flex items-center gap-1.5">
+            Finance
+            <FigureTip />
+          </span>
           <Badge className={loss ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}>
             {loss ? "Loss" : "Pays for itself"}
           </Badge>
@@ -542,9 +550,6 @@ function FinanceCard({
           value={formatMoney(Math.abs(finance.profit))}
           working={profitWorking(analysis)}
         />
-        <div className="mt-2">
-          <WorkingHint />
-        </div>
       </CardContent>
     </Card>
   );
@@ -661,7 +666,10 @@ function LeversCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Suggested levers</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Suggested levers
+          <FigureTip />
+        </CardTitle>
         <CardDescription>
           Each re-runs the plan with one change. Suggestions only: change the input yourself to use one.
         </CardDescription>
@@ -682,7 +690,6 @@ function LeversCard({
             {list(toProfit, "profit")}
           </div>
         ) : null}
-        {toFit.length + toProfit.length > 0 ? <WorkingHint /> : null}
       </CardContent>
     </Card>
   );

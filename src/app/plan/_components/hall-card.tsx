@@ -237,6 +237,7 @@ export function HallCard({
           <Button
             variant={settingsOpen ? "secondary" : "outline"}
             aria-expanded={settingsOpen}
+            data-hall-settings={hallIndex}
             onClick={() => setSettingsOpen((v) => !v)}
           >
             <SlidersHorizontalIcon /> Hall settings

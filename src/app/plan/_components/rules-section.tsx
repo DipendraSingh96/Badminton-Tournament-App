@@ -14,7 +14,7 @@ import {
   type RulesDraft,
 } from "@/lib/tournament/draft";
 import { TIEBREAK_LABELS, WALKOVER_LABELS, WITHDRAWAL_LABELS } from "@/lib/tournament/events";
-import { IssuesContext, Section, SegmentedField, SelectField, StepperField, SwitchField, pathKey } from "./fields";
+import { InfoTip, IssuesContext, Section, SegmentedField, SelectField, StepperField, SwitchField, pathKey } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 
@@ -36,10 +36,10 @@ const HANDICAPS: { key: keyof Omit<RulesDraft["handicap"], "enabled">; label: st
 
 function Heading({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <p className="text-xs text-muted-foreground">{description}</p>
-    </div>
+    <h3 className="flex items-center gap-1 text-sm font-medium">
+      {title}
+      <InfoTip about={title}>{description}</InfoTip>
+    </h3>
   );
 }
 
@@ -250,11 +250,14 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
       {draft.categories.length > 0 ? (
         <>
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Can&apos;t be entered together</span>
-            {eligibility.exclusivePairs.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 text-sm font-medium">
+              Can&apos;t be entered together
+              <InfoTip about="categories that can't be entered together">
                 Pairs of categories one person can&apos;t both enter, e.g. two draws on at the same time.
-              </p>
+              </InfoTip>
+            </span>
+            {eligibility.exclusivePairs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">None yet.</p>
             ) : (
               eligibility.exclusivePairs.map((pair, i) => (
                 <div
@@ -306,10 +309,12 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
           </div>
 
           <div className="flex flex-col gap-2" data-path="rules.eligibility.membersOnly">
-            <span className="text-sm font-medium">Members only</span>
-            <p className="text-xs text-muted-foreground">
-              Categories only members may enter. The rest are open to external players too.
-            </p>
+            <span className="flex items-center gap-1 text-sm font-medium">
+              Members only
+              <InfoTip about="members-only categories">
+                Categories only members may enter. The rest are open to external players too.
+              </InfoTip>
+            </span>
             {draft.categories.map((category) => (
               <SwitchField
                 key={category.id}

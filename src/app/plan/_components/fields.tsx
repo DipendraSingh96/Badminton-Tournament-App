@@ -1,12 +1,13 @@
 "use client";
 
-import { CheckCircleIcon, CircleIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, CircleIcon, InfoIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PlanIssue } from "@/lib/tournament/schema";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,35 @@ export function issueMap(issues: PlanIssue[]): Map<string, string> {
     if (!map.has(key)) map.set(key, issue.message);
   }
   return map;
+}
+
+/**
+ * Help text behind an ⓘ beside a label or title, so it doesn't crowd the
+ * workbench. Shown on hover and on keyboard focus; screen readers get it as
+ * the button's description.
+ */
+export function InfoTip({ about, children }: { about: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`About ${about}`}
+            aria-describedby={id}
+            className="inline-grid size-4 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        }
+      >
+        <InfoIcon className="size-3.5" />
+        <span id={id} className="sr-only">
+          {children}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="block max-w-64 text-left leading-snug font-normal">{children}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /**
@@ -51,14 +81,15 @@ function Field({
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
-      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
+      </div>
       {children}
       {message ? (
         <p id={`${id}-message`} className="text-xs text-destructive">
           {message}
         </p>
-      ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
   );
@@ -264,15 +295,14 @@ function ChoiceGroup({
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
-      <span id={id} className="text-sm leading-none font-medium">
-        {label}
-      </span>
+      <div className="flex items-center gap-1">
+        <span id={id} className="text-sm leading-none font-medium">
+          {label}
+        </span>
+        {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
+      </div>
       {children(id)}
-      {message ? (
-        <p className="text-xs text-destructive">{message}</p>
-      ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      ) : null}
+      {message ? <p className="text-xs text-destructive">{message}</p> : null}
     </div>
   );
 }
@@ -434,10 +464,12 @@ export function Section({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span>{title}</span>
+          <span className="flex items-center gap-1.5">
+            {title}
+            {description ? <InfoTip about={title}>{description}</InfoTip> : null}
+          </span>
           {action}
         </CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">{children}</CardContent>
     </Card>

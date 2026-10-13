@@ -13,7 +13,7 @@ import {
   type PlanDraft,
 } from "@/lib/tournament/draft";
 import { EVENT_LABELS, FORMAT_LABELS } from "@/lib/tournament/events";
-import { OptionCards, Section, SegmentedField, SelectField, StepperField, TextField } from "./fields";
+import { InfoTip, OptionCards, Section, SegmentedField, SelectField, StepperField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
 import { RulesSection } from "./rules-section";
 
@@ -249,11 +249,13 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
         <RemoveButton draft={draft} index={index} update={update} />
       </div>
       <fieldset className="flex flex-col gap-2" data-path={`categories.${index}.lineUp`}>
-        <legend className="text-sm font-medium">Line-up of a tie</legend>
-        <p className="text-xs text-muted-foreground">
-          Rubbers of each event in every tie. All rubbers are played; the team that wins the most rubbers wins the
-          tie. Each player plays one rubber, so the line-up sets the squad.
-        </p>
+        <legend className="flex items-center gap-1 text-sm font-medium">
+          Line-up of a tie
+          <InfoTip about="the line-up">
+            Rubbers of each event in every tie. All rubbers are played; the team that wins the most rubbers wins the
+            tie. Each player plays one rubber, so the line-up sets the squad.
+          </InfoTip>
+        </legend>
         <div className="grid grid-cols-2 gap-3 @md:grid-cols-3">
           {EVENT_TYPES.map((event) => (
             <StepperField
