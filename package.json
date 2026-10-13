@@ -31,6 +31,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/cli": "^0.1.22",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
     "@types/react": "^19",
