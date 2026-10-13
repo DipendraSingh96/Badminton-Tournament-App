@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { profitCurve, type AnalysisResult, type CapacityStatus } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import type { ParseResult, PlanIssue } from "@/lib/tournament/schema";
@@ -24,6 +26,25 @@ function Tile({ label, value }: { label: string; value: string }) {
 }
 
 const DASH = "–";
+
+// Per-viewer convenience: whether the summary is collapsed, kept in this browser.
+const COLLAPSED_KEY = "badminton:summary-collapsed";
+
+function loadCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // Not remembered; the summary opens expanded next time.
+  }
+}
 
 /**
  * Always-visible results at the top of the workbench. Recalculates with every
@@ -60,76 +81,124 @@ export function Summary({
 
   const missing = !parsed.ok ? parsed.issues : [];
   const problems = analysis && !analysis.ok ? analysis.errors.flatMap((e) => analysisErrorMessages(draft, e)) : [];
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
 
-  return (
-    <section aria-label="Summary" className="@container flex flex-col gap-3 border-b bg-card p-5">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Summary</h2>
+  function toggle() {
+    setCollapsed(!collapsed);
+    saveCollapsed(!collapsed);
+  }
+
+  const toFill =
+    missing.length > 0 ? (
+      <p className="text-sm text-muted-foreground">
+        {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
+        <button
+          type="button"
+          className="font-medium text-foreground underline underline-offset-4"
+          onClick={() => onGoTo(missing[0]!)}
+        >
+          {issueSection(draft, missing[0]!)}: {missing[0]!.message}
+        </button>
+      </p>
+    ) : problems.length > 0 ? (
+      <p className="text-sm text-destructive">{problems[0]}</p>
+    ) : null;
+
+  const header = (
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Summary</h2>
+      <div className="flex items-center gap-1">
         {status ? (
           <Badge className={status.chip}>{status.label}</Badge>
         ) : (
           <Badge variant="outline">Incomplete</Badge>
         )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-expanded={!collapsed}
+          aria-controls="summary-body"
+          aria-label={collapsed ? "Show summary" : "Hide summary"}
+          onClick={toggle}
+        >
+          {collapsed ? <CaretDownIcon /> : <CaretUpIcon />}
+        </Button>
       </div>
+    </div>
+  );
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between gap-2 text-sm">
-          <span className="text-muted-foreground">Court time needed</span>
-          <span className="tabular-nums">
-            {capacity
-              ? `${formatMinutesShort(capacity.needed.typical)} of ${formatMinutesShort(capacity.available.courtMinutes)} available`
-              : DASH}
-          </span>
-        </div>
-        <div className="relative h-2 rounded-full bg-muted" aria-hidden="true">
-          {capacity && share && status ? (
-            <>
-              <div className={`h-2 rounded-full ${status.bar}`} style={{ width: share(capacity.needed.typical) }} />
-              <div
-                className="absolute -top-1 h-4 w-0.5 rounded bg-foreground/60"
-                style={{ left: share(capacity.needed.worst) }}
-                title="Worst case"
-              />
-            </>
+  if (collapsed) {
+    return (
+      <section aria-label="Summary" className="@container flex flex-col gap-2 border-b bg-card px-5 py-3">
+        {header}
+        {result && capacity && finance ? (
+          <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm tabular-nums">
+            <span>
+              {formatMinutesShort(capacity.needed.typical)} of {formatMinutesShort(capacity.available.courtMinutes)}
+            </span>
+            <span>{result.totalMatches} matches</span>
+            <span>
+              {finance.profit < 0 ? "Loss" : "Profit"} {formatMoney(Math.abs(finance.profit))}
+            </span>
+          </p>
+        ) : (
+          toFill
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Summary" className="@container flex flex-col gap-3 border-b bg-card p-5">
+      {header}
+      <div id="summary-body" className="contents">
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">Court time needed</span>
+            <span className="tabular-nums">
+              {capacity
+                ? `${formatMinutesShort(capacity.needed.typical)} of ${formatMinutesShort(capacity.available.courtMinutes)} available`
+                : DASH}
+            </span>
+          </div>
+          <div className="relative h-2 rounded-full bg-muted" aria-hidden="true">
+            {capacity && share && status ? (
+              <>
+                <div className={`h-2 rounded-full ${status.bar}`} style={{ width: share(capacity.needed.typical) }} />
+                <div
+                  className="absolute -top-1 h-4 w-0.5 rounded bg-foreground/60"
+                  style={{ left: share(capacity.needed.worst) }}
+                  title="Worst case"
+                />
+              </>
+            ) : null}
+          </div>
+          {capacity ? (
+            <p className="text-xs text-muted-foreground">
+              Worst case {formatMinutesShort(capacity.needed.worst)} (marker).
+            </p>
           ) : null}
         </div>
-        {capacity ? (
-          <p className="text-xs text-muted-foreground">
-            Worst case {formatMinutesShort(capacity.needed.worst)} (marker).
-          </p>
-        ) : null}
+
+        <dl className="grid grid-cols-3 gap-2">
+          <Tile label="Matches" value={result ? String(result.totalMatches) : DASH} />
+          <Tile label="Revenue" value={finance ? formatMoney(finance.revenue) : DASH} />
+          <Tile label="Total cost" value={finance ? formatMoney(finance.totalCost) : DASH} />
+        </dl>
+        <dl className="grid grid-cols-2 gap-2">
+          <Tile
+            label={finance && finance.profit < 0 ? "Loss" : "Profit"}
+            value={finance ? formatMoney(Math.abs(finance.profit)) : DASH}
+          />
+          <Tile
+            label={first ? `Break-even entries · ${categoryName(draft, first.id)}` : "Break-even entries"}
+            value={breakEven ? (breakEven.breakEven !== null ? String(breakEven.breakEven) : "None") : DASH}
+          />
+        </dl>
+
+        {toFill}
       </div>
-
-      <dl className="grid grid-cols-3 gap-2">
-        <Tile label="Matches" value={result ? String(result.totalMatches) : DASH} />
-        <Tile label="Revenue" value={finance ? formatMoney(finance.revenue) : DASH} />
-        <Tile label="Total cost" value={finance ? formatMoney(finance.totalCost) : DASH} />
-      </dl>
-      <dl className="grid grid-cols-2 gap-2">
-        <Tile
-          label={finance && finance.profit < 0 ? "Loss" : "Profit"}
-          value={finance ? formatMoney(Math.abs(finance.profit)) : DASH}
-        />
-        <Tile
-          label={first ? `Break-even entries · ${categoryName(draft, first.id)}` : "Break-even entries"}
-          value={breakEven ? (breakEven.breakEven !== null ? String(breakEven.breakEven) : "None") : DASH}
-        />
-      </dl>
-
-      {missing.length > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
-          <button
-            type="button"
-            className="font-medium text-foreground underline underline-offset-4"
-            onClick={() => onGoTo(missing[0]!)}
-          >
-            {issueSection(draft, missing[0]!)}: {missing[0]!.message}
-          </button>
-        </p>
-      ) : problems.length > 0 ? (
-        <p className="text-sm text-destructive">{problems[0]}</p>
-      ) : null}
     </section>
   );
 }
