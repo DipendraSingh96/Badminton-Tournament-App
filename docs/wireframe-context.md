@@ -196,6 +196,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Knockout rounds come from the bracket: byes fill the first round, then quarter-finals, semi-finals and the final.
 - Stage colours use the neutral chart tokens (final strongest), with a legend; the playhead isn't saved.
 
+### Changes requested before step 7 (13 Oct)
+- **Hall unit time:** each hall has the time it charges by (e.g. 60, 40 or 30 minutes), and band rates are per court per unit. Hire is always whole units: hall hours, band edges and court hours must fall on unit steps from the opening time, and validation says what to fix. Halls saved earlier keep a 60-minute unit, so their per-hour rates stand.
+- **Structure inside Stages:** the separate Structure section is gone. Stages run in play order: Group stage (each category's groups set by, number or size, qualifiers per group; then scoring and timing), Knockout rounds, Bronze match (a switch per category, then its scoring and timing), Final. Knockout only shows each category's bracket in the knockout card.
+- **Collapsible summary:** a slim bar (fit badge, court time, matches, profit or loss; or what's missing) with a show/hide button, remembered in this browser.
+- **Help text in tooltips:** field hints and section descriptions sit behind an ⓘ beside the label or title (hover or keyboard focus; screen readers get it as a description). Errors stay inline; calculated lines (people per team, cost per shuttle, group previews) stay visible. "Select a figure to see how it was worked out" is a tooltip on each results card title.
+- Jumping to a hall issue from the summary opens that hall's settings.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
