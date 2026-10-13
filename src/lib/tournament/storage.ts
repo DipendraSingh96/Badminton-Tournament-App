@@ -1,4 +1,4 @@
-import type { FinanceDraft, PlanDraft } from "./draft";
+import type { FinanceDraft, HallDraft, PlanDraft } from "./draft";
 import { migrateV3, migrateV4 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase.
@@ -15,11 +15,25 @@ const V3_KEY = "badminton:plan-draft:v3";
 type EarlyFinance = Omit<FinanceDraft, "shuttlePriceBasis" | "shuttlePrice" | "shuttlesPerTube" | "otherIncome"> &
   Partial<FinanceDraft> & { costPerShuttle?: number | null };
 
+type EarlyHall = Omit<HallDraft, "unitMinutes"> & { unitMinutes?: number | null };
+
 /**
- * Fills in fields added during v5. A price saved as cost per shuttle keeps
- * its meaning: per shuttle. Other money in starts empty.
+ * Fills in fields added during v5:
+ * - A price saved as cost per shuttle keeps its meaning: per shuttle.
+ * - Other money in starts empty.
+ * - Halls saved before unit time were charged per hour, so their unit is 60.
  */
-export function normaliseDraft(draft: Omit<PlanDraft, "finance"> & { finance: EarlyFinance }): PlanDraft {
+export function normaliseDraft(
+  saved: Omit<PlanDraft, "finance" | "frame"> & {
+    finance: EarlyFinance;
+    frame: Omit<PlanDraft["frame"], "halls"> & { halls: EarlyHall[] };
+  },
+): PlanDraft {
+  const halls: HallDraft[] = saved.frame.halls.map((h) => ({
+    ...h,
+    unitMinutes: h.unitMinutes === undefined ? 60 : h.unitMinutes,
+  }));
+  const draft = { ...saved, frame: { ...saved.frame, halls } };
   const { costPerShuttle, ...finance } = draft.finance;
   if (finance.shuttlePrice !== undefined) {
     return { ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft };

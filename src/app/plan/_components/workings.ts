@@ -345,7 +345,7 @@ export function courtHireWorking(analysis: Analysis, inputs: TournamentInputs): 
   const { courtHire } = analysis.finance;
   const names = courtNames(inputs);
   const lines = courtHire.courts.map((c) => {
-    const parts = c.bands.map((b) => `${formatMinutes(b.hours * 60)} × ${formatMoney(b.rate)} (${b.name})`);
+    const parts = c.bands.map((b) => `${formatNumber(b.units)} × ${formatMinutes(b.unitMinutes)} × ${formatMoney(b.rate)} (${b.name})`);
     return `${names.get(c.courtId)}: ${parts.length > 0 ? parts.join(" + ") : "no booked time"} = ${formatMoney(c.amount)}`;
   });
   if (courtHire.courts.length > 1) lines.push(`Total = ${formatMoney(courtHire.total)}`);

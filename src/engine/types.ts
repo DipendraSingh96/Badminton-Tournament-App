@@ -34,8 +34,8 @@ export interface RateBand {
   /** UTC ISO timestamps. */
   from: string;
   to: string;
-  /** Hire charged per court per hour within the band. */
-  ratePerCourtHour: number;
+  /** Hire charged per court per unit of the hall's unit time within the band. */
+  ratePerUnit: number;
 }
 
 export interface Court {
@@ -52,6 +52,11 @@ export interface Hall {
   /** Hall hours, UTC ISO. */
   from: string;
   to: string;
+  /**
+   * The time the hall charges by, e.g. 60, 40 or 30 minutes. Hall hours,
+   * band edges and court hours fall on whole units from the opening time.
+   */
+  unitMinutes: number;
   /** Cover the hall's hours with no overlap. */
   bands: RateBand[];
   courts: Court[];

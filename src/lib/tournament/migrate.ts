@@ -62,6 +62,8 @@ export function migrateV3(old: Omit<V4Draft, "frame"> & { frame: V3Frame }): V4D
       name: "",
       from: w.from ?? "",
       to: w.to ?? "",
+      // Court windows were charged per hour.
+      unitMinutes: 60,
       bands: [{ id: newId(), name: "", from: w.from ?? "", to: w.to ?? "", rate: w.rate ?? null }],
       courts,
     };

@@ -82,6 +82,7 @@ const hallSchema = z
     name: z.string(),
     from: time("Hall opens"),
     to: time("Hall closes"),
+    unitMinutes: whole("Charged per (minutes)", 1),
     bands: z
       .array(
         z.object({
@@ -111,6 +112,17 @@ const hallSchema = z
       ctx.addIssue({ code: "custom", message: "Hall must close after it opens", path: ["to"] });
       return;
     }
+    // Hire is charged in whole units, so every boundary sits on a unit step from opening.
+    const unit = hall.unitMinutes;
+    const onStep = (m: number) => (m - open) % unit === 0;
+    const steps = `${unit}-minute steps from ${hall.from}, e.g. ${clock(open + unit)} or ${clock(open + 2 * unit)}`;
+    if (!onStep(close)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Hall hours must be a whole number of ${unit}-minute units`,
+        path: ["to"],
+      });
+    }
     const spans: Span[] = [];
     hall.bands.forEach((band, i) => {
       const from = minutesOfDay(band.from);
@@ -121,6 +133,13 @@ const hallSchema = z
         ctx.addIssue({ code: "custom", message: "Band must be within the hall's hours", path: ["bands", i, "from"] });
       } else {
         spans.push({ from, to });
+        if (!onStep(from) || (!onStep(to) && to !== close)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Band must start and end on ${steps}`,
+            path: ["bands", i, onStep(from) ? "to" : "from"],
+          });
+        }
       }
     });
     const coverage = bandCoverage({ from: open, to: close }, spans);
@@ -147,6 +166,8 @@ const hallSchema = z
         ctx.addIssue({ code: "custom", message: "Court must be available until after it opens", path: ["courts", i, "to"] });
       } else if (minutesOfDay(from) < open || minutesOfDay(to) > close) {
         ctx.addIssue({ code: "custom", message: "Court hours must be within the hall's hours", path: ["courts", i, "from"] });
+      } else if (!onStep(minutesOfDay(from)) || (!onStep(minutesOfDay(to)) && minutesOfDay(to) !== close)) {
+        ctx.addIssue({ code: "custom", message: `Court hours must be on ${steps}`, path: ["courts", i, "from"] });
       }
     });
   });
@@ -450,11 +471,12 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     name: hall.name.trim() || `Hall ${i + 1}`,
     from: utc(hall.from),
     to: utc(hall.to),
+    unitMinutes: hall.unitMinutes,
     bands: hall.bands.map((band, j) => ({
       name: band.name.trim() || `Band ${j + 1}`,
       from: utc(band.from),
       to: utc(band.to),
-      ratePerCourtHour: band.rate,
+      ratePerUnit: band.rate,
     })),
     courts: hall.courts.map((court) => ({
       id: court.id,

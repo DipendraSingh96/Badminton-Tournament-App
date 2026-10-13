@@ -56,3 +56,16 @@ describe("normaliseDraft", () => {
     expect(costPerShuttle(current.finance)).toBe(2);
   });
 });
+
+describe("normaliseDraft halls", () => {
+  it("gives halls saved before unit time a unit of 60 minutes, keeping per-hour rates", () => {
+    const saved = emptyDraft("Europe/London");
+    const halls = saved.frame.halls.map((h) => ({ id: h.id, name: h.name, from: h.from, to: h.to, bands: h.bands, courts: h.courts }));
+    const draft = normaliseDraft({ ...saved, frame: { ...saved.frame, halls } });
+    expect(draft.frame.halls[0]!.unitMinutes).toBe(60);
+  });
+
+  it("keeps a new hall's unit empty", () => {
+    expect(normaliseDraft(emptyDraft("Europe/London")).frame.halls[0]!.unitMinutes).toBeNull();
+  });
+});

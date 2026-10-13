@@ -48,19 +48,36 @@ describe("courtHire", () => {
     expect(hire.total).toBe(4 * 8.5 * 12);
   });
 
-  it("splits each court's time across peak and off-peak bands", () => {
+  it("splits each court's time across peak and off-peak bands, in the hall's units", () => {
     const hire = courtHire([
       hall("h1", "09:30", "18:00", {
         courtCount: 4,
-        bands: [band("09:30", "15:00", 12, "Off-peak"), band("15:00", "18:00", 15, "Peak")],
+        unitMinutes: 30,
+        bands: [band("09:30", "15:00", 6, "Off-peak"), band("15:00", "18:00", 7.5, "Peak")],
       }),
     ]);
-    // Each court: 5.5 h x £12 + 3 h x £15 = £111; four courts = £444.
+    // Each court: 11 half hours x £6 + 6 half hours x £7.50 = £111; four courts = £444.
     expect(hire.courts[0]!.bands).toEqual([
-      { name: "Off-peak", hours: 5.5, rate: 12, amount: 66 },
-      { name: "Peak", hours: 3, rate: 15, amount: 45 },
+      { name: "Off-peak", minutes: 330, units: 11, unitMinutes: 30, rate: 6, amount: 66 },
+      { name: "Peak", minutes: 180, units: 6, unitMinutes: 30, rate: 7.5, amount: 45 },
     ]);
     expect(hire.total).toBe(444);
+  });
+
+  it("charges a 40-minute hall per 40 minutes", () => {
+    const hire = courtHire([
+      hall("h1", "09:00", "18:20", {
+        courtCount: 2,
+        unitMinutes: 40,
+        bands: [band("09:00", "15:40", 8, "Off-peak"), band("15:40", "18:20", 10, "Peak")],
+      }),
+    ]);
+    // Each court: 10 units x £8 + 4 units x £10 = £120; two courts = £240.
+    expect(hire.courts[0]!.bands.map((b) => [b.units, b.amount])).toEqual([
+      [10, 80],
+      [4, 40],
+    ]);
+    expect(hire.total).toBe(240);
   });
 
   it("charges a narrower court only for its own booked time", () => {

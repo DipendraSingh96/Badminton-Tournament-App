@@ -24,7 +24,7 @@ export interface RateBandDraft {
   name: string;
   from: string;
   to: string;
-  /** Hire per court per hour (£). */
+  /** Hire per court per unit of the hall's unit time (£). */
   rate: N;
 }
 
@@ -42,6 +42,8 @@ export interface HallDraft {
   name: string;
   from: string;
   to: string;
+  /** Minutes the hall charges by, e.g. 60, 40 or 30. */
+  unitMinutes: N;
   bands: RateBandDraft[];
   courts: CourtDraft[];
 }
@@ -265,7 +267,15 @@ export function emptyCourt(): CourtDraft {
 
 /** A new hall starts with one band (filled in once its hours are set) and one court. */
 export function emptyHall(): HallDraft {
-  return { id: newId(), name: "", from: "", to: "", bands: [emptyBand()], courts: [emptyCourt()] };
+  return {
+    id: newId(),
+    name: "",
+    from: "",
+    to: "",
+    unitMinutes: null,
+    bands: [emptyBand()],
+    courts: [emptyCourt()],
+  };
 }
 
 /** A court's hours: its own if narrowed, otherwise its hall's. */

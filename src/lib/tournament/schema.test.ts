@@ -15,6 +15,7 @@ function completeDraft(): PlanDraft {
         name: "Main hall",
         from: "09:00",
         to: "17:00",
+        unitMinutes: 60,
         bands: [
           { id: "b1", name: "Off-peak", from: "09:00", to: "13:00", rate: 12 },
           { id: "b2", name: "Peak", from: "13:00", to: "17:00", rate: 15 },
@@ -421,5 +422,53 @@ describe("parsePlan", () => {
       { id: "s", label: "Sponsorship", type: "fixed", amount: 200 },
       { id: "t", label: "Tickets", type: "perPerson", amount: 3, basis: "custom", count: 40 },
     ]);
+  });
+
+  it("keeps hire to whole units of the hall's unit time", () => {
+    const draft = completeDraft();
+    const hall = draft.frame.halls[0]!;
+    hall.unitMinutes = 40;
+    hall.from = "09:00";
+    hall.to = "18:00";
+    hall.bands = [
+      { id: "b1", name: "Off-peak", from: "09:00", to: "15:40", rate: 8 },
+      { id: "b2", name: "Peak", from: "15:40", to: "18:00", rate: 10 },
+    ];
+    hall.courts = [
+      { id: "c1", from: null, to: null, umpires: 1 },
+      { id: "c2", from: "10:00", to: null, umpires: 1 },
+    ];
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      { path: ["frame", "halls", 0, "to"], message: "Hall hours must be a whole number of 40-minute units" },
+      {
+        path: ["frame", "halls", 0, "courts", 1, "from"],
+        message: "Court hours must be on 40-minute steps from 09:00, e.g. 09:40 or 10:20",
+      },
+    ]);
+
+    hall.to = "18:20";
+    hall.bands[1]!.to = "18:20";
+    hall.courts[1]!.from = "10:20";
+    const fixed = parsePlan(draft);
+    if (!fixed.ok) throw new Error(JSON.stringify(fixed.issues));
+    expect(fixed.inputs.frame.halls[0]!.unitMinutes).toBe(40);
+    expect(fixed.inputs.frame.halls[0]!.bands[1]!.ratePerUnit).toBe(10);
+  });
+
+  it("asks for a band edge on a unit step", () => {
+    const draft = completeDraft();
+    draft.frame.halls[0]!.unitMinutes = 30;
+    draft.frame.halls[0]!.bands[0]!.to = "13:10";
+    draft.frame.halls[0]!.bands[1]!.from = "13:10";
+    const result = parsePlan(draft);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: ["frame", "halls", 0, "bands", 0, "to"],
+      message: "Band must start and end on 30-minute steps from 09:00, e.g. 09:30 or 10:00",
+    });
   });
 });

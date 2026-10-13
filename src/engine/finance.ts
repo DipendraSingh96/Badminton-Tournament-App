@@ -1,7 +1,7 @@
 import { playersPerCategoryEntry } from "./entry";
 import type { Category, Finance, Hall, OtherCost, OtherIncome } from "./types";
 
-const MS_PER_HOUR = 3_600_000;
+const MS_PER_MINUTE = 60_000;
 
 export interface FinanceContext {
   categories: Category[];
@@ -46,7 +46,12 @@ export interface CategoryRevenue {
 /** One court's hire within one rate band. */
 export interface CourtHireBand {
   name: string;
-  hours: number;
+  /** Booked minutes within the band. */
+  minutes: number;
+  /** Those minutes in the hall's units. */
+  units: number;
+  unitMinutes: number;
+  /** Per court per unit. */
   rate: number;
   amount: number;
 }
@@ -64,8 +69,9 @@ export interface CourtHire {
 }
 
 /**
- * Court hire for the whole booking, court by court: the court's booked
- * availability within each of its hall's rate bands, × that band's rate.
+ * Court hire for the whole booking, court by court: the units of the court's
+ * booked availability within each of its hall's rate bands, × that band's
+ * rate per unit. The schema keeps booked time to whole units.
  * Booked time is charged whether or not matches use it, buffer included.
  */
 export function courtHire(halls: Hall[]): CourtHire {
@@ -78,10 +84,18 @@ export function courtHire(halls: Hall[]): CourtHire {
         .map((band) => {
           const overlap =
             Math.min(bookedTo, Date.parse(band.to)) - Math.max(bookedFrom, Date.parse(band.from));
-          const hours = Math.max(0, overlap) / MS_PER_HOUR;
-          return { name: band.name, hours, rate: band.ratePerCourtHour, amount: hours * band.ratePerCourtHour };
+          const minutes = Math.max(0, overlap) / MS_PER_MINUTE;
+          const units = minutes / hall.unitMinutes;
+          return {
+            name: band.name,
+            minutes,
+            units,
+            unitMinutes: hall.unitMinutes,
+            rate: band.ratePerUnit,
+            amount: units * band.ratePerUnit,
+          };
         })
-        .filter((b) => b.hours > 0);
+        .filter((b) => b.minutes > 0);
       courts.push({
         hallId: hall.id,
         courtId: court.id,

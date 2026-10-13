@@ -7,8 +7,8 @@ export function at(hhmm: string): string {
   return `2026-05-02T${hhmm}:00.000Z`;
 }
 
-export function band(from: string, to: string, ratePerCourtHour: number, name = "Standard"): RateBand {
-  return { name, from: at(from), to: at(to), ratePerCourtHour };
+export function band(from: string, to: string, ratePerUnit: number, name = "Standard"): RateBand {
+  return { name, from: at(from), to: at(to), ratePerUnit };
 }
 
 /** `count` courts, each available for the hall's hours unless given. */
@@ -20,13 +20,21 @@ export function hall(
   id: string,
   from: string,
   to: string,
-  options: { bands?: RateBand[]; courts?: Court[]; courtCount?: number; rate?: number; umpires?: number } = {},
+  options: {
+    bands?: RateBand[];
+    courts?: Court[];
+    courtCount?: number;
+    rate?: number;
+    umpires?: number;
+    unitMinutes?: number;
+  } = {},
 ): Hall {
   return {
     id,
     name: id,
     from: at(from),
     to: at(to),
+    unitMinutes: options.unitMinutes ?? 60,
     bands: options.bands ?? [band(from, to, options.rate ?? 0)],
     courts: options.courts ?? courts(options.courtCount ?? 1, from, to, options.umpires ?? 0, `${id}-c`),
   };
