@@ -4,7 +4,7 @@ import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
 import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { EstimatedSchedule, Round, Stage } from "@/engine";
+import type { EstimatedSchedule, Round, Stage, WindowKey } from "@/engine";
 import { courtHours, courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { InfoTip } from "./fields";
@@ -107,11 +107,83 @@ export function dayRange(draft: PlanDraft): { start: number; end: number } | nul
   return { start: Math.min(...spans.map((s) => s[0])), end: Math.max(...spans.map((s) => s[1])) };
 }
 
+/** One row of the Stages lane: a stage, a group wave or a knockout round. */
+export interface WindowRow {
+  key: WindowKey;
+  label: string;
+  stage: Stage;
+  /** Waves and rounds sit under their stage. */
+  indent: boolean;
+  /** Local minutes: the pin when pinned, otherwise the estimate. */
+  window: { from: number; to: number } | null;
+  pinned: boolean;
+  /** Local minutes: the real end of a too-short window, or the earliest possible start. */
+  overrun: number | null;
+  earliest: number | null;
+}
+
+const STAGE_KEYS = ["group", "knockout", "bronze", "final"] as const;
+
+/** The Stages lane's rows in play order, with pins left for parts no longer played. */
+export function windowRows(draft: PlanDraft, schedule: EstimatedSchedule | null): WindowRow[] {
+  if (!schedule) return [];
+  const local = (iso: string) => minutesOfDay(formatClock(iso, draft.frame.timeZone))!;
+  const keys = new Set<WindowKey>([
+    ...(Object.keys(schedule.windows) as WindowKey[]),
+    ...(Object.keys(draft.stageWindows) as WindowKey[]),
+  ]);
+  const number = (key: string) => Number(key.split(":")[1]);
+  const waves = [...keys].filter((k) => k.startsWith("wave:")).sort((a, b) => number(a) - number(b));
+  const rounds = [...keys].filter((k) => k.startsWith("round:")).sort((a, b) => number(b) - number(a));
+  const order: WindowKey[] = [];
+  for (const stage of STAGE_KEYS) {
+    if (stage === "group" && (keys.has("group") || waves.length > 0)) order.push("group", ...waves);
+    if (stage === "knockout" && (keys.has("knockout") || rounds.length > 0)) order.push("knockout", ...rounds);
+    if ((stage === "bronze" || stage === "final") && keys.has(stage)) order.push(stage);
+  }
+  return order.map((key) => {
+    const span = schedule.windows[key];
+    const pin = draft.stageWindows[key];
+    const pinFrom = minutesOfDay(pin?.from);
+    const pinTo = minutesOfDay(pin?.to);
+    const stage: Stage = key.startsWith("wave:") ? "group" : key.startsWith("round:") ? "knockout" : (key as Stage);
+    const label = key.startsWith("wave:")
+      ? `Wave ${number(key)}`
+      : key.startsWith("round:")
+        ? roundLabel({ type: "knockout", size: number(key) })!
+        : STAGE_LABELS[stage];
+    return {
+      key,
+      label: span ? label : `${label} (not played)`,
+      stage,
+      indent: key.includes(":"),
+      window:
+        pinFrom !== null && pinTo !== null ? { from: pinFrom, to: pinTo } : span ? { from: local(span.from), to: local(span.to) } : null,
+      pinned: pinFrom !== null && pinTo !== null,
+      overrun: span?.overrun ? local(span.overrun) : null,
+      earliest: span?.earliest ? local(span.earliest) : null,
+    };
+  });
+}
+
+/** Problems with pinned windows, in words, for the summary. */
+export function windowWarnings(rows: WindowRow[]): string[] {
+  return rows.flatMap((row) => [
+    ...(row.pinned && row.overrun !== null && row.window
+      ? [`${row.label} needs until ${clock(row.overrun)} (window ends ${clock(row.window.to)})`]
+      : []),
+    ...(row.pinned && row.earliest !== null && row.window
+      ? [`${row.label} can't start before ${clock(row.earliest)} (window starts ${clock(row.window.from)})`]
+      : []),
+  ]);
+}
+
 export function Timeline({
   draft,
   update,
   schedule,
   segments,
+  rows,
   playhead,
   onSeek,
   playing,
@@ -121,6 +193,8 @@ export function Timeline({
   update: Update;
   schedule: EstimatedSchedule | null;
   segments: LocalSegment[];
+  /** The Stages lane; empty until the plan is complete. */
+  rows: WindowRow[];
   playhead: number | null;
   onSeek: (minute: number) => void;
   playing: boolean;
@@ -246,7 +320,9 @@ export function Timeline({
             <InfoTip about="the timeline">
               Drag a hall&apos;s window to set its hours, the lines between rate bands to move them, and a court&apos;s
               bar to narrow it (double-click to follow the hall again). Moves are in the hall&apos;s unit time; a new
-              window starts on 10-minute steps. Drag the buffer to pin it.{" "}
+              window starts on 10-minute steps. Drag the buffer to pin it. Drag a stage, wave or round window to pin it
+              on 10-minute steps; it turns red when its matches need longer or can&apos;t start yet. Double-click a window
+              to return it to the estimate.{" "}
               {schedule
                 ? "Stages are an estimate: matches placed in order on the first free court, at typical length; rest isn't modelled yet."
                 : "Complete the plan to see the estimated schedule."}
@@ -280,6 +356,19 @@ export function Timeline({
           {/* Labels, row for row with the tracks. */}
           <div className="flex w-22 shrink-0 flex-col" aria-hidden="true">
             <div className="h-7" />
+            {rows.length > 0 ? (
+              <div className="flex flex-col gap-1 pt-3">
+                <div className="h-5 text-sm leading-5 font-medium">Stages</div>
+                {rows.map((row) => (
+                  <div
+                    key={row.key}
+                    className={`h-4 truncate text-xs leading-4 ${row.indent ? "pl-2 text-muted-foreground" : ""}`}
+                  >
+                    {row.label}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
@@ -325,6 +414,49 @@ export function Timeline({
                 </span>
               ))}
             </div>
+
+            {rows.length > 0 ? (
+              <div role="group" aria-label="Stages" className="flex flex-col gap-1 pt-3">
+                <div className="h-5" />
+                {rows.map((row) => {
+                  const pin = (w: { from: number; to: number }) =>
+                    update((d) => void (d.stageWindows[row.key] = { from: clock(w.from), to: clock(w.to) }));
+                  const unpin = row.pinned ? () => update((d) => void delete d.stageWindows[row.key]) : undefined;
+                  const marks = [
+                    row.pinned && row.overrun !== null ? { at: row.overrun, label: `Needs until ${clock(row.overrun)}` } : null,
+                    row.pinned && row.earliest !== null
+                      ? { at: row.earliest, label: `Can't start before ${clock(row.earliest)}` }
+                      : null,
+                  ].filter((m): m is { at: number; label: string } => m !== null);
+                  return (
+                    <div key={row.key} data-path={`stageWindows.${row.key}`}>
+                      <TimeWindowTrack
+                        name={`${row.label} window`}
+                        window={row.window}
+                        unit={null}
+                        bounds={{ min: start, max: end }}
+                        className="h-4"
+                        invalid={marks.length > 0}
+                        windowClassName={`${STAGE_COLOURS[row.stage]} ${row.pinned ? "" : "opacity-50"}`}
+                        onChange={pin}
+                        onDelete={unpin}
+                        onReset={unpin}
+                        overlay={marks.map((m, i) => (
+                          <span key={m.label} className="absolute inset-y-0 border-l-2 border-destructive" style={{ left: pct(m.at) }}>
+                            <span
+                              className="absolute left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground"
+                              style={{ top: `${i * 16 - 2}px` }}
+                            >
+                              {m.label}
+                            </span>
+                          </span>
+                        ))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
 
             {draft.frame.halls.map((hall, h) => {
               const open = minutesOfDay(hall.from);

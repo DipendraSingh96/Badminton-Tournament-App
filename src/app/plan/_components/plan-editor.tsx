@@ -18,7 +18,7 @@ import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { Summary } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
-import { Timeline, courtStatuses, dayRange, localSegments } from "./timeline";
+import { Timeline, courtStatuses, dayRange, localSegments, windowRows, windowWarnings } from "./timeline";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
 import { TournamentList } from "./tournament-list";
@@ -128,6 +128,8 @@ function Editor() {
     [parsed, analysis],
   );
   const segments = useMemo(() => localSegments(draft, schedule), [draft, schedule]);
+  const rows = useMemo(() => windowRows(draft, schedule), [draft, schedule]);
+  const warnings = useMemo(() => windowWarnings(rows), [rows]);
   const range = dayRange(draft);
 
   // The strips' shared view of the day, held still while a drag is under way.
@@ -207,6 +209,7 @@ function Editor() {
                         update={update}
                         schedule={schedule}
                         segments={segments}
+                      rows={rows}
                         playhead={playhead}
                         onSeek={setPlayhead}
                         playing={playing}
@@ -218,7 +221,14 @@ function Editor() {
                 <ResizableHandle withHandle />
                 <ResizablePanel id="workbench" defaultSize="34" minSize={360} maxSize="55">
                   <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
-                    <Summary draft={draft} parsed={parsed} analysis={analysis} breakEvenId={breakEvenId} onGoTo={goTo} />
+                    <Summary
+                      draft={draft}
+                      parsed={parsed}
+                      analysis={analysis}
+                      breakEvenId={breakEvenId}
+                      warnings={warnings}
+                      onGoTo={goTo}
+                    />
                     <Tabs
                       value={tab}
                       onValueChange={(value) => chooseTab(value as Tab)}

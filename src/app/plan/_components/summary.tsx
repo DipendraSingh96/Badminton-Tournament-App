@@ -55,6 +55,7 @@ export function Summary({
   parsed,
   analysis,
   breakEvenId,
+  warnings,
   onGoTo,
 }: {
   draft: PlanDraft;
@@ -62,6 +63,8 @@ export function Summary({
   analysis: AnalysisResult | null;
   /** The category break-even varies; the first when unset or removed. */
   breakEvenId: string | null;
+  /** Problems with pinned windows on the timeline; they don't stop the plan. */
+  warnings: string[];
   onGoTo: (issue: PlanIssue) => void;
 }) {
   const result = analysis?.ok ? analysis.analysis : null;
@@ -102,6 +105,13 @@ export function Summary({
       </p>
     ) : problems.length > 0 ? (
       <p className="text-sm text-destructive">{problems[0]}</p>
+    ) : warnings.length > 0 ? (
+      <ul className="flex flex-col gap-0.5 text-sm text-destructive">
+        {warnings.slice(0, 2).map((w) => (
+          <li key={w}>{w}</li>
+        ))}
+        {warnings.length > 2 ? <li>and {warnings.length - 2} more on the timeline</li> : null}
+      </ul>
     ) : null;
 
   const header = (
