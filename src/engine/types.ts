@@ -232,6 +232,20 @@ export interface Rules {
   walkover: WalkoverRule;
 }
 
+/**
+ * A part of the schedule with its own window on the timeline: a stage, a
+ * group wave ("wave:2") or a knockout round by bracket size ("round:8").
+ */
+export type WindowKey = "group" | "knockout" | "bronze" | "final" | `wave:${number}` | `round:${number}`;
+
+/** A window pinned by the organiser: what it holds starts no earlier than `from`. */
+export interface StageWindow {
+  key: WindowKey;
+  /** UTC ISO. */
+  from: string;
+  to: string;
+}
+
 export interface TournamentInputs {
   unit: Unit;
   format: FormatType;
@@ -248,4 +262,6 @@ export interface TournamentInputs {
   bestOfThreeAllowance: number;
   finance: Finance;
   rules: Rules;
+  /** Pinned windows; the rest follow the estimate. */
+  stageWindows?: StageWindow[];
 }

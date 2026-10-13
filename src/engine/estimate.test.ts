@@ -152,4 +152,62 @@ describe("estimateSchedule", () => {
     // 2 courts × 4 slots = 8 matches placed of 24 + 7 + 1 + 1.
     expect(schedule.unplaced).toBe(analysis.totalMatches - 8);
   });
+
+  it("follows the estimate for every window when nothing is pinned", () => {
+    const { schedule } = estimate(tournament());
+    expect(schedule.windows.group).toEqual({ from: at("09:00"), to: at("10:30") });
+    expect(schedule.windows["wave:2"]).toEqual({ from: at("09:30"), to: at("10:00") });
+    expect(schedule.windows["round:8"]).toEqual({ from: at("10:30"), to: at("10:45") });
+    expect(schedule.windows["round:4"]).toEqual({ from: at("10:45"), to: at("11:00") });
+    expect(schedule.windows.knockout).toEqual({ from: at("10:30"), to: at("11:00") });
+    expect(schedule.windows.final).toEqual({ from: at("11:00"), to: at("11:15") });
+  });
+
+  it("starts a pinned stage no earlier than its window, delaying what follows", () => {
+    const plan = tournament();
+    plan.stageWindows = [{ key: "group", from: at("09:30"), to: at("11:00") }];
+    const { schedule } = estimate(plan);
+    expect(schedule.windows.group).toMatchObject({ from: at("09:30"), to: at("11:00") });
+    expect(schedule.windows.group!.overrun).toBeUndefined();
+    expect(schedule.windows.knockout!.from).toBe(at("11:00"));
+    expect(schedule.finish).toBe(at("11:45"));
+  });
+
+  it("holds a pinned wave back to its window", () => {
+    const plan = tournament();
+    plan.stageWindows = [{ key: "wave:2", from: at("10:00"), to: at("10:30") }];
+    const { schedule } = estimate(plan);
+    expect(schedule.windows["wave:1"]!.to).toBe(at("09:30"));
+    expect(schedule.windows["wave:2"]).toMatchObject({ from: at("10:00"), to: at("10:30") });
+    expect(schedule.windows["wave:3"]!.from).toBe(at("10:30"));
+  });
+
+  it("runs a too-short window on past its end, and later stages wait", () => {
+    const plan = tournament();
+    plan.stageWindows = [{ key: "group", from: at("09:00"), to: at("10:00") }];
+    const { schedule } = estimate(plan);
+    expect(schedule.windows.group).toMatchObject({ to: at("10:30"), overrun: at("10:30") });
+    expect(schedule.windows.knockout!.from).toBe(at("10:30"));
+  });
+
+  it("reports when a pinned round can't start until the round before it ends", () => {
+    const plan = tournament();
+    plan.stageWindows = [{ key: "round:4", from: at("10:30"), to: at("10:45") }];
+    const { schedule } = estimate(plan);
+    // The quarter-finals end at 10:45.
+    expect(schedule.windows["round:4"]).toMatchObject({ from: at("10:45"), earliest: at("10:45"), overrun: at("11:00") });
+  });
+
+  it("plays a pinned final in its window", () => {
+    const plan = tournament();
+    plan.stageWindows = [{ key: "final", from: at("12:00"), to: at("12:30") }];
+    const { schedule } = estimate(plan);
+    expect(schedule.windows.final).toEqual({
+      from: at("12:00"),
+      to: at("12:15"),
+      pinned: { from: at("12:00"), to: at("12:30") },
+    });
+    // The bronze match isn't pinned, so it stays after the semi-finals.
+    expect(schedule.windows.bronze!.from).toBe(at("11:00"));
+  });
 });

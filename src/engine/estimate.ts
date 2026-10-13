@@ -1,7 +1,7 @@
 import type { Analysis } from "./analyse";
 import { available } from "./capacity";
 import { knockoutRounds } from "./format";
-import type { Stage, TournamentInputs } from "./types";
+import type { Stage, TournamentInputs, WindowKey } from "./types";
 
 // A first estimate of the day, until the scheduler is built: matches placed
 // in order on the first court that can start them, at a fixed slot length.
@@ -27,7 +27,21 @@ export interface CourtSchedule {
   segments: Segment[];
 }
 
+/** A window's span in the estimate, and how it sits against its pin. */
+export interface WindowSpan {
+  /** UTC ISO: the first match's start and the last match's end. */
+  from: string;
+  to: string;
+  pinned?: { from: string; to: string };
+  /** Pinned but too short: when its matches really end. */
+  overrun?: string;
+  /** Pinned to start before what it depends on has finished: when that is. */
+  earliest?: string;
+}
+
 export interface EstimatedSchedule {
+  /** Every stage, wave and round played, keyed by its window key. */
+  windows: Partial<Record<WindowKey, WindowSpan>>;
   courts: CourtSchedule[];
   /** First start and last end of each stage played. */
   stages: Partial<Record<Stage, { from: string; to: string }>>;
@@ -68,7 +82,13 @@ function place(
   inputs: TournamentInputs,
   analysis: Analysis,
   length: "typical" | "worst",
-): { placed: Placed[]; unplaced: number } {
+): { placed: Placed[]; unplaced: number; dependsOn: Map<WindowKey, number> } {
+  // Pinned windows hold back what they contain until their start.
+  const pins = new Map((inputs.stageWindows ?? []).map((w) => [w.key, Date.parse(w.from)]));
+  const pinned = (...keys: WindowKey[]) => Math.max(-Infinity, ...keys.map((k) => pins.get(k) ?? -Infinity));
+  /** For each window, when what it depends on has finished. */
+  const dependsOn = new Map<WindowKey, number>();
+  const depends = (key: WindowKey, at: number) => dependsOn.set(key, Math.max(dependsOn.get(key) ?? -Infinity, at));
   const courts = available(inputs.frame).courts.map((c) => ({
     ...c,
     start: Date.parse(c.from),
@@ -133,7 +153,7 @@ function place(
           count: c.waves.fixturesPerWave[w]! * c.rubbersPerFixture,
           stage: "group" as const,
           round: { type: "wave" as const, wave: w + 1 },
-          release: dayStart,
+          release: Math.max(dayStart, pinned("group", `wave:${w + 1}`)),
         })),
     );
     // A category's knockout waits for its own group stage.
@@ -149,13 +169,17 @@ function place(
         const own = rounds.get(c.categoryId)!;
         const round = own[own.length - level];
         if (!round || c.matches.knockout === 0) return [];
+        const after = ready.get(c.categoryId)!;
+        depends(`round:${round.size}`, after);
+        // The knockout window depends on each category's first round.
+        if (own.length - level === 0) depends("knockout", after);
         return [
           {
             categoryId: c.categoryId,
             count: round.matches * c.rubbersPerFixture,
             stage: "knockout" as const,
             round: { type: "knockout" as const, size: round.size },
-            release: ready.get(c.categoryId)!,
+            release: Math.max(after, pinned("knockout", `round:${round.size}`)),
           },
         ];
       }),
@@ -167,17 +191,28 @@ function place(
     categories.flatMap((c) =>
       (["bronze", "final"] as const)
         .filter((stage) => c.matches[stage] > 0)
-        .map((stage) => ({
-          categoryId: c.categoryId,
-          count: c.matches[stage],
-          stage,
-          round: null,
-          release: ready.get(c.categoryId)!,
-        })),
+        .map((stage) => {
+          depends(stage, ready.get(c.categoryId)!);
+          return {
+            categoryId: c.categoryId,
+            count: c.matches[stage],
+            stage,
+            round: null,
+            release: Math.max(ready.get(c.categoryId)!, pinned(stage)),
+          };
+        }),
     ),
   );
 
-  return { placed, unplaced };
+  return { placed, unplaced, dependsOn };
+}
+
+/** The window keys a match belongs to: its stage and its wave or round. */
+function keysOf(match: Match): WindowKey[] {
+  const keys: WindowKey[] = [match.stage];
+  if (match.round?.type === "wave") keys.push(`wave:${match.round.wave}`);
+  if (match.round?.type === "knockout") keys.push(`round:${match.round.size}`);
+  return keys;
 }
 
 function sameRound(a: Round, b: Round): boolean {
@@ -230,8 +265,31 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
     };
   }
 
+  // Each window's span, checked against its pin.
+  const spans = new Map<WindowKey, { from: number; to: number }>();
+  for (const match of typical.placed) {
+    for (const key of keysOf(match)) {
+      const span = spans.get(key);
+      spans.set(key, { from: Math.min(match.from, span?.from ?? Infinity), to: Math.max(match.to, span?.to ?? -Infinity) });
+    }
+  }
+  const windows: EstimatedSchedule["windows"] = {};
+  const pins = new Map((inputs.stageWindows ?? []).map((w) => [w.key, w]));
+  for (const [key, span] of spans) {
+    const pin = pins.get(key);
+    const window: WindowSpan = { from: iso(span.from), to: iso(span.to) };
+    if (pin) {
+      window.pinned = { from: pin.from, to: pin.to };
+      if (span.to > Date.parse(pin.to)) window.overrun = iso(span.to);
+      const after = typical.dependsOn.get(key);
+      if (after !== undefined && after > Date.parse(pin.from)) window.earliest = iso(after);
+    }
+    windows[key] = window;
+  }
+
   const lastEnd = (placed: Placed[]) => (placed.length > 0 ? iso(Math.max(...placed.map((m) => m.to))) : null);
   return {
+    windows,
     courts: schedules,
     stages,
     finish: lastEnd(typical.placed),
