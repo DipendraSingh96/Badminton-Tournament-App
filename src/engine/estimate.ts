@@ -1,14 +1,32 @@
 import type { Analysis } from "./analyse";
 import { available } from "./capacity";
-import { knockoutRounds } from "./format";
-import type { Stage, TournamentInputs, WindowKey } from "./types";
+import { groupFixtures, groupLetter, knockoutBracket } from "./fixtures";
+import type { EventType, Stage, TournamentInputs, WindowKey, Zone } from "./types";
 
 // A first estimate of the day, until the scheduler is built: matches placed
 // in order on the first court that can start them, at a fixed slot length.
-// Rest between matches isn't modelled.
+// Groups play in their suggested hall; the knockout may use any hall. Rest
+// between matches isn't modelled.
 
 /** Where a match sits in its stage: a group wave or a knockout round. */
 export type Round = { type: "wave"; wave: number } | { type: "knockout"; size: number } | null;
+
+/** Everything needed to run one match: who plays, in what, and where it sits. */
+export interface MatchInfo {
+  categoryId: string;
+  stage: Stage;
+  /** Group stage: the group's letter and the wave. */
+  group?: string;
+  wave?: number;
+  /** Knockout: the round's size (8 for quarter-finals) and the match code ("QF1", "Final", "Bronze"). */
+  roundSize?: number;
+  code?: string;
+  /** Draw slots until entries exist: "A1", "Winner A", "Winner QF1". */
+  home: string;
+  away: string;
+  /** Team ties: which rubber of how many, and its event. */
+  rubber?: { number: number; of: number; event: EventType };
+}
 
 export interface Segment {
   /** UTC ISO. */
@@ -19,6 +37,8 @@ export interface Segment {
   categoryId: string;
   /** Matches played back to back in the segment. */
   matches: number;
+  /** Each of those matches, in order. */
+  details: { from: string; to: string; match: MatchInfo }[];
 }
 
 export interface CourtSchedule {
@@ -27,7 +47,7 @@ export interface CourtSchedule {
   segments: Segment[];
 }
 
-/** A window's span in the estimate, and how it sits against its pin. */
+/** A hall's stage zone in the estimate, and how it sits against its pin. */
 export interface WindowSpan {
   /** UTC ISO: the first match's start and the last match's end. */
   from: string;
@@ -37,10 +57,12 @@ export interface WindowSpan {
   overrun?: string;
   /** Pinned to start before what it depends on has finished: when that is. */
   earliest?: string;
+  /** Categories playing in the zone, in category order. */
+  categoryIds: string[];
 }
 
 export interface EstimatedSchedule {
-  /** Every stage, wave and round played, keyed by its window key. */
+  /** Each hall's group and KO zones, keyed "hallId:group" or "hallId:knockout". */
   windows: Partial<Record<WindowKey, WindowSpan>>;
   courts: CourtSchedule[];
   /** First start and last end of each stage played. */
@@ -53,42 +75,54 @@ export interface EstimatedSchedule {
   unplaced: number;
 }
 
+/** The zone a stage is played in: the group stage, or the knockout with its bronze match and final. */
+export function zoneOf(stage: Stage): Zone {
+  return stage === "group" ? "group" : "knockout";
+}
+
+export function zoneKey(hallId: string, zone: Zone): WindowKey {
+  return `${hallId}:${zone}`;
+}
+
 interface Match {
-  stage: Stage;
+  info: MatchInfo;
   round: Round;
-  categoryId: string;
-  /** Earliest start: when what it depends on has finished, in ms. */
+  /** When what it depends on has finished, in ms. */
   release: number;
+  /** A group plays in its hall; null for any hall. */
+  hallId: string | null;
 }
 
 interface Placed extends Match {
   court: number;
+  hallId: string;
   from: number;
   to: number;
 }
 
 const MS_PER_MINUTE = 60_000;
 
+/** A category's rubbers in a tie, in line-up order; one plain match for individual entries. */
+function rubbersOf(inputs: TournamentInputs, categoryId: string): MatchInfo["rubber"][] {
+  const category = inputs.categories.find((c) => c.id === categoryId);
+  if (!category || category.entry.type === "individual") return [undefined];
+  const events = category.entry.lineUp.flatMap((item) => Array.from({ length: item.count }, () => item.event));
+  return events.map((event, i) => ({ number: i + 1, of: events.length, event }));
+}
+
 /**
  * Places every match in play order. Each step's matches are released when
  * what they depend on has finished:
- * - group waves in order, all from the start of the day (rest isn't modelled);
+ * - group waves in order (a wave is a round of each group's draw), each
+ *   group in its suggested hall;
  * - a category's knockout rounds once its group stage is over, each round
  *   after the one before;
  * - the bronze match and final after the semi-finals (or the group stage).
- * Categories are interleaved within each step so they progress side by side.
+ * A pinned zone holds its hall's matches back until its start. Categories
+ * are interleaved within each step so they progress side by side.
  */
-function place(
-  inputs: TournamentInputs,
-  analysis: Analysis,
-  length: "typical" | "worst",
-): { placed: Placed[]; unplaced: number; dependsOn: Map<WindowKey, number> } {
-  // Pinned windows hold back what they contain until their start.
+function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" | "worst") {
   const pins = new Map((inputs.stageWindows ?? []).map((w) => [w.key, Date.parse(w.from)]));
-  const pinned = (...keys: WindowKey[]) => Math.max(-Infinity, ...keys.map((k) => pins.get(k) ?? -Infinity));
-  /** For each window, when what it depends on has finished. */
-  const dependsOn = new Map<WindowKey, number>();
-  const depends = (key: WindowKey, at: number) => dependsOn.set(key, Math.max(dependsOn.get(key) ?? -Infinity, at));
   const courts = available(inputs.frame).courts.map((c) => ({
     ...c,
     start: Date.parse(c.from),
@@ -97,17 +131,24 @@ function place(
   const freeAt = courts.map((c) => c.start);
   const dayStart = Date.parse(available(inputs.frame).start);
   const slot = new Map(analysis.slots.map((s) => [s.stage, s.minutes[length] * MS_PER_MINUTE]));
+  const hallOfGroup = new Map<string, string>();
+  for (const hall of analysis.groupsPerHall) {
+    for (const g of hall.groups) hallOfGroup.set(`${g.categoryId}:${g.groupIndex}`, hall.hallId);
+  }
 
   const placed: Placed[] = [];
   let unplaced = 0;
 
   function put(match: Match): number | null {
-    const minutes = slot.get(match.stage);
+    const minutes = slot.get(match.info.stage);
     if (minutes === undefined) return null;
+    const zone = zoneOf(match.info.stage);
     let best = -1;
     let bestStart = Infinity;
     courts.forEach((court, i) => {
-      const start = Math.max(freeAt[i]!, match.release, court.start);
+      if (match.hallId !== null && court.hallId !== match.hallId) return;
+      const zoneStart = pins.get(zoneKey(court.hallId, zone)) ?? -Infinity;
+      const start = Math.max(freeAt[i]!, match.release, court.start, zoneStart);
       if (start + minutes <= court.end && start < bestStart) {
         best = i;
         bestStart = start;
@@ -118,22 +159,24 @@ function place(
       return null;
     }
     freeAt[best] = bestStart + minutes;
-    placed.push({ ...match, court: best, from: bestStart, to: bestStart + minutes });
+    placed.push({ ...match, court: best, hallId: courts[best]!.hallId, from: bestStart, to: bestStart + minutes });
     return bestStart + minutes;
   }
 
-  /** Places a step's matches, category by category in turn, and returns each category's last end. */
-  function step(items: { categoryId: string; count: number; stage: Stage; round: Round; release: number }[]) {
+  /** Places each category's matches in turn and returns each category's last end. */
+  function step(lists: Match[][]) {
     const ends = new Map<string, number>();
-    const left = items.map((item) => item.count);
-    let remaining = left.reduce((sum, n) => sum + n, 0);
+    const index = lists.map(() => 0);
+    let remaining = lists.reduce((sum, list) => sum + list.length, 0);
     while (remaining > 0) {
-      items.forEach((item, i) => {
-        if (left[i]! === 0) return;
-        left[i]! -= 1;
+      lists.forEach((list, i) => {
+        const match = list[index[i]!];
+        if (!match) return;
+        index[i]! += 1;
         remaining -= 1;
-        const end = put({ stage: item.stage, round: item.round, categoryId: item.categoryId, release: item.release });
-        ends.set(item.categoryId, Math.max(ends.get(item.categoryId) ?? item.release, end ?? item.release));
+        const end = put(match);
+        const id = match.info.categoryId;
+        ends.set(id, Math.max(ends.get(id) ?? match.release, end ?? match.release));
       });
     }
     return ends;
@@ -142,77 +185,79 @@ function place(
   const categories = analysis.categories;
   /** When each category is ready for its next step. */
   const ready = new Map(categories.map((c) => [c.categoryId, dayStart]));
+  const rubbers = new Map(categories.map((c) => [c.categoryId, rubbersOf(inputs, c.categoryId)]));
+  const expand = (base: Omit<MatchInfo, "rubber">, round: Round, release: number, hallId: string | null): Match[] =>
+    rubbers.get(base.categoryId)!.map((rubber) => ({ info: { ...base, rubber }, round, release, hallId }));
 
+  // Group stage: wave w is round w of every group's draw.
+  const draws = new Map(categories.map((c) => [c.categoryId, c.format.groupSizes.map((size) => groupFixtures(size))]));
   const waves = Math.max(0, ...categories.map((c) => c.waves.waves));
   for (let w = 0; w < waves; w++) {
     const ends = step(
-      categories
-        .filter((c) => w < c.waves.waves)
-        .map((c) => ({
-          categoryId: c.categoryId,
-          count: c.waves.fixturesPerWave[w]! * c.rubbersPerFixture,
-          stage: "group" as const,
-          round: { type: "wave" as const, wave: w + 1 },
-          release: Math.max(dayStart, pinned("group", `wave:${w + 1}`)),
-        })),
+      categories.map((c) =>
+        draws.get(c.categoryId)!.flatMap((rounds, g) =>
+          (rounds[w] ?? []).flatMap(([a, b]) => {
+            const letter = groupLetter(g);
+            return expand(
+              { categoryId: c.categoryId, stage: "group", group: letter, wave: w + 1, home: `${letter}${a}`, away: `${letter}${b}` },
+              { type: "wave", wave: w + 1 },
+              dayStart,
+              hallOfGroup.get(`${c.categoryId}:${g}`) ?? null,
+            );
+          }),
+        ),
+      ),
     );
     // A category's knockout waits for its own group stage.
     for (const [id, end] of ends) ready.set(id, Math.max(ready.get(id)!, end));
   }
 
-  const rounds = new Map(categories.map((c) => [c.categoryId, knockoutRounds(c.format.qualifiers)]));
-  const levels = Math.max(0, ...[...rounds.values()].map((r) => r.length));
+  // Knockout: rounds line up across categories counting back from the final.
+  const brackets = new Map(
+    categories.map((c) => {
+      const category = inputs.categories.find((x) => x.id === c.categoryId);
+      return [c.categoryId, knockoutBracket(c.format.qualifiers, c.format.groupSizes.length, Boolean(category?.bronze))];
+    }),
+  );
+  const beforeFinal = (id: string) => brackets.get(id)!.rounds.filter((r) => r.size > 2);
+  const levels = Math.max(0, ...categories.map((c) => beforeFinal(c.categoryId).length));
   for (let level = levels; level >= 1; level--) {
-    // Levels count back from the semi-finals so categories' rounds line up.
     const ends = step(
-      categories.flatMap((c) => {
-        const own = rounds.get(c.categoryId)!;
+      categories.map((c) => {
+        const own = beforeFinal(c.categoryId);
         const round = own[own.length - level];
         if (!round || c.matches.knockout === 0) return [];
         const after = ready.get(c.categoryId)!;
-        depends(`round:${round.size}`, after);
-        // The knockout window depends on each category's first round.
-        if (own.length - level === 0) depends("knockout", after);
-        return [
-          {
-            categoryId: c.categoryId,
-            count: round.matches * c.rubbersPerFixture,
-            stage: "knockout" as const,
-            round: { type: "knockout" as const, size: round.size },
-            release: Math.max(after, pinned("knockout", `round:${round.size}`)),
-          },
-        ];
+        return round.matches.flatMap((m) =>
+          expand(
+            { categoryId: c.categoryId, stage: "knockout", roundSize: round.size, code: m.code, home: m.home, away: m.away },
+            { type: "knockout", size: round.size },
+            after,
+            null,
+          ),
+        );
       }),
     );
     for (const [id, end] of ends) ready.set(id, end);
   }
 
   step(
-    categories.flatMap((c) =>
-      (["bronze", "final"] as const)
-        .filter((stage) => c.matches[stage] > 0)
-        .map((stage) => {
-          depends(stage, ready.get(c.categoryId)!);
-          return {
-            categoryId: c.categoryId,
-            count: c.matches[stage],
-            stage,
-            round: null,
-            release: Math.max(ready.get(c.categoryId)!, pinned(stage)),
-          };
-        }),
-    ),
+    categories.map((c) => {
+      const bracket = brackets.get(c.categoryId)!;
+      const final = bracket.rounds.find((r) => r.size === 2)?.matches[0];
+      const after = ready.get(c.categoryId)!;
+      return [
+        ...(bracket.bronze && c.matches.bronze > 0
+          ? expand({ categoryId: c.categoryId, stage: "bronze", code: "Bronze", home: bracket.bronze.home, away: bracket.bronze.away }, null, after, null)
+          : []),
+        ...(final && c.matches.final > 0
+          ? expand({ categoryId: c.categoryId, stage: "final", code: "Final", home: final.home, away: final.away }, null, after, null)
+          : []),
+      ];
+    }),
   );
 
-  return { placed, unplaced, dependsOn };
-}
-
-/** The window keys a match belongs to: its stage and its wave or round. */
-function keysOf(match: Match): WindowKey[] {
-  const keys: WindowKey[] = [match.stage];
-  if (match.round?.type === "wave") keys.push(`wave:${match.round.wave}`);
-  if (match.round?.type === "knockout") keys.push(`round:${match.round.size}`);
-  return keys;
+  return { placed, unplaced };
 }
 
 function sameRound(a: Round, b: Round): boolean {
@@ -235,54 +280,65 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
   for (const match of byCourt) {
     const segments = schedules[match.court]!.segments;
     const last = segments.at(-1);
+    const detail = { from: iso(match.from), to: iso(match.to), match: match.info };
     if (
       last &&
       Date.parse(last.to) === match.from &&
-      last.stage === match.stage &&
-      last.categoryId === match.categoryId &&
+      last.stage === match.info.stage &&
+      last.categoryId === match.info.categoryId &&
       sameRound(last.round, match.round)
     ) {
       last.to = iso(match.to);
       last.matches += 1;
+      last.details.push(detail);
     } else {
       segments.push({
         from: iso(match.from),
         to: iso(match.to),
-        stage: match.stage,
+        stage: match.info.stage,
         round: match.round,
-        categoryId: match.categoryId,
+        categoryId: match.info.categoryId,
         matches: 1,
+        details: [detail],
       });
     }
   }
 
   const stages: EstimatedSchedule["stages"] = {};
   for (const match of typical.placed) {
-    const current = stages[match.stage];
-    stages[match.stage] = {
+    const current = stages[match.info.stage];
+    stages[match.info.stage] = {
       from: iso(Math.min(match.from, current ? Date.parse(current.from) : Infinity)),
       to: iso(Math.max(match.to, current ? Date.parse(current.to) : -Infinity)),
     };
   }
 
-  // Each window's span, checked against its pin.
-  const spans = new Map<WindowKey, { from: number; to: number }>();
+  // Each hall's zones, checked against their pins.
+  const order = new Map(analysis.categories.map((c, i) => [c.categoryId, i]));
+  const spans = new Map<WindowKey, { from: number; to: number; release: number; categories: Set<string> }>();
   for (const match of typical.placed) {
-    for (const key of keysOf(match)) {
-      const span = spans.get(key);
-      spans.set(key, { from: Math.min(match.from, span?.from ?? Infinity), to: Math.max(match.to, span?.to ?? -Infinity) });
-    }
+    const key = zoneKey(match.hallId, zoneOf(match.info.stage));
+    const span = spans.get(key) ?? { from: Infinity, to: -Infinity, release: Infinity, categories: new Set<string>() };
+    span.from = Math.min(span.from, match.from);
+    span.to = Math.max(span.to, match.to);
+    span.release = Math.min(span.release, match.release);
+    span.categories.add(match.info.categoryId);
+    spans.set(key, span);
   }
   const windows: EstimatedSchedule["windows"] = {};
   const pins = new Map((inputs.stageWindows ?? []).map((w) => [w.key, w]));
   for (const [key, span] of spans) {
     const pin = pins.get(key);
-    const window: WindowSpan = { from: iso(span.from), to: iso(span.to) };
+    const window: WindowSpan = {
+      from: iso(span.from),
+      to: iso(span.to),
+      categoryIds: [...span.categories].sort((a, b) => order.get(a)! - order.get(b)!),
+    };
     if (pin) {
       window.pinned = { from: pin.from, to: pin.to };
       if (span.to > Date.parse(pin.to)) window.overrun = iso(span.to);
-      const after = typical.dependsOn.get(key);
-      if (after !== undefined && after > Date.parse(pin.from)) window.earliest = iso(after);
+      // The earliest any of its matches could have started, had the zone allowed it.
+      if (span.release > Date.parse(pin.from)) window.earliest = iso(span.release);
     }
     windows[key] = window;
   }

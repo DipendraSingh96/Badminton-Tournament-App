@@ -232,13 +232,13 @@ export interface Rules {
   walkover: WalkoverRule;
 }
 
-/**
- * A part of the schedule with its own window on the timeline: a stage, a
- * group wave ("wave:2") or a knockout round by bracket size ("round:8").
- */
-export type WindowKey = "group" | "knockout" | "bronze" | "final" | `wave:${number}` | `round:${number}`;
+/** A hall's stage zones: the group stage, and the knockout with its bronze match and final. */
+export type Zone = "group" | "knockout";
 
-/** A window pinned by the organiser: what it holds starts no earlier than `from`. */
+/** A hall's zone on the timeline: "hallId:group" or "hallId:knockout". */
+export type WindowKey = `${string}:${Zone}`;
+
+/** A zone pinned by the organiser: its stage starts in that hall no earlier than `from`. */
 export interface StageWindow {
   key: WindowKey;
   /** UTC ISO. */
@@ -262,6 +262,6 @@ export interface TournamentInputs {
   bestOfThreeAllowance: number;
   finance: Finance;
   rules: Rules;
-  /** Pinned windows; the rest follow the estimate. */
+  /** Pinned hall zones; the rest follow the estimate. */
   stageWindows?: StageWindow[];
 }
