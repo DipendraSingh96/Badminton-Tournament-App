@@ -203,6 +203,14 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - **Help text in tooltips:** field hints and section descriptions sit behind an ⓘ beside the label or title (hover or keyboard focus; screen readers get it as a description). Errors stay inline; calculated lines (people per team, cost per shuttle, group previews) stay visible. "Select a figure to see how it was worked out" is a tooltip on each results card title.
 - Jumping to a hall issue from the summary opens that hall's settings.
 
+### Drag to set times, part 1 (13 Oct)
+- A hall's hours are a window that can be dragged on the timeline and on the strip in its settings, with the typed "from / until" fields kept and all three in sync. Drawing a new window starts on a 10-minute grid and lasts whole units of the hall's unit time; afterwards the start edge, end edge and whole window move in whole units. A window can be removed (✕ or Delete) and a new one drawn on the empty lane.
+- Moving a whole hall window carries its bands and narrowed courts; moving one edge carries the bands that sat on it.
+- Rate band boundaries and court availability drag along the hall's unit steps from its opening. A court dragged back to the hall's hours (or double-clicked, or H) follows the hall again.
+- The buffer is drawn straight after the last match. Dragging it pins it: start on the 10-minute grid, length in whole units of the hall that closes last; play must then end by its start. The Buffer card shows the pin with an Unpin button.
+- Every handle is keyboard operable (arrows move one unit; Delete removes; H resets a court). The strips share one view of the day (the halls' span with an hour either side), held still during a drag; hour labels thin out on a narrow axis.
+- **Part 2, next:** stage and group-wave windows that follow the estimate until dragged, then constrain it, turning red with a marker at the real minimum when too short.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
