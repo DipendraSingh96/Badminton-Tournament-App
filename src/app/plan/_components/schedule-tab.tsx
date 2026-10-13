@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,21 +61,6 @@ export function ScheduleTab({ draft, update }: { draft: PlanDraft; update: Updat
           <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
         )}
       </Section>
-
-      {ready && draft.format ? (
-        <Section
-          title="Structure"
-          description={
-            draft.format === "knockout"
-              ? "Knockout only: every entry goes into the bracket."
-              : "How each category's groups are made. Tune these until demand fits the day."
-          }
-        >
-          {draft.categories.map((category, i) => (
-            <StructureCard key={category.id} draft={draft} index={i} update={update} />
-          ))}
-        </Section>
-      ) : null}
 
       <StagesSection draft={draft} update={update} />
 
@@ -219,7 +205,8 @@ function FormatPreview({ category, unit, format }: { category: CategoryDraft; un
   );
 }
 
-function StructureCard({ draft, index, update }: { draft: PlanDraft; index: number; update: Update }) {
+/** A category's groups and qualifiers, inside the group stage card. */
+function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number; update: Update }) {
   const category = draft.categories[index]!;
   const format = draft.format!;
   const unit = draft.unit!;
@@ -227,76 +214,97 @@ function StructureCard({ draft, index, update }: { draft: PlanDraft; index: numb
     update((d) => void (d.categories[index]![key] = value));
   const path = (key: keyof CategoryDraft) => ["categories", index, key];
   const notice = unusedNotice(category, format);
-  const hasGroups = format !== "knockout";
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-muted/50 p-3">
       <CategoryHeading draft={draft} category={category} />
-      {hasGroups ? (
-        <>
-          <SegmentedField
-            label="Groups set by"
-            path={path("groupMode")}
-            value={category.groupMode}
-            options={GROUP_MODES}
-            onChange={set("groupMode")}
+      <SegmentedField
+        label="Groups set by"
+        path={path("groupMode")}
+        value={category.groupMode}
+        options={GROUP_MODES}
+        onChange={set("groupMode")}
+      />
+      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+        {category.groupMode === "fixed" ? (
+          <StepperField
+            label="Groups"
+            min={1}
+            path={path("groupCount")}
+            value={category.groupCount}
+            onChange={set("groupCount")}
           />
-          <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-            {category.groupMode === "fixed" ? (
-              <StepperField
-                label="Groups"
-                min={1}
-                path={path("groupCount")}
-                value={category.groupCount}
-                onChange={set("groupCount")}
-              />
-            ) : category.groupMode === "auto" ? (
-              <StepperField
-                label="Preferred group size"
-                min={2}
-                hint={
-                  format === "groupsKnockout"
-                    ? "Larger groups lengthen the group stage and shorten the knockout."
-                    : undefined
-                }
-                path={path("preferredGroupSize")}
-                value={category.preferredGroupSize}
-                onChange={set("preferredGroupSize")}
-              />
-            ) : null}
-            {format === "groupsKnockout" ? (
-              <StepperField
-                label="Qualifiers per group"
-                min={1}
-                path={path("qualifiersPerGroup")}
-                value={category.qualifiersPerGroup}
-                onChange={set("qualifiersPerGroup")}
-              />
-            ) : null}
-          </div>
-        </>
-      ) : null}
-      {format !== "groups" ? (
-        <SwitchField label="Bronze match" checked={category.bronze} onChange={set("bronze")} />
-      ) : null}
+        ) : category.groupMode === "auto" ? (
+          <StepperField
+            label="Preferred group size"
+            min={2}
+            hint={
+              format === "groupsKnockout"
+                ? "Larger groups lengthen the group stage and shorten the knockout."
+                : undefined
+            }
+            path={path("preferredGroupSize")}
+            value={category.preferredGroupSize}
+            onChange={set("preferredGroupSize")}
+          />
+        ) : null}
+        {format === "groupsKnockout" ? (
+          <StepperField
+            label="Qualifiers per group"
+            min={1}
+            path={path("qualifiersPerGroup")}
+            value={category.qualifiersPerGroup}
+            onChange={set("qualifiersPerGroup")}
+          />
+        ) : null}
+      </div>
       {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
       <FormatPreview category={category} unit={unit} format={format} />
     </div>
   );
 }
 
-function notPlayedReason(draft: PlanDraft, stage: Stage): string {
+/** Knockout only: each category's bracket, inside the knockout card. */
+function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
+  const category = draft.categories[index]!;
+  const notice = unusedNotice(category, draft.format!);
+  return (
+    <div className="flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2">
+      <CategoryHeading draft={draft} category={category} />
+      <FormatPreview category={category} unit={draft.unit!} format={draft.format!} />
+      {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
+    </div>
+  );
+}
+
+/** A bronze match switch for each category, inside the bronze card. */
+function BronzeSwitches({ draft, update }: { draft: PlanDraft; update: Update }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
+      {draft.categories.map((category, i) => (
+        <SwitchField
+          key={category.id}
+          label={categoryName(draft, category.id)}
+          checked={category.bronze}
+          onChange={(on) => update((d) => void (d.categories[i]!.bronze = on))}
+        />
+      ))}
+    </div>
+  );
+}
+
+function notPlayedReason(draft: PlanDraft): string {
   if (!draft.format) return "Choose a format on the Tournament setup tab.";
-  if (stage === "bronze" && draft.format !== "groups") return "Not played: no category has a bronze match.";
   return "Not played with this format.";
 }
 
 function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   const inPlay = stagesInPlay(draft);
   const source = inPlay[0];
+  const hasKnockout = draft.format === "groupsKnockout" || draft.format === "knockout";
   return (
     <Section
       title="Stages"
-      description="Scoring and timing for each stage, used for every event and every rubber played in it."
+      description="In play order. Groups and qualifiers are set per category in the group stage, and the bronze match per category before the final. Scoring and timing apply to every event and rubber in the stage."
     >
       {usesBestOfThree(draft) ? (
         <div className="@md:max-w-64">
@@ -309,22 +317,42 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
           />
         </div>
       ) : null}
-      {STAGES.map((stage) =>
-        inPlay.includes(stage) ? (
-          <StageCard
-            key={stage}
-            draft={draft}
-            stage={stage}
-            copyFrom={source !== undefined && source !== stage ? source : null}
-            update={update}
-          />
-        ) : (
-          <div key={stage} className="flex items-baseline justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
-            <h3 className="text-sm font-medium text-muted-foreground">{STAGE_LABELS[stage]}</h3>
-            <span className="text-xs text-muted-foreground">{notPlayedReason(draft, stage)}</span>
-          </div>
-        ),
-      )}
+      {STAGES.map((stage) => {
+        const copyFrom = source !== undefined && source !== stage ? source : null;
+        const hasCategories = draft.unit !== null && draft.categories.length > 0;
+        if (stage === "bronze" && hasKnockout) {
+          return (
+            <StageCard
+              key={stage}
+              draft={draft}
+              stage={stage}
+              copyFrom={copyFrom}
+              update={update}
+              lead={hasCategories ? <BronzeSwitches draft={draft} update={update} /> : null}
+              rulesHidden={inPlay.includes("bronze") ? null : "No category has a bronze match."}
+            />
+          );
+        }
+        if (!inPlay.includes(stage)) {
+          return (
+            <div key={stage} className="flex items-baseline justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground">{STAGE_LABELS[stage]}</h3>
+              <span className="text-xs text-muted-foreground">{notPlayedReason(draft)}</span>
+            </div>
+          );
+        }
+        const lead =
+          !hasCategories
+            ? null
+            : stage === "group"
+              ? draft.categories.map((c, i) => <GroupBlock key={c.id} draft={draft} index={i} update={update} />)
+              : stage === "knockout" && draft.format === "knockout"
+                ? draft.categories.map((c, i) => <BracketLine key={c.id} draft={draft} index={i} />)
+                : null;
+        return (
+          <StageCard key={stage} draft={draft} stage={stage} copyFrom={copyFrom} update={update} lead={lead} rulesHidden={null} />
+        );
+      })}
     </Section>
   );
 }
@@ -334,11 +362,17 @@ function StageCard({
   stage,
   copyFrom,
   update,
+  lead,
+  rulesHidden,
 }: {
   draft: PlanDraft;
   stage: Stage;
   copyFrom: Stage | null;
   update: Update;
+  /** Per-category structure shown before the stage's scoring and timing. */
+  lead: ReactNode;
+  /** When set, the stage isn't played: this note replaces scoring and timing. */
+  rulesHidden: string | null;
 }) {
   const rules = draft.stageRules[stage];
   const set = <K extends keyof StageRulesDraft>(key: K) => (value: StageRulesDraft[K]) =>
@@ -348,7 +382,7 @@ function StageCard({
     <div className="flex flex-col gap-3 rounded-lg border bg-background p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{STAGE_LABELS[stage]}</h3>
-        {copyFrom ? (
+        {copyFrom && !rulesHidden ? (
           <Button
             variant="ghost"
             size="sm"
@@ -358,58 +392,65 @@ function StageCard({
           </Button>
         ) : null}
       </div>
-      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-        <StepperField
-          label="Points per game"
-          min={1}
-          path={path("pointsPerGame")}
-          value={rules.pointsPerGame}
-          onChange={set("pointsPerGame")}
-        />
-        <SegmentedField
-          label="Games per match"
-          path={path("bestOf")}
-          value={rules.bestOf}
-          options={BEST_OF}
-          onChange={set("bestOf")}
-        />
-      </div>
-      <SegmentedField
-        label="Deuce"
-        path={path("deuce")}
-        value={rules.deuce}
-        options={DEUCE_RULES}
-        hint={rules.deuce ? DEUCE_HINTS[rules.deuce] : undefined}
-        onChange={set("deuce")}
-      />
-      {rules.deuce === "cap" || rules.deuce === "standard" ? (
-        <div className="@md:max-w-64">
-          <StepperField
-            label={rules.deuce === "cap" ? "Points cap" : "Maximum points"}
-            min={1}
-            path={path("deuceLimit")}
-            value={rules.deuceLimit}
-            onChange={set("deuceLimit")}
+      {lead}
+      {rulesHidden ? (
+        <p className="text-sm text-muted-foreground">{rulesHidden}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+            <StepperField
+              label="Points per game"
+              min={1}
+              path={path("pointsPerGame")}
+              value={rules.pointsPerGame}
+              onChange={set("pointsPerGame")}
+            />
+            <SegmentedField
+              label="Games per match"
+              path={path("bestOf")}
+              value={rules.bestOf}
+              options={BEST_OF}
+              onChange={set("bestOf")}
+            />
+          </div>
+          <SegmentedField
+            label="Deuce"
+            path={path("deuce")}
+            value={rules.deuce}
+            options={DEUCE_RULES}
+            hint={rules.deuce ? DEUCE_HINTS[rules.deuce] : undefined}
+            onChange={set("deuce")}
           />
-        </div>
-      ) : null}
-      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-        <StepperField
-          label="Minutes per game"
-          hint="Typical playing time."
-          min={1}
-          path={path("minutesPerGame")}
-          value={rules.minutesPerGame}
-          onChange={set("minutesPerGame")}
-        />
-        <StepperField
-          label="Organising time per match (minutes)"
-          hint="Walk-on, warm-up and changeover."
-          path={path("changeoverMinutes")}
-          value={rules.changeoverMinutes}
-          onChange={set("changeoverMinutes")}
-        />
-      </div>
+          {rules.deuce === "cap" || rules.deuce === "standard" ? (
+            <div className="@md:max-w-64">
+              <StepperField
+                label={rules.deuce === "cap" ? "Points cap" : "Maximum points"}
+                min={1}
+                path={path("deuceLimit")}
+                value={rules.deuceLimit}
+                onChange={set("deuceLimit")}
+              />
+            </div>
+          ) : null}
+          <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+            <StepperField
+              label="Minutes per game"
+              hint="Typical playing time."
+              min={1}
+              path={path("minutesPerGame")}
+              value={rules.minutesPerGame}
+              onChange={set("minutesPerGame")}
+            />
+            <StepperField
+              label="Organising time per match (minutes)"
+              hint="Walk-on, warm-up and changeover."
+              path={path("changeoverMinutes")}
+              value={rules.changeoverMinutes}
+              onChange={set("changeoverMinutes")}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
