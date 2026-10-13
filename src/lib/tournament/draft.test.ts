@@ -141,3 +141,17 @@ describe("keepOneRate", () => {
     expect(hall.multipleRates).toBe(false);
   });
 });
+
+describe("normaliseDraft hall zones", () => {
+  it("keeps per-hall zones and drops earlier stage, wave and round windows", () => {
+    const saved = emptyDraft("Europe/London");
+    const hallId = saved.frame.halls[0]!.id;
+    saved.stageWindows = {
+      [`${hallId}:group`]: { from: "09:00", to: "11:00" },
+      group: { from: "09:00", to: "11:00" },
+      "wave:2": { from: "09:30", to: "10:00" },
+      "round:4": { from: "12:00", to: "12:30" },
+    };
+    expect(Object.keys(normaliseDraft(saved).stageWindows)).toEqual([`${hallId}:group`]);
+  });
+});

@@ -465,20 +465,21 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   }
 
-  // Pinned stage, wave and round windows: valid times inside the day.
+  // Pinned hall zones ("hallId:group", "hallId:knockout"): valid times inside their hall's hours.
   const stageWindows: StageWindow[] = [];
   for (const [key, window] of Object.entries(draft.stageWindows)) {
     const path = ["stageWindows", key];
-    if (!/^(group|knockout|bronze|final|wave:\d+|round:\d+)$/.test(key)) continue;
+    const match = /^(.+):(group|knockout)$/.exec(key);
+    const hall = match ? draft.frame.halls.find((h) => h.id === match[1]) : undefined;
+    // Zones of halls since removed are kept but ignored.
+    if (!hall) continue;
     if (!isTime(window.from) || !isTime(window.to) || minutesOfDay(window.to) <= minutesOfDay(window.from)) {
-      issues.push({ path, message: "Window must end after it starts" });
+      issues.push({ path, message: "Zone must end after it starts" });
       continue;
     }
-    if (frame) {
-      const opens = Math.min(...frame.halls.map((h) => minutesOfDay(h.from)));
-      const closes = Math.max(...frame.halls.map((h) => minutesOfDay(h.to)));
-      if (minutesOfDay(window.from) < opens || minutesOfDay(window.to) > closes) {
-        issues.push({ path, message: "Window must be within the day's hours" });
+    if (isTime(hall.from) && isTime(hall.to)) {
+      if (minutesOfDay(window.from) < minutesOfDay(hall.from) || minutesOfDay(window.to) > minutesOfDay(hall.to)) {
+        issues.push({ path, message: "Zone must be within its hall's hours" });
         continue;
       }
     }

@@ -42,7 +42,12 @@ export function normaliseDraft(
   }));
   const draft = {
     ...saved,
-    stageWindows: saved.stageWindows ?? {},
+    // Only per-hall zones remain; earlier stage, wave and round windows are dropped.
+    stageWindows: Object.fromEntries(
+      Object.entries(saved.stageWindows ?? {}).filter(([key]) =>
+        saved.frame.halls.some((h) => key === `${h.id}:group` || key === `${h.id}:knockout`),
+      ),
+    ),
     frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null },
   };
   const { costPerShuttle, ...finance } = draft.finance;

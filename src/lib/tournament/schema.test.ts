@@ -490,21 +490,21 @@ describe("parsePlan", () => {
     expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
   });
 
-  it("converts pinned stage windows and checks they sit inside the day", () => {
+  it("converts pinned hall zones and checks they sit inside their hall's hours", () => {
     const draft = completeDraft();
-    draft.stageWindows = { group: { from: "09:30", to: "12:00" }, "round:4": { from: "13:00", to: "13:40" } };
+    draft.stageWindows = { "h1:group": { from: "09:30", to: "12:00" }, "h1:knockout": { from: "13:00", to: "14:40" } };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     // British Summer Time is UTC+1.
     expect(result.inputs.stageWindows).toEqual([
-      { key: "group", from: "2026-07-04T08:30:00.000Z", to: "2026-07-04T11:00:00.000Z" },
-      { key: "round:4", from: "2026-07-04T12:00:00.000Z", to: "2026-07-04T12:40:00.000Z" },
+      { key: "h1:group", from: "2026-07-04T08:30:00.000Z", to: "2026-07-04T11:00:00.000Z" },
+      { key: "h1:knockout", from: "2026-07-04T12:00:00.000Z", to: "2026-07-04T13:40:00.000Z" },
     ]);
 
-    draft.stageWindows = { final: { from: "16:30", to: "17:30" } };
+    draft.stageWindows = { "h1:knockout": { from: "16:30", to: "17:30" }, "gone:group": { from: "09:00", to: "10:00" } };
     const late = parsePlan(draft);
     expect(late.ok).toBe(false);
     if (late.ok) return;
-    expect(late.issues).toEqual([{ path: ["stageWindows", "final"], message: "Window must be within the day's hours" }]);
+    expect(late.issues).toEqual([{ path: ["stageWindows", "h1:knockout"], message: "Zone must be within its hall's hours" }]);
   });
 });

@@ -176,10 +176,7 @@ export interface PlanDraft {
   finance: FinanceDraft;
   /** Set once for the tournament. */
   rules: RulesDraft;
-  /**
-   * Stage, wave and round windows pinned on the timeline, keyed like the
-   * engine's window keys ("group", "wave:2", "round:8"); "HH:mm".
-   */
+  /** Hall stage zones pinned on the timeline, keyed "hallId:group" or "hallId:knockout"; "HH:mm". */
   stageWindows: Record<string, { from: string; to: string }>;
 }
 
