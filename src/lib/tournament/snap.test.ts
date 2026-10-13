@@ -69,7 +69,7 @@ describe("moveBoundary", () => {
     expect(moveBoundary(t("15:15"), open, 40, { min: t("09:40"), max: t("17:00") })).toBe(t("15:00"));
     expect(moveBoundary(t("15:25"), open, 30, { min: t("09:30"), max: t("17:00") })).toBe(t("15:30"));
     expect(moveBoundary(t("07:00"), open, 40, { min: t("09:40"), max: t("17:00") })).toBe(t("09:40"));
-    expect(moveBoundary(t("20:00"), open, 40, { min: t("09:40"), max: t("17:10") })).toBe(t("16:20"));
+    expect(moveBoundary(t("20:00"), open, 40, { min: t("09:40"), max: t("17:10") })).toBe(t("17:00"));
   });
 });
 
