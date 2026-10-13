@@ -31,7 +31,7 @@ A tournament is made of these sections, all editable in Plan mode:
 
 ### 4.1 Frame (set first; the outer bounds and the type of competition)
 - **Date and time zone.** The day's times come from the venue: it runs from the earliest hall opening to the latest hall closing. A ceiling, not a target: the tournament may finish earlier, never later.
-- **Venue: halls.** Each hall has its hours (from, until), one or more **rate bands** (from, until, rate per court per hour, e.g. peak and off-peak) and its courts. Bands must cover the hall's hours with no overlap. A hall's settings can be copied from another hall.
+- **Venue: halls.** Each hall has its hours (from, until), a **unit time** it charges by (e.g. 60, 40 or 30 minutes), one or more **rate bands** (from, until, rate per court per unit, e.g. peak and off-peak) and its courts. Bands must cover the hall's hours with no overlap. Hire is always a whole number of units: hall hours, band edges and court hours must each fall on a whole-unit step from the hall's opening time. A hall's settings can be copied from another hall.
 - **Courts.** Each court has its availability (defaults to its hall's hours; can be narrowed) and the umpires on it. Total umpires is the sum across courts.
 - **Buffer:** time held back at the end of the whole day for miscellaneous activity such as prize distribution. Play must end by the latest hall closing minus the buffer; a hall that closes earlier is unaffected.
 
@@ -45,7 +45,7 @@ A tournament is made of these sections, all editable in Plan mode:
 ### 4.2 Format (tuned until demand fits the frame)
 **Format type**, chosen once per tournament: groups then knockout, knockout only, or groups only.
 
-Per category, as the format type requires:
+Per category, as the format type requires (set within the stage cards: groups and qualifiers in the group stage, the bronze match between the knockout rounds and the final):
 - Number of groups and group size (or let the app propose a split from the entry count)
 - Qualifiers per group and knockout depth (quarterfinals, semifinals, bronze match yes/no, final)
 - Knockout pairing pattern (e.g. cross-group seeding)
@@ -75,7 +75,7 @@ Inputs:
 - Expected entries and, of those, expected external entries (counted in entries: players, pairs or teams); entry fee per player or per entry, with an optional external fee. With a per-player fee, external entries are multiplied by the players in an entry.
 - Shuttles per game, and the shuttle price either per shuttle or per tube (with the number of shuttles per tube set by the organiser; the cost per shuttle is calculated)
 - Prizes by category and position
-- Court hire, calculated per court: its booked availability within each of its hall's rate bands, × that band's rate (only booked time is charged, including the buffer)
+- Court hire, calculated per court: the units of its booked availability within each of its hall's rate bands, × that band's rate per unit (only booked time is charged, including the buffer)
 - Other costs as a free list; each is a fixed amount or a per-person amount (e.g. umpire food, trophies, printing)
 - Other money in as a free list; each is a fixed amount (e.g. sponsorship) or a per-person amount, per player or for a set number of people (e.g. spectator tickets)
 
