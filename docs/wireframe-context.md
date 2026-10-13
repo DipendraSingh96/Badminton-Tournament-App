@@ -209,7 +209,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Rate band boundaries and court availability drag along the hall's unit steps from its opening. A court dragged back to the hall's hours (or double-clicked, or H) follows the hall again.
 - The buffer is drawn straight after the last match. Dragging it pins it: start on the 10-minute grid, length in whole units of the hall that closes last; play must then end by its start. The Buffer card shows the pin with an Unpin button.
 - Every handle is keyboard operable (arrows move one unit; Delete removes; H resets a court). The strips share one view of the day (the halls' span with an hour either side), held still during a drag; hour labels thin out on a narrow axis.
-- **Part 2, next:** stage and group-wave windows that follow the estimate until dragged, then constrain it, turning red with a marker at the real minimum when too short.
+
+### Drag to set times, part 2 (13 Oct)
+- A "Stages" lane above the halls has a window per stage and per part of it, in play order: Group stage with Wave 1…N, Knockout rounds with each round (Round of 16, Quarter-finals, Semi-finals), Bronze match, Final.
+- Each window follows the estimate (shown dimmed) until dragged on the 10-minute grid, which pins it: what it holds starts no earlier than its start.
+- A pinned window too short for its matches lets them run on past its end; later stages wait for the real end. It turns red with a "Needs until …" marker. A window pinned to start before what it depends on has finished turns red with "Can't start before …". The summary lists these as warnings; they don't stop the plan.
+- Double-click, H, ✕ or Delete returns a window to the estimate. Pins for waves or rounds no longer played stay, marked "not played".
+- On a very narrow timeline a short window (e.g. a 15-minute final) is mostly its edges, so a drag there resizes rather than moves; the keyboard moves it exactly.
 
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
