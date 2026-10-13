@@ -221,6 +221,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - A hall has one rate all day by default, entered beside its hours and unit time ("£ per court per 40 min"). "Rate changes during the day" turns on the band strip and band rows; unticking with several bands asks, then keeps the first band's rate across the hall's hours. Saved halls with several bands have it on.
 - The band strip is slimmer and its labels read "Off-peak · £8.00 per 40 min". Before the hall's hours are drawn, a line follows the pointer on the strip with the time a new window would start at.
 
+### Timeline per hall (13 Oct)
+- From the user's sketch: each hall has its row with its rate bands, then its own **Stages** row, then its court rows. The Stages row holds a Group stage zone and a KO stage zone (knockout rounds, bronze match and final), each labelled with the categories it holds there and shaded across that hall's courts (different patterns for group and KO), so halls can run stages at different times. This replaces the global Stages lane and its wave and round windows.
+- Zones follow the estimate until dragged (10-minute grid); a pinned zone holds that stage in that hall to its start, overruns in red ("Needs until …") or shows "Can't start before …"; double-click, H, ✕ or Delete unpins. Earlier global windows are dropped on load.
+- Each group plays in its suggested hall, round by round from a round-robin draw (a round is a wave); the knockout uses cross-group seeding (Winner A v Runner-up D…), byes to the top seeds, and may use any hall's courts.
+- The wave pills are unchanged. Hovering (or focusing) a pill shows the match under the pointer: category, group and wave or knockout match, the sides as draw slots (Pair A1 v Pair A4, Winner QF3 v Winner QF4), the rubber for team ties, court and time. Names replace the slots once entries and the draw exist. Court cards at the playhead show the same match in short.
+- Only the worst-case finish stays as a vertical line, in red; the "Play must end" and finish lines are gone. The buffer zone and the playhead remain.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

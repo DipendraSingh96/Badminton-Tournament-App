@@ -173,3 +173,20 @@
     transparent 1.5px 6px
   );
 }
+
+/* Stage zones across a hall's courts: the group stage and the KO stage look different. */
+.zone-group {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in oklch, var(--foreground) 14%, transparent) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+.zone-ko {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in oklch, var(--foreground) 22%, transparent) 0 1.5px,
+    transparent 1.5px 4px
+  );
+}

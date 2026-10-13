@@ -4,8 +4,9 @@ import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
 import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { EstimatedSchedule, Round, Stage, WindowKey } from "@/engine";
+import { playersPerEntry, type EstimatedSchedule, type MatchInfo, type Round, type Stage, type WindowKey, type Zone } from "@/engine";
 import { courtHours, courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { EVENT_LABELS } from "@/lib/tournament/events";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { InfoTip } from "./fields";
 import { HallTrack } from "./hall-track";
@@ -14,9 +15,9 @@ import type { Update } from "./plan-editor";
 import { TimeWindowTrack, ViewRangeContext } from "./time-window";
 import { formatClock } from "./workings";
 
-// The day as one timeline: a lane per hall, a row per court, and the
-// estimated schedule over it. Times are minutes since midnight in the
-// tournament's time zone, as the venue is entered.
+// The day as one timeline: per hall, its rate bands, its stage zones and a
+// row per court with the estimated matches on it. Times are minutes since
+// midnight in the tournament's time zone, as the venue is entered.
 
 /** Stage colours, strongest for the final. */
 export const STAGE_COLOURS: Record<Stage, string> = {
@@ -25,6 +26,12 @@ export const STAGE_COLOURS: Record<Stage, string> = {
   bronze: "bg-chart-4",
   final: "bg-chart-1",
 };
+
+/** Zone shading across a hall's courts: the group stage and the KO stage look different. */
+const ZONE_SHADING: Record<Zone, string> = { group: "zone-group", knockout: "zone-ko" };
+const ZONE_LABELS: Record<Zone, string> = { group: "Group stage", knockout: "KO stage" };
+/** In a sentence: "Hall A group stage", "Hall A KO stage". */
+const ZONE_NAMES: Record<Zone, string> = { group: "group stage", knockout: "KO stage" };
 
 /** Playback runs the whole day in this many seconds: a viewing speed, not a tournament value. */
 const PLAYBACK_SECONDS = 30;
@@ -40,7 +47,39 @@ export function roundLabel(round: Round): string | null {
   return `Round of ${round.size}`;
 }
 
-/** A segment of the estimate in local minutes. */
+/** "Quarter-final 1", "Semi-final 2", "Round of 16, match 3", "Final", "Bronze match". */
+function knockoutName(code: string | undefined): string {
+  if (!code) return "Knockout";
+  if (code === "Final") return "Final";
+  if (code === "Bronze") return "Bronze match";
+  const quarter = /^QF(\d+)$/.exec(code);
+  if (quarter) return `Quarter-final ${quarter[1]}`;
+  const semi = /^SF(\d+)$/.exec(code);
+  if (semi) return `Semi-final ${semi[1]}`;
+  const round = /^R(\d+)-(\d+)$/.exec(code);
+  return round ? `Round of ${round[1]}, match ${round[2]}` : code;
+}
+
+/** What a draw slot is called: a player, pair or team. */
+function sideNoun(draft: PlanDraft, categoryId: string): string {
+  if (draft.unit === "team") return "Team";
+  const event = draft.categories.find((c) => c.id === categoryId)?.event;
+  return event && playersPerEntry(event) === 1 ? "Player" : "Pair";
+}
+
+/** A match in words, for running it: where it sits, who plays, the rubber. */
+export function matchText(draft: PlanDraft, match: MatchInfo): { where: string; sides: string; rubber: string | null } {
+  const where = match.stage === "group" ? `Group ${match.group} · Wave ${match.wave}` : knockoutName(match.code);
+  const noun = sideNoun(draft, match.categoryId);
+  const sides =
+    match.stage === "group" ? `${noun} ${match.home} v ${noun} ${match.away}` : `${match.home} v ${match.away}`;
+  const rubber = match.rubber
+    ? `Rubber ${match.rubber.number} of ${match.rubber.of}: ${EVENT_LABELS[match.rubber.event]}`
+    : null;
+  return { where, sides, rubber };
+}
+
+/** A segment of the estimate in local minutes, with each of its matches. */
 export interface LocalSegment {
   courtId: string;
   from: number;
@@ -48,6 +87,7 @@ export interface LocalSegment {
   stage: Stage;
   label: string;
   matches: number;
+  details: { from: number; to: number; match: MatchInfo }[];
 }
 
 /** The estimate's segments in local minutes, labelled for display. */
@@ -66,6 +106,7 @@ export function localSegments(draft: PlanDraft, schedule: EstimatedSchedule | nu
         stage: s.stage,
         label: parts.join(" · "),
         matches: s.matches,
+        details: s.details.map((d) => ({ from: local(d.from), to: local(d.to), match: d.match })),
       };
     }),
   );
@@ -76,7 +117,7 @@ export type CourtStatus =
   | { kind: "free" }
   | { kind: "notBooked" };
 
-/** What each court is doing at a moment. */
+/** What each court is doing at a moment: the match on it, in short. */
 export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute: number): Map<string, CourtStatus> {
   const statuses = new Map<string, CourtStatus>();
   for (const hall of draft.frame.halls) {
@@ -84,15 +125,20 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
       const hours = courtHours(hall, court);
       const from = minutesOfDay(hours.from);
       const to = minutesOfDay(hours.to);
-      const playing = segments.find((s) => s.courtId === court.id && s.from <= minute && minute < s.to);
-      statuses.set(
-        court.id,
-        playing
-          ? { kind: "playing", stage: playing.stage, label: playing.label }
-          : from !== null && to !== null && from <= minute && minute < to
-            ? { kind: "free" }
-            : { kind: "notBooked" },
-      );
+      const segment = segments.find((s) => s.courtId === court.id && s.from <= minute && minute < s.to);
+      const detail = segment?.details.find((d) => d.from <= minute && minute < d.to);
+      if (segment && detail) {
+        const { where, sides, rubber } = matchText(draft, detail.match);
+        const short = [where, sides.replace(/\b(Pair|Player|Team) /g, ""), rubber?.replace(/: .*/, ""), categoryName(draft, detail.match.categoryId)]
+          .filter(Boolean)
+          .join(" · ");
+        statuses.set(court.id, { kind: "playing", stage: segment.stage, label: short });
+      } else {
+        statuses.set(
+          court.id,
+          from !== null && to !== null && from <= minute && minute < to ? { kind: "free" } : { kind: "notBooked" },
+        );
+      }
     }
   }
   return statuses;
@@ -107,75 +153,70 @@ export function dayRange(draft: PlanDraft): { start: number; end: number } | nul
   return { start: Math.min(...spans.map((s) => s[0])), end: Math.max(...spans.map((s) => s[1])) };
 }
 
-/** One row of the Stages lane: a stage, a group wave or a knockout round. */
-export interface WindowRow {
+/** A hall's stage zone: its pin when pinned, otherwise where the estimate played the stage there. */
+export interface ZoneRow {
   key: WindowKey;
+  hallId: string;
+  zone: Zone;
+  /** "Group stage · Men's doubles, Men's singles". */
   label: string;
-  stage: Stage;
-  /** Waves and rounds sit under their stage. */
-  indent: boolean;
-  /** Local minutes: the pin when pinned, otherwise the estimate. */
   window: { from: number; to: number } | null;
   pinned: boolean;
-  /** Local minutes: the real end of a too-short window, or the earliest possible start. */
+  /** Local minutes: the real end of a too-short zone, or the earliest possible start. */
   overrun: number | null;
   earliest: number | null;
 }
 
-const STAGE_KEYS = ["group", "knockout", "bronze", "final"] as const;
-
-/** The Stages lane's rows in play order, with pins left for parts no longer played. */
-export function windowRows(draft: PlanDraft, schedule: EstimatedSchedule | null): WindowRow[] {
+/** Every hall's group and KO zones, in hall order. */
+export function zoneRows(draft: PlanDraft, schedule: EstimatedSchedule | null): ZoneRow[] {
   if (!schedule) return [];
   const local = (iso: string) => minutesOfDay(formatClock(iso, draft.frame.timeZone))!;
-  const keys = new Set<WindowKey>([
-    ...(Object.keys(schedule.windows) as WindowKey[]),
-    ...(Object.keys(draft.stageWindows) as WindowKey[]),
-  ]);
-  const number = (key: string) => Number(key.split(":")[1]);
-  const waves = [...keys].filter((k) => k.startsWith("wave:")).sort((a, b) => number(a) - number(b));
-  const rounds = [...keys].filter((k) => k.startsWith("round:")).sort((a, b) => number(b) - number(a));
-  const order: WindowKey[] = [];
-  for (const stage of STAGE_KEYS) {
-    if (stage === "group" && (keys.has("group") || waves.length > 0)) order.push("group", ...waves);
-    if (stage === "knockout" && (keys.has("knockout") || rounds.length > 0)) order.push("knockout", ...rounds);
-    if ((stage === "bronze" || stage === "final") && keys.has(stage)) order.push(stage);
-  }
-  return order.map((key) => {
-    const span = schedule.windows[key];
-    const pin = draft.stageWindows[key];
-    const pinFrom = minutesOfDay(pin?.from);
-    const pinTo = minutesOfDay(pin?.to);
-    const stage: Stage = key.startsWith("wave:") ? "group" : key.startsWith("round:") ? "knockout" : (key as Stage);
-    const label = key.startsWith("wave:")
-      ? `Wave ${number(key)}`
-      : key.startsWith("round:")
-        ? roundLabel({ type: "knockout", size: number(key) })!
-        : STAGE_LABELS[stage];
-    return {
-      key,
-      label: span ? label : `${label} (not played)`,
-      stage,
-      indent: key.includes(":"),
-      window:
-        pinFrom !== null && pinTo !== null ? { from: pinFrom, to: pinTo } : span ? { from: local(span.from), to: local(span.to) } : null,
-      pinned: pinFrom !== null && pinTo !== null,
-      overrun: span?.overrun ? local(span.overrun) : null,
-      earliest: span?.earliest ? local(span.earliest) : null,
-    };
+  return draft.frame.halls.flatMap((hall) =>
+    (["group", "knockout"] as const).flatMap((zone) => {
+      const key: WindowKey = `${hall.id}:${zone}`;
+      const span = schedule.windows[key];
+      const pin = draft.stageWindows[key];
+      const pinFrom = minutesOfDay(pin?.from);
+      const pinTo = minutesOfDay(pin?.to);
+      const pinned = pinFrom !== null && pinTo !== null;
+      if (!span && !pinned) return [];
+      const categories = (span?.categoryIds ?? []).map((id) => categoryName(draft, id));
+      return [
+        {
+          key,
+          hallId: hall.id,
+          zone,
+          label: [ZONE_LABELS[zone], categories.join(", ")].filter(Boolean).join(" · "),
+          window: pinned ? { from: pinFrom, to: pinTo } : span ? { from: local(span.from), to: local(span.to) } : null,
+          pinned,
+          overrun: span?.overrun ? local(span.overrun) : null,
+          earliest: span?.earliest ? local(span.earliest) : null,
+        },
+      ];
+    }),
+  );
+}
+
+/** Problems with pinned zones, in words, for the summary. */
+export function zoneWarnings(draft: PlanDraft, rows: ZoneRow[]): string[] {
+  return rows.flatMap((row) => {
+    const index = draft.frame.halls.findIndex((h) => h.id === row.hallId);
+    const name = `${hallName(draft.frame.halls[index]!, index)} ${ZONE_NAMES[row.zone]}`;
+    return [
+      ...(row.pinned && row.overrun !== null && row.window
+        ? [`${name} needs until ${clock(row.overrun)} (zone ends ${clock(row.window.to)})`]
+        : []),
+      ...(row.pinned && row.earliest !== null && row.window
+        ? [`${name} can't start before ${clock(row.earliest)} (zone starts ${clock(row.window.from)})`]
+        : []),
+    ];
   });
 }
 
-/** Problems with pinned windows, in words, for the summary. */
-export function windowWarnings(rows: WindowRow[]): string[] {
-  return rows.flatMap((row) => [
-    ...(row.pinned && row.overrun !== null && row.window
-      ? [`${row.label} needs until ${clock(row.overrun)} (window ends ${clock(row.window.to)})`]
-      : []),
-    ...(row.pinned && row.earliest !== null && row.window
-      ? [`${row.label} can't start before ${clock(row.earliest)} (window starts ${clock(row.window.from)})`]
-      : []),
-  ]);
+interface Hovered {
+  x: number;
+  y: number;
+  lines: string[];
 }
 
 export function Timeline({
@@ -183,7 +224,7 @@ export function Timeline({
   update,
   schedule,
   segments,
-  rows,
+  zones,
   playhead,
   onSeek,
   playing,
@@ -193,8 +234,8 @@ export function Timeline({
   update: Update;
   schedule: EstimatedSchedule | null;
   segments: LocalSegment[];
-  /** The Stages lane; empty until the plan is complete. */
-  rows: WindowRow[];
+  /** Each hall's stage zones; empty until the plan is complete. */
+  zones: ZoneRow[];
   playhead: number | null;
   onSeek: (minute: number) => void;
   playing: boolean;
@@ -208,6 +249,7 @@ export function Timeline({
   const track = useRef<HTMLDivElement>(null);
   const tz = draft.frame.timeZone;
   const local = (iso: string | null) => (iso ? minutesOfDay(formatClock(iso, tz)) : null);
+  const [hovered, setHovered] = useState<Hovered | null>(null);
 
   // Playback: move the playhead forward until the end of the day.
   const position = useRef(playhead);
@@ -261,7 +303,6 @@ export function Timeline({
   const bufferLength = draft.frame.bufferMinutes ?? 0;
   const pinnedAt = minutesOfDay(draft.frame.bufferStart);
   const hasHours = dayRange(draft) !== null;
-  const playingEnd = pinnedAt ?? end - bufferLength;
   const bufferWindow =
     pinnedAt !== null
       ? { from: pinnedAt, to: pinnedAt + bufferLength }
@@ -299,13 +340,16 @@ export function Timeline({
     onSeek(clampDay(Math.round(next)));
   }
 
-  const markers = [
-    hasHours && (bufferLength > 0 || pinnedAt !== null)
-      ? { at: playingEnd, label: "Play must end", dashed: false }
-      : null,
-    finish !== null ? { at: finish, label: "Finish", dashed: false } : null,
-    worstFinish !== null && worstFinish !== finish ? { at: worstFinish, label: "Worst case", dashed: true } : null,
-  ].filter((m): m is { at: number; label: string; dashed: boolean } => m !== null);
+  /** The hover card's lines for a match on a court. */
+  function cardLines(detail: LocalSegment["details"][number], court: string): string[] {
+    const { where, sides, rubber } = matchText(draft, detail.match);
+    return [
+      `${categoryName(draft, detail.match.categoryId)} · ${where}`,
+      sides,
+      ...(rubber ? [rubber] : []),
+      `${court} · ${clock(detail.from)}–${clock(detail.to)}`,
+    ];
+  }
 
   const usedStages = (["group", "knockout", "bronze", "final"] as const).filter((s) =>
     segments.some((x) => x.stage === s),
@@ -320,11 +364,12 @@ export function Timeline({
             <InfoTip about="the timeline">
               Drag a hall&apos;s window to set its hours, the lines between rate bands to move them, and a court&apos;s
               bar to narrow it (double-click to follow the hall again). Moves are in the hall&apos;s unit time; a new
-              window starts on 10-minute steps. Drag the buffer to pin it. Drag a stage, wave or round window to pin it
-              on 10-minute steps; it turns red when its matches need longer or can&apos;t start yet. Double-click a window
-              to return it to the estimate.{" "}
+              window starts on 10-minute steps. Each hall&apos;s Stages row has its group and KO zones: drag one to pin
+              that stage&apos;s time in that hall (double-click to return it to the estimate); it turns red when its
+              matches need longer or can&apos;t start yet. Hover a match to see who plays where. Drag the buffer to pin
+              it.{" "}
               {schedule
-                ? "Stages are an estimate: matches placed in order on the first free court, at typical length; rest isn't modelled yet."
+                ? "Matches are an estimate: placed in order on the first free court, at typical length; rest isn't modelled yet."
                 : "Complete the plan to see the estimated schedule."}
             </InfoTip>
           </span>
@@ -356,22 +401,10 @@ export function Timeline({
           {/* Labels, row for row with the tracks. */}
           <div className="flex w-22 shrink-0 flex-col" aria-hidden="true">
             <div className="h-7" />
-            {rows.length > 0 ? (
-              <div className="flex flex-col gap-1 pt-3">
-                <div className="h-5 text-sm leading-5 font-medium">Stages</div>
-                {rows.map((row) => (
-                  <div
-                    key={row.key}
-                    className={`h-4 truncate text-xs leading-4 ${row.indent ? "pl-2 text-muted-foreground" : ""}`}
-                  >
-                    {row.label}
-                  </div>
-                ))}
-              </div>
-            ) : null}
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
+                {schedule ? <div className="h-5 text-xs leading-5 font-medium">Stages</div> : null}
                 {hall.courts.map((court, c) => (
                   <div key={court.id} className="h-5 text-xs leading-5 text-muted-foreground tabular-nums">
                     Court {courtNumber(draft.frame.halls, h, c)}
@@ -415,61 +448,80 @@ export function Timeline({
               ))}
             </div>
 
-            {rows.length > 0 ? (
-              <div role="group" aria-label="Stages" className="flex flex-col gap-1 pt-3">
-                <div className="h-5" />
-                {rows.map((row) => {
-                  const pin = (w: { from: number; to: number }) =>
-                    update((d) => void (d.stageWindows[row.key] = { from: clock(w.from), to: clock(w.to) }));
-                  const unpin = row.pinned ? () => update((d) => void delete d.stageWindows[row.key]) : undefined;
-                  const marks = [
-                    row.pinned && row.overrun !== null ? { at: row.overrun, label: `Needs until ${clock(row.overrun)}` } : null,
-                    row.pinned && row.earliest !== null
-                      ? { at: row.earliest, label: `Can't start before ${clock(row.earliest)}` }
-                      : null,
-                  ].filter((m): m is { at: number; label: string } => m !== null);
-                  return (
-                    <div key={row.key} data-path={`stageWindows.${row.key}`}>
-                      <TimeWindowTrack
-                        name={`${row.label} window`}
-                        window={row.window}
-                        unit={null}
-                        bounds={{ min: start, max: end }}
-                        className="h-4"
-                        invalid={marks.length > 0}
-                        windowClassName={`${STAGE_COLOURS[row.stage]} ${row.pinned ? "" : "opacity-50"}`}
-                        onChange={pin}
-                        onDelete={unpin}
-                        onReset={unpin}
-                        overlay={marks.map((m, i) => (
-                          <span key={m.label} className="absolute inset-y-0 border-l-2 border-destructive" style={{ left: pct(m.at) }}>
-                            <span
-                              className="absolute left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground"
-                              style={{ top: `${i * 16 - 2}px` }}
-                            >
-                              {m.label}
-                            </span>
-                          </span>
-                        ))}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
             {draft.frame.halls.map((hall, h) => {
               const open = minutesOfDay(hall.from);
               const close = minutesOfDay(hall.to);
               const hallBounds = open !== null && close !== null && close > open ? { min: open, max: close } : null;
+              const hallZones = zones.filter((z) => z.hallId === hall.id);
               return (
                 <div key={hall.id} role="group" aria-label={hallName(hall, h)} className="flex flex-col gap-1 pt-3">
                   <HallTrack draft={draft} hallIndex={h} update={update} className="h-6" />
+
+                  {schedule ? (
+                    <div className="relative h-5" role="group" aria-label={`${hallName(hall, h)} stages`}>
+                      {hallZones.map((z) => {
+                        const unpin = z.pinned ? () => update((d) => void delete d.stageWindows[z.key]) : undefined;
+                        const marks = [
+                          z.pinned && z.overrun !== null ? { at: z.overrun, label: `Needs until ${clock(z.overrun)}` } : null,
+                          z.pinned && z.earliest !== null
+                            ? { at: z.earliest, label: `Can't start before ${clock(z.earliest)}` }
+                            : null,
+                        ].filter((m): m is { at: number; label: string } => m !== null);
+                        return (
+                          <div key={z.key} data-path={`stageWindows.${z.key}`} className="pointer-events-none absolute inset-0">
+                            <TimeWindowTrack
+                              name={`${hallName(hall, h)} ${ZONE_NAMES[z.zone]}`}
+                              window={z.window}
+                              unit={null}
+                              bounds={hallBounds ?? undefined}
+                              passThrough
+                              className="h-5"
+                              invalid={marks.length > 0}
+                              windowClassName={`${ZONE_SHADING[z.zone]} bg-muted ${z.pinned ? "" : "opacity-60"}`}
+                              onChange={(w) =>
+                                update((d) => void (d.stageWindows[z.key] = { from: clock(w.from), to: clock(w.to) }))
+                              }
+                              onDelete={unpin}
+                              onReset={unpin}
+                              overlay={
+                                <>
+                                  {z.window ? (
+                                    <span
+                                      className="absolute inset-y-0 flex items-center truncate px-1.5 text-[10px] font-medium"
+                                      style={{ left: pct(z.window.from), width: width(z.window.from, z.window.to) }}
+                                    >
+                                      {z.label}
+                                    </span>
+                                  ) : null}
+                                  {marks.map((m, i) => (
+                                    <span
+                                      key={m.label}
+                                      className="absolute inset-y-0 border-l-2 border-destructive"
+                                      style={{ left: pct(m.at) }}
+                                    >
+                                      <span
+                                        className="absolute left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground"
+                                        style={{ top: `${i * 16 - 2}px` }}
+                                      >
+                                        {m.label}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </>
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   {hall.courts.map((court, c) => {
                     const hours = courtHours(hall, court);
                     const from = minutesOfDay(hours.from);
                     const to = minutesOfDay(hours.to);
                     const narrowed = court.from !== null || court.to !== null;
+                    const courtLabel = `Court ${courtNumber(draft.frame.halls, h, c)}`;
                     const setCourt = (w: { from: number; to: number }) =>
                       update((d) => {
                         const target = d.frame.halls[h]!.courts[c]!;
@@ -480,7 +532,7 @@ export function Timeline({
                     return (
                       <TimeWindowTrack
                         key={court.id}
-                        name={`Court ${courtNumber(draft.frame.halls, h, c)}`}
+                        name={courtLabel}
                         window={hallBounds && from !== null && to !== null && to > from ? { from, to } : null}
                         unit={hall.unitMinutes}
                         origin={open}
@@ -498,29 +550,67 @@ export function Timeline({
                                 })
                             : undefined
                         }
-                        background={hall.bands.map((band, b) => {
-                          const bf = minutesOfDay(band.from);
-                          const bt = minutesOfDay(band.to);
-                          if (bf === null || bt === null || bt <= bf) return null;
-                          return (
-                            <span
-                              key={band.id}
-                              aria-hidden="true"
-                              className={`absolute inset-y-0 ${b % 2 === 0 ? "bg-foreground/[0.03]" : "bg-foreground/[0.08]"}`}
-                              style={{ left: pct(bf), width: width(bf, bt) }}
-                            />
-                          );
-                        })}
-                        overlay={segments
-                          .filter((s) => s.courtId === court.id)
-                          .map((s, i) => (
-                            <span
-                              key={i}
-                              className={`absolute inset-y-0.5 rounded-sm border-r border-card ring-1 ring-foreground/25 ring-inset ${STAGE_COLOURS[s.stage]}`}
-                              style={{ left: pct(s.from), width: width(s.from, s.to) }}
-                              title={`${clock(s.from)}–${clock(s.to)} ${s.label} (${s.matches} ${s.matches === 1 ? "match" : "matches"})`}
-                            />
-                          ))}
+                        background={
+                          <>
+                            {hall.bands.map((band, b) => {
+                              const bf = minutesOfDay(band.from);
+                              const bt = minutesOfDay(band.to);
+                              if (bf === null || bt === null || bt <= bf) return null;
+                              return (
+                                <span
+                                  key={band.id}
+                                  aria-hidden="true"
+                                  className={`absolute inset-y-0 ${b % 2 === 0 ? "bg-foreground/[0.03]" : "bg-foreground/[0.08]"}`}
+                                  style={{ left: pct(bf), width: width(bf, bt) }}
+                                />
+                              );
+                            })}
+                          </>
+                        }
+                        overlay={
+                          <>
+                            {/* The hall's stage zones, shaded behind the matches. */}
+                            {hallZones.map((z) =>
+                              z.window ? (
+                                <span
+                                  key={z.key}
+                                  aria-hidden="true"
+                                  className={`absolute -inset-y-0.5 ${ZONE_SHADING[z.zone]}`}
+                                  style={{ left: pct(z.window.from), width: width(z.window.from, z.window.to) }}
+                                />
+                              ) : null,
+                            )}
+                            {segments
+                              .filter((s) => s.courtId === court.id)
+                              .map((s, i) => (
+                                <span
+                                  key={i}
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-label={`${courtLabel}, ${clock(s.from)}–${clock(s.to)}: ${s.label}, ${s.matches} ${s.matches === 1 ? "match" : "matches"}`}
+                                  className={`pointer-events-auto absolute inset-y-0.5 cursor-default rounded-sm border-r border-card ring-1 ring-foreground/25 outline-none ring-inset focus-visible:ring-2 focus-visible:ring-ring ${STAGE_COLOURS[s.stage]}`}
+                                  style={{ left: pct(s.from), width: width(s.from, s.to) }}
+                                  onPointerMove={(e) => {
+                                    const box = e.currentTarget.getBoundingClientRect();
+                                    const minute = s.from + ((e.clientX - box.left) / Math.max(1, box.width)) * (s.to - s.from);
+                                    const detail =
+                                      s.details.find((d) => d.from <= minute && minute < d.to) ?? s.details.at(-1)!;
+                                    setHovered({ x: e.clientX, y: e.clientY, lines: cardLines(detail, courtLabel) });
+                                  }}
+                                  onPointerLeave={() => setHovered(null)}
+                                  onFocus={(e) => {
+                                    const box = e.currentTarget.getBoundingClientRect();
+                                    setHovered({
+                                      x: box.left,
+                                      y: box.bottom,
+                                      lines: s.details.flatMap((d, k) => [...(k > 0 ? [""] : []), ...cardLines(d, courtLabel)]),
+                                    });
+                                  }}
+                                  onBlur={() => setHovered(null)}
+                                />
+                              ))}
+                          </>
+                        }
                       />
                     );
                   })}
@@ -563,7 +653,7 @@ export function Timeline({
               />
             </div>
 
-            {/* Buffer, markers and playhead over every lane. */}
+            {/* The buffer zone, the worst-case line and the playhead over every lane. */}
             {bufferWindow ? (
               <span
                 aria-hidden="true"
@@ -571,24 +661,20 @@ export function Timeline({
                 style={{ left: pct(bufferWindow.from), width: width(bufferWindow.from, bufferWindow.to) }}
               />
             ) : null}
-            {markers.map((m, i) => {
-              // Labels stack so close markers don't overlap, and sit left of lines near the end of the day.
-              const nearEnd = (m.at - range.start) / span > 0.75;
-              return (
+            {worstFinish !== null ? (
+              <span
+                className="pointer-events-none absolute top-7 bottom-0 z-20 border-l-2 border-destructive"
+                style={{ left: pct(worstFinish) }}
+              >
                 <span
-                  key={m.label}
-                  className={`pointer-events-none absolute top-7 bottom-0 border-l ${m.dashed ? "border-dashed border-foreground/60" : "border-foreground"}`}
-                  style={{ left: pct(m.at) }}
+                  className={`absolute top-0 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground ${
+                    (worstFinish - range.start) / span > 0.75 ? "right-1" : "left-1"
+                  }`}
                 >
-                  <span
-                    className={`absolute rounded-sm bg-card px-1 text-[10px] leading-3.5 whitespace-nowrap ${nearEnd ? "right-1" : "left-1"}`}
-                    style={{ top: `${i * 14}px` }}
-                  >
-                    {m.label} {clock(m.at)}
-                  </span>
+                  Worst case {clock(worstFinish)}
                 </span>
-              );
-            })}
+              </span>
+            ) : null}
             {hasHours ? (
               <span
                 aria-hidden="true"
@@ -608,6 +694,18 @@ export function Timeline({
               {STAGE_LABELS[stage]}
             </span>
           ))}
+          {zones.length > 0 ? (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="zone-group size-2.5 rounded-sm ring-1 ring-foreground/30" aria-hidden="true" />
+                Group stage zone
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="zone-ko size-2.5 rounded-sm ring-1 ring-foreground/30" aria-hidden="true" />
+                KO stage zone
+              </span>
+            </>
+          ) : null}
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-muted ring-1 ring-foreground/30" aria-hidden="true" />
             Court available
@@ -616,7 +714,35 @@ export function Timeline({
             <span className="hatch size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
             Buffer{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
           </span>
+          {worstFinish !== null ? (
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-0.5 bg-destructive" aria-hidden="true" />
+              Worst-case finish
+            </span>
+          ) : null}
         </div>
+
+        {hovered ? (
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-50 flex w-72 flex-col gap-0.5 rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-lg"
+            // Kept on screen: flips to the left of the pointer near the right edge.
+            style={{
+              left: hovered.x + 300 > window.innerWidth ? Math.max(8, hovered.x - 300) : hovered.x + 12,
+              top: hovered.y + 12,
+            }}
+          >
+            {hovered.lines.map((line, i) =>
+              line === "" ? (
+                <span key={i} className="my-1 border-t border-background/30" />
+              ) : (
+                <span key={i} className={i === 0 ? "font-semibold" : "tabular-nums"}>
+                  {line}
+                </span>
+              ),
+            )}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

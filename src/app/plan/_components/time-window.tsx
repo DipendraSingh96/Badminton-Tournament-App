@@ -74,6 +74,7 @@ export function TimeWindowTrack({
   overlay,
   windowClassName,
   hoverGuide = false,
+  passThrough = false,
 }: {
   /** e.g. "Main hall hours", "Court 3", "Buffer"; used in labels. */
   name: string;
@@ -104,6 +105,8 @@ export function TimeWindowTrack({
   windowClassName?: string;
   /** On an empty track, a line follows the pointer showing where drawing would start. */
   hoverGuide?: boolean;
+  /** Only the window takes the pointer, so tracks can share a row (e.g. a hall's two stage zones). */
+  passThrough?: boolean;
 }) {
   const { range, setDragging } = useContext(ViewRangeContext);
   const track = useRef<HTMLDivElement>(null);
@@ -204,7 +207,7 @@ export function TimeWindowTrack({
   return (
     <div
       ref={track}
-      className={cn("group/track relative touch-none select-none", className)}
+      className={cn("group/track relative touch-none select-none", passThrough && "pointer-events-none", className)}
       onPointerDown={!window && onDraw ? (e) => begin(e, "draw") : undefined}
       onPointerMove={(e) => {
         if (hoverGuide && !window && !drag.current) setHover(snapToGrid(minuteAt(e.clientX)));
@@ -231,7 +234,7 @@ export function TimeWindowTrack({
       ) : (
         <div
           className={cn(
-            "group/window absolute inset-y-0 rounded-sm ring-1 transition-shadow focus-within:ring-2",
+            "group/window pointer-events-auto absolute inset-y-0 rounded-sm ring-1 transition-shadow focus-within:ring-2",
             invalid ? "ring-destructive" : "ring-foreground/50 focus-within:ring-ring",
             windowClassName,
           )}
