@@ -16,6 +16,7 @@ function completeDraft(): PlanDraft {
         from: "09:00",
         to: "17:00",
         unitMinutes: 60,
+        multipleRates: true,
         bands: [
           { id: "b1", name: "Off-peak", from: "09:00", to: "13:00", rate: 12 },
           { id: "b2", name: "Peak", from: "13:00", to: "17:00", rate: 15 },

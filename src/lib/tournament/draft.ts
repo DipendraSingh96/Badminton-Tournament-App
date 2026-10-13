@@ -45,6 +45,11 @@ export interface HallDraft {
   to: string;
   /** Minutes the hall charges by, e.g. 60, 40 or 30. */
   unitMinutes: N;
+  /**
+   * Off: one rate all day, kept as a single band on the hall's hours.
+   * On: rate bands across the day (e.g. off-peak and peak).
+   */
+  multipleRates: boolean;
   bands: RateBandDraft[];
   courts: CourtDraft[];
 }
@@ -281,6 +286,7 @@ export function emptyHall(): HallDraft {
     from: "",
     to: "",
     unitMinutes: null,
+    multipleRates: false,
     bands: [emptyBand()],
     courts: [emptyCourt()],
   };
@@ -334,6 +340,13 @@ export function setHallWindow(hall: HallDraft, from: string, to: string): void {
   }
   hall.from = from;
   hall.to = to;
+}
+
+/** One rate all day: the first band stays, covering the hall's hours; the others go. */
+export function keepOneRate(hall: HallDraft): void {
+  const first = hall.bands[0] ?? emptyBand();
+  hall.bands = [{ ...first, from: hall.from, to: hall.to }];
+  hall.multipleRates = false;
 }
 
 /** Courts are numbered across the venue: Hall 1 has Courts 1-4, Hall 2 continues at 5. */

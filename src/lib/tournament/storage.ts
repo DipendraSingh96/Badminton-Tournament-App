@@ -15,13 +15,17 @@ const V3_KEY = "badminton:plan-draft:v3";
 type EarlyFinance = Omit<FinanceDraft, "shuttlePriceBasis" | "shuttlePrice" | "shuttlesPerTube" | "otherIncome"> &
   Partial<FinanceDraft> & { costPerShuttle?: number | null };
 
-type EarlyHall = Omit<HallDraft, "unitMinutes"> & { unitMinutes?: number | null };
+type EarlyHall = Omit<HallDraft, "unitMinutes" | "multipleRates"> & {
+  unitMinutes?: number | null;
+  multipleRates?: boolean;
+};
 
 /**
  * Fills in fields added during v5:
  * - A price saved as cost per shuttle keeps its meaning: per shuttle.
  * - Other money in starts empty.
  * - Halls saved before unit time were charged per hour, so their unit is 60.
+ * - Halls saved before the rate-bands switch have it on when they have several bands.
  */
 export function normaliseDraft(
   saved: Omit<PlanDraft, "finance" | "frame" | "stageWindows"> & {
@@ -33,6 +37,8 @@ export function normaliseDraft(
   const halls: HallDraft[] = saved.frame.halls.map((h) => ({
     ...h,
     unitMinutes: h.unitMinutes === undefined ? 60 : h.unitMinutes,
+    // Halls saved before the switch had it on whenever they had several bands.
+    multipleRates: h.multipleRates ?? h.bands.length > 1,
   }));
   const draft = {
     ...saved,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, emptyHall, removeCategory, setHallWindow } from "./draft";
+import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, emptyHall, removeCategory, setHallWindow, keepOneRate } from "./draft";
 import { normaliseDraft } from "./storage";
 
 function draftWith(events: ("MD" | "XD")[]) {
@@ -61,8 +61,10 @@ describe("normaliseDraft halls", () => {
   it("gives halls saved before unit time a unit of 60 minutes, keeping per-hour rates", () => {
     const saved = emptyDraft("Europe/London");
     const halls = saved.frame.halls.map((h) => ({ id: h.id, name: h.name, from: h.from, to: h.to, bands: h.bands, courts: h.courts }));
+    halls[0]!.bands = [...halls[0]!.bands, { id: "b2", name: "", from: "", to: "", rate: null }];
     const draft = normaliseDraft({ ...saved, frame: { ...saved.frame, halls } });
     expect(draft.frame.halls[0]!.unitMinutes).toBe(60);
+    expect(draft.frame.halls[0]!.multipleRates).toBe(true);
   });
 
   it("keeps a new hall's unit empty", () => {
@@ -121,5 +123,21 @@ describe("normaliseDraft stage windows", () => {
     const saved: Partial<ReturnType<typeof emptyDraft>> = emptyDraft("Europe/London");
     delete saved.stageWindows;
     expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).stageWindows).toEqual({});
+  });
+});
+
+describe("keepOneRate", () => {
+  it("keeps the first band's rate across the hall's hours", () => {
+    const hall = emptyHall();
+    hall.from = "09:00";
+    hall.to = "18:00";
+    hall.multipleRates = true;
+    hall.bands = [
+      { id: "b1", name: "Off-peak", from: "09:00", to: "15:00", rate: 8 },
+      { id: "b2", name: "Peak", from: "15:00", to: "18:00", rate: 10 },
+    ];
+    keepOneRate(hall);
+    expect(hall.bands).toEqual([{ id: "b1", name: "Off-peak", from: "09:00", to: "18:00", rate: 8 }]);
+    expect(hall.multipleRates).toBe(false);
   });
 });
