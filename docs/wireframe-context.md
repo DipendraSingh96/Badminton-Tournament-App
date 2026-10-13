@@ -217,6 +217,10 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Double-click, H, ✕ or Delete returns a window to the estimate. Pins for waves or rounds no longer played stay, marked "not played".
 - On a very narrow timeline a short window (e.g. a 15-minute final) is mostly its edges, so a drag there resizes rather than moves; the keyboard moves it exactly.
 
+### Hall rates (13 Oct)
+- A hall has one rate all day by default, entered beside its hours and unit time ("£ per court per 40 min"). "Rate changes during the day" turns on the band strip and band rows; unticking with several bands asks, then keeps the first band's rate across the hall's hours. Saved halls with several bands have it on.
+- The band strip is slimmer and its labels read "Off-peak · £8.00 per 40 min". Before the hall's hours are drawn, a line follows the pointer on the strip with the time a new window would start at.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

@@ -22,6 +22,7 @@ export function HallTrack({
   className,
   detailed = false,
   onSelectBand,
+  hoverGuide = false,
 }: {
   draft: PlanDraft;
   hallIndex: number;
@@ -30,6 +31,8 @@ export function HallTrack({
   /** Band names with rates and per-unit wording, gaps and overlaps marked. */
   detailed?: boolean;
   onSelectBand?: (index: number) => void;
+  /** Before the hours are drawn, a line follows the pointer with the time drawing would start at. */
+  hoverGuide?: boolean;
 }) {
   const hall = draft.frame.halls[hallIndex]!;
   const issues = useContext(IssuesContext);
@@ -71,7 +74,7 @@ export function HallTrack({
   }
 
   const coverage = window ? bandCoverage(window, bands) : { gaps: [], overlaps: [] };
-  const per = unit === 60 ? "per court per hour" : unit ? `per court per ${unit} min` : "per court";
+  const per = unit === 60 ? "per hour" : unit ? `per ${unit} min` : "per unit";
   const setWindow = (from: string, to: string) => update((d) => setHallWindow(d.frame.halls[hallIndex]!, from, to));
 
   return (
@@ -82,6 +85,7 @@ export function HallTrack({
       origin={open}
       className={className}
       invalid={invalid}
+      hoverGuide={hoverGuide}
       emptyHint={`Drag to set ${name}'s hours`}
       onDraw={(w) => setWindow(clock(w.from), clock(w.to))}
       onChange={(w) => setWindow(clock(w.from), clock(w.to))}

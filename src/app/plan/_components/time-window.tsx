@@ -18,6 +18,7 @@ import {
   moveStart,
   moveWindow,
   pinBuffer,
+  snapToGrid,
   stepOf,
   type Bounds,
   type Window,
@@ -72,6 +73,7 @@ export function TimeWindowTrack({
   background,
   overlay,
   windowClassName,
+  hoverGuide = false,
 }: {
   /** e.g. "Main hall hours", "Court 3", "Buffer"; used in labels. */
   name: string;
@@ -100,6 +102,8 @@ export function TimeWindowTrack({
   /** Drawn over the window, ignoring the pointer, e.g. scheduled matches. */
   overlay?: ReactNode;
   windowClassName?: string;
+  /** On an empty track, a line follows the pointer showing where drawing would start. */
+  hoverGuide?: boolean;
 }) {
   const { range, setDragging } = useContext(ViewRangeContext);
   const track = useRef<HTMLDivElement>(null);
@@ -107,6 +111,7 @@ export function TimeWindowTrack({
     null,
   );
   const [active, setActive] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
   const span = Math.max(1, range.end - range.start);
   const pct = (m: number) => `${((m - range.start) / span) * 100}%`;
   const step = stepOf(unit);
@@ -201,9 +206,22 @@ export function TimeWindowTrack({
       ref={track}
       className={cn("group/track relative touch-none select-none", className)}
       onPointerDown={!window && onDraw ? (e) => begin(e, "draw") : undefined}
-      {...handlers}
+      onPointerMove={(e) => {
+        if (hoverGuide && !window && !drag.current) setHover(snapToGrid(minuteAt(e.clientX)));
+        move(e);
+      }}
+      onPointerLeave={() => setHover(null)}
+      onPointerUp={end}
+      onPointerCancel={end}
     >
       {background}
+      {hoverGuide && !window && hover !== null ? (
+        <span className="pointer-events-none absolute inset-y-0 z-20 w-px bg-foreground" style={{ left: pct(hover) }}>
+          <span className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded-sm bg-foreground px-1 text-[10px] leading-4 text-background tabular-nums">
+            {clock(hover)}
+          </span>
+        </span>
+      ) : null}
       {!window ? (
         onDraw ? (
           <span className="pointer-events-none absolute inset-0 flex cursor-crosshair items-center justify-center rounded-sm border border-dashed border-foreground/25 text-[11px] text-muted-foreground">

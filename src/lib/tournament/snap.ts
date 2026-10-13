@@ -28,6 +28,11 @@ function roundTo(minutes: number, grid: number): number {
   return Math.round(minutes / grid) * grid;
 }
 
+/** Where a new window would start: the nearest drawing-grid step within the day. */
+export function snapToGrid(minutes: number): number {
+  return Math.min(Math.max(roundTo(minutes, GRID_MINUTES), 0), DAY_MINUTES);
+}
+
 /** Whole steps that fit in a span, at least one. */
 function steps(span: number, step: number): number {
   return Math.max(1, Math.round(span / step));
