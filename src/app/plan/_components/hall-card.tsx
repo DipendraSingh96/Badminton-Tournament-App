@@ -19,7 +19,7 @@ import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { BandStrip } from "./band-strip";
 import { CourtCard } from "./court-card";
 import type { CourtStatus } from "./timeline";
-import { NumberField, TextField } from "./fields";
+import { NumberField, StepperField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
 
 /** Problems with a hall's bands, worked out live for the status line. */
@@ -80,9 +80,17 @@ function HallSettings({
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-muted/60 p-4 ring-1 ring-foreground/5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[1fr_1fr_8.5rem] gap-3">
           <TextField label="Hall hours from" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
           <TextField label="Until" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
+          <StepperField
+            label="Charged per (min)"
+            hint="The time the hall charges by, e.g. 60, 40 or 30 minutes. Hall hours, band edges and court hours must fall on these steps from opening."
+            min={1}
+            path={path("unitMinutes")}
+            value={hall.unitMinutes}
+            onChange={(v) => editHall((h) => void (h.unitMinutes = v))}
+          />
         </div>
         {others.length > 0 ? (
           <NativeSelect
@@ -94,6 +102,7 @@ function HallSettings({
               editHall((h) => {
                 h.from = source.from;
                 h.to = source.to;
+                h.unitMinutes = source.unitMinutes;
                 h.bands = source.bands.map((b) => ({ ...b, id: newId() }));
               });
             }}
@@ -127,7 +136,7 @@ function HallSettings({
             <TextField label="From" type="time" path={path("bands", i, "from")} value={band.from} onChange={editBand(i, "from")} />
             <TextField label="Until" type="time" path={path("bands", i, "to")} value={band.to} onChange={editBand(i, "to")} />
             <NumberField
-              label="£ per court per hour"
+              label={rateLabel(hall.unitMinutes)}
               path={path("bands", i, "rate")}
               value={band.rate}
               onChange={editBand(i, "rate")}
@@ -167,6 +176,12 @@ function HallSettings({
   );
 }
 
+/** "£ per court per hour", or per the hall's unit, e.g. "£ per court per 40 min". */
+function rateLabel(unitMinutes: number | null): string {
+  if (unitMinutes === 60) return "£ per court per hour";
+  return unitMinutes ? `£ per court per ${unitMinutes} min` : "£ per court per unit";
+}
+
 export function HallCard({
   draft,
   hallIndex,
@@ -187,6 +202,7 @@ export function HallCard({
   const courtOpenHere = hall.courts.some((c) => c.id === openCourtId);
   const summary = [
     hall.from && hall.to ? `${hall.from}–${hall.to}` : "Hours not set",
+    hall.unitMinutes ? `charged per ${hall.unitMinutes === 60 ? "hour" : `${hall.unitMinutes} min`}` : "unit not set",
     `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}`,
     `${hall.courts.length} ${hall.courts.length === 1 ? "court" : "courts"}`,
   ].join(" · ");
