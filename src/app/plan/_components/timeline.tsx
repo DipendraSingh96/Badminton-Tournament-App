@@ -1,13 +1,17 @@
 "use client";
 
 import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EstimatedSchedule, Round, Stage } from "@/engine";
-import { bandName, courtHours, courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { courtHours, courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
-import { STAGE_LABELS, categoryName, formatMoney } from "./labels";
+import { InfoTip } from "./fields";
+import { HallTrack } from "./hall-track";
+import { STAGE_LABELS, categoryName } from "./labels";
+import type { Update } from "./plan-editor";
+import { TimeWindowTrack, ViewRangeContext } from "./time-window";
 import { formatClock } from "./workings";
 
 // The day as one timeline: a lane per hall, a row per court, and the
@@ -25,6 +29,8 @@ export const STAGE_COLOURS: Record<Stage, string> = {
 /** Playback runs the whole day in this many seconds: a viewing speed, not a tournament value. */
 const PLAYBACK_SECONDS = 30;
 const KEY_STEP = 5;
+/** Room an hour label needs on the axis. */
+const TICK_LABEL_PX = 44;
 
 export function roundLabel(round: Round): string | null {
   if (!round) return null;
@@ -103,6 +109,7 @@ export function dayRange(draft: PlanDraft): { start: number; end: number } | nul
 
 export function Timeline({
   draft,
+  update,
   schedule,
   segments,
   playhead,
@@ -111,6 +118,7 @@ export function Timeline({
   onPlayingChange,
 }: {
   draft: PlanDraft;
+  update: Update;
   schedule: EstimatedSchedule | null;
   segments: LocalSegment[];
   playhead: number | null;
@@ -118,9 +126,11 @@ export function Timeline({
   playing: boolean;
   onPlayingChange: (playing: boolean) => void;
 }) {
-  const range = dayRange(draft);
-  const start = range?.start;
-  const end = range?.end;
+  // The strips show the view range; the playhead runs over the day itself.
+  const { range } = useContext(ViewRangeContext);
+  const day = dayRange(draft) ?? range;
+  const start = day.start;
+  const end = day.end;
   const track = useRef<HTMLDivElement>(null);
   const tz = draft.frame.timeZone;
   const local = (iso: string | null) => (iso ? minutesOfDay(formatClock(iso, tz)) : null);
@@ -131,7 +141,7 @@ export function Timeline({
     position.current = playhead;
   }, [playhead]);
   useEffect(() => {
-    if (!playing || start === undefined || end === undefined) return;
+    if (!playing) return;
     let frame = 0;
     let last = performance.now();
     const perMs = (end - start) / (PLAYBACK_SECONDS * 1000);
@@ -147,39 +157,56 @@ export function Timeline({
     return () => cancelAnimationFrame(frame);
   }, [playing, start, end, onSeek, onPlayingChange]);
 
+  // Hour labels thin out on a narrow axis so they never collide.
+  const [axisWidth, setAxisWidth] = useState(0);
+  useEffect(() => {
+    const element = track.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setAxisWidth(entry!.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const ticks = useMemo(() => {
-    if (start === undefined || end === undefined) return [];
+    const hours = Math.max(1, (range.end - range.start) / 60);
+    const every = axisWidth > 0 ? Math.max(1, Math.ceil(TICK_LABEL_PX / (axisWidth / hours))) : 1;
     const out: number[] = [];
-    for (let m = Math.ceil(start / 60) * 60; m <= end; m += 60) out.push(m);
+    for (let m = Math.ceil(range.start / 60) * 60; m <= range.end; m += 60 * every) out.push(m);
     return out;
-  }, [start, end]);
+  }, [range.start, range.end, axisWidth]);
 
-  if (!range) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Timeline</CardTitle>
-          <CardDescription>Set a hall&apos;s hours to see the day.</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  const span = range.end - range.start;
-  const clamp = (m: number) => Math.min(Math.max(m, range.start), range.end);
-  const pct = (m: number) => `${((clamp(m) - range.start) / span) * 100}%`;
-  const width = (from: number, to: number) => `${((clamp(to) - clamp(from)) / span) * 100}%`;
-  const buffer = draft.frame.bufferMinutes ?? 0;
-  const playingEnd = range.end - buffer;
+  const span = Math.max(1, range.end - range.start);
+  const clampView = (m: number) => Math.min(Math.max(m, range.start), range.end);
+  const clampDay = (m: number) => Math.min(Math.max(m, start), end);
+  const pct = (m: number) => `${((clampView(m) - range.start) / span) * 100}%`;
+  const width = (from: number, to: number) => `${((clampView(to) - clampView(from)) / span) * 100}%`;
+  const now = clampDay(playhead ?? start);
   const finish = local(schedule?.finish ?? null);
   const worstFinish = local(schedule?.worstFinish ?? null);
-  const now = playhead ?? range.start;
+
+  // Buffer: pinned at its own time, or shown straight after the last match.
+  const bufferLength = draft.frame.bufferMinutes ?? 0;
+  const pinnedAt = minutesOfDay(draft.frame.bufferStart);
+  const hasHours = dayRange(draft) !== null;
+  const playingEnd = pinnedAt ?? end - bufferLength;
+  const bufferWindow =
+    pinnedAt !== null
+      ? { from: pinnedAt, to: pinnedAt + bufferLength }
+      : bufferLength > 0 && hasHours
+        ? finish !== null
+          ? { from: finish, to: finish + bufferLength }
+          : { from: end - bufferLength, to: end }
+        : null;
+  // Its length is whole units of the hall that closes last.
+  const lastHall = [...draft.frame.halls]
+    .filter((h) => minutesOfDay(h.to) !== null)
+    .sort((a, b) => minutesOfDay(b.to)! - minutesOfDay(a.to)!)[0];
+  const bufferUnit = lastHall?.unitMinutes ?? null;
 
   function seekFrom(event: PointerEvent<HTMLElement>) {
     const box = track.current?.getBoundingClientRect();
     if (!box || box.width === 0) return;
     const ratio = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
-    onSeek(Math.round(range!.start + ratio * span));
+    onSeek(clampDay(Math.round(range.start + ratio * span)));
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -188,18 +215,20 @@ export function Timeline({
       ArrowUp: now + KEY_STEP,
       ArrowLeft: now - KEY_STEP,
       ArrowDown: now - KEY_STEP,
-      Home: range!.start,
-      End: range!.end,
+      Home: start,
+      End: end,
     };
     const next = moves[event.key];
     if (next === undefined) return;
     event.preventDefault();
     onPlayingChange(false);
-    onSeek(clamp(Math.round(next)));
+    onSeek(clampDay(Math.round(next)));
   }
 
   const markers = [
-    buffer > 0 ? { at: playingEnd, label: "Play must end", dashed: false } : null,
+    hasHours && (bufferLength > 0 || pinnedAt !== null)
+      ? { at: playingEnd, label: "Play must end", dashed: false }
+      : null,
     finish !== null ? { at: finish, label: "Finish", dashed: false } : null,
     worstFinish !== null && worstFinish !== finish ? { at: worstFinish, label: "Worst case", dashed: true } : null,
   ].filter((m): m is { at: number; label: string; dashed: boolean } => m !== null);
@@ -212,15 +241,26 @@ export function Timeline({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-3">
-          <span>Timeline</span>
+          <span className="flex items-center gap-1.5">
+            Timeline
+            <InfoTip about="the timeline">
+              Drag a hall&apos;s window to set its hours, the lines between rate bands to move them, and a court&apos;s
+              bar to narrow it (double-click to follow the hall again). Moves are in the hall&apos;s unit time; a new
+              window starts on 10-minute steps. Drag the buffer to pin it.{" "}
+              {schedule
+                ? "Stages are an estimate: matches placed in order on the first free court, at typical length; rest isn't modelled yet."
+                : "Complete the plan to see the estimated schedule."}
+            </InfoTip>
+          </span>
           <span className="flex items-center gap-2">
             <span className="font-mono text-sm tabular-nums">{clock(Math.round(now))}</span>
             <Button
               variant="outline"
               size="sm"
               aria-pressed={playing}
+              disabled={!hasHours}
               onClick={() => {
-                if (!playing && now >= range.end) onSeek(range.start);
+                if (!playing && now >= end) onSeek(start);
                 onPlayingChange(!playing);
               }}
             >
@@ -228,11 +268,6 @@ export function Timeline({
             </Button>
           </span>
         </CardTitle>
-        <CardDescription>
-          {schedule
-            ? "Estimate: matches placed in order on the first free court, at typical length. Rest between matches isn't modelled yet. Move the playhead to see each court's match on the venue."
-            : "Complete the plan to see the estimated schedule. The venue is shown as entered."}
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {schedule && schedule.unplaced > 0 ? (
@@ -242,12 +277,12 @@ export function Timeline({
         ) : null}
 
         <div className="flex gap-3">
-          {/* Labels, row for row with the track. */}
+          {/* Labels, row for row with the tracks. */}
           <div className="flex w-22 shrink-0 flex-col" aria-hidden="true">
             <div className="h-7" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
-                <div className="h-5 truncate text-sm leading-5 font-medium">{hallName(hall, h)}</div>
+                <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
                 {hall.courts.map((court, c) => (
                   <div key={court.id} className="h-5 text-xs leading-5 text-muted-foreground tabular-nums">
                     Court {courtNumber(draft.frame.halls, h, c)}
@@ -255,6 +290,7 @@ export function Timeline({
                 ))}
               </div>
             ))}
+            <div className="mt-3 h-5 text-xs leading-5 font-medium">Buffer</div>
           </div>
 
           <div className="relative min-w-0 flex-1">
@@ -264,8 +300,8 @@ export function Timeline({
               role="slider"
               tabIndex={0}
               aria-label="Time on the timeline"
-              aria-valuemin={range.start}
-              aria-valuemax={range.end}
+              aria-valuemin={start}
+              aria-valuemax={end}
               aria-valuenow={Math.round(now)}
               aria-valuetext={clock(Math.round(now))}
               onKeyDown={onKeyDown}
@@ -290,78 +326,117 @@ export function Timeline({
               ))}
             </div>
 
-            {draft.frame.halls.map((hall, h) => (
-              <div key={hall.id} role="group" aria-label={hallName(hall, h)} className="flex flex-col gap-1 pt-3">
-                <div className="relative h-5 text-[11px] text-muted-foreground">
-                  {hall.bands.map((band, b) => {
-                    const from = minutesOfDay(band.from);
-                    const to = minutesOfDay(band.to);
-                    if (from === null || to === null || to <= from) return null;
-                    const rate = band.rate !== null ? ` · ${formatMoney(band.rate)}` : "";
+            {draft.frame.halls.map((hall, h) => {
+              const open = minutesOfDay(hall.from);
+              const close = minutesOfDay(hall.to);
+              const hallBounds = open !== null && close !== null && close > open ? { min: open, max: close } : null;
+              return (
+                <div key={hall.id} role="group" aria-label={hallName(hall, h)} className="flex flex-col gap-1 pt-3">
+                  <HallTrack draft={draft} hallIndex={h} update={update} className="h-6" />
+                  {hall.courts.map((court, c) => {
+                    const hours = courtHours(hall, court);
+                    const from = minutesOfDay(hours.from);
+                    const to = minutesOfDay(hours.to);
+                    const narrowed = court.from !== null || court.to !== null;
+                    const setCourt = (w: { from: number; to: number }) =>
+                      update((d) => {
+                        const target = d.frame.halls[h]!.courts[c]!;
+                        const follows = w.from === open && w.to === close;
+                        target.from = follows ? null : clock(w.from);
+                        target.to = follows ? null : clock(w.to);
+                      });
                     return (
-                      <span
-                        key={band.id}
-                        className="absolute top-0 truncate border-l px-1 leading-5"
-                        style={{ left: pct(from), width: width(from, to) }}
-                        title={`${bandName(band, b)}: ${band.from}–${band.to}${rate} per court hour`}
-                      >
-                        {bandName(band, b)}
-                        {rate}
-                      </span>
+                      <TimeWindowTrack
+                        key={court.id}
+                        name={`Court ${courtNumber(draft.frame.halls, h, c)}`}
+                        window={hallBounds && from !== null && to !== null && to > from ? { from, to } : null}
+                        unit={hall.unitMinutes}
+                        origin={open}
+                        bounds={hallBounds ?? undefined}
+                        className="h-5"
+                        windowClassName={narrowed ? "bg-muted" : "bg-muted/60"}
+                        onChange={setCourt}
+                        onReset={
+                          narrowed
+                            ? () =>
+                                update((d) => {
+                                  const target = d.frame.halls[h]!.courts[c]!;
+                                  target.from = null;
+                                  target.to = null;
+                                })
+                            : undefined
+                        }
+                        background={hall.bands.map((band, b) => {
+                          const bf = minutesOfDay(band.from);
+                          const bt = minutesOfDay(band.to);
+                          if (bf === null || bt === null || bt <= bf) return null;
+                          return (
+                            <span
+                              key={band.id}
+                              aria-hidden="true"
+                              className={`absolute inset-y-0 ${b % 2 === 0 ? "bg-foreground/[0.03]" : "bg-foreground/[0.08]"}`}
+                              style={{ left: pct(bf), width: width(bf, bt) }}
+                            />
+                          );
+                        })}
+                        overlay={segments
+                          .filter((s) => s.courtId === court.id)
+                          .map((s, i) => (
+                            <span
+                              key={i}
+                              className={`absolute inset-y-0.5 rounded-sm border-r border-card ring-1 ring-foreground/25 ring-inset ${STAGE_COLOURS[s.stage]}`}
+                              style={{ left: pct(s.from), width: width(s.from, s.to) }}
+                              title={`${clock(s.from)}–${clock(s.to)} ${s.label} (${s.matches} ${s.matches === 1 ? "match" : "matches"})`}
+                            />
+                          ))}
+                      />
                     );
                   })}
-                  {minutesOfDay(hall.from) === null || minutesOfDay(hall.to) === null ? (
-                    <span className="leading-5">Hours not set</span>
-                  ) : null}
                 </div>
-                {hall.courts.map((court) => {
-                  const hours = courtHours(hall, court);
-                  const from = minutesOfDay(hours.from);
-                  const to = minutesOfDay(hours.to);
-                  return (
-                    <div key={court.id} className="relative h-5">
-                      {hall.bands.map((band, b) => {
-                        const bf = minutesOfDay(band.from);
-                        const bt = minutesOfDay(band.to);
-                        if (bf === null || bt === null || bt <= bf) return null;
-                        return (
-                          <span
-                            key={band.id}
-                            aria-hidden="true"
-                            className={`absolute inset-y-0 ${b % 2 === 0 ? "bg-foreground/[0.03]" : "bg-foreground/[0.08]"}`}
-                            style={{ left: pct(bf), width: width(bf, bt) }}
-                          />
-                        );
-                      })}
-                      {from !== null && to !== null && to > from ? (
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-y-1 rounded-sm bg-muted ring-1 ring-foreground/10"
-                          style={{ left: pct(from), width: width(from, to) }}
-                        />
-                      ) : null}
-                      {segments
-                        .filter((s) => s.courtId === court.id)
-                        .map((s, i) => (
-                          <span
-                            key={i}
-                            className={`absolute inset-y-0.5 rounded-sm border-r border-card ring-1 ring-foreground/25 ring-inset ${STAGE_COLOURS[s.stage]}`}
-                            style={{ left: pct(s.from), width: width(s.from, s.to) }}
-                            title={`${clock(s.from)}–${clock(s.to)} ${s.label} (${s.matches} ${s.matches === 1 ? "match" : "matches"})`}
-                          />
-                        ))}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+              );
+            })}
+
+            <div className="mt-3">
+              <TimeWindowTrack
+                name="Buffer"
+                mode="buffer"
+                window={bufferWindow}
+                unit={bufferUnit}
+                bounds={hasHours ? { min: start, max: end } : undefined}
+                className="h-5"
+                windowClassName={`hatch ${pinnedAt !== null ? "bg-muted" : ""}`}
+                emptyHint="Drag to add a buffer"
+                onDraw={
+                  hasHours
+                    ? (w) =>
+                        update((d) => {
+                          d.frame.bufferStart = clock(w.from);
+                          d.frame.bufferMinutes = w.to - w.from;
+                        })
+                    : undefined
+                }
+                onChange={(w) =>
+                  update((d) => {
+                    d.frame.bufferStart = clock(w.from);
+                    d.frame.bufferMinutes = w.to - w.from;
+                  })
+                }
+                onDelete={() =>
+                  update((d) => {
+                    d.frame.bufferStart = null;
+                    d.frame.bufferMinutes = 0;
+                  })
+                }
+                onReset={pinnedAt !== null ? () => update((d) => void (d.frame.bufferStart = null)) : undefined}
+              />
+            </div>
 
             {/* Buffer, markers and playhead over every lane. */}
-            {buffer > 0 ? (
+            {bufferWindow ? (
               <span
                 aria-hidden="true"
-                className="hatch pointer-events-none absolute top-7 bottom-0"
-                style={{ left: pct(playingEnd), width: width(playingEnd, range.end) }}
+                className="hatch pointer-events-none absolute top-7 bottom-6 opacity-60"
+                style={{ left: pct(bufferWindow.from), width: width(bufferWindow.from, bufferWindow.to) }}
               />
             ) : null}
             {markers.map((m, i) => {
@@ -382,13 +457,15 @@ export function Timeline({
                 </span>
               );
             })}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-foreground"
-              style={{ left: pct(now) }}
-            >
-              <span className="absolute top-0 left-1/2 size-2.5 -translate-x-1/2 rotate-45 bg-foreground" />
-            </span>
+            {hasHours ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 z-30 w-0.5 -translate-x-1/2 bg-foreground"
+                style={{ left: pct(now) }}
+              >
+                <span className="absolute top-0 left-1/2 size-2.5 -translate-x-1/2 rotate-45 bg-foreground" />
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -400,15 +477,13 @@ export function Timeline({
             </span>
           ))}
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-muted ring-1 ring-foreground/10" aria-hidden="true" />
+            <span className="size-2.5 rounded-sm bg-muted ring-1 ring-foreground/30" aria-hidden="true" />
             Court available
           </span>
-          {buffer > 0 ? (
-            <span className="flex items-center gap-1.5">
-              <span className="hatch size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
-              Buffer
-            </span>
-          ) : null}
+          <span className="flex items-center gap-1.5">
+            <span className="hatch size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
+            Buffer{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
+          </span>
         </div>
       </CardContent>
     </Card>

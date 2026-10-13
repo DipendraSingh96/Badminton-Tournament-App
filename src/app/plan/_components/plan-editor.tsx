@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule } from "@/engine";
 import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
+import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
@@ -16,6 +17,7 @@ import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { Summary } from "./summary";
+import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments } from "./timeline";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
@@ -73,7 +75,7 @@ function tabFor(issue: PlanIssue): Tab | null {
     case "finance":
       return "finance";
     case "frame":
-      return issue.path[1] === "bufferMinutes" ? "schedule" : null;
+      return issue.path[1] === "bufferMinutes" || issue.path[1] === "bufferStart" ? "schedule" : null;
     default:
       return null;
   }
@@ -127,6 +129,19 @@ function Editor() {
   );
   const segments = useMemo(() => localSegments(draft, schedule), [draft, schedule]);
   const range = dayRange(draft);
+
+  // The strips' shared view of the day, held still while a drag is under way.
+  const liveRange = viewRangeOf(
+    draft.frame.halls
+      .map((h) => ({ from: minutesOfDay(h.from), to: minutesOfDay(h.to) }))
+      .filter((s): s is { from: number; to: number } => s.from !== null && s.to !== null && s.to > s.from),
+  );
+  const [frozenRange, setFrozenRange] = useState<ViewRange | null>(null);
+  const viewRange = frozenRange ?? liveRange;
+  const view = useMemo(
+    () => ({ range: viewRange, setDragging: (dragging: boolean) => setFrozenRange(dragging ? viewRange : null) }),
+    [viewRange.start, viewRange.end], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const moment = playhead ?? range?.start ?? null;
   const statuses = useMemo(
     () => (moment !== null && schedule ? courtStatuses(draft, segments, moment) : null),
@@ -171,83 +186,86 @@ function Editor() {
 
   return (
     <TooltipProvider delay={300}>
-      <IssuesContext value={issues}>
-        <div className="flex h-dvh min-w-[1024px] flex-col bg-background">
-          <TopBar />
-          <div className="flex min-h-0 flex-1">
-            <TournamentList draft={draft} onNew={newTournament} />
-            <ResizablePanelGroup
-              orientation="horizontal"
-              defaultLayout={layout.defaultLayout}
-              onLayoutChanged={layout.onLayoutChanged}
-            >
-              <ResizablePanel id="working-area" minSize="40">
-                <main className="@container h-full overflow-y-auto">
-                  <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-                    <TournamentHeader draft={draft} update={update} />
-                    <VenueCanvas draft={draft} update={update} statuses={statuses} />
-                    <Timeline
-                      draft={draft}
-                      schedule={schedule}
-                      segments={segments}
-                      playhead={playhead}
-                      onSeek={setPlayhead}
-                      playing={playing}
-                      onPlayingChange={setPlaying}
-                    />
-                  </div>
-                </main>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel id="workbench" defaultSize="34" minSize={360} maxSize="55">
-                <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
-                  <Summary draft={draft} parsed={parsed} analysis={analysis} breakEvenId={breakEvenId} onGoTo={goTo} />
-                  <Tabs
-                    value={tab}
-                    onValueChange={(value) => chooseTab(value as Tab)}
-                    className="min-h-0 flex-1 gap-0"
-                  >
-                    <TabsList variant="line" className="w-full justify-start border-b px-3">
-                      {TABS.map((t) => (
-                        <TabsTrigger key={t.value} value={t.value}>
-                          {t.label}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    <div className="@container min-h-0 flex-1 overflow-y-auto bg-background">
-                      <TabsContent value="setup" className="flex flex-col gap-4 p-4">
-                        <SetupTab draft={draft} update={update} />
-                      </TabsContent>
-                      <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
-                        <ScheduleTab draft={draft} update={update} />
-                        <DerivedCards
-                          tab="schedule"
-                          draft={draft}
-                          parsed={parsed}
-                          analysis={analysis}
-                          breakEvenId={breakEvenId}
-                          onChooseBreakEven={chooseBreakEven}
-                        />
-                      </TabsContent>
-                      <TabsContent value="finance" className="flex flex-col gap-4 p-4">
-                        <FinanceTab draft={draft} update={update} />
-                        <DerivedCards
-                          tab="finance"
-                          draft={draft}
-                          parsed={parsed}
-                          analysis={analysis}
-                          breakEvenId={breakEvenId}
-                          onChooseBreakEven={chooseBreakEven}
-                        />
-                      </TabsContent>
+      <ViewRangeContext value={view}>
+        <IssuesContext value={issues}>
+          <div className="flex h-dvh min-w-[1024px] flex-col bg-background">
+            <TopBar />
+            <div className="flex min-h-0 flex-1">
+              <TournamentList draft={draft} onNew={newTournament} />
+              <ResizablePanelGroup
+                orientation="horizontal"
+                defaultLayout={layout.defaultLayout}
+                onLayoutChanged={layout.onLayoutChanged}
+              >
+                <ResizablePanel id="working-area" minSize="40">
+                  <main className="@container h-full overflow-y-auto">
+                    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+                      <TournamentHeader draft={draft} update={update} />
+                      <VenueCanvas draft={draft} update={update} statuses={statuses} />
+                      <Timeline
+                        draft={draft}
+                        update={update}
+                        schedule={schedule}
+                        segments={segments}
+                        playhead={playhead}
+                        onSeek={setPlayhead}
+                        playing={playing}
+                        onPlayingChange={setPlaying}
+                      />
                     </div>
-                  </Tabs>
-                </aside>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+                  </main>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel id="workbench" defaultSize="34" minSize={360} maxSize="55">
+                  <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
+                    <Summary draft={draft} parsed={parsed} analysis={analysis} breakEvenId={breakEvenId} onGoTo={goTo} />
+                    <Tabs
+                      value={tab}
+                      onValueChange={(value) => chooseTab(value as Tab)}
+                      className="min-h-0 flex-1 gap-0"
+                    >
+                      <TabsList variant="line" className="w-full justify-start border-b px-3">
+                        {TABS.map((t) => (
+                          <TabsTrigger key={t.value} value={t.value}>
+                            {t.label}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      <div className="@container min-h-0 flex-1 overflow-y-auto bg-background">
+                        <TabsContent value="setup" className="flex flex-col gap-4 p-4">
+                          <SetupTab draft={draft} update={update} />
+                        </TabsContent>
+                        <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
+                          <ScheduleTab draft={draft} update={update} />
+                          <DerivedCards
+                            tab="schedule"
+                            draft={draft}
+                            parsed={parsed}
+                            analysis={analysis}
+                            breakEvenId={breakEvenId}
+                            onChooseBreakEven={chooseBreakEven}
+                          />
+                        </TabsContent>
+                        <TabsContent value="finance" className="flex flex-col gap-4 p-4">
+                          <FinanceTab draft={draft} update={update} />
+                          <DerivedCards
+                            tab="finance"
+                            draft={draft}
+                            parsed={parsed}
+                            analysis={analysis}
+                            breakEvenId={breakEvenId}
+                            onChooseBreakEven={chooseBreakEven}
+                          />
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </aside>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
           </div>
-        </div>
-      </IssuesContext>
+        </IssuesContext>
+      </ViewRangeContext>
     </TooltipProvider>
   );
 }

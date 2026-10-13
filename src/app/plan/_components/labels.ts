@@ -91,7 +91,7 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
         const hall = typeof index === "number" ? draft.frame.halls[index] : undefined;
         return hall ? hallName(hall, index as number) : "Venue";
       }
-      return key === "bufferMinutes" ? "Buffer" : "Tournament";
+      return key === "bufferMinutes" || key === "bufferStart" ? "Buffer" : "Tournament";
     }
     case "categories": {
       const category = typeof key === "number" ? draft.categories[key] : undefined;

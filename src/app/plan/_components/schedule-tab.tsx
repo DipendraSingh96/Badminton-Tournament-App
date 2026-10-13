@@ -66,7 +66,7 @@ export function ScheduleTab({ draft, update }: { draft: PlanDraft; update: Updat
 
       <Section
         title="Buffer"
-        description="Held back at the end of the whole day for miscellaneous activity like prize distribution. Play must end by the last hall's closing time less the buffer."
+        description="Time for miscellaneous activity like prize distribution. Shown on the timeline straight after the last match; play must end by the last hall's closing time less the buffer. Drag it on the timeline to pin it at a time."
       >
         <div className="@md:max-w-64">
           <StepperField
@@ -76,6 +76,14 @@ export function ScheduleTab({ draft, update }: { draft: PlanDraft; update: Updat
             onChange={(v) => update((d) => void (d.frame.bufferMinutes = v))}
           />
         </div>
+        {draft.frame.bufferStart ? (
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span>Pinned at {draft.frame.bufferStart} on the timeline. Play must end by then.</span>
+            <Button variant="outline" size="sm" onClick={() => update((d) => void (d.frame.bufferStart = null))}>
+              Unpin
+            </Button>
+          </div>
+        ) : null}
       </Section>
     </>
   );

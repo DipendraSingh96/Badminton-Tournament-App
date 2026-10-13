@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircleIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { bandCoverage, type Span } from "@/engine";
@@ -11,16 +11,18 @@ import {
   emptyCourt,
   hallName,
   newId,
+  setHallWindow,
   type HallDraft,
   type PlanDraft,
   type RateBandDraft,
 } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
-import { BandStrip } from "./band-strip";
+import { HallTrack } from "./hall-track";
 import { CourtCard } from "./court-card";
 import type { CourtStatus } from "./timeline";
 import { NumberField, StepperField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
+import { ViewRangeContext } from "./time-window";
 
 /** Problems with a hall's bands, worked out live for the status line. */
 function bandProblems(hall: HallDraft): string[] | null {
@@ -68,13 +70,9 @@ function HallSettings({
     (value: RateBandDraft[K]) =>
       editHall((h) => void (h.bands[i]![key] = value));
 
-  /** Set the hall's hours; a single band that followed them moves with them. */
+  /** Set the hall's hours; bands on a moved edge (or a single band) move with them. */
   function setHours(key: "from" | "to", value: string) {
-    editHall((h) => {
-      const only = h.bands.length === 1 ? h.bands[0]! : null;
-      if (only && (only[key] === "" || only[key] === h[key])) only[key] = value;
-      h[key] = value;
-    });
+    editHall((h) => setHallWindow(h, key === "from" ? value : h.from, key === "to" ? value : h.to));
   }
 
   return (
@@ -121,7 +119,15 @@ function HallSettings({
 
       <div className="flex flex-col gap-2">
         <h4 className="text-sm text-muted-foreground">Rate bands across the day</h4>
-        <BandStrip hall={hall} onSelectBand={setSelectedBand} />
+        <HallTrack
+          draft={draft}
+          hallIndex={hallIndex}
+          update={update}
+          detailed
+          className="h-14 overflow-hidden rounded-lg bg-muted/40"
+          onSelectBand={setSelectedBand}
+        />
+        <HallTicks hall={hall} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -172,6 +178,25 @@ function HallSettings({
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The hall's hours and band edges under its strip, placed on the shared view of the day. */
+function HallTicks({ hall }: { hall: HallDraft }) {
+  const { range } = useContext(ViewRangeContext);
+  const span = Math.max(1, range.end - range.start);
+  const ticks = [...new Set([hall.from, hall.to, ...hall.bands.flatMap((b) => [b.from, b.to])])]
+    .map(minutesOfDay)
+    .filter((m): m is number => m !== null)
+    .sort((a, b) => a - b);
+  return (
+    <div className="relative h-4 text-xs text-muted-foreground tabular-nums" aria-hidden="true">
+      {ticks.map((m) => (
+        <span key={m} className="absolute -translate-x-1/2" style={{ left: `${((m - range.start) / span) * 100}%` }}>
+          {clock(m)}
+        </span>
+      ))}
     </div>
   );
 }
