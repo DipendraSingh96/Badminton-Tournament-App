@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, removeCategory } from "./draft";
+import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, emptyHall, removeCategory, setHallWindow } from "./draft";
 import { normaliseDraft } from "./storage";
 
 function draftWith(events: ("MD" | "XD")[]) {
@@ -67,5 +67,51 @@ describe("normaliseDraft halls", () => {
 
   it("keeps a new hall's unit empty", () => {
     expect(normaliseDraft(emptyDraft("Europe/London")).frame.halls[0]!.unitMinutes).toBeNull();
+  });
+});
+
+describe("setHallWindow", () => {
+  function twoBands() {
+    const hall = emptyHall();
+    hall.from = "09:00";
+    hall.to = "18:00";
+    hall.bands = [
+      { id: "b1", name: "Off-peak", from: "09:00", to: "15:00", rate: 8 },
+      { id: "b2", name: "Peak", from: "15:00", to: "18:00", rate: 10 },
+    ];
+    hall.courts = [
+      { id: "c1", from: null, to: null, umpires: 1 },
+      { id: "c2", from: "10:00", to: "14:00", umpires: 1 },
+    ];
+    return hall;
+  }
+
+  it("shifts bands and narrowed courts when the whole window moves", () => {
+    const hall = twoBands();
+    setHallWindow(hall, "09:40", "18:40");
+    expect(hall.bands.map((b) => [b.from, b.to])).toEqual([
+      ["09:40", "15:40"],
+      ["15:40", "18:40"],
+    ]);
+    expect(hall.courts[0]).toMatchObject({ from: null, to: null });
+    expect(hall.courts[1]).toMatchObject({ from: "10:40", to: "14:40" });
+  });
+
+  it("carries only the bands on a moved edge", () => {
+    const hall = twoBands();
+    setHallWindow(hall, "08:20", "18:00");
+    expect(hall.bands.map((b) => [b.from, b.to])).toEqual([
+      ["08:20", "15:00"],
+      ["15:00", "18:00"],
+    ]);
+    expect(hall.courts[1]).toMatchObject({ from: "10:00", to: "14:00" });
+  });
+
+  it("keeps a single band on the hall's hours, from first set to cleared", () => {
+    const hall = emptyHall();
+    setHallWindow(hall, "09:00", "15:40");
+    expect(hall.bands[0]).toMatchObject({ from: "09:00", to: "15:40" });
+    setHallWindow(hall, "", "");
+    expect(hall.bands[0]).toMatchObject({ from: "", to: "" });
   });
 });

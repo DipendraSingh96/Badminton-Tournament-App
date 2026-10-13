@@ -9,6 +9,7 @@ import {
   type WithdrawalRule,
 } from "@/engine";
 import { EVENT_LABELS } from "./events";
+import { clock, minutesOfDay } from "./time";
 
 // What the plan editor holds while the organiser types. Every number starts
 // empty (null): the app supplies no tournament values of its own. The schema
@@ -283,6 +284,51 @@ export function emptyHall(): HallDraft {
 /** A court's hours: its own if narrowed, otherwise its hall's. */
 export function courtHours(hall: HallDraft, court: CourtDraft): { from: string; to: string } {
   return { from: court.from ?? hall.from, to: court.to ?? hall.to };
+}
+
+/**
+ * Sets a hall's hours ("HH:mm", or "" to clear them) and keeps what depends
+ * on them in step:
+ * - Moving the whole window shifts every band and every narrowed court with it.
+ * - Moving one edge carries the bands that started (or ended) on that edge.
+ * - A single band follows the hall, including when the hours are first set
+ *   or cleared.
+ * Anything else is left for validation to flag rather than changed silently.
+ */
+export function setHallWindow(hall: HallDraft, from: string, to: string): void {
+  const oldFrom = minutesOfDay(hall.from);
+  const oldTo = minutesOfDay(hall.to);
+  const newFrom = minutesOfDay(from);
+  const newTo = minutesOfDay(to);
+  const shift = (hhmm: string, by: number) => {
+    const m = minutesOfDay(hhmm);
+    return m === null ? hhmm : clock(m + by);
+  };
+
+  if (hall.bands.length === 1) {
+    const band = hall.bands[0]!;
+    if (band.from === "" || band.from === hall.from) band.from = from;
+    if (band.to === "" || band.to === hall.to) band.to = to;
+  } else if (oldFrom !== null && oldTo !== null && newFrom !== null && newTo !== null) {
+    const moved = newFrom - oldFrom;
+    if (moved !== 0 && newTo - oldTo === moved) {
+      for (const band of hall.bands) {
+        band.from = shift(band.from, moved);
+        band.to = shift(band.to, moved);
+      }
+      for (const court of hall.courts) {
+        if (court.from !== null) court.from = shift(court.from, moved);
+        if (court.to !== null) court.to = shift(court.to, moved);
+      }
+    } else {
+      for (const band of hall.bands) {
+        if (band.from === hall.from) band.from = from;
+        if (band.to === hall.to) band.to = to;
+      }
+    }
+  }
+  hall.from = from;
+  hall.to = to;
 }
 
 /** Courts are numbered across the venue: Hall 1 has Courts 1-4, Hall 2 continues at 5. */
