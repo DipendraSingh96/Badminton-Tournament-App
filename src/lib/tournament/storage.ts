@@ -24,7 +24,8 @@ type EarlyHall = Omit<HallDraft, "unitMinutes"> & { unitMinutes?: number | null 
  * - Halls saved before unit time were charged per hour, so their unit is 60.
  */
 export function normaliseDraft(
-  saved: Omit<PlanDraft, "finance" | "frame"> & {
+  saved: Omit<PlanDraft, "finance" | "frame" | "stageWindows"> & {
+    stageWindows?: PlanDraft["stageWindows"];
     finance: EarlyFinance;
     frame: Omit<PlanDraft["frame"], "halls" | "bufferStart"> & { halls: EarlyHall[]; bufferStart?: string | null };
   },
@@ -33,7 +34,11 @@ export function normaliseDraft(
     ...h,
     unitMinutes: h.unitMinutes === undefined ? 60 : h.unitMinutes,
   }));
-  const draft = { ...saved, frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null } };
+  const draft = {
+    ...saved,
+    stageWindows: saved.stageWindows ?? {},
+    frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null },
+  };
   const { costPerShuttle, ...finance } = draft.finance;
   if (finance.shuttlePrice !== undefined) {
     return { ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft };

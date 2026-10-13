@@ -115,3 +115,11 @@ describe("setHallWindow", () => {
     expect(hall.bands[0]).toMatchObject({ from: "", to: "" });
   });
 });
+
+describe("normaliseDraft stage windows", () => {
+  it("gives a draft saved before stage windows none pinned", () => {
+    const saved: Partial<ReturnType<typeof emptyDraft>> = emptyDraft("Europe/London");
+    delete saved.stageWindows;
+    expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).stageWindows).toEqual({});
+  });
+});

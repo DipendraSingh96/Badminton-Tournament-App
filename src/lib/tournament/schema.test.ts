@@ -488,4 +488,22 @@ describe("parsePlan", () => {
     // British Summer Time is UTC+1.
     expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
   });
+
+  it("converts pinned stage windows and checks they sit inside the day", () => {
+    const draft = completeDraft();
+    draft.stageWindows = { group: { from: "09:30", to: "12:00" }, "round:4": { from: "13:00", to: "13:40" } };
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    // British Summer Time is UTC+1.
+    expect(result.inputs.stageWindows).toEqual([
+      { key: "group", from: "2026-07-04T08:30:00.000Z", to: "2026-07-04T11:00:00.000Z" },
+      { key: "round:4", from: "2026-07-04T12:00:00.000Z", to: "2026-07-04T12:40:00.000Z" },
+    ]);
+
+    draft.stageWindows = { final: { from: "16:30", to: "17:30" } };
+    const late = parsePlan(draft);
+    expect(late.ok).toBe(false);
+    if (late.ok) return;
+    expect(late.issues).toEqual([{ path: ["stageWindows", "final"], message: "Window must be within the day's hours" }]);
+  });
 });

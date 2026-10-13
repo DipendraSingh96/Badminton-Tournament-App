@@ -12,6 +12,8 @@ import {
   type OtherCost,
   type OtherIncome,
   type Rules,
+  type StageWindow,
+  type WindowKey,
   type StageRules,
   type TournamentInputs,
   type Unit,
@@ -463,6 +465,26 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   }
 
+  // Pinned stage, wave and round windows: valid times inside the day.
+  const stageWindows: StageWindow[] = [];
+  for (const [key, window] of Object.entries(draft.stageWindows)) {
+    const path = ["stageWindows", key];
+    if (!/^(group|knockout|bronze|final|wave:\d+|round:\d+)$/.test(key)) continue;
+    if (!isTime(window.from) || !isTime(window.to) || minutesOfDay(window.to) <= minutesOfDay(window.from)) {
+      issues.push({ path, message: "Window must end after it starts" });
+      continue;
+    }
+    if (frame) {
+      const opens = Math.min(...frame.halls.map((h) => minutesOfDay(h.from)));
+      const closes = Math.max(...frame.halls.map((h) => minutesOfDay(h.to)));
+      if (minutesOfDay(window.from) < opens || minutesOfDay(window.to) > closes) {
+        issues.push({ path, message: "Window must be within the day's hours" });
+        continue;
+      }
+    }
+    stageWindows.push({ key: key as WindowKey, from: window.from, to: window.to });
+  }
+
   const finance = collect(financeSchema, draft.finance, ["finance"]);
   const categoryIds = new Set(draft.categories.map((c) => c.id));
   draft.finance.prizes.forEach((prize, i) => {
@@ -583,6 +605,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         otherIncome,
       },
       rules,
+      stageWindows: stageWindows.map((w) => ({ key: w.key, from: utc(w.from), to: utc(w.to) })),
     },
   };
 }
