@@ -13,6 +13,11 @@ function frame(overrides: Partial<Frame> = {}): Frame {
 }
 
 describe("available", () => {
+  it("ends play at a pinned buffer's start, whatever the buffer length", () => {
+    const pinned = available(frame({ bufferMinutes: 30, bufferStart: at("14:20") }));
+    expect(pinned).toMatchObject({ minutes: 380, playingEnd: at("14:20"), courtMinutes: 4 * 380 });
+  });
+
   it("adds up every court's time in the playing window", () => {
     expect(available(frame())).toMatchObject({ minutes: 480, courtMinutes: 1920 });
   });

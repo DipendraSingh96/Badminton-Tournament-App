@@ -76,6 +76,7 @@ export function migrateV3(old: Omit<V4Draft, "frame"> & { frame: V3Frame }): V4D
       timeZone: old.frame.timeZone ?? "",
       halls,
       bufferMinutes: old.frame.bufferMinutes ?? null,
+      bufferStart: null,
     },
   };
 }

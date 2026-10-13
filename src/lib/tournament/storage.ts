@@ -26,14 +26,14 @@ type EarlyHall = Omit<HallDraft, "unitMinutes"> & { unitMinutes?: number | null 
 export function normaliseDraft(
   saved: Omit<PlanDraft, "finance" | "frame"> & {
     finance: EarlyFinance;
-    frame: Omit<PlanDraft["frame"], "halls"> & { halls: EarlyHall[] };
+    frame: Omit<PlanDraft["frame"], "halls" | "bufferStart"> & { halls: EarlyHall[]; bufferStart?: string | null };
   },
 ): PlanDraft {
   const halls: HallDraft[] = saved.frame.halls.map((h) => ({
     ...h,
     unitMinutes: h.unitMinutes === undefined ? 60 : h.unitMinutes,
   }));
-  const draft = { ...saved, frame: { ...saved.frame, halls } };
+  const draft = { ...saved, frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null } };
   const { costPerShuttle, ...finance } = draft.finance;
   if (finance.shuttlePrice !== undefined) {
     return { ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft };

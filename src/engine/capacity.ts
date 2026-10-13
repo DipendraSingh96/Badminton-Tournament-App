@@ -31,7 +31,7 @@ export function available(frame: Frame): Available {
   const bounds = dayBounds(frame.halls);
   const start = Date.parse(bounds.start);
   const dayEnd = Date.parse(bounds.end);
-  const end = dayEnd - frame.bufferMinutes * MS_PER_MINUTE;
+  const end = frame.bufferStart ? Date.parse(frame.bufferStart) : dayEnd - frame.bufferMinutes * MS_PER_MINUTE;
   const minutes = Math.max(0, (end - start) / MS_PER_MINUTE);
 
   const courts: CountedCourt[] = [];

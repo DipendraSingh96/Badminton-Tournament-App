@@ -471,4 +471,21 @@ describe("parsePlan", () => {
       message: "Band must start and end on 30-minute steps from 09:00, e.g. 09:30 or 10:00",
     });
   });
+
+  it("pins the buffer: play ends by its start, and it ends by the last closing", () => {
+    const draft = completeDraft();
+    draft.frame.bufferStart = "16:45";
+    const late = parsePlan(draft);
+    expect(late.ok).toBe(false);
+    if (late.ok) return;
+    expect(late.issues).toEqual([
+      { path: ["frame", "bufferStart"], message: "Buffer must end by the last hall's closing time" },
+    ]);
+
+    draft.frame.bufferStart = "16:00";
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    // British Summer Time is UTC+1.
+    expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
+  });
 });

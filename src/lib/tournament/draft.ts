@@ -56,6 +56,8 @@ export interface FrameDraft {
   halls: HallDraft[];
   /** Held back at the end of the whole day. */
   bufferMinutes: N;
+  /** "HH:mm" when the buffer is pinned on the timeline; null shows it after the last match. */
+  bufferStart: string | null;
 }
 
 export interface CategoryDraft {
@@ -364,6 +366,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
       timeZone,
       halls: [emptyHall()],
       bufferMinutes: null,
+      bufferStart: null,
     },
     categories: [],
     stageRules: {

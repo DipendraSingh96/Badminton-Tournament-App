@@ -177,6 +177,7 @@ const frameSchema = z.object({
   timeZone: z.string().min(1, "Time zone is required"),
   halls: z.array(hallSchema).min(1, "Add at least one hall"),
   bufferMinutes: whole("Buffer", 0),
+  bufferStart: z.string().regex(/^\d{2}:\d{2}$/, "Buffer start must be a time").nullable(),
 });
 
 const lineUpCount = whole("Rubbers", 0).nullable();
@@ -450,6 +451,18 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     if (percent !== null) bestOfThreeAllowance = percent / 100;
   }
 
+  if (frame && frame.bufferStart !== null) {
+    // A pinned buffer sits inside the day and ends by the last closing.
+    const start = minutesOfDay(frame.bufferStart);
+    const opens = Math.min(...frame.halls.map((h) => minutesOfDay(h.from)));
+    const closes = Math.max(...frame.halls.map((h) => minutesOfDay(h.to)));
+    if (start < opens) {
+      issues.push({ path: ["frame", "bufferStart"], message: "Buffer must start after the first hall opens" });
+    } else if (start + frame.bufferMinutes > closes) {
+      issues.push({ path: ["frame", "bufferStart"], message: "Buffer must end by the last hall's closing time" });
+    }
+  }
+
   const finance = collect(financeSchema, draft.finance, ["finance"]);
   const categoryIds = new Set(draft.categories.map((c) => c.id));
   draft.finance.prizes.forEach((prize, i) => {
@@ -555,6 +568,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         timeZone: frame.timeZone,
         halls,
         bufferMinutes: frame.bufferMinutes,
+        bufferStart: frame.bufferStart ? utc(frame.bufferStart) : undefined,
       },
       categories: engineCategories,
       stageRules,

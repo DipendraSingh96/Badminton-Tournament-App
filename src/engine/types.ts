@@ -68,6 +68,11 @@ export interface Frame {
   halls: Hall[];
   /** Held back at the end of the whole day. */
   bufferMinutes: number;
+  /**
+   * UTC ISO. When the buffer is pinned to a time, play must end by its start;
+   * otherwise by the last closing less the buffer.
+   */
+  bufferStart?: string;
 }
 
 /** Badminton events. Open is doubles only: any mix of pairs together. */
