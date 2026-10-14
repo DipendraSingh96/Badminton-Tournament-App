@@ -490,7 +490,7 @@ describe("parsePlan", () => {
     expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
   });
 
-  it("converts pinned hall zones and checks they sit inside their hall's hours", () => {
+  it("converts dragged hall zones, ignoring any that no longer fit their hall", () => {
     const draft = completeDraft();
     draft.stageWindows = { "h1:group": { from: "09:30", to: "12:00" }, "h1:knockout": { from: "13:00", to: "14:40" } };
     const result = parsePlan(draft);
@@ -501,10 +501,10 @@ describe("parsePlan", () => {
       { key: "h1:knockout", from: "2026-07-04T12:00:00.000Z", to: "2026-07-04T13:40:00.000Z" },
     ]);
 
+    // A zone that no longer fits its hall, or a removed hall's zone, is ignored: never an item to fill in.
     draft.stageWindows = { "h1:knockout": { from: "16:30", to: "17:30" }, "gone:group": { from: "09:00", to: "10:00" } };
     const late = parsePlan(draft);
-    expect(late.ok).toBe(false);
-    if (late.ok) return;
-    expect(late.issues).toEqual([{ path: ["stageWindows", "h1:knockout"], message: "Zone must be within its hall's hours" }]);
+    if (!late.ok) throw new Error(JSON.stringify(late.issues));
+    expect(late.inputs.stageWindows).toEqual([]);
   });
 });

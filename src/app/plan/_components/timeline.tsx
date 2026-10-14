@@ -5,7 +5,7 @@ import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, t
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { playersPerEntry, type EstimatedSchedule, type MatchInfo, type Round, type Stage, type WindowKey, type Zone } from "@/engine";
-import { courtHours, courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { courtHours, courtNumber, hallName, zonePin, type PlanDraft } from "@/lib/tournament/draft";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { InfoTip } from "./fields";
@@ -175,7 +175,7 @@ export function zoneRows(draft: PlanDraft, schedule: EstimatedSchedule | null): 
     (["group", "knockout"] as const).flatMap((zone) => {
       const key: WindowKey = `${hall.id}:${zone}`;
       const span = schedule.windows[key];
-      const pin = draft.stageWindows[key];
+      const pin = zonePin(draft, key);
       const pinFrom = minutesOfDay(pin?.from);
       const pinTo = minutesOfDay(pin?.to);
       const pinned = pinFrom !== null && pinTo !== null;

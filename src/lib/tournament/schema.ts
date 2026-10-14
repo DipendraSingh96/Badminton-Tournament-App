@@ -22,6 +22,7 @@ import {
   defaultCategoryName,
   openDoublesInUse,
   stagesInPlay,
+  zonePin,
   usesBestOfThree,
   type PlanDraft,
   type StageRulesDraft,
@@ -465,26 +466,11 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   }
 
-  // Pinned hall zones ("hallId:group", "hallId:knockout"): valid times inside their hall's hours.
-  const stageWindows: StageWindow[] = [];
-  for (const [key, window] of Object.entries(draft.stageWindows)) {
-    const path = ["stageWindows", key];
-    const match = /^(.+):(group|knockout)$/.exec(key);
-    const hall = match ? draft.frame.halls.find((h) => h.id === match[1]) : undefined;
-    // Zones of halls since removed are kept but ignored.
-    if (!hall) continue;
-    if (!isTime(window.from) || !isTime(window.to) || minutesOfDay(window.to) <= minutesOfDay(window.from)) {
-      issues.push({ path, message: "Zone must end after it starts" });
-      continue;
-    }
-    if (isTime(hall.from) && isTime(hall.to)) {
-      if (minutesOfDay(window.from) < minutesOfDay(hall.from) || minutesOfDay(window.to) > minutesOfDay(hall.to)) {
-        issues.push({ path, message: "Zone must be within its hall's hours" });
-        continue;
-      }
-    }
-    stageWindows.push({ key: key as WindowKey, from: window.from, to: window.to });
-  }
+  // Dragged hall zones that still fit; zones are derived, so they never stop the plan.
+  const stageWindows: StageWindow[] = Object.keys(draft.stageWindows).flatMap((key) => {
+    const pin = zonePin(draft, key);
+    return pin ? [{ key: key as WindowKey, from: pin.from, to: pin.to }] : [];
+  });
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
   const categoryIds = new Set(draft.categories.map((c) => c.id));

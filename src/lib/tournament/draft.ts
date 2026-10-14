@@ -339,6 +339,25 @@ export function setHallWindow(hall: HallDraft, from: string, to: string): void {
   hall.to = to;
 }
 
+/**
+ * A hall zone the organiser has dragged, when it still fits: inside its
+ * hall's hours and ending after it starts. Zones are derived from the
+ * structure, so a drag that no longer fits (say the hall's hours changed) is
+ * simply ignored and the zone shows the estimate again; it never stops the plan.
+ */
+export function zonePin(draft: PlanDraft, key: string): { from: string; to: string } | null {
+  const pin = draft.stageWindows[key];
+  const match = /^(.+):(group|knockout)$/.exec(key);
+  const hall = match ? draft.frame.halls.find((h) => h.id === match[1]) : undefined;
+  if (!pin || !hall) return null;
+  const from = minutesOfDay(pin.from);
+  const to = minutesOfDay(pin.to);
+  const open = minutesOfDay(hall.from);
+  const close = minutesOfDay(hall.to);
+  if (from === null || to === null || open === null || close === null) return null;
+  return to > from && from >= open && to <= close ? pin : null;
+}
+
 /** One rate all day: the first band stays, covering the hall's hours; the others go. */
 export function keepOneRate(hall: HallDraft): void {
   const first = hall.bands[0] ?? emptyBand();

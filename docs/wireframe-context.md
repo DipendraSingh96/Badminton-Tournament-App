@@ -226,6 +226,7 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Zones follow the estimate until dragged (10-minute grid); a pinned zone holds that stage in that hall to its start, overruns in red ("Needs until …") or shows "Can't start before …"; double-click, H, ✕ or Delete unpins. Earlier global windows are dropped on load.
 - Each group plays in its suggested hall, round by round from a round-robin draw (a round is a wave); the knockout uses cross-group seeding (Winner A v Runner-up D…), byes to the top seeds, and may use any hall's courts.
 - The wave pills are unchanged. Hovering (or focusing) a pill shows the match under the pointer: category, group and wave or knockout match, the sides as draw slots (Pair A1 v Pair A4, Winner QF3 v Winner QF4), the rubber for team ties, court and time. Names replace the slots once entries and the draw exist. Court cards at the playhead show the same match in short.
+- Zones are derived from the group and knockout structure and how long each takes; they are never items to fill in. A dragged zone that no longer fits its hall (for example after the hall's hours change) is ignored and the zone shows the estimate again.
 - Only the worst-case finish stays as a vertical line, in red; the "Play must end" and finish lines are gone. The buffer zone and the playhead remain.
 
 ### Workbench and dashboard
