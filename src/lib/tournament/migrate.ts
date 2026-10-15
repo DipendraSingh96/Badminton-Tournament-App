@@ -127,5 +127,5 @@ export function migrateV4(old: V4Draft): PlanDraft {
     return { ...c, expectedExternal: Math.round(c.expectedExternal / players) };
   });
 
-  return { ...rest, categories, stageRules, rules: rules ?? emptyRules(), stageWindows: {} };
+  return { ...rest, categories, stageRules, rules: rules ?? emptyRules(), zoneMoves: {}, matchMoves: {} };
 }

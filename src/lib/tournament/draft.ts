@@ -161,6 +161,11 @@ export interface RulesDraft {
   walkover: WalkoverRule | null;
 }
 
+export interface ZoneMoveDraft {
+  start: string | null;
+  hallId: string | null;
+}
+
 export interface PlanDraft {
   name: string;
   /** Chosen once per tournament. */
@@ -176,8 +181,13 @@ export interface PlanDraft {
   finance: FinanceDraft;
   /** Set once for the tournament. */
   rules: RulesDraft;
-  /** Hall stage zones pinned on the timeline, keyed "hallId:group" or "hallId:knockout"; "HH:mm". */
-  stageWindows: Record<string, { from: string; to: string }>;
+  /**
+   * Hall stage zones moved on the timeline, keyed "hallId:group" or
+   * "hallId:knockout": a later start ("HH:mm") and/or another hall.
+   */
+  zoneMoves: Record<string, ZoneMoveDraft>;
+  /** Matches moved on the timeline, by match id: onto a court, before another match there (or last). */
+  matchMoves: Record<string, { courtId: string; before: string | null }>;
 }
 
 export function newId(): string {
@@ -340,22 +350,24 @@ export function setHallWindow(hall: HallDraft, from: string, to: string): void {
 }
 
 /**
- * A hall zone the organiser has dragged, when it still fits: inside its
- * hall's hours and ending after it starts. Zones are derived from the
- * structure, so a drag that no longer fits (say the hall's hours changed) is
- * simply ignored and the zone shows the estimate again; it never stops the plan.
+ * A zone's dragged start when it still fits inside its hall's hours. Zones
+ * come from the structure, so a start that no longer fits (say the hall's
+ * hours changed) is simply ignored; it never stops the plan.
  */
-export function zonePin(draft: PlanDraft, key: string): { from: string; to: string } | null {
-  const pin = draft.stageWindows[key];
+export function zoneStart(draft: PlanDraft, key: string): string | null {
+  const start = draft.zoneMoves[key]?.start ?? null;
   const match = /^(.+):(group|knockout)$/.exec(key);
   const hall = match ? draft.frame.halls.find((h) => h.id === match[1]) : undefined;
-  if (!pin || !hall) return null;
-  const from = minutesOfDay(pin.from);
-  const to = minutesOfDay(pin.to);
-  const open = minutesOfDay(hall.from);
-  const close = minutesOfDay(hall.to);
-  if (from === null || to === null || open === null || close === null) return null;
-  return to > from && from >= open && to <= close ? pin : null;
+  const at = minutesOfDay(start);
+  const open = minutesOfDay(hall?.from);
+  const close = minutesOfDay(hall?.to);
+  if (at === null || open === null || close === null) return null;
+  return at >= open && at < close ? start : null;
+}
+
+/** True when anything has been moved by hand on the timeline. */
+export function hasMoves(draft: PlanDraft): boolean {
+  return Object.keys(draft.matchMoves).length > 0 || Object.values(draft.zoneMoves).some((m) => m.start || m.hallId);
 }
 
 /** One rate all day: the first band stays, covering the hall's hours; the others go. */
@@ -466,6 +478,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
       otherIncome: [],
     },
     rules: emptyRules(),
-    stageWindows: {},
+    zoneMoves: {},
+    matchMoves: {},
   };
 }

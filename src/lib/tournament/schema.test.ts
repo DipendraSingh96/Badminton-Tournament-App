@@ -490,21 +490,31 @@ describe("parsePlan", () => {
     expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
   });
 
-  it("converts dragged hall zones, ignoring any that no longer fit their hall", () => {
+  it("passes zone and match moves on, ignoring any that no longer fit", () => {
     const draft = completeDraft();
-    draft.stageWindows = { "h1:group": { from: "09:30", to: "12:00" }, "h1:knockout": { from: "13:00", to: "14:40" } };
+    draft.zoneMoves = {
+      "h1:group": { start: "09:30", hallId: null },
+      "h1:knockout": { start: null, hallId: "h1" },
+      "h1:late": { start: "10:00", hallId: null },
+      "gone:group": { start: "09:00", hallId: null },
+    };
+    draft.matchMoves = {
+      "c1:group:A:A1-A2:r1": { courtId: "c2", before: null },
+      "c1:group:A:A1-A3:r1": { courtId: "missing", before: null },
+    };
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     // British Summer Time is UTC+1.
-    expect(result.inputs.stageWindows).toEqual([
-      { key: "h1:group", from: "2026-07-04T08:30:00.000Z", to: "2026-07-04T11:00:00.000Z" },
-      { key: "h1:knockout", from: "2026-07-04T12:00:00.000Z", to: "2026-07-04T13:40:00.000Z" },
+    expect(result.inputs.zoneMoves).toEqual([
+      { key: "h1:group", start: "2026-07-04T08:30:00.000Z" },
+      { key: "h1:knockout", hallId: "h1" },
     ]);
+    expect(result.inputs.matchMoves).toEqual([{ matchId: "c1:group:A:A1-A2:r1", courtId: "c2", before: null }]);
 
-    // A zone that no longer fits its hall, or a removed hall's zone, is ignored: never an item to fill in.
-    draft.stageWindows = { "h1:knockout": { from: "16:30", to: "17:30" }, "gone:group": { from: "09:00", to: "10:00" } };
+    // A start outside the hall's hours is ignored: never an item to fill in.
+    draft.zoneMoves = { "h1:group": { start: "18:30", hallId: null } };
     const late = parsePlan(draft);
     if (!late.ok) throw new Error(JSON.stringify(late.issues));
-    expect(late.inputs.stageWindows).toEqual([]);
+    expect(late.inputs.zoneMoves).toEqual([]);
   });
 });

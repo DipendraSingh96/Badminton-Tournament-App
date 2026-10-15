@@ -12,7 +12,7 @@ import {
   type OtherCost,
   type OtherIncome,
   type Rules,
-  type StageWindow,
+  type MatchMove,
   type WindowKey,
   type StageRules,
   type TournamentInputs,
@@ -22,7 +22,7 @@ import {
   defaultCategoryName,
   openDoublesInUse,
   stagesInPlay,
-  zonePin,
+  zoneStart,
   usesBestOfThree,
   type PlanDraft,
   type StageRulesDraft,
@@ -466,11 +466,19 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     }
   }
 
-  // Dragged hall zones that still fit; zones are derived, so they never stop the plan.
-  const stageWindows: StageWindow[] = Object.keys(draft.stageWindows).flatMap((key) => {
-    const pin = zonePin(draft, key);
-    return pin ? [{ key: key as WindowKey, from: pin.from, to: pin.to }] : [];
+  // Moves by hand on the timeline. Zones and matches are derived, so a move
+  // that no longer fits is ignored: never an item to fill in.
+  const hallIds = new Set(draft.frame.halls.map((h) => h.id));
+  const zoneMoves = Object.entries(draft.zoneMoves).flatMap(([key, move]) => {
+    if (!/^(.+):(group|knockout)$/.test(key)) return [];
+    const start = zoneStart(draft, key);
+    const hallId = move.hallId && hallIds.has(move.hallId) ? move.hallId : null;
+    return start || hallId ? [{ key: key as WindowKey, start, hallId }] : [];
   });
+  const courtIds = new Set(draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)));
+  const matchMoves: MatchMove[] = Object.entries(draft.matchMoves)
+    .filter(([, move]) => courtIds.has(move.courtId))
+    .map(([matchId, move]) => ({ matchId, courtId: move.courtId, before: move.before }));
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
   const categoryIds = new Set(draft.categories.map((c) => c.id));
@@ -592,7 +600,12 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         otherIncome,
       },
       rules,
-      stageWindows: stageWindows.map((w) => ({ key: w.key, from: utc(w.from), to: utc(w.to) })),
+      zoneMoves: zoneMoves.map((m) => ({
+        key: m.key,
+        ...(m.start ? { start: utc(m.start) } : {}),
+        ...(m.hallId ? { hallId: m.hallId } : {}),
+      })),
+      matchMoves,
     },
   };
 }

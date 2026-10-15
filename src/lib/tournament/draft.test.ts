@@ -118,11 +118,14 @@ describe("setHallWindow", () => {
   });
 });
 
-describe("normaliseDraft stage windows", () => {
-  it("gives a draft saved before stage windows none pinned", () => {
+describe("normaliseDraft moves", () => {
+  it("gives a draft saved before moves none", () => {
     const saved: Partial<ReturnType<typeof emptyDraft>> = emptyDraft("Europe/London");
-    delete saved.stageWindows;
-    expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).stageWindows).toEqual({});
+    delete saved.zoneMoves;
+    delete saved.matchMoves;
+    const draft = normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
+    expect(draft.zoneMoves).toEqual({});
+    expect(draft.matchMoves).toEqual({});
   });
 });
 
@@ -143,15 +146,20 @@ describe("keepOneRate", () => {
 });
 
 describe("normaliseDraft hall zones", () => {
-  it("keeps per-hall zones and drops earlier stage, wave and round windows", () => {
-    const saved = emptyDraft("Europe/London");
-    const hallId = saved.frame.halls[0]!.id;
-    saved.stageWindows = {
-      [`${hallId}:group`]: { from: "09:00", to: "11:00" },
-      group: { from: "09:00", to: "11:00" },
-      "wave:2": { from: "09:30", to: "10:00" },
-      "round:4": { from: "12:00", to: "12:30" },
-    };
-    expect(Object.keys(normaliseDraft(saved).stageWindows)).toEqual([`${hallId}:group`]);
+  it("carries a dragged zone's start into zone moves and drops earlier windows", () => {
+    const saved: Partial<ReturnType<typeof emptyDraft>> = emptyDraft("Europe/London");
+    const hallId = saved.frame!.halls[0]!.id;
+    delete saved.zoneMoves;
+    delete saved.matchMoves;
+    const draft = normaliseDraft({
+      ...(saved as Parameters<typeof normaliseDraft>[0]),
+      stageWindows: {
+        [`${hallId}:group`]: { from: "09:00", to: "11:00" },
+        group: { from: "09:00", to: "11:00" },
+        "wave:2": { from: "09:30", to: "10:00" },
+      },
+    });
+    expect(draft.zoneMoves).toEqual({ [`${hallId}:group`]: { start: "09:00", hallId: null } });
+    expect(draft).not.toHaveProperty("stageWindows");
   });
 });

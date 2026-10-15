@@ -28,8 +28,11 @@ type EarlyHall = Omit<HallDraft, "unitMinutes" | "multipleRates"> & {
  * - Halls saved before the rate-bands switch have it on when they have several bands.
  */
 export function normaliseDraft(
-  saved: Omit<PlanDraft, "finance" | "frame" | "stageWindows"> & {
-    stageWindows?: PlanDraft["stageWindows"];
+  saved: Omit<PlanDraft, "finance" | "frame" | "zoneMoves" | "matchMoves"> & {
+    /** Zones dragged in time before zone moves; their start carries over. */
+    stageWindows?: Record<string, { from: string; to: string }>;
+    zoneMoves?: PlanDraft["zoneMoves"];
+    matchMoves?: PlanDraft["matchMoves"];
     finance: EarlyFinance;
     frame: Omit<PlanDraft["frame"], "halls" | "bufferStart"> & { halls: EarlyHall[]; bufferStart?: string | null };
   },
@@ -40,14 +43,17 @@ export function normaliseDraft(
     // Halls saved before the switch had it on whenever they had several bands.
     multipleRates: h.multipleRates ?? h.bands.length > 1,
   }));
+  const { stageWindows, ...rest } = saved;
+  // Per-hall zones dragged in time keep their start; earlier stage, wave and round windows are dropped.
+  const carried = Object.fromEntries(
+    Object.entries(stageWindows ?? {})
+      .filter(([key]) => saved.frame.halls.some((h) => key === `${h.id}:group` || key === `${h.id}:knockout`))
+      .map(([key, w]) => [key, { start: w.from, hallId: null }]),
+  );
   const draft = {
-    ...saved,
-    // Only per-hall zones remain; earlier stage, wave and round windows are dropped.
-    stageWindows: Object.fromEntries(
-      Object.entries(saved.stageWindows ?? {}).filter(([key]) =>
-        saved.frame.halls.some((h) => key === `${h.id}:group` || key === `${h.id}:knockout`),
-      ),
-    ),
+    ...rest,
+    zoneMoves: saved.zoneMoves ?? carried,
+    matchMoves: saved.matchMoves ?? {},
     frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null },
   };
   const { costPerShuttle, ...finance } = draft.finance;
