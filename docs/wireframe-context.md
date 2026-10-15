@@ -229,6 +229,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Zones are derived from the group and knockout structure and how long each takes; they are never items to fill in. A dragged zone that no longer fits its hall (for example after the hall's hours change) is ignored and the zone shows the estimate again.
 - Only the worst-case finish stays as a vertical line, in red; the "Play must end" and finish lines are gone. The buffer zone and the playhead remain.
 
+### Moving zones and matches by hand (15 Oct)
+- Zones are plain labelled shading (no boxes or edges); their length always comes from their matches. A zone can be dragged along the timeline to leave free time mid-tournament (its stage starts no earlier there; red "Can't start before …" if what it depends on isn't finished), or onto another hall's Stages row to move that whole stage there (e.g. all knockout matches into Hall A to see if Hall B can be dropped; matches that then don't fit are reported).
+- Each match is its own pill and can be dragged onto any court of its hall, inside its stage's zone; it takes that place and the rest of that court shifts along. Dropping outside the zone or into another hall's group stage is refused with a note.
+- Limits always hold: knockout order (a semi-final waits for its quarter-finals; "Winner A" waits for group A) and no pair or team in two ties at once. The hover card says why a match waits.
+- Moved matches and zones carry a dot; double-click or H puts one back, and "Reset all moves" clears them all. Alt with the arrow keys moves a focused match (earlier/later, neighbouring court) or zone (Alt+up/down to another hall; arrows shift in time).
+- In the engine, placement is two passes: assignment (as before, then moves by hand), then timing in each court's order with feeders, zone starts and side clashes. With no moves the times are as before.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
