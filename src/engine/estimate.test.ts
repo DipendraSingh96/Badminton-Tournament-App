@@ -91,15 +91,19 @@ describe("estimateSchedule", () => {
     expect(schedule.finish).toBe(at("11:15"));
 
     const court1 = schedule.courts[0]!.segments;
+    // One pill per match.
     expect(court1.map((s) => [s.stage, s.round, s.from])).toEqual([
       ["group", { type: "wave", wave: 1 }, at("09:00")],
+      ["group", { type: "wave", wave: 1 }, at("09:15")],
       ["group", { type: "wave", wave: 2 }, at("09:30")],
+      ["group", { type: "wave", wave: 2 }, at("09:45")],
       ["group", { type: "wave", wave: 3 }, at("10:00")],
+      ["group", { type: "wave", wave: 3 }, at("10:15")],
       ["knockout", { type: "knockout", size: 8 }, at("10:30")],
       ["knockout", { type: "knockout", size: 4 }, at("10:45")],
       ["bronze", null, at("11:00")],
     ]);
-    expect(court1[0]!.matches).toBe(2);
+    expect(court1.every((s) => s.matches === 1)).toBe(true);
   });
 
   it("keeps every match within its court's hours", () => {
@@ -156,7 +160,7 @@ describe("estimateSchedule", () => {
   it("carries each match's fixture: group, wave and draw slots", () => {
     const { schedule } = estimate(tournament());
     // Wave 1 fills the four courts group by group: A1 v A4, A2 v A3, B1 v B4, B2 v B3, then C and D.
-    const court1 = schedule.courts[0]!.segments[0]!.details;
+    const court1 = schedule.courts[0]!.segments.slice(0, 2).flatMap((s) => s.details);
     expect(court1.map((d) => [d.from, d.match])).toEqual([
       [at("09:00"), { categoryId: "md", stage: "group", group: "A", wave: 1, home: "A1", away: "A4", rubber: undefined }],
       [at("09:15"), { categoryId: "md", stage: "group", group: "C", wave: 1, home: "C1", away: "C4", rubber: undefined }],
@@ -187,44 +191,42 @@ describe("estimateSchedule", () => {
     ]);
   });
 
-  it("shows each hall's group and KO zones, following the estimate", () => {
+  it("shows each hall's group and KO zones, from where their matches are played", () => {
     const { schedule } = estimate(tournament());
-    expect(schedule.windows["h1:group"]).toEqual({ from: at("09:00"), to: at("10:30"), categoryIds: ["md"] });
-    expect(schedule.windows["h1:knockout"]).toEqual({ from: at("10:30"), to: at("11:15"), categoryIds: ["md"] });
+    expect(schedule.windows["h1:group"]).toEqual({ from: at("09:00"), to: at("10:30"), categoryIds: ["md"], moved: false });
+    expect(schedule.windows["h1:knockout"]).toEqual({ from: at("10:30"), to: at("11:15"), categoryIds: ["md"], moved: false });
   });
 
-  it("starts a pinned zone's stage no earlier than its start, delaying what follows", () => {
+  it("starts a zone dragged later from there, leaving free time, and what follows waits", () => {
     const plan = tournament();
-    plan.stageWindows = [{ key: "h1:group", from: at("09:30"), to: at("11:00") }];
+    plan.zoneMoves = [{ key: "h1:knockout", start: at("11:00") }];
     const { schedule } = estimate(plan);
-    expect(schedule.windows["h1:group"]).toMatchObject({ from: at("09:30"), to: at("11:00") });
-    expect(schedule.windows["h1:group"]!.overrun).toBeUndefined();
-    expect(schedule.windows["h1:knockout"]!.from).toBe(at("11:00"));
+    expect(schedule.windows["h1:group"]!.to).toBe(at("10:30"));
+    expect(schedule.windows["h1:knockout"]).toMatchObject({ from: at("11:00"), moved: true });
     expect(schedule.finish).toBe(at("11:45"));
   });
 
-  it("runs a too-short zone on past its end, and the knockout waits", () => {
+  it("reports when a zone is dragged to start before what it depends on has finished", () => {
     const plan = tournament();
-    plan.stageWindows = [{ key: "h1:group", from: at("09:00"), to: at("10:00") }];
-    const { schedule } = estimate(plan);
-    expect(schedule.windows["h1:group"]).toMatchObject({ to: at("10:30"), overrun: at("10:30") });
-    expect(schedule.windows["h1:knockout"]!.from).toBe(at("10:30"));
-  });
-
-  it("reports when a KO zone starts before the group stage has finished", () => {
-    const plan = tournament();
-    plan.stageWindows = [{ key: "h1:knockout", from: at("10:00"), to: at("11:30") }];
+    plan.zoneMoves = [{ key: "h1:knockout", start: at("10:00") }];
     const { schedule } = estimate(plan);
     expect(schedule.windows["h1:knockout"]).toMatchObject({ from: at("10:30"), earliest: at("10:30") });
   });
 
-  it("keeps each group in its hall, and halls can start their groups at different times", () => {
+  function twoHalls() {
     const plan = tournament();
     plan.frame.halls = [
       hall("h1", "09:00", "17:00", { courtCount: 4 }),
       hall("h2", "09:00", "17:00", { courtCount: 2 }),
     ];
-    plan.stageWindows = [{ key: "h2:group", from: at("10:00"), to: at("12:00") }];
+    return plan;
+  }
+  const hallsPlaying = (schedule: ReturnType<typeof estimateSchedule>, stage: string) =>
+    new Set(schedule.courts.filter((c) => c.segments.some((s) => s.stage === stage)).map((c) => c.hallId));
+
+  it("keeps each group in its hall, and halls can start their groups at different times", () => {
+    const plan = twoHalls();
+    plan.zoneMoves = [{ key: "h2:group", start: at("10:00") }];
     const { analysis, schedule } = estimate(plan);
     const groupsIn = (hallId: string) =>
       new Set(
@@ -234,10 +236,88 @@ describe("estimateSchedule", () => {
           .filter(Boolean),
       );
     const suggested = (hallId: string) =>
-      new Set(analysis.groupsPerHall.find((h) => h.hallId === hallId)!.groups.map((g) => String.fromCharCode(65 + g.groupIndex)));
+      new Set(
+        analysis.groupsPerHall.find((h) => h.hallId === hallId)!.groups.map((g) => String.fromCharCode(65 + g.groupIndex)),
+      );
     expect(groupsIn("h1")).toEqual(suggested("h1"));
     expect(groupsIn("h2")).toEqual(suggested("h2"));
     expect(schedule.windows["h1:group"]!.from).toBe(at("09:00"));
     expect(schedule.windows["h2:group"]!.from).toBe(at("10:00"));
+  });
+
+  it("moves a whole zone to another hall", () => {
+    const plan = twoHalls();
+    // The knockout fits in Hall 1; moving that zone sends it all to Hall 2.
+    expect(hallsPlaying(estimate(plan).schedule, "knockout")).toEqual(new Set(["h1"]));
+    plan.zoneMoves = [{ key: "h1:knockout", hallId: "h2" }];
+    const { schedule } = estimate(plan);
+    expect(hallsPlaying(schedule, "knockout")).toEqual(new Set(["h2"]));
+    expect(hallsPlaying(schedule, "final")).toEqual(new Set(["h2"]));
+    expect(schedule.windows["h1:knockout"]).toBeUndefined();
+    expect(schedule.windows["h2:knockout"]!.moved).toBe(true);
+  });
+
+  const matchesOn = (schedule: ReturnType<typeof estimateSchedule>, court: number) =>
+    schedule.courts[court]!.segments.map((s) => s.details[0]!);
+
+  it("moves a match on its court, and the matches after it shift along", () => {
+    const base = estimate(tournament()).schedule;
+    const [first, second, third] = matchesOn(base, 0);
+    const plan = tournament();
+    // A1 v A4 goes after C1 v C4.
+    plan.matchMoves = [{ matchId: first!.id, courtId: "h1-c1", before: third!.id }];
+    const after = matchesOn(estimate(plan).schedule, 0);
+    expect(after[0]!.id).toBe(second!.id);
+    expect(after[1]).toMatchObject({ id: first!.id, moved: true, from: at("09:15") });
+  });
+
+  it("moves a match to another court of its hall, but not out of its hall", () => {
+    const base = estimate(twoHalls()).schedule;
+    const match = matchesOn(base, 0)[0]!;
+    const plan = twoHalls();
+    plan.matchMoves = [{ matchId: match.id, courtId: "h1-c4", before: null }];
+    expect(matchesOn(estimate(plan).schedule, 3).some((d) => d.id === match.id && d.moved)).toBe(true);
+
+    plan.matchMoves = [{ matchId: match.id, courtId: "h2-c1", before: null }];
+    const refused = estimate(plan).schedule;
+    const inHall2 = refused.courts.filter((c) => c.hallId === "h2").flatMap((c) => c.segments);
+    expect(inHall2.some((s) => s.details[0]!.id === match.id)).toBe(false);
+  });
+
+  it("keeps knockout order: a semi-final moved first still waits for its quarter-finals", () => {
+    const all = (schedule: ReturnType<typeof estimateSchedule>) => schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    const base = all(estimate(tournament()).schedule);
+    const semi = base.find((d) => d.match.code === "SF1")!;
+    const quarter = base.find((d) => d.match.code === "QF1")!;
+    const plan = tournament();
+    plan.matchMoves = [{ matchId: semi.id, courtId: "h1-c1", before: quarter.id }];
+    const after = all(estimate(plan).schedule);
+    const sf = after.find((d) => d.id === semi.id)!;
+    const quarters = after.filter((d) => d.match.code === "QF1" || d.match.code === "QF2");
+    expect(quarters.every((q) => sf.from >= q.to)).toBe(true);
+    expect(sf.moved).toBe(true);
+  });
+
+  it("never has a side in two matches at once", () => {
+    const base = estimate(tournament()).schedule;
+    const court1 = matchesOn(base, 0);
+    const court2 = matchesOn(base, 1);
+    const plan = tournament();
+    // A1 v A3 moved onto court 2 before C2 v C3, alongside A2 v A3's slot: A3 can't be on two courts at once.
+    plan.matchMoves = [{ matchId: court1[2]!.id, courtId: "h1-c2", before: court2[1]!.id }];
+    const all = estimate(plan).schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    for (const a of all) {
+      for (const b of all) {
+        if (a === b || a.match.categoryId !== b.match.categoryId) continue;
+        const shared = [a.match.home, a.match.away].some((x) => x === b.match.home || x === b.match.away);
+        if (shared) expect(a.to <= b.from || b.to <= a.from).toBe(true);
+      }
+    }
+  });
+
+  it("ignores moves for matches that no longer exist", () => {
+    const plan = tournament();
+    plan.matchMoves = [{ matchId: "md:group:Z:Z1-Z2:r1", courtId: "h1-c1", before: null }];
+    expect(estimate(plan).schedule.finish).toBe(at("11:15"));
   });
 });

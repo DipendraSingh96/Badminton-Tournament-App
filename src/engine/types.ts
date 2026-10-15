@@ -238,12 +238,22 @@ export type Zone = "group" | "knockout";
 /** A hall's zone on the timeline: "hallId:group" or "hallId:knockout". */
 export type WindowKey = `${string}:${Zone}`;
 
-/** A zone pinned by the organiser: its stage starts in that hall no earlier than `from`. */
-export interface StageWindow {
+/**
+ * A hall zone moved by hand: its stage starts there no earlier than `start`
+ * (to leave free time mid-tournament), or is played in another hall.
+ */
+export interface ZoneMove {
   key: WindowKey;
   /** UTC ISO. */
-  from: string;
-  to: string;
+  start?: string;
+  hallId?: string;
+}
+
+/** A match moved by hand: onto a court of its hall, before another match there (or last). */
+export interface MatchMove {
+  matchId: string;
+  courtId: string;
+  before: string | null;
 }
 
 export interface TournamentInputs {
@@ -262,6 +272,7 @@ export interface TournamentInputs {
   bestOfThreeAllowance: number;
   finance: Finance;
   rules: Rules;
-  /** Pinned hall zones; the rest follow the estimate. */
-  stageWindows?: StageWindow[];
+  /** Zones and matches moved by hand on the timeline; the rest follow the estimate. */
+  zoneMoves?: ZoneMove[];
+  matchMoves?: MatchMove[];
 }
