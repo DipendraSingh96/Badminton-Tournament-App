@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { costPerShuttle, defaultCategoryName, emptyCategory, emptyDraft, emptyPrize, emptyHall, removeCategory, setHallWindow, keepOneRate } from "./draft";
+import {
+  costPerShuttle,
+  defaultCategoryName,
+  emptyCategory,
+  emptyDraft,
+  emptyHall,
+  emptyPrize,
+  keepOneRate,
+  moveZone,
+  removeCategory,
+  resetZone,
+  setHallWindow,
+  shiftZone,
+  zoneHall,
+} from "./draft";
 import { normaliseDraft } from "./storage";
 
 function draftWith(events: ("MD" | "XD")[]) {
@@ -161,5 +175,34 @@ describe("normaliseDraft hall zones", () => {
     });
     expect(draft.zoneMoves).toEqual({ [`${hallId}:group`]: { start: "09:00", hallId: null } });
     expect(draft).not.toHaveProperty("stageWindows");
+  });
+});
+
+describe("zone moves", () => {
+  function threeHalls() {
+    const draft = emptyDraft("Europe/London");
+    draft.frame.halls = [emptyHall(), emptyHall(), emptyHall()].map((h, i) => ({ ...h, id: `h${i + 1}` }));
+    return draft;
+  }
+
+  it("moves a zone to another hall and back, keeping the record tidy", () => {
+    const draft = threeHalls();
+    moveZone(draft, "h2", "h1", "knockout");
+    expect(zoneHall(draft, "h2", "knockout")).toBe("h1");
+    expect(draft.zoneMoves).toEqual({ "h2:knockout": { start: null, hallId: "h1" } });
+    // The zone shown in Hall 1 now holds both; moving it to Hall 3 takes both.
+    moveZone(draft, "h1", "h3", "knockout");
+    expect(zoneHall(draft, "h1", "knockout")).toBe("h3");
+    expect(zoneHall(draft, "h2", "knockout")).toBe("h3");
+    resetZone(draft, "h3", "knockout");
+    expect(draft.zoneMoves).toEqual({});
+  });
+
+  it("shifts a zone's start and resets it", () => {
+    const draft = threeHalls();
+    shiftZone(draft, "h1", "group", "10:30");
+    expect(draft.zoneMoves).toEqual({ "h1:group": { start: "10:30", hallId: null } });
+    shiftZone(draft, "h1", "group", null);
+    expect(draft.zoneMoves).toEqual({});
   });
 });

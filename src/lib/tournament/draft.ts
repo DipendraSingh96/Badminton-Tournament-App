@@ -365,6 +365,49 @@ export function zoneStart(draft: PlanDraft, key: string): string | null {
   return at >= open && at < close ? start : null;
 }
 
+type ZoneName = "group" | "knockout";
+
+/** The hall a hall's zone is played in: its own, or where it was moved. */
+export function zoneHall(draft: PlanDraft, hallId: string, zone: ZoneName): string {
+  const to = draft.zoneMoves[`${hallId}:${zone}`]?.hallId;
+  return to && draft.frame.halls.some((h) => h.id === to) ? to : hallId;
+}
+
+function tidy(draft: PlanDraft, key: string) {
+  const move = draft.zoneMoves[key];
+  if (move && !move.start && !move.hallId) delete draft.zoneMoves[key];
+}
+
+/** Starts a hall's zone no earlier than `start` ("HH:mm"), or as the estimate when null. */
+export function shiftZone(draft: PlanDraft, hallId: string, zone: ZoneName, start: string | null): void {
+  const key = `${hallId}:${zone}`;
+  draft.zoneMoves[key] = { start, hallId: draft.zoneMoves[key]?.hallId ?? null };
+  tidy(draft, key);
+}
+
+/** Moves the zone shown in one hall, with everything played there, to another hall. */
+export function moveZone(draft: PlanDraft, fromHallId: string, toHallId: string, zone: ZoneName): void {
+  if (fromHallId === toHallId) return;
+  for (const hall of draft.frame.halls) {
+    if (zoneHall(draft, hall.id, zone) !== fromHallId) continue;
+    const key = `${hall.id}:${zone}`;
+    draft.zoneMoves[key] = { start: draft.zoneMoves[key]?.start ?? null, hallId: hall.id === toHallId ? null : toHallId };
+    tidy(draft, key);
+  }
+}
+
+/** Puts the zone shown in a hall back to the estimate: its own start, and any zone moved into it goes home. */
+export function resetZone(draft: PlanDraft, hallId: string, zone: ZoneName): void {
+  for (const hall of draft.frame.halls) {
+    const key = `${hall.id}:${zone}`;
+    const move = draft.zoneMoves[key];
+    if (!move) continue;
+    if (hall.id === hallId) move.start = null;
+    if (move.hallId === hallId) move.hallId = null;
+    tidy(draft, key);
+  }
+}
+
 /** True when anything has been moved by hand on the timeline. */
 export function hasMoves(draft: PlanDraft): boolean {
   return Object.keys(draft.matchMoves).length > 0 || Object.values(draft.zoneMoves).some((m) => m.start || m.hallId);
