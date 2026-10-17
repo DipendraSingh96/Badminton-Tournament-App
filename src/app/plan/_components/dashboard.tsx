@@ -450,7 +450,7 @@ function GroupsPerHallCard({
           return (
             <Row
               key={hall.hallId}
-              label={`${hallNames.get(hall.hallId)} (${Math.round(hall.share * 100)}% of court time)`}
+              label={`${hallNames.get(hall.hallId)} (${Math.round(hall.share * 100)}% of courts)`}
               value={formatMinutes(hall.load)}
               working={[
                 groups,

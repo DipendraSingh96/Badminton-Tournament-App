@@ -109,22 +109,25 @@ function HallSettings({
         </div>
         {others.length > 0 ? (
           <NativeSelect
-            aria-label="Copy settings from another hall"
+            aria-label="Copy everything from another hall"
             value=""
             onChange={(e) => {
               const source = draft.frame.halls[Number(e.target.value)];
               if (!source) return;
+              const name = hallName(source, Number(e.target.value));
+              if (!window.confirm(`Replace this hall's hours, rates and courts with ${name}'s?`)) return;
               editHall((h) => {
                 h.from = source.from;
                 h.to = source.to;
                 h.unitMinutes = source.unitMinutes;
                 h.multipleRates = source.multipleRates;
                 h.bands = source.bands.map((b) => ({ ...b, id: newId() }));
+                h.courts = source.courts.map((c) => ({ ...c, id: newId() }));
               });
             }}
           >
             <NativeSelectOption value="" disabled>
-              Copy settings from another hall
+              Copy everything from another hall
             </NativeSelectOption>
             {others.map(({ hall: other, index }) => (
               <NativeSelectOption key={other.id} value={String(index)}>

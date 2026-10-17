@@ -121,6 +121,8 @@ export interface LocalSegment {
   match: MatchInfo;
   moved: boolean;
   wait?: Wait;
+  /** Runs past its court's hours. */
+  late: boolean;
   /** Kept for the court cards: one detail a segment. */
   details: { from: number; to: number; match: MatchInfo }[];
   matches: number;
@@ -148,6 +150,7 @@ export function localSegments(draft: PlanDraft, schedule: EstimatedSchedule | nu
         match: detail.match,
         moved: detail.moved,
         wait: detail.wait,
+        late: detail.late,
         details: [{ from, to, match: detail.match }],
         matches: 1,
       };
@@ -207,6 +210,8 @@ export interface ZoneRow {
   moved: boolean;
   /** Dragged to start before what it depends on has finished: the earliest it can. */
   earliest: number | null;
+  /** Matches running past their court's hours; the zone then runs until its end. */
+  late: number;
 }
 
 /** Every hall's group and KO zones, in hall order. */
@@ -228,6 +233,7 @@ export function zoneRows(draft: PlanDraft, schedule: EstimatedSchedule | null): 
           window: { from: local(span.from), to: local(span.to) },
           moved: span.moved,
           earliest: span.earliest ? local(span.earliest) : null,
+          late: span.late,
         },
       ];
     }),
@@ -237,10 +243,14 @@ export function zoneRows(draft: PlanDraft, schedule: EstimatedSchedule | null): 
 /** Problems with zones moved by hand, in words, for the summary. */
 export function zoneWarnings(draft: PlanDraft, rows: ZoneRow[]): string[] {
   return rows.flatMap((row) => {
-    if (row.earliest === null) return [];
     const index = draft.frame.halls.findIndex((h) => h.id === row.hallId);
     const name = `${hallName(draft.frame.halls[index]!, index)} ${ZONE_NAMES[row.zone]}`;
-    return [`${name} can't start before ${clock(row.earliest)}`];
+    return [
+      ...(row.earliest !== null ? [`${name} can't start before ${clock(row.earliest)}`] : []),
+      ...(row.late > 0
+        ? [`${name} runs until ${clock(row.window.to)}, past closing (${row.late} ${row.late === 1 ? "match" : "matches"})`]
+        : []),
+    ];
   });
 }
 
@@ -430,6 +440,7 @@ export function Timeline({
       ...(rubber ? [rubber] : []),
       `${courtLabelOf(s.courtId)} · ${clock(s.from)}–${clock(s.to)}`,
       ...(wait ? [wait] : []),
+      ...(s.late ? [`Runs past ${courtLabelOf(s.courtId)}'s hours`] : []),
       ...(s.moved ? ["Moved by hand · double-click to put it back"] : []),
     ];
   }
@@ -607,9 +618,15 @@ export function Timeline({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {schedule && schedule.late > 0 ? (
+          <p className="text-sm text-destructive">
+            {schedule.late} {schedule.late === 1 ? "match runs" : "matches run"} past their court&apos;s hours (outlined in
+            red).
+          </p>
+        ) : null}
         {schedule && schedule.unplaced > 0 ? (
           <p className="text-sm text-destructive">
-            {schedule.unplaced} {schedule.unplaced === 1 ? "match doesn't" : "matches don't"} fit in the day.
+            {schedule.unplaced} {schedule.unplaced === 1 ? "match has" : "matches have"} no court to play on.
           </p>
         ) : null}
         <p aria-live="polite" className="min-h-0 text-sm text-destructive empty:hidden">
@@ -696,7 +713,7 @@ export function Timeline({
                             tabIndex={0}
                             aria-label={`${z.label}, ${clock(z.window.from)}–${clock(z.window.to)}${z.moved ? ", moved" : ""}. Drag along the timeline to leave free time, or onto another hall.`}
                             className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-1.5 text-[10px] font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
-                              z.earliest !== null ? "text-destructive" : ""
+                              z.earliest !== null || z.late > 0 ? "text-destructive ring-1 ring-destructive" : ""
                             } ${dragging && dragging.targetHall !== hall.id ? "opacity-40" : ""}`}
                             style={{ left: pct(from), width: width(from, to) }}
                             onPointerDown={(e) => {
@@ -731,6 +748,19 @@ export function Timeline({
                           </span>
                         );
                       })}
+                      {hallZones.map((z) =>
+                        z.late > 0 && z.earliest === null ? (
+                          <span
+                            key={`${z.key}-late`}
+                            className="pointer-events-none absolute inset-y-0 border-l-2 border-destructive"
+                            style={{ left: pct(z.window.to) }}
+                          >
+                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground">
+                              Runs until {clock(z.window.to)}
+                            </span>
+                          </span>
+                        ) : null,
+                      )}
                       {hallZones.map((z) =>
                         z.earliest !== null ? (
                           <span
@@ -821,7 +851,9 @@ export function Timeline({
                                     tabIndex={0}
                                     role="button"
                                     aria-label={`${courtLabel}, ${clock(s.from)}–${clock(s.to)}: ${cardLines(s).slice(0, 2).join(", ")}${s.moved ? ", moved" : ""}. Alt and the arrow keys move it.`}
-                                    className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-sm border-r border-card ring-1 ring-foreground/25 outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
+                                    className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-sm border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
+                                      s.late ? "ring-2 ring-destructive" : "ring-1 ring-foreground/25"
+                                    } ${
                                       pillDrag?.segment.id === s.id ? "opacity-30" : ""
                                     }`}
                                     style={{ left: pct(s.from), width: width(s.from, s.to) }}

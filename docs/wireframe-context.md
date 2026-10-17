@@ -236,6 +236,10 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Moved matches and zones carry a dot; double-click or H puts one back, and "Reset all moves" clears them all. Alt with the arrow keys moves a focused match (earlier/later, neighbouring court) or zone (Alt+up/down to another hall; arrows shift in time).
 - In the engine, placement is two passes: assignment (as before, then moves by hand), then timing in each court's order with feeders, zone starts and side clashes. With no moves the times are as before.
 
+### Stable estimate and copying halls (17 Oct)
+- Changing a hall's or court's hours never moves or removes matches. Groups are shared between halls by each hall's number of courts (not court time), and closing times play no part in assigning courts. A match that runs past its court's hours stays where it is with a red outline; its zone turns red with "Runs until …", the timeline says how many run past closing, and the summary names the zone.
+- "Copy everything from another hall" (after a confirmation) copies the hours, unit time, rates and courts (each court's hours and umpires).
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
