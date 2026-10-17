@@ -47,7 +47,16 @@ export interface Segment {
   categoryId: string;
   /** One match a segment. */
   matches: number;
-  details: { from: string; to: string; match: MatchInfo; id: string; moved: boolean; wait?: Wait }[];
+  details: {
+    from: string;
+    to: string;
+    match: MatchInfo;
+    id: string;
+    moved: boolean;
+    wait?: Wait;
+    /** Runs past its court's hours. */
+    late: boolean;
+  }[];
 }
 
 export interface CourtSchedule {
@@ -67,6 +76,8 @@ export interface WindowSpan {
   moved: boolean;
   /** Dragged to start before what it depends on has finished: when that is. */
   earliest?: string;
+  /** Matches in the zone that run past their court's hours. */
+  late: number;
 }
 
 export interface EstimatedSchedule {
@@ -79,8 +90,10 @@ export interface EstimatedSchedule {
   finish: string | null;
   /** The same, every match at worst-case length. */
   worstFinish: string | null;
-  /** Matches that fit on no court in the playing time. */
+  /** Matches with no court they may use (e.g. a hall with no courts). */
   unplaced: number;
+  /** Matches that run past their court's hours: still placed, flagged. */
+  late: number;
 }
 
 /** The zone a stage is played in: the group stage, or the knockout with its bronze match and final. */
@@ -116,6 +129,7 @@ interface Timed {
   to: number;
   moved: boolean;
   wait?: Wait;
+  late: boolean;
 }
 
 const MS_PER_MINUTE = 60_000;
@@ -278,6 +292,8 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   const steps = plan(inputs, analysis, dayStart);
 
   // 1. Assignment: play order onto the first court that can start each match.
+  // Closing times play no part, so changing a hall's or court's hours never
+  // moves matches between courts; a match that runs past closing is flagged.
   const freeAt = courts.map((c) => c.start);
   const queues: Planned[][] = courts.map(() => []);
   const ready = new Map<string, number>();
@@ -293,7 +309,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
       courts.forEach((court, i) => {
         if (!match.halls.has(court.hallId)) return;
         const start = Math.max(freeAt[i]!, release, court.start, zoneStart(i, match.info.stage));
-        if (start + minutes <= court.end && start < bestStart) {
+        if (start < bestStart) {
           best = i;
           bestStart = start;
         }
@@ -389,18 +405,21 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     const match = queues[i]![head[i]!]!;
     head[i]! += 1;
     const minutes = slot.get(match.info.stage)!;
-    if (best.start + minutes > courts[i]!.end) {
-      // No room left on this court today.
-      unplaced += 1;
-      known.delete(match.id);
-      continue;
-    }
     courtFree[i] = best.start + minutes;
     ends.set(match.id, best.start + minutes);
     for (const side of match.sides) {
       busy.set(side, [...(busy.get(side) ?? []), { tie: match.tie, from: best.start, to: best.start + minutes, court: i }]);
     }
-    timed.push({ planned: match, court: i, from: best.start, to: best.start + minutes, moved: moved.has(match.id), wait: best.wait });
+    timed.push({
+      planned: match,
+      court: i,
+      from: best.start,
+      to: best.start + minutes,
+      moved: moved.has(match.id),
+      wait: best.wait,
+      // Runs past its court's hours (or the playing time): still shown, flagged.
+      late: best.start + minutes > courts[i]!.end,
+    });
   }
 
   return { timed, unplaced, courts };
@@ -430,6 +449,7 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
           match: t.planned.info,
           id: t.planned.id,
           moved: t.moved,
+          late: t.late,
           ...(t.wait ? { wait: t.wait } : {}),
         },
       ],
@@ -451,10 +471,11 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
   const movedInto = new Set(
     (inputs.zoneMoves ?? []).filter((m) => m.hallId).map((m) => zoneKey(m.hallId!, m.key.endsWith(":group") ? "group" : "knockout")),
   );
-  const spans = new Map<WindowKey, { from: number; to: number; categories: Set<string>; dependsOn: number }>();
+  const spans = new Map<WindowKey, { from: number; to: number; categories: Set<string>; dependsOn: number; late: number }>();
   for (const t of typical.timed) {
     const key = zoneKey(courts[t.court]!.hallId, zoneOf(t.planned.info.stage));
-    const span = spans.get(key) ?? { from: Infinity, to: -Infinity, categories: new Set<string>(), dependsOn: -Infinity };
+    const span = spans.get(key) ?? { from: Infinity, to: -Infinity, categories: new Set<string>(), dependsOn: -Infinity, late: 0 };
+    if (t.late) span.late += 1;
     span.from = Math.min(span.from, t.from);
     span.to = Math.max(span.to, t.to);
     span.categories.add(t.planned.info.categoryId);
@@ -476,6 +497,7 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
       to: iso(span.to),
       categoryIds: [...span.categories].sort((a, b) => order.get(a)! - order.get(b)!),
       moved: Boolean(move?.start) || movedInto.has(key),
+      late: span.late,
     };
     if (move?.start && span.dependsOn > Date.parse(move.start)) window.earliest = iso(span.dependsOn);
     windows[key] = window;
@@ -489,5 +511,6 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
     finish: lastEnd(typical.timed),
     worstFinish: lastEnd(worst.timed),
     unplaced: typical.unplaced,
+    late: typical.timed.filter((t) => t.late).length,
   };
 }

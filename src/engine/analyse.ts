@@ -2,7 +2,6 @@ import { capacity, type Capacity } from "./capacity";
 import { matchMinutes, typicalGames, type MatchMinutes } from "./duration";
 import { eventsPerFixture, rubbersPerFixture } from "./entry";
 import { finance, type FinanceResult } from "./finance";
-import { available } from "./capacity";
 import { distributeGroups, type HallShare } from "./distribution";
 import { categoryFormat, groupMatchCount, type CategoryFormat, type FormatError } from "./format";
 import { totalUmpires } from "./venue";
@@ -153,15 +152,12 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       courtMinutes: groupMatchCount(size) * c.rubbersPerFixture * groupSlot,
     })),
   );
-  const hallMinutes = new Map<string, number>();
-  for (const court of available(inputs.frame).courts) {
-    hallMinutes.set(court.hallId, (hallMinutes.get(court.hallId) ?? 0) + court.minutes);
-  }
+  // Shared by each hall's number of courts, so changing hours never moves a group between halls.
   const groupsPerHall =
     inputs.frame.halls.length > 1 && groups.length > 0
       ? distributeGroups(
           groups,
-          inputs.frame.halls.map((h) => ({ hallId: h.id, courtMinutes: hallMinutes.get(h.id) ?? 0 })),
+          inputs.frame.halls.map((h) => ({ hallId: h.id, courtMinutes: h.courts.length })),
         )
       : [];
 

@@ -149,12 +149,31 @@ describe("estimateSchedule", () => {
     expect(schedule.worstFinish! >= schedule.finish!).toBe(true);
   });
 
-  it("reports matches that fit on no court", () => {
+  it("keeps matches that run past closing on their court, flagged", () => {
     const plan = tournament();
     plan.frame.halls = [hall("h1", "09:00", "10:00", { courtCount: 2 })];
     const { analysis, schedule } = estimate(plan);
-    // 2 courts × 4 slots = 8 matches placed of 24 + 7 + 1 + 1.
-    expect(schedule.unplaced).toBe(analysis.totalMatches - 8);
+    // 2 courts × 4 slots fit before 10:00; the other matches run on, flagged.
+    const all = schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    expect(all).toHaveLength(analysis.totalMatches);
+    expect(schedule.unplaced).toBe(0);
+    expect(schedule.late).toBe(analysis.totalMatches - 8);
+    expect(all.filter((d) => d.late).every((d) => d.to > at("10:00"))).toBe(true);
+    expect(schedule.windows["h1:group"]!.late).toBeGreaterThan(0);
+  });
+
+  it("never moves a match when a hall's hours change", () => {
+    const plan = tournament();
+    plan.frame.halls = [
+      hall("h1", "09:00", "17:00", { courtCount: 4 }),
+      hall("h2", "09:00", "14:30", { courtCount: 4 }),
+    ];
+    const where = (schedule: ReturnType<typeof estimateSchedule>) =>
+      new Map(schedule.courts.flatMap((c) => c.segments.map((s) => [s.details[0]!.id, c.courtId])));
+    const before = where(estimate(plan).schedule);
+    plan.frame.halls[1] = hall("h2", "09:00", "11:00", { courtCount: 4 });
+    const after = where(estimate(plan).schedule);
+    expect(after).toEqual(before);
   });
 
   it("carries each match's fixture: group, wave and draw slots", () => {
@@ -193,8 +212,8 @@ describe("estimateSchedule", () => {
 
   it("shows each hall's group and KO zones, from where their matches are played", () => {
     const { schedule } = estimate(tournament());
-    expect(schedule.windows["h1:group"]).toEqual({ from: at("09:00"), to: at("10:30"), categoryIds: ["md"], moved: false });
-    expect(schedule.windows["h1:knockout"]).toEqual({ from: at("10:30"), to: at("11:15"), categoryIds: ["md"], moved: false });
+    expect(schedule.windows["h1:group"]).toEqual({ from: at("09:00"), to: at("10:30"), categoryIds: ["md"], moved: false, late: 0 });
+    expect(schedule.windows["h1:knockout"]).toEqual({ from: at("10:30"), to: at("11:15"), categoryIds: ["md"], moved: false, late: 0 });
   });
 
   it("starts a zone dragged later from there, leaving free time, and what follows waits", () => {
