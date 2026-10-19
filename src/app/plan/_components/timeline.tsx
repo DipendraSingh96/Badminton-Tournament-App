@@ -335,6 +335,10 @@ export function Timeline({
   const [pillDrag, setPillDrag] = useState<PillDrag | null>(null);
   const [zoneDrag, setZoneDrag] = useState<ZoneDrag | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // One tab stop per court's matches: the one last focused there, or its first.
+  const [activePill, setActivePill] = useState<Record<string, string>>({});
+  /** A match moved from the keyboard keeps the focus, even on another court. */
+  const refocus = useRef<string | null>(null);
 
   // Playback: move the playhead forward until the end of the day.
   const position = useRef(playhead);
@@ -464,6 +468,11 @@ export function Timeline({
   const hallIndex = new Map(draft.frame.halls.map((h, i) => [h.id, i]));
   const hallLabel = (id: string) => hallName(draft.frame.halls[hallIndex.get(id)!]!, hallIndex.get(id)!);
   const courtHall = new Map(draft.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
+  const courtOrder = draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id));
+  const byCourt = new Map<string, LocalSegment[]>();
+  for (const s of [...segments].sort((a, b) => a.from - b.from)) {
+    byCourt.set(s.courtId, [...(byCourt.get(s.courtId) ?? []), s]);
+  }
   const courtLabelOf = (courtId: string) => {
     const h = hallIndex.get(courtHall.get(courtId) ?? "") ?? 0;
     const c = draft.frame.halls[h]?.courts.findIndex((x) => x.id === courtId) ?? 0;
@@ -570,6 +579,25 @@ export function Timeline({
     ];
   }
 
+  /** What a screen reader hears on a match: where and when, who plays, the rubber, and why it waits. */
+  function pillLabel(s: LocalSegment, courtLabel: string, index: number, count: number): string {
+    const { where, sides, rubber } = matchText(draft, s.match);
+    const wait = waitText(s.wait);
+    return [
+      `${courtLabel}, ${clock(s.from)}–${clock(s.to)}`,
+      `${categoryName(draft, s.match.categoryId)} · ${where}`,
+      sides,
+      rubber,
+      wait,
+      s.late ? `runs past ${courtLabel}'s hours` : null,
+      s.moved ? "moved by hand" : null,
+      `match ${index + 1} of ${count} on this court`,
+    ]
+      .filter(Boolean)
+      .join(", ")
+      .concat(". Arrow keys go between matches; Alt and the arrow keys move it.");
+  }
+
   // ----- Matches: drag onto a court of the same hall, inside its stage's zone.
 
   /** The zone a match may be dropped in, for a hall. */
@@ -617,13 +645,43 @@ export function Timeline({
     update((d) => void delete d.matchMoves[segment.id]);
   }
 
+  function focusPill(id: string) {
+    document.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(id)}"]`)?.focus();
+  }
+
+  /** Arrow keys go between matches: along a court, or to the nearest in time on the court above or below. */
+  function pillNavigate(event: KeyboardEvent<HTMLElement>, segment: LocalSegment) {
+    const own = byCourt.get(segment.courtId) ?? [];
+    const at = own.findIndex((s) => s.id === segment.id);
+    let next: LocalSegment | undefined;
+    if (event.key === "ArrowLeft") next = own[at - 1];
+    if (event.key === "ArrowRight") next = own[at + 1];
+    if (event.key === "Home") next = own[0];
+    if (event.key === "End") next = own.at(-1);
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      const step = event.key === "ArrowUp" ? -1 : 1;
+      for (let c = courtOrder.indexOf(segment.courtId) + step; c >= 0 && c < courtOrder.length; c += step) {
+        const there = byCourt.get(courtOrder[c]!) ?? [];
+        if (there.length === 0) continue;
+        next = there.reduce((a, b) => (Math.abs(b.from - segment.from) < Math.abs(a.from - segment.from) ? b : a));
+        break;
+      }
+    }
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (next) focusPill(next.id);
+  }
+
   function pillKeys(event: KeyboardEvent<HTMLElement>, segment: LocalSegment) {
     if ((event.key === "h" || event.key === "H") && segment.moved) {
       event.preventDefault();
       resetMatch(segment);
       return;
     }
-    if (!event.altKey) return;
+    if (!event.altKey) {
+      pillNavigate(event, segment);
+      return;
+    }
     const own = segments.filter((s) => s.courtId === segment.courtId).sort((a, b) => a.from - b.from);
     const at = own.findIndex((s) => s.id === segment.id);
     const hallId = courtHall.get(segment.courtId)!;
@@ -641,9 +699,17 @@ export function Timeline({
     }
     if (target) {
       event.preventDefault();
+      refocus.current = segment.id;
       moveMatch(segment, target);
     }
   }
+
+  // After a keyboard move the match may be drawn on another court: give it the focus back.
+  useEffect(() => {
+    const id = refocus.current;
+    refocus.current = null;
+    if (id) focusPill(id);
+  }, [segments]);
 
   // ----- Zones: drag along the timeline (free time) or onto another hall's Stages row.
 
@@ -1007,14 +1073,17 @@ export function Timeline({
                                   style={{ left: pct(z.window.from), width: width(z.window.from, z.window.to) }}
                                 />
                               ))}
-                              {segments
-                                .filter((s) => s.courtId === court.id)
-                                .map((s) => (
+                              {(byCourt.get(court.id) ?? []).map((s, i, own) => (
                                   <span
                                     key={s.id}
-                                    tabIndex={0}
+                                    data-segment-id={s.id}
+                                    tabIndex={
+                                      s.id === (own.some((x) => x.id === activePill[court.id]) ? activePill[court.id] : own[0]!.id)
+                                        ? 0
+                                        : -1
+                                    }
                                     role="button"
-                                    aria-label={`${courtLabel}, ${clock(s.from)}–${clock(s.to)}: ${cardLines(s).slice(0, 2).join(", ")}${s.moved ? ", moved" : ""}. Alt and the arrow keys move it.`}
+                                    aria-label={pillLabel(s, courtLabel, i, own.length)}
                                     className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-sm border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
                                       s.late ? "ring-2 ring-destructive" : "ring-1 ring-foreground/25"
                                     } ${
@@ -1056,6 +1125,9 @@ export function Timeline({
                                     onPointerCancel={() => setPillDrag(null)}
                                     onPointerLeave={() => setHovered(null)}
                                     onFocus={(e) => {
+                                      setActivePill((active) =>
+                                        active[court.id] === s.id ? active : { ...active, [court.id]: s.id },
+                                      );
                                       const box = e.currentTarget.getBoundingClientRect();
                                       setHovered({ x: box.left, y: box.bottom, lines: cardLines(s) });
                                     }}
