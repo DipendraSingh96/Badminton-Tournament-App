@@ -220,14 +220,14 @@ export function TimeWindowTrack({
       {background}
       {hoverGuide && !window && hover !== null ? (
         <span className="pointer-events-none absolute inset-y-0 z-20 w-px bg-foreground" style={{ left: pct(hover) }}>
-          <span className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded-sm bg-foreground px-1 text-[10px] leading-4 text-background tabular-nums">
+          <span className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded-sm bg-foreground px-1 text-xs leading-4 text-background tabular-nums">
             {clock(hover)}
           </span>
         </span>
       ) : null}
       {!window ? (
         onDraw ? (
-          <span className="pointer-events-none absolute inset-0 flex cursor-crosshair items-center justify-center rounded-sm border border-dashed border-foreground/25 text-[11px] text-muted-foreground">
+          <span className="pointer-events-none absolute inset-0 flex cursor-crosshair items-center justify-center rounded-sm border border-dashed border-foreground/25 text-xs text-muted-foreground">
             {emptyHint ?? "Drag to set hours"}
           </span>
         ) : null
@@ -276,7 +276,7 @@ export function TimeWindowTrack({
           ))}
           <span
             className={cn(
-              "pointer-events-none absolute -top-4 left-0 z-20 rounded-sm bg-foreground px-1 text-[10px] leading-4 whitespace-nowrap text-background tabular-nums",
+              "pointer-events-none absolute -top-4 left-0 z-20 rounded-sm bg-foreground px-1 text-xs leading-4 whitespace-nowrap text-background tabular-nums",
               active ? "block" : "hidden group-focus-within/window:block",
             )}
           >

@@ -65,6 +65,14 @@ export const STAGE_COLOURS: Record<Stage, string> = {
   final: "bg-chart-1",
 };
 
+type Tone = "fits" | "tight" | "bad";
+/** The worst-case line and its label, by fit status: neutral, warning or destructive. */
+const WORST_TONES: Record<Tone, { line: string; label: string }> = {
+  fits: { line: "border-foreground/70", label: "bg-foreground text-background" },
+  tight: { line: "border-warning", label: "bg-warning text-warning-foreground" },
+  bad: { line: "border-destructive", label: "bg-destructive text-destructive-foreground" },
+};
+
 /** Zone shading across a hall's courts: the group stage and the KO stage look different. */
 const ZONE_SHADING: Record<Zone, string> = { group: "zone-group", knockout: "zone-ko" };
 const ZONE_LABELS: Record<Zone, string> = { group: "Group stage", knockout: "KO stage" };
@@ -465,6 +473,11 @@ export function Timeline({
   const now = clampDay(playhead ?? start);
   const finish = local(schedule?.finish ?? null);
   const worstFinish = local(schedule?.worstFinish ?? null);
+  // The worst case takes the plan's fit status (running past closing in the worst
+  // case is what "tight" means), and is red when matches run past closing as estimated.
+  const pastClosing = (schedule?.late ?? 0) > 0;
+  const worstTone: Tone =
+    fit === "doesNotFit" || pastClosing ? "bad" : fit === "fitsTypicalOnly" ? "tight" : "fits";
   const hallIndex = new Map(draft.frame.halls.map((h, i) => [h.id, i]));
   const hallLabel = (id: string) => hallName(draft.frame.halls[hallIndex.get(id)!]!, hallIndex.get(id)!);
   const courtHall = new Map(draft.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
@@ -765,12 +778,9 @@ export function Timeline({
         <h2 className="flex items-center gap-1.5 text-sm font-medium">
             Timeline
             <InfoTip about="the timeline">
-              Drag a hall&apos;s window to set its hours, the lines between rate bands to move them, and a court&apos;s
-              bar to narrow it. Each hall&apos;s Stages row shows where its group and KO stages fall: drag a zone along
-              the timeline to leave free time, or onto another hall&apos;s Stages row to move that stage there. Drag a
-              match onto any court of its hall, inside its stage, to change the order; the rest shift along, knockout
-              order holds and nobody plays twice at once. Alt and the arrow keys move a focused match or zone.
-              Double-click (or H) puts a moved match or zone back. Hover a match to see who plays where.{" "}
+              Each hall has its hours and rate bands, a Stages row showing where its group and KO stages fall, and a
+              row per court. Drag a hall&apos;s window to set its hours, the lines between bands to move them, and a
+              court&apos;s bar to narrow it. Moved matches keep knockout order, and nobody plays twice at once.{" "}
               {schedule
                 ? "Times are an estimate at typical length; rest isn't modelled yet."
                 : "Complete the plan to see the estimated schedule."}
@@ -899,7 +909,7 @@ export function Timeline({
               {ticks.map((m) => (
                 <span
                   key={m}
-                  className="absolute bottom-1 -translate-x-1/2 text-[11px] text-muted-foreground tabular-nums"
+                  className="absolute bottom-1 -translate-x-1/2 text-xs text-muted-foreground tabular-nums"
                   style={{ left: pct(m) }}
                 >
                   {clock(m)}
@@ -942,7 +952,7 @@ export function Timeline({
                             role="button"
                             tabIndex={0}
                             aria-label={`${z.label}, ${clock(z.window.from)}–${clock(z.window.to)}${z.moved ? ", moved" : ""}. Drag along the timeline to leave free time, or onto another hall.`}
-                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-1.5 text-[10px] font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
+                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-1.5 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
                               z.earliest !== null || z.late > 0 ? "text-destructive ring-1 ring-destructive" : ""
                             } ${dragging && dragging.targetHall !== hall.id ? "opacity-40" : ""}`}
                             style={{ left: pct(from), width: width(from, to) }}
@@ -985,7 +995,7 @@ export function Timeline({
                             className="pointer-events-none absolute inset-y-0 border-l-2 border-destructive"
                             style={{ left: pct(z.window.to) }}
                           >
-                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground">
+                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
                               Runs until {clock(z.window.to)}
                             </span>
                           </span>
@@ -998,7 +1008,7 @@ export function Timeline({
                             className="pointer-events-none absolute inset-y-0 border-l-2 border-destructive"
                             style={{ left: pct(z.earliest) }}
                           >
-                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground">
+                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
                               Can&apos;t start before {clock(z.earliest)}
                             </span>
                           </span>
@@ -1195,11 +1205,11 @@ export function Timeline({
             ) : null}
             {worstFinish !== null ? (
               <span
-                className="pointer-events-none absolute top-7 bottom-0 z-20 border-l-2 border-destructive"
+                className={`pointer-events-none absolute top-7 bottom-0 z-20 border-l-2 border-dashed ${WORST_TONES[worstTone].line}`}
                 style={{ left: pct(worstFinish) }}
               >
                 <span
-                  className={`absolute top-0 rounded-sm bg-destructive px-1 text-[10px] leading-4 whitespace-nowrap text-destructive-foreground ${
+                  className={`absolute top-0 rounded-sm px-1 text-xs leading-4 whitespace-nowrap ${WORST_TONES[worstTone].label} ${
                     (worstFinish - range.start) / span > 0.75 ? "right-1" : "left-1"
                   }`}
                 >
@@ -1247,7 +1257,7 @@ export function Timeline({
           </span>
           {worstFinish !== null ? (
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-0.5 bg-destructive" aria-hidden="true" />
+              <span className={`h-2.5 border-l-2 border-dashed ${WORST_TONES[worstTone].line}`} aria-hidden="true" />
               Worst-case finish
             </span>
           ) : null}
@@ -1255,6 +1265,12 @@ export function Timeline({
             <span className="flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />
               Moved by hand
+            </span>
+          ) : null}
+          {segments.length > 0 ? (
+            <span className="basis-full">
+              Drag a match or zone to move it · Arrow keys go between matches · Alt and the arrows move the focused one
+              · H or double-click puts it back · Ctrl or Cmd and scroll to zoom
             </span>
           ) : null}
         </div>

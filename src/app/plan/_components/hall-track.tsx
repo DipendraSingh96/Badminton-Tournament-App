@@ -105,7 +105,7 @@ export function HallTrack({
             <span
               key={band.id}
               className={`absolute inset-y-0 flex items-center overflow-hidden border-l border-foreground/20 px-1.5 ${
-                detailed ? "text-xs font-medium" : "text-[11px] text-muted-foreground"
+                detailed ? "text-xs font-medium" : "text-xs text-muted-foreground"
               } ${i % 2 === 0 ? "bg-foreground/[0.05]" : "bg-foreground/[0.11]"}`}
               style={{ left: pct(from), width: `calc(${pct(to)} - ${pct(from)})` }}
               title={`${bandName(band, index)}: ${band.from}–${band.to}${band.rate !== null ? `, ${formatMoney(band.rate)} ${per}` : ""}`}

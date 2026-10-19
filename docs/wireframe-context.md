@@ -246,7 +246,7 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - It opens on the whole day; zoom out/in, "Fit play" (first match to the worst case or buffer) and "Whole day"; Ctrl or Cmd with the scroll wheel zooms at the pointer. The axis and row labels stay in place while scrolling, and playback scrolls to follow the playhead.
 - Keyboard: one tab stop per court's matches; arrow keys go between matches and courts, Home and End to the first and last; Alt and the arrows still move a match, and focus follows it. Screen-reader labels include the rubber.
 - A short key under the legend says how to move things; the help tip is shorter. Timeline text is at least 12px.
-- The worst-case line takes the fit status's colour: neutral when it fits, warning when tight, red when it doesn't fit or runs past the last court's closing. (Earlier it was always red.)
+- The worst-case line takes the fit status's colour: neutral when it fits, warning when tight, red when it doesn't fit or matches run past their court's hours. (Earlier it was always red.)
 
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
