@@ -240,6 +240,14 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Changing a hall's or court's hours never moves or removes matches. Groups are shared between halls by each hall's number of courts (not court time), and closing times play no part in assigning courts. A match that runs past its court's hours stays where it is with a red outline; its zone turns red with "Runs until …", the timeline says how many run past closing, and the summary names the zone.
 - "Copy everything from another hall" (after a confirmation) copies the hours, unit time, rates and courts (each court's hours and umpires).
 
+### Timeline usability (19 Oct)
+- From the first design critique (impeccable, 25/40; snapshot in `.impeccable/critique/`). Scope agreed with the user: UX and function only, no visual direction until one is supplied.
+- The timeline is docked along the bottom of the working area, with a draggable, remembered height, so the venue cards and the playhead are visible together.
+- It opens on the whole day; zoom out/in, "Fit play" (first match to the worst case or buffer) and "Whole day"; Ctrl or Cmd with the scroll wheel zooms at the pointer. The axis and row labels stay in place while scrolling, and playback scrolls to follow the playhead.
+- Keyboard: one tab stop per court's matches; arrow keys go between matches and courts, Home and End to the first and last; Alt and the arrows still move a match, and focus follows it. Screen-reader labels include the rubber.
+- A short key under the legend says how to move things; the help tip is shorter. Timeline text is at least 12px.
+- The worst-case line takes the fit status's colour: neutral when it fits, warning when tight, red when it doesn't fit or runs past the last court's closing. (Earlier it was always red.)
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

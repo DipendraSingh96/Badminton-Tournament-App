@@ -14,7 +14,7 @@ Plan mode is desktop only. Only Live mode needs a phone layout.
 
 ## Screen layout (three areas)
 1. **Left panel:** list of previous tournaments, and **New tournament**. A new tournament can be started by duplicating a previous one. A duplicate copies everything (including expected entries) except name, date and results.
-2. **Middle: working area.** Tournament name, date and time zone across the top. Below them, the venue canvas (halls, courts) and the timeline.
+2. **Middle: working area.** Tournament name, date and time zone across the top. Below them, the venue canvas (halls, courts). The timeline is docked along the bottom of the working area, with a draggable height that is remembered, so the venue and the timeline are visible together.
 3. **Right: workbench.** A sticky summary on top, then tabs. Panel width is variable (to be settled in the UI).
 
 ## Middle: venue canvas
@@ -29,7 +29,7 @@ Plan mode is desktop only. Only Live mode needs a phone layout.
   - Umpires on the court
   - Option to copy these from the previous court
 - **Court hire** is calculated per court: its available time within each rate band, multiplied by that band's rate. Only booked time is charged.
-- **Timeline.** One overall timeline with a lane per hall, with rate bands shown as shading. Once the schedule is run, it shows stages and match waves across the halls. Used to see how groups and stages are distributed.
+- **Timeline.** One overall timeline with a lane per hall, with rate bands shown as shading. Once the schedule is run, it shows stages and match waves across the halls. Used to see how groups and stages are distributed. It opens showing the whole day and can be zoomed (buttons, or Ctrl and the scroll wheel) and scrolled sideways; "Fit play" frames the matches.
 
 ## Right: workbench
 ### Sticky summary (always visible)
