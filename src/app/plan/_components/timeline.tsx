@@ -1,9 +1,18 @@
 "use client";
 
-import { ArrowCounterClockwiseIcon, PauseIcon, PlayIcon } from "@phosphor-icons/react";
+import {
+  ArrowCounterClockwiseIcon,
+  ArrowsInLineHorizontalIcon,
+  ArrowsOutLineHorizontalIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
+  PauseIcon,
+  PlayIcon,
+} from "@phosphor-icons/react";
 import {
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -69,6 +78,13 @@ const KEY_STEP = 5;
 const TICK_LABEL_PX = 44;
 /** How long a refused move's note stays up. */
 const NOTICE_MS = 2500;
+/** Zoom: each step, and the closest view (the drawing grid this many pixels wide). Viewing values. */
+const ZOOM_STEP = 1.5;
+const GRID_MAX_PX = 48;
+/** Room either side of the matches when fitting the view to them. */
+const FIT_MARGIN = 15;
+/** Tick spacings to choose from, in minutes. */
+const TICK_STEPS = [15, 30, 60, 120, 180, 240];
 
 export function roundLabel(round: Round): string | null {
   if (!round) return null;
@@ -358,15 +374,86 @@ export function Timeline({
     return () => observer.disconnect();
   }, []);
   const ticks = useMemo(() => {
-    const hours = Math.max(1, (range.end - range.start) / 60);
-    const every = axisWidth > 0 ? Math.max(1, Math.ceil(TICK_LABEL_PX / (axisWidth / hours))) : 1;
+    const perMinute = axisWidth / Math.max(1, range.end - range.start);
+    const every =
+      axisWidth > 0 ? (TICK_STEPS.find((m) => m * perMinute >= TICK_LABEL_PX) ?? TICK_STEPS.at(-1)! * 2) : 60;
     const out: number[] = [];
-    for (let m = Math.ceil(range.start / 60) * 60; m <= range.end; m += 60 * every) out.push(m);
+    for (let m = Math.ceil(range.start / every) * every; m <= range.end; m += every) out.push(m);
     return out;
   }, [range.start, range.end, axisWidth]);
 
-  const tracksWidth: number | null = null;
   const span = Math.max(1, range.end - range.start);
+
+  // Zoom: the tracks are this many times the visible width, scrolled sideways.
+  const labels = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [viewWidth, setViewWidth] = useState(0);
+  useEffect(() => {
+    const element = scroller.current;
+    const side = labels.current;
+    if (!element || !side) return;
+    const measure = () => setViewWidth(roomFor(element, side));
+    const observer = new ResizeObserver(measure);
+    // The labels' width, and a scrollbar coming or going, change the room too.
+    observer.observe(element);
+    observer.observe(side);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  /** The scroller less the labels column and the right padding. */
+  function roomFor(element: HTMLElement, side: HTMLElement): number {
+    return Math.max(0, element.clientWidth - side.offsetWidth - 16);
+  }
+  const maxZoom = viewWidth > 0 ? Math.max(1, (GRID_MAX_PX / GRID_MINUTES) * (span / viewWidth)) : 1;
+  const tracksWidth = zoom > 1 && viewWidth > 0 ? Math.round(viewWidth * zoom) : null;
+  /** After a zoom, keep this minute at this point on screen. */
+  const anchor = useRef<{ minute: number; x: number } | null>(null);
+
+  /** Where the visible tracks start on screen, past the labels. */
+  const viewLeft = () => labels.current?.getBoundingClientRect().right ?? 0;
+
+  function zoomTo(next: number, at?: { minute: number; x: number }) {
+    // Measured now: the room can change without the scroller resizing (a scrollbar appearing).
+    const room = scroller.current && labels.current ? roomFor(scroller.current, labels.current) : viewWidth;
+    setViewWidth(room);
+    const box = track.current?.getBoundingClientRect();
+    const clamped = Math.min(Math.max(next, 1), maxZoom);
+    if (box && box.width > 0) {
+      const x = at?.x ?? viewLeft() + room / 2;
+      anchor.current = at ?? { minute: range.start + ((x - box.left) / box.width) * span, x };
+    }
+    setZoom(clamped);
+  }
+
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    const box = track.current?.getBoundingClientRect();
+    const at = anchor.current;
+    anchor.current = null;
+    if (!element || !box || !at) return;
+    const x = box.left + ((at.minute - range.start) / span) * box.width;
+    element.scrollLeft += x - at.x;
+  }, [zoom, tracksWidth, range.start, span]);
+
+  // Ctrl or Cmd with the wheel zooms at the pointer; the page itself mustn't zoom.
+  const wheelZoom = useRef<(event: WheelEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    wheelZoom.current = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const box = track.current?.getBoundingClientRect();
+      if (!box || box.width === 0) return;
+      const minute = range.start + ((event.clientX - box.left) / box.width) * span;
+      zoomTo(zoom * (event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP), { minute, x: event.clientX });
+    };
+  });
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const listener = (event: WheelEvent) => wheelZoom.current(event);
+    element.addEventListener("wheel", listener, { passive: false });
+    return () => element.removeEventListener("wheel", listener);
+  }, []);
   const clampView = (m: number) => Math.min(Math.max(m, range.start), range.end);
   const clampDay = (m: number) => Math.min(Math.max(m, start), end);
   const pct = (m: number) => `${((clampView(m) - range.start) / span) * 100}%`;
@@ -400,6 +487,39 @@ export function Timeline({
     .filter((h) => minutesOfDay(h.to) !== null)
     .sort((a, b) => minutesOfDay(b.to)! - minutesOfDay(a.to)!)[0];
   const bufferUnit = lastHall?.unitMinutes ?? null;
+
+  /** Frame the matches: the first start to the worst case or the buffer's end. */
+  function fitPlay() {
+    if (segments.length === 0 || viewWidth === 0) return;
+    if (scroller.current && labels.current) setViewWidth(roomFor(scroller.current, labels.current));
+    const from = Math.min(...segments.map((s) => s.from)) - FIT_MARGIN;
+    const to =
+      Math.max(...segments.map((s) => s.to), worstFinish ?? 0, bufferWindow?.to ?? 0) + FIT_MARGIN;
+    const next = Math.min(Math.max(span / Math.max(1, to - from), 1), maxZoom);
+    // Once the tracks have their new width, the first match's start sits at the left edge.
+    const at = { minute: Math.max(from, range.start), x: viewLeft() };
+    if (next !== zoom) {
+      anchor.current = at;
+      setZoom(next);
+      return;
+    }
+    const box = track.current?.getBoundingClientRect();
+    if (box && scroller.current) scroller.current.scrollLeft += box.left + ((at.minute - range.start) / span) * box.width - at.x;
+  }
+
+  function wholeDay() {
+    anchor.current = null;
+    setZoom(1);
+    if (scroller.current) scroller.current.scrollLeft = 0;
+  }
+
+  // Playing while zoomed in: keep the playhead in view.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!playing || zoom === 1 || !element || playhead === null) return;
+    const x = ((Math.min(Math.max(playhead, range.start), range.end) - range.start) / span) * viewWidth * zoom;
+    if (x < element.scrollLeft || x > element.scrollLeft + viewWidth) element.scrollLeft = Math.max(0, x - viewWidth * 0.2);
+  }, [playing, playhead, zoom, viewWidth, range.start, range.end, span]);
 
   function seekFrom(event: PointerEvent<HTMLElement>) {
     const box = track.current?.getBoundingClientRect();
@@ -605,6 +725,34 @@ export function Timeline({
                 <ArrowCounterClockwiseIcon /> Reset all moves
               </Button>
             ) : null}
+            <span className="flex items-center" role="group" aria-label="Zoom">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Zoom out"
+                title="Zoom out"
+                disabled={zoom <= 1}
+                onClick={() => zoomTo(zoom / ZOOM_STEP)}
+              >
+                <MagnifyingGlassMinusIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Zoom in"
+                title="Zoom in"
+                disabled={!hasHours || zoom >= maxZoom}
+                onClick={() => zoomTo(zoom * ZOOM_STEP)}
+              >
+                <MagnifyingGlassPlusIcon />
+              </Button>
+              <Button variant="ghost" size="sm" disabled={segments.length === 0} onClick={fitPlay}>
+                <ArrowsInLineHorizontalIcon /> Fit play
+              </Button>
+              <Button variant="ghost" size="sm" disabled={zoom === 1} onClick={wholeDay}>
+                <ArrowsOutLineHorizontalIcon /> Whole day
+              </Button>
+            </span>
             <span className="font-mono text-sm tabular-nums">{clock(Math.round(now))}</span>
             <Button
               variant="outline"
@@ -638,10 +786,10 @@ export function Timeline({
         {notice}
       </p>
 
-      <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+      <div ref={scroller} className="min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className="flex w-max min-w-full pr-4 pb-3">
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
-          <div className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-card pr-3 pl-4" aria-hidden="true">
+          <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-card pr-3 pl-4" aria-hidden="true">
             <div className="sticky top-0 z-10 h-7 bg-card" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
