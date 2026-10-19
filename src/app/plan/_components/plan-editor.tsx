@@ -112,6 +112,8 @@ function Editor() {
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const layout = useDefaultLayout({ id: "badminton:plan-layout", storage: window.localStorage });
+  // The timeline docked under the venue: its height is remembered too.
+  const dock = useDefaultLayout({ id: "badminton:plan-layout-v", storage: window.localStorage });
 
   useEffect(() => saveDraft(draft), [draft]);
 
@@ -200,22 +202,36 @@ function Editor() {
                 onLayoutChanged={layout.onLayoutChanged}
               >
                 <ResizablePanel id="working-area" minSize="40">
-                  <main className="@container h-full overflow-y-auto">
-                    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-                      <TournamentHeader draft={draft} update={update} />
-                      <VenueCanvas draft={draft} update={update} statuses={statuses} />
-                      <Timeline
-                        draft={draft}
-                        update={update}
-                        schedule={schedule}
-                        segments={segments}
-                      zones={zones}
-                        playhead={playhead}
-                        onSeek={setPlayhead}
-                        playing={playing}
-                        onPlayingChange={setPlaying}
-                      />
-                    </div>
+                  <main className="h-full">
+                    <ResizablePanelGroup
+                      orientation="vertical"
+                      defaultLayout={dock.defaultLayout}
+                      onLayoutChanged={dock.onLayoutChanged}
+                    >
+                      <ResizablePanel id="venue" minSize={160}>
+                        <div className="@container h-full overflow-y-auto">
+                          <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+                            <TournamentHeader draft={draft} update={update} />
+                            <VenueCanvas draft={draft} update={update} statuses={statuses} />
+                          </div>
+                        </div>
+                      </ResizablePanel>
+                      <ResizableHandle withHandle />
+                      <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
+                        <Timeline
+                          draft={draft}
+                          update={update}
+                          schedule={schedule}
+                          segments={segments}
+                          zones={zones}
+                          fit={analysis?.ok ? analysis.analysis.capacity.status : null}
+                          playhead={playhead}
+                          onSeek={setPlayhead}
+                          playing={playing}
+                          onPlayingChange={setPlaying}
+                        />
+                      </ResizablePanel>
+                    </ResizablePanelGroup>
                   </main>
                 </ResizablePanel>
                 <ResizableHandle withHandle />

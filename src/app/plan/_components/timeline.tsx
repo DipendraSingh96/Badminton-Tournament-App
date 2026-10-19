@@ -11,9 +11,9 @@ import {
   type PointerEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   playersPerEntry,
+  type CapacityStatus,
   zoneOf,
   type EstimatedSchedule,
   type MatchInfo,
@@ -287,6 +287,7 @@ export function Timeline({
   schedule,
   segments,
   zones,
+  fit,
   playhead,
   onSeek,
   playing,
@@ -298,6 +299,8 @@ export function Timeline({
   segments: LocalSegment[];
   /** Each hall's stage zones; empty until the plan is complete. */
   zones: ZoneRow[];
+  /** The plan's fit status, as in the summary; null until the plan is complete. */
+  fit: CapacityStatus | null;
   playhead: number | null;
   onSeek: (minute: number) => void;
   playing: boolean;
@@ -309,6 +312,7 @@ export function Timeline({
   const start = day.start;
   const end = day.end;
   const track = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   const tz = draft.frame.timeZone;
   const local = (iso: string | null) => (iso ? minutesOfDay(formatClock(iso, tz)) : null);
   const [hovered, setHovered] = useState<Hovered | null>(null);
@@ -361,6 +365,7 @@ export function Timeline({
     return out;
   }, [range.start, range.end, axisWidth]);
 
+  const tracksWidth: number | null = null;
   const span = Math.max(1, range.end - range.start);
   const clampView = (m: number) => Math.min(Math.max(m, range.start), range.end);
   const clampDay = (m: number) => Math.min(Math.max(m, start), end);
@@ -569,10 +574,9 @@ export function Timeline({
   const anyMoves = hasMoves(draft);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5">
+    <section aria-label="Timeline" className="flex h-full flex-col bg-card">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium">
             Timeline
             <InfoTip about="the timeline">
               Drag a hall&apos;s window to set its hours, the lines between rate bands to move them, and a court&apos;s
@@ -585,7 +589,7 @@ export function Timeline({
                 ? "Times are an estimate at typical length; rest isn't modelled yet."
                 : "Complete the plan to see the estimated schedule."}
             </InfoTip>
-          </span>
+        </h2>
           <span className="flex items-center gap-2">
             {anyMoves ? (
               <Button
@@ -615,9 +619,8 @@ export function Timeline({
               {playing ? <PauseIcon /> : <PlayIcon />} {playing ? "Pause" : "Play"}
             </Button>
           </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      </div>
+      <div className="flex shrink-0 flex-col gap-1 px-4 pt-2 empty:hidden">
         {schedule && schedule.late > 0 ? (
           <p className="text-sm text-destructive">
             {schedule.late} {schedule.late === 1 ? "match runs" : "matches run"} past their court&apos;s hours (outlined in
@@ -629,14 +632,17 @@ export function Timeline({
             {schedule.unplaced} {schedule.unplaced === 1 ? "match has" : "matches have"} no court to play on.
           </p>
         ) : null}
-        <p aria-live="polite" className="min-h-0 text-sm text-destructive empty:hidden">
-          {notice}
-        </p>
+        {notice ? <p className="text-sm text-destructive">{notice}</p> : null}
+      </div>
+      <p aria-live="polite" className="sr-only">
+        {notice}
+      </p>
 
-        <div className="flex gap-3">
-          {/* Labels, row for row with the tracks. */}
-          <div className="flex w-22 shrink-0 flex-col" aria-hidden="true">
-            <div className="h-7" />
+      <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+        <div className="flex w-max min-w-full pr-4 pb-3">
+          {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
+          <div className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-card pr-3 pl-4" aria-hidden="true">
+            <div className="sticky top-0 z-10 h-7 bg-card" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
@@ -651,8 +657,11 @@ export function Timeline({
             <div className="mt-3 h-5 text-xs leading-5 font-medium">Buffer</div>
           </div>
 
-          <div className="relative min-w-0 flex-1">
-            {/* The axis is also the seek bar. */}
+          <div
+            className={`relative ${tracksWidth ? "shrink-0" : "min-w-0 flex-1"}`}
+            style={tracksWidth ? { width: tracksWidth } : undefined}
+          >
+            {/* The axis is also the seek bar; it stays in view while the rows scroll. */}
             <div
               ref={track}
               role="slider"
@@ -671,7 +680,7 @@ export function Timeline({
               onPointerMove={(e) => {
                 if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFrom(e);
               }}
-              className="relative h-7 cursor-ew-resize touch-none rounded-sm border-b outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b bg-card outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ticks.map((m) => (
                 <span
@@ -682,6 +691,13 @@ export function Timeline({
                   {clock(m)}
                 </span>
               ))}
+              {hasHours ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-0 size-2.5 -translate-x-1/2 translate-y-1/2 rotate-45 bg-foreground"
+                  style={{ left: pct(now) }}
+                />
+              ) : null}
             </div>
 
             {draft.frame.halls.map((hall, h) => {
@@ -976,14 +992,13 @@ export function Timeline({
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 z-30 w-0.5 -translate-x-1/2 bg-foreground"
                 style={{ left: pct(now) }}
-              >
-                <span className="absolute top-0 left-1/2 size-2.5 -translate-x-1/2 rotate-45 bg-foreground" />
-              </span>
+              />
             ) : null}
           </div>
         </div>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
           {usedStages.map((stage) => (
             <span key={stage} className="flex items-center gap-1.5">
               <span className={`size-2.5 rounded-sm ${STAGE_COLOURS[stage]}`} aria-hidden="true" />
@@ -1060,7 +1075,6 @@ export function Timeline({
             ))}
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+    </section>
   );
 }
