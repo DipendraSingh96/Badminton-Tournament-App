@@ -909,7 +909,10 @@ export function Timeline({
               {ticks.map((m) => (
                 <span
                   key={m}
-                  className="absolute bottom-1 -translate-x-1/2 text-xs text-muted-foreground tabular-nums"
+                  // Labels at the ends sit inside the axis rather than half under the row labels.
+                  className={`absolute bottom-1 text-xs text-muted-foreground tabular-nums ${
+                    m <= range.start ? "pl-1" : m >= range.end ? "-translate-x-full pr-1" : "-translate-x-1/2"
+                  }`}
                   style={{ left: pct(m) }}
                 >
                   {clock(m)}
