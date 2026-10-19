@@ -351,16 +351,18 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   const courtFree = courts.map((c) => c.start);
   const known = new Set(queues.flat().map((m) => m.id));
   let guard = queues.flat().length * (courts.length + 2) + 10;
+  /** Feeders of a match not yet timed. */
+  const pendingOf = (match: Planned) =>
+    match.deps.flatMap((d) => d.ids.filter((id) => known.has(id) && !ends.has(id)));
   while (head.some((h, i) => h < queues[i]!.length) && guard-- > 0) {
     let best: { court: number; start: number; wait?: Wait } | null = null;
-    let blocked = -1;
+    const blocked: number[] = [];
     for (let i = 0; i < courts.length; i++) {
       const match = queues[i]![head[i]!];
       if (!match) continue;
       // Feeders not yet timed: this court waits.
-      const pending = match.deps.some((d) => d.ids.some((id) => known.has(id) && !ends.has(id)));
-      if (pending) {
-        if (blocked === -1) blocked = i;
+      if (pendingOf(match).length > 0) {
+        blocked.push(i);
         continue;
       }
       const minutes = slot.get(match.info.stage)!;
@@ -394,11 +396,18 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
       if (!best || start < best.start) best = { court: i, start, wait };
     }
     if (!best) {
-      // Every court is waiting on matches behind them: the first such match goes to the back of its court.
-      if (blocked === -1) break;
-      const queue = queues[blocked]!;
-      const [stuck] = queue.splice(head[blocked]!, 1);
-      queue.push(stuck!);
+      // Every court is waiting on matches queued behind a waiting match (a match moved
+      // ahead of what it waits for). Unblock a court holding one of those matches: its
+      // waiting match goes just after the last match it waits for there, or to the back.
+      if (blocked.length === 0) break;
+      const needed = new Set(blocked.flatMap((i) => pendingOf(queues[i]![head[i]!]!)));
+      const court = blocked.find((i) => queues[i]!.slice(head[i]! + 1).some((m) => needed.has(m.id))) ?? blocked[0]!;
+      const queue = queues[court]!;
+      const [stuck] = queue.splice(head[court]!, 1);
+      const own = new Set(pendingOf(stuck!));
+      const last = queue.findLastIndex((m, k) => k >= head[court]! && own.has(m.id));
+      if (last === -1) queue.push(stuck!);
+      else queue.splice(last + 1, 0, stuck!);
       continue;
     }
     const i = best.court;
@@ -422,6 +431,8 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     });
   }
 
+  // Anything that still couldn't be timed is reported, never dropped silently.
+  unplaced += queues.reduce((n, queue, i) => n + queue.length - head[i]!, 0);
   return { timed, unplaced, courts };
 }
 

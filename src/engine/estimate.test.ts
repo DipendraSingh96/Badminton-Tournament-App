@@ -317,6 +317,32 @@ describe("estimateSchedule", () => {
     expect(sf.moved).toBe(true);
   });
 
+  it("never loses matches when one is moved ahead of what it waits for on the same court", () => {
+    const all = (schedule: ReturnType<typeof estimateSchedule>) => schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    // Team ties: each rubber is a match, and the bronze tie's rubbers wait for both semi-finals.
+    const teams = () => {
+      const plan = tournament();
+      plan.unit = "team";
+      plan.categories[0] = {
+        ...plan.categories[0]!,
+        entry: { type: "team", lineUp: [{ event: "MD", count: 3 }] },
+      };
+      return plan;
+    };
+    const base = estimate(teams()).schedule;
+    const semi = all(base).find((d) => d.match.code === "SF1" && d.match.rubber?.number === 2)!;
+    const bronze = all(base).find((d) => d.match.code === "Bronze" && d.match.rubber?.number === 2)!;
+    const court = base.courts.find((c) => c.segments.some((s) => s.details[0]!.id === semi.id))!;
+    const plan = teams();
+    // A bronze rubber goes on the semi-final's court, before it: it can't be played there first.
+    plan.matchMoves = [{ matchId: bronze.id, courtId: court.courtId, before: semi.id }];
+    const after = estimate(plan).schedule;
+    expect(all(after)).toHaveLength(all(base).length);
+    expect(after.unplaced).toBe(0);
+    const sf = all(after).find((d) => d.id === semi.id)!;
+    expect(Date.parse(all(after).find((d) => d.id === bronze.id)!.from)).toBeGreaterThanOrEqual(Date.parse(sf.to));
+  });
+
   it("never has a side in two matches at once", () => {
     const base = estimate(tournament()).schedule;
     const court1 = matchesOn(base, 0);
