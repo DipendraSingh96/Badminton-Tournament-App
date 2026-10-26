@@ -11,7 +11,7 @@ function ThemeToggle() {
   return (
     <Button
       variant="outline"
-      size="icon"
+      size="icon-sm"
       className="rounded-full"
       aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
       onClick={() => setTheme(dark ? "light" : "dark")}
@@ -23,12 +23,12 @@ function ThemeToggle() {
 
 export function TopBar() {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-5">
-      <span className="text-base font-semibold tracking-tight">{PRODUCT_NAME}</span>
+    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-6">
+      <span className="font-display text-2xl leading-none font-bold text-turf uppercase">{PRODUCT_NAME}</span>
       <div className="flex items-center gap-2">
         <ThemeToggle />
         {/* Accounts arrive with sign-in (PRD build slice 4). */}
-        <Button variant="outline" size="icon" className="rounded-full" aria-label="Account" disabled>
+        <Button variant="outline" size="icon-sm" className="rounded-full" aria-label="Account" disabled>
           <UserIcon />
         </Button>
       </div>

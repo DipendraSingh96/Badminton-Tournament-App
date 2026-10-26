@@ -18,15 +18,17 @@ function formatDate(iso: string): string {
  */
 export function TournamentList({ draft, onNew }: { draft: PlanDraft; onNew: () => void }) {
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-card p-5">
-      <Button size="lg" className="h-11 w-full" onClick={onNew}>
+    <aside className="flex w-(--pane-left) shrink-0 flex-col gap-5 overflow-y-auto border-r bg-card p-5">
+      <Button className="w-full" onClick={onNew}>
         <PlusIcon /> New tournament
       </Button>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Tournaments</h2>
-        <div aria-current="true" className="rounded-xl bg-accent px-4 py-3 ring-1 ring-foreground/15">
-          <p className="truncate font-medium">{draft.name.trim() || "Untitled tournament"}</p>
-          <p className="text-sm text-muted-foreground">{formatDate(draft.frame.date)}</p>
+      <section aria-labelledby="tournaments-heading" className="flex flex-col gap-2">
+        <h2 id="tournaments-heading" className="heading-card text-xl">
+          Tournaments
+        </h2>
+        <div aria-current="true" className="rounded-lg border border-tile-border bg-tile px-4 py-3">
+          <p className="truncate text-[17px] font-semibold text-turf">{draft.name.trim() || "Untitled tournament"}</p>
+          <p className="text-sm text-muted-foreground tabular-nums">{formatDate(draft.frame.date)}</p>
         </div>
       </section>
     </aside>

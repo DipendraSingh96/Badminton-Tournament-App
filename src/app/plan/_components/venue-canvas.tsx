@@ -23,7 +23,7 @@ export function VenueCanvas({
   return (
     <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="venue-heading" className="text-lg">
+        <h2 id="venue-heading" className="heading-screen">
           Venue
         </h2>
         <Button variant="outline" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>

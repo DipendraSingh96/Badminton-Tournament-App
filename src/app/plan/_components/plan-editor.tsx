@@ -235,7 +235,7 @@ function Editor() {
                   </main>
                 </ResizablePanel>
                 <ResizableHandle withHandle />
-                <ResizablePanel id="workbench" defaultSize="34" minSize={360} maxSize="55">
+                <ResizablePanel id="workbench" defaultSize={440} minSize={400} maxSize={480}>
                   <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
                     <Summary
                       draft={draft}
