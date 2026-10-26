@@ -87,7 +87,7 @@ function Field({
       </div>
       {children}
       {message ? (
-        <p id={`${id}-message`} className="text-xs text-destructive">
+        <p id={`${id}-message`} className="text-xs text-over-text">
           {message}
         </p>
       ) : null}
@@ -302,7 +302,7 @@ function ChoiceGroup({
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
       </div>
       {children(id)}
-      {message ? <p className="text-xs text-destructive">{message}</p> : null}
+      {message ? <p className="text-xs text-over-text">{message}</p> : null}
     </div>
   );
 }

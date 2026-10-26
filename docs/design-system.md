@@ -67,6 +67,7 @@ Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · 
 - Body text on any surface: 4.5:1 minimum. Large text (24px and up): 3:1.
 - Yellow is never text on white. Green text on white is only `#0F6B45` or darker.
 - Do not use `border` for anything that carries meaning; use `input` (3:1) for controls.
+- Status as text (messages, figures, labels) uses the darker text shades, never the fill colours, which are too light (Fits, Tight) or too low-contrast (Over, 4.0:1) for small text on white: Fits text `#1A7343`, Tight text `#8A5200`, Over text `#B42B1C` (Plan dark: `#58C27D`, `#FFB020`, `#FF7A6E`). Tokens `--status-*-text` in `globals.css`; utilities `text-fits-text`, `text-tight-text`, `text-over-text`. (Added 26 Oct 2026.)
 
 ## 4. Typography
 

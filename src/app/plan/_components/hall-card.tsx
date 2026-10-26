@@ -80,7 +80,7 @@ function HallSettings({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-muted/60 p-4 ring-1 ring-foreground/5">
+    <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className={`grid gap-3 ${hall.multipleRates ? "grid-cols-[1fr_1fr_8.5rem]" : "grid-cols-[1fr_1fr_8.5rem_8.5rem]"}`}>
           <TextField label="Hall hours from" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
@@ -207,11 +207,11 @@ function HallSettings({
             <PlusIcon /> Add band
           </Button>
           {problems === null ? null : problems.length === 0 ? (
-            <p className="flex items-center gap-1.5 text-sm text-success">
+            <p className="flex items-center gap-1.5 text-sm text-fits-text">
               <CheckCircleIcon weight="fill" /> Bands cover the hall&apos;s hours with no overlap
             </p>
           ) : (
-            <ul className="flex flex-col gap-0.5 text-sm text-destructive">
+            <ul className="flex flex-col gap-0.5 text-sm text-over-text">
               {problems.map((p) => (
                 <li key={p} className="flex items-center gap-1.5">
                   <WarningCircleIcon weight="fill" /> {p}
@@ -281,7 +281,7 @@ export function HallCard({
   ].join(" · ");
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
+    <section className="flex flex-col gap-4 rounded-xl border bg-card p-[18px] shadow-[0_1px_0_rgba(10,42,27,.04)]">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <input
@@ -289,7 +289,7 @@ export function HallCard({
             value={hall.name}
             placeholder={hallName(hall, hallIndex)}
             onChange={(e) => update((d) => void (d.frame.halls[hallIndex]!.name = e.target.value))}
-            className="-mx-1 rounded-md bg-transparent px-1 text-lg font-semibold tracking-tight outline-none placeholder:text-foreground hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            className="heading-card -mx-1 rounded-md bg-transparent px-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
           />
           <p className="text-sm text-muted-foreground tabular-nums">{summary}</p>
         </div>
@@ -320,7 +320,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] gap-3">
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}
@@ -338,7 +338,7 @@ export function HallCard({
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className={`flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground transition-[opacity,colors] hover:border-foreground/40 hover:text-foreground ${
+          className={`flex min-h-[5.5rem] items-center justify-center gap-2 rounded-lg border border-dashed border-input text-[15px] font-semibold text-primary transition-[opacity,colors] outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring ${
             courtOpenHere ? "opacity-40" : ""
           }`}
         >

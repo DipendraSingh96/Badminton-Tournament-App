@@ -8,10 +8,11 @@ import { StepperField, TextField } from "./fields";
 import type { Update } from "./plan-editor";
 import { STAGE_COLOURS, type CourtStatus } from "./timeline";
 
-/** A badminton court seen from above: outline, net, service and centre lines. */
-function CourtIllustration() {
+/** A badminton court seen from above: a green court with white lines (outline, net, service and centre lines). */
+function CourtIcon() {
   return (
-    <svg viewBox="0 0 61 134" className="h-24 w-auto text-foreground/60" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <svg viewBox="0 0 61 134" className="h-16 w-auto shrink-0" fill="none" stroke="white" strokeWidth="2" aria-hidden="true">
+      <rect x="0" y="0" width="61" height="134" rx="3" fill="var(--surface-feature)" stroke="none" />
       <rect x="1" y="1" width="59" height="132" rx="1" />
       <line x1="5.5" y1="1" x2="5.5" y2="133" />
       <line x1="55.5" y1="1" x2="55.5" y2="133" />
@@ -21,7 +22,7 @@ function CourtIllustration() {
       <line x1="1" y1="87" x2="60" y2="87" />
       <line x1="30.5" y1="1" x2="30.5" y2="47" />
       <line x1="30.5" y1="87" x2="30.5" y2="133" />
-      <line x1="0" y1="67" x2="61" y2="67" strokeWidth="2.5" />
+      <line x1="0" y1="67" x2="61" y2="67" strokeWidth="3.5" />
     </svg>
   );
 }
@@ -66,22 +67,30 @@ export function CourtCard({
         render={
           <button
             type="button"
-            className={`flex flex-col items-center gap-2 rounded-xl bg-card p-4 text-center ring-1 transition-[opacity,box-shadow] duration-200 hover:ring-foreground/30 focus-visible:outline-2 focus-visible:outline-ring ${
-              open ? "ring-2 ring-foreground" : "ring-foreground/10"
+            className={`flex flex-col gap-2 rounded-lg border bg-tile p-3 text-left transition-[opacity,box-shadow,border-color] duration-200 outline-none hover:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${
+              open ? "border-primary ring-1 ring-primary" : "border-tile-border"
             } ${dimmed ? "opacity-40" : ""}`}
           />
         }
       >
-        <CourtIllustration />
-        <span className="font-medium">Court {number}</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {hours.from && hours.to ? `${hours.from}–${hours.to}` : "Hours not set"} · {umpireText(court.umpires)}
+        <span className="flex items-center gap-3">
+          <CourtIcon />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="font-display text-[22px] leading-none font-bold text-turf uppercase">Court {number}</span>
+            <span className="text-[13px] text-muted-foreground tabular-nums">
+              {hours.from && hours.to ? `${hours.from}–${hours.to}` : "Hours not set"}
+            </span>
+            <span className="text-[13px] text-muted-foreground">{umpireText(court.umpires)}</span>
+          </span>
         </span>
         {status ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium" data-court-status>
+          <span className="flex min-h-5 items-start gap-1.5 border-t border-tile-border pt-2 text-[13px] leading-tight font-medium" data-court-status>
             {status.kind === "playing" ? (
               <>
-                <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${STAGE_COLOURS[status.stage]}`} />
+                <span
+                  aria-hidden="true"
+                  className={`mt-0.5 size-2.5 shrink-0 rounded-[3px] ring-1 ring-tl-outline ${STAGE_COLOURS[status.stage]}`}
+                />
                 {status.label}
               </>
             ) : (
@@ -92,7 +101,7 @@ export function CourtCard({
       </PopoverTrigger>
       <PopoverContent side="right" align="start" sideOffset={12} className="w-80 gap-4 p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Court {number}</h3>
+          <h3 className="heading-card text-xl">Court {number}</h3>
           {narrowed ? (
             <button
               type="button"

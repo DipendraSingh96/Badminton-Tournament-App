@@ -846,17 +846,17 @@ export function Timeline({
       </div>
       <div className="flex shrink-0 flex-col gap-1 px-4 pt-2 empty:hidden">
         {schedule && schedule.late > 0 ? (
-          <p className="text-sm text-destructive">
+          <p className="text-sm text-over-text">
             {schedule.late} {schedule.late === 1 ? "match runs" : "matches run"} past their court&apos;s hours (outlined in
             red).
           </p>
         ) : null}
         {schedule && schedule.unplaced > 0 ? (
-          <p className="text-sm text-destructive">
+          <p className="text-sm text-over-text">
             {schedule.unplaced} {schedule.unplaced === 1 ? "match has" : "matches have"} no court to play on.
           </p>
         ) : null}
-        {notice ? <p className="text-sm text-destructive">{notice}</p> : null}
+        {notice ? <p className="text-sm text-over-text">{notice}</p> : null}
       </div>
       <p aria-live="polite" className="sr-only">
         {notice}
@@ -956,7 +956,7 @@ export function Timeline({
                             tabIndex={0}
                             aria-label={`${z.label}, ${clock(z.window.from)}–${clock(z.window.to)}${z.moved ? ", moved" : ""}. Drag along the timeline to leave free time, or onto another hall.`}
                             className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-1.5 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
-                              z.earliest !== null || z.late > 0 ? "text-destructive ring-1 ring-destructive" : ""
+                              z.earliest !== null || z.late > 0 ? "text-over-text ring-1 ring-destructive" : ""
                             } ${dragging && dragging.targetHall !== hall.id ? "opacity-40" : ""}`}
                             style={{ left: pct(from), width: width(from, to) }}
                             onPointerDown={(e) => {

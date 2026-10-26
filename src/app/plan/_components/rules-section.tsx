@@ -46,7 +46,7 @@ function Heading({ title, description }: { title: string; description: string })
 /** A message for an issue on a whole list or row, rather than one field. */
 function IssueMessage({ path }: { path: PropertyKey[] }) {
   const message = useContext(IssuesContext).get(pathKey(path));
-  return message ? <p className="text-xs text-destructive">{message}</p> : null;
+  return message ? <p className="text-xs text-over-text">{message}</p> : null;
 }
 
 export function RulesSection({ draft, update }: { draft: PlanDraft; update: Update }) {

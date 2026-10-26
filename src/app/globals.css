@@ -44,8 +44,20 @@
   --color-sidebar-accent-foreground: var(--accent-foreground);
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
+  --color-fits-text: var(--status-fits-text);
+  --color-tight-text: var(--status-tight-text);
+  --color-over-text: var(--status-over-text);
   --font-heading: var(--font-display);
   --radius-2xl: var(--radius-card);
+}
+
+/* Status as text (messages, figures): the status fills are too light or too
+   bright for small text, so text uses these darker shades (AA on card and
+   inset). See docs/design-system.md §3, "Contrast rules". */
+:root {
+  --status-fits-text: #1A7343;
+  --status-tight-text: #8A5200;
+  --status-over-text: #B42B1C;
 }
 
 /* Plan dark: derived from the Live palette, with a mint primary so shuttle
@@ -80,6 +92,9 @@
   --tl-worst: #FF7A6E;
   --status-off: #2A6B4C;
   --status-off-fg: #F3F7F2;
+  --status-fits-text: #58C27D;
+  --status-tight-text: #FFB020;
+  --status-over-text: #FF7A6E;
 }
 
 @layer base {

@@ -120,7 +120,7 @@ export function HallTrack({
             ? coverage.gaps.map((gap) => (
                 <span
                   key={`gap-${gap.from}`}
-                  className="hatch absolute inset-y-0 grid place-items-center bg-destructive/15 text-xs font-medium text-destructive"
+                  className="hatch absolute inset-y-0 grid place-items-center bg-destructive/15 text-xs font-medium text-over-text"
                   style={{ left: pct(gap.from), width: `calc(${pct(gap.to)} - ${pct(gap.from)})` }}
                   title={`Gap ${clock(gap.from)} to ${clock(gap.to)}`}
                 >

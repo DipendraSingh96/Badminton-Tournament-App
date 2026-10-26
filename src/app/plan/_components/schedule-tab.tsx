@@ -199,7 +199,7 @@ function FormatPreview({ category, unit, format }: { category: CategoryDraft; un
     format,
   );
   if (!result.ok) {
-    return <p className="text-sm text-destructive">{result.errors.map(formatErrorMessage).join(". ")}</p>;
+    return <p className="text-sm text-over-text">{result.errors.map(formatErrorMessage).join(". ")}</p>;
   }
   const { groupSizes, qualifiers } = result.format;
   const nouns = entryNoun(unit, category.event, true);
