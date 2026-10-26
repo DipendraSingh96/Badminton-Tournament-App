@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Barlow, Barlow_Condensed } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-sans",
+// Court green type (docs/design-system.md §4): Barlow for text, Barlow Condensed for headings and numerals.
+const barlow = Barlow({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-barlow" });
+const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-barlow-condensed",
 });
 
 export const metadata: Metadata = {
@@ -23,7 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en-GB"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>

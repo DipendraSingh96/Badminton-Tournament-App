@@ -47,7 +47,7 @@ export default function Home() {
       <ol className="flex flex-col divide-y divide-border rounded-2xl bg-card">
         {CHECKS.map((check, i) => (
           <li key={check.question} className="flex gap-4 p-5 md:p-6">
-            <span className="font-mono text-sm text-muted-foreground tabular-nums">{i + 1}</span>
+            <span className="font-display text-sm text-muted-foreground tabular-nums">{i + 1}</span>
             <div className="flex flex-col gap-2">
               <h2 className="text-lg">{check.question}</h2>
               <p className="text-sm text-muted-foreground">{check.detail}</p>

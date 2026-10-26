@@ -829,7 +829,7 @@ export function Timeline({
                 <ArrowsOutLineHorizontalIcon /> Whole day
               </Button>
             </span>
-            <span className="font-mono text-sm tabular-nums">{clock(Math.round(now))}</span>
+            <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
             <Button
               variant="outline"
               size="sm"

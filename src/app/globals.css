@@ -1,139 +1,85 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./design-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* The Court green tokens (design-tokens.css, docs/design-system.md) cover the
+   shadcn roles. These map the few extra roles the app's components use onto
+   the same tokens. Status always shows a word with its colour. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
+  --color-success: var(--status-fits);
+  --color-success-foreground: var(--status-fits-fg);
+  --color-warning: var(--status-tight);
+  --color-warning-foreground: var(--status-tight-fg);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-fits-foreground: var(--status-fits-fg);
+  --color-tight-foreground: var(--status-tight-fg);
+  --color-over-foreground: var(--status-over-fg);
+  --color-live-foreground: var(--status-live-fg);
+  --color-off: var(--status-off);
+  --color-off-foreground: var(--status-off-fg);
+  --color-turf-2: var(--turf-2);
+  --color-tile: var(--tile);
+  --color-tile-border: var(--tile-border);
+  --color-feature-muted: var(--feature-muted);
+  --color-feature-inner: var(--surface-feature-inner);
+  --color-tl-outline: var(--tl-outline);
+  --color-tl-now: var(--tl-now);
+  --color-tl-worst: var(--tl-worst);
+  --color-gauge-on: var(--gauge-on);
+  --color-gauge-warn: var(--gauge-warn);
+  --color-gauge-off: var(--gauge-off);
+  --color-chart-1: var(--tl-final);
+  --color-chart-2: var(--tl-knockout);
+  --color-chart-3: var(--tl-group);
+  --color-chart-4: var(--tl-bronze);
+  --color-chart-5: var(--status-off);
+  --color-sidebar: var(--card);
+  --color-sidebar-foreground: var(--card-foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+  --font-heading: var(--font-display);
+  --radius-2xl: var(--radius-card);
 }
 
-/* Design tokens: neutral until a visual direction is supplied (see
-   docs/PRD.md, "Design direction"). Status colours are semantic only:
-   success (fits, pays), warning (tight), destructive (doesn't fit, loss).
-   Inputs and focus rings keep at least 3:1 contrast. */
-:root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.955 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.955 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.94 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --success: oklch(0.48 0.11 150);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.8 0.13 80);
-  --warning-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.53 0.21 27);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.912 0 0);
-  --input: oklch(0.6 0 0);
-  --ring: oklch(0.205 0 0);
-  --chart-1: oklch(0.205 0 0);
-  --chart-2: oklch(0.48 0 0);
-  --chart-3: oklch(0.65 0 0);
-  --chart-4: oklch(0.8 0 0);
-  --chart-5: oklch(0.9 0 0);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.94 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.912 0 0);
-  --sidebar-ring: oklch(0.205 0 0);
-}
-
+/* Plan dark: derived from the Live palette, with a mint primary so shuttle
+   yellow stays the one accent (docs/design-system.md, "Themes"). */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.19 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.72 0 0);
-  --accent: oklch(0.27 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --success: oklch(0.72 0.14 150);
-  --success-foreground: oklch(0.205 0 0);
-  --warning: oklch(0.8 0.13 80);
-  --warning-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.7 0.19 22);
-  --destructive-foreground: oklch(0.205 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(0.52 0 0);
-  --ring: oklch(0.85 0 0);
-  --chart-1: oklch(0.985 0 0);
-  --chart-2: oklch(0.72 0 0);
-  --chart-3: oklch(0.55 0 0);
-  --chart-4: oklch(0.4 0 0);
-  --chart-5: oklch(0.3 0 0);
-  --sidebar: oklch(0.19 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.27 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.85 0 0);
+  --background: #071F15;
+  --foreground: #F3F7F2;
+  --card: #0D3022;
+  --card-foreground: #F3F7F2;
+  --popover: #0D3022;
+  --popover-foreground: #F3F7F2;
+  --primary: #BDF2C9;
+  --primary-foreground: #07241A;
+  --secondary: #124030;
+  --secondary-foreground: #F3F7F2;
+  --muted: #124030;
+  --muted-foreground: #A9C9B5;
+  --accent: #124030;
+  --accent-foreground: #F3F7F2;
+  --border: #2A6B4C;
+  --input: #4F9A72;
+  --ring: #BDF2C9;
+  --surface-inset: #124030;
+  --tile: #124030;
+  --tile-border: #2A6B4C;
+  --turf: #BDF2C9;
+  --turf-2: #A6E6B6;
+  --tl-group: #1F8A4C;
+  --tl-knockout: #BDF2C9;
+  --tl-outline: rgba(250, 250, 242, 0.5);
+  --tl-now: #F3F7F2;
+  --tl-worst: #FF7A6E;
+  --status-off: #2A6B4C;
+  --status-off-fg: #F3F7F2;
 }
 
 @layer base {
@@ -145,13 +91,63 @@
   }
   html {
     @apply font-sans;
-    color-scheme: light dark;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    font-size: 16px;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
   }
   h1,
   h2,
   h3 {
-    @apply font-semibold tracking-tight;
+    @apply font-semibold;
     text-wrap: balance;
+  }
+  ::selection {
+    background: var(--mint);
+    color: var(--foreground);
+  }
+  .dark ::selection {
+    background: var(--turf-2);
+    color: var(--primary-foreground);
+  }
+}
+
+@layer components {
+  /* Screen and card headings: Barlow Condensed, uppercase, turf (design system §4). */
+  .heading-screen {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--turf);
+  }
+  .heading-card {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 1.05;
+    text-transform: uppercase;
+    color: var(--turf);
+  }
+  .numeral-xl {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 46px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .numeral-l {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
   }
 }
 

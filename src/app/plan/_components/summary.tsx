@@ -20,7 +20,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-muted px-3 py-2">
       <dt className="truncate text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate font-mono text-lg font-semibold tracking-tight tabular-nums">{value}</dd>
+      <dd className="truncate font-display text-lg font-semibold tracking-tight tabular-nums">{value}</dd>
     </div>
   );
 }
