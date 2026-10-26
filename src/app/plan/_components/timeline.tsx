@@ -70,7 +70,7 @@ type Tone = "fits" | "tight" | "bad";
 const WORST_TONES: Record<Tone, { line: string; label: string }> = {
   fits: { line: "border-tl-now/70", label: "bg-tl-now text-background" },
   tight: { line: "border-tight", label: "bg-tight text-tight-foreground" },
-  bad: { line: "border-tl-worst", label: "bg-over text-over-foreground" },
+  bad: { line: "border-tl-worst", label: "bg-over-strong text-over-foreground" },
 };
 
 /** Zone shading across a hall's courts: the group stage and the KO stage look different. */
@@ -998,7 +998,7 @@ export function Timeline({
                             className="pointer-events-none absolute inset-y-0 border-l-2 border-destructive"
                             style={{ left: pct(z.window.to) }}
                           >
-                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
+                            <span className="absolute -top-0.5 left-1 rounded-sm bg-over-strong px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
                               Runs until {clock(z.window.to)}
                             </span>
                           </span>
@@ -1011,7 +1011,7 @@ export function Timeline({
                             className="pointer-events-none absolute inset-y-0 border-l-2 border-destructive"
                             style={{ left: pct(z.earliest) }}
                           >
-                            <span className="absolute -top-0.5 left-1 rounded-sm bg-destructive px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
+                            <span className="absolute -top-0.5 left-1 rounded-sm bg-over-strong px-1 text-xs leading-4 whitespace-nowrap text-destructive-foreground">
                               Can&apos;t start before {clock(z.earliest)}
                             </span>
                           </span>
@@ -1290,7 +1290,7 @@ export function Timeline({
         {pillDrag?.refusal ? (
           <div
             role="status"
-            className="pointer-events-none fixed z-50 rounded-md bg-destructive px-2 py-1 text-xs text-destructive-foreground"
+            className="pointer-events-none fixed z-50 rounded-md bg-over-strong px-2 py-1 text-xs text-destructive-foreground"
             style={{ left: pillDrag.x + 14, top: pillDrag.y + 10 }}
           >
             {pillDrag.refusal}

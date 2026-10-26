@@ -11,11 +11,11 @@ const badgeVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         secondary:
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-        destructive: "bg-over text-over-foreground",
+        destructive: "bg-over-strong text-over-foreground",
         // Status chips: always a word with the colour (docs/design-system.md §3).
         fits: "bg-fits text-fits-foreground",
         tight: "bg-tight text-tight-foreground",
-        over: "bg-over text-over-foreground",
+        over: "bg-over-strong text-over-foreground",
         live: "bg-live text-live-foreground",
         off: "bg-off text-off-foreground",
         outline:

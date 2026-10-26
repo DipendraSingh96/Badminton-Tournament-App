@@ -41,7 +41,7 @@ function Tile({
         "flex min-w-0 flex-col gap-1 rounded-lg px-3 py-2.5",
         tone === "plain" && "bg-feature-inner text-feature-foreground",
         tone === "profit" && "bg-shuttle text-shuttle-foreground",
-        tone === "loss" && "bg-over text-over-foreground",
+        tone === "loss" && "bg-over-strong text-over-foreground",
       )}
     >
       <dt className={cn("truncate text-[13px] font-semibold", tone === "plain" && "text-feature-muted")}>{label}</dt>
