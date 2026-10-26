@@ -179,7 +179,7 @@ export function Summary({
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-feature-foreground hover:bg-white/10 focus-visible:ring-mint focus-visible:ring-offset-feature"
+          className="text-feature-foreground hover:bg-white/10 aria-expanded:bg-transparent aria-expanded:hover:bg-white/10 focus-visible:ring-mint focus-visible:ring-offset-feature"
           aria-expanded={!collapsed}
           aria-controls="summary-body"
           aria-label={collapsed ? "Show summary" : "Hide summary"}

@@ -59,18 +59,18 @@ import { formatClock } from "./workings";
 
 /** Stage colours, strongest for the final. */
 export const STAGE_COLOURS: Record<Stage, string> = {
-  group: "bg-chart-3",
-  knockout: "bg-chart-2",
-  bronze: "bg-chart-4",
-  final: "bg-chart-1",
+  group: "bg-tl-group",
+  knockout: "bg-tl-knockout",
+  bronze: "bg-tl-bronze",
+  final: "bg-tl-final",
 };
 
 type Tone = "fits" | "tight" | "bad";
 /** The worst-case line and its label, by fit status: neutral, warning or destructive. */
 const WORST_TONES: Record<Tone, { line: string; label: string }> = {
-  fits: { line: "border-foreground/70", label: "bg-foreground text-background" },
-  tight: { line: "border-warning", label: "bg-warning text-warning-foreground" },
-  bad: { line: "border-destructive", label: "bg-destructive text-destructive-foreground" },
+  fits: { line: "border-tl-now/70", label: "bg-tl-now text-background" },
+  tight: { line: "border-tight", label: "bg-tight text-tight-foreground" },
+  bad: { line: "border-tl-worst", label: "bg-over text-over-foreground" },
 };
 
 /** Zone shading across a hall's courts: the group stage and the KO stage look different. */
@@ -775,7 +775,7 @@ export function Timeline({
   return (
     <section aria-label="Timeline" className="flex h-full flex-col bg-card">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-2">
-        <h2 className="flex items-center gap-1.5 text-sm font-medium">
+        <h2 className="heading-card flex items-center gap-1.5 text-xl">
             Timeline
             <InfoTip about="the timeline">
               Each hall has its hours and rate bands, a Stages row showing where its group and KO stages fall, and a
@@ -921,7 +921,7 @@ export function Timeline({
               {hasHours ? (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute bottom-0 size-2.5 -translate-x-1/2 translate-y-1/2 rotate-45 bg-foreground"
+                  className="pointer-events-none absolute bottom-0 size-2.5 -translate-x-1/2 translate-y-1/2 rotate-45 bg-tl-now"
                   style={{ left: pct(now) }}
                 />
               ) : null}
@@ -1050,7 +1050,7 @@ export function Timeline({
                           origin={open}
                           bounds={hallBounds ?? undefined}
                           className="h-5"
-                          windowClassName={narrowed ? "bg-muted" : "bg-muted/60"}
+                          windowClassName={narrowed ? "bg-accent" : "bg-inset"}
                           onChange={setCourt}
                           onReset={
                             narrowed
@@ -1097,8 +1097,8 @@ export function Timeline({
                                     }
                                     role="button"
                                     aria-label={pillLabel(s, courtLabel, i, own.length)}
-                                    className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-sm border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
-                                      s.late ? "ring-2 ring-destructive" : "ring-1 ring-foreground/25"
+                                    className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-[3px] border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
+                                      s.late ? "ring-2 ring-tl-worst" : "ring-1 ring-tl-outline"
                                     } ${
                                       pillDrag?.segment.id === s.id ? "opacity-30" : ""
                                     }`}
@@ -1223,7 +1223,7 @@ export function Timeline({
             {hasHours ? (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 z-30 w-0.5 -translate-x-1/2 bg-foreground"
+                className="pointer-events-none absolute inset-y-0 z-30 w-0.5 -translate-x-1/2 bg-tl-now"
                 style={{ left: pct(now) }}
               />
             ) : null}
