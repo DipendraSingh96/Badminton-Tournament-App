@@ -161,11 +161,11 @@ export function StepperField({
   const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
-      <div className="flex items-stretch overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+      <div className="flex items-stretch overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring">
         <button
           type="button"
           aria-label={`Decrease ${label.toLowerCase()}`}
-          className="grid w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+          className="grid size-11 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset disabled:opacity-40 [&_svg]:size-5"
           disabled={value === null || value <= min}
           onClick={() => step(-1)}
         >
@@ -180,7 +180,7 @@ export function StepperField({
           value={value ?? ""}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
-          className="h-8 w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="h-11 w-full min-w-0 [appearance:textfield] bg-transparent text-center font-display text-xl font-semibold tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
             const parsed = raw === "" ? null : Number(raw);
@@ -190,7 +190,7 @@ export function StepperField({
         <button
           type="button"
           aria-label={`Increase ${label.toLowerCase()}`}
-          className="grid w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="grid size-11 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset [&_svg]:size-5"
           onClick={() => step(1)}
         >
           <PlusIcon />
@@ -296,7 +296,7 @@ function ChoiceGroup({
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
       <div className="flex items-center gap-1">
-        <span id={id} className="text-sm leading-none font-medium">
+        <span id={id} className="text-sm leading-none font-semibold text-muted-foreground">
           {label}
         </span>
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
@@ -344,7 +344,7 @@ export function SegmentedField<T extends string | number>({
           role="radiogroup"
           aria-labelledby={labelId}
           onKeyDown={onRadioKeyDown}
-          className="flex rounded-lg border border-input bg-muted/50 p-0.5"
+          className="flex gap-1 rounded-md bg-inset p-1"
         >
           {options.map((option, i) => {
             const selected = option.value === value;
@@ -357,10 +357,10 @@ export function SegmentedField<T extends string | number>({
                 tabIndex={selected || (value === null && i === 0) ? 0 : -1}
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "min-h-8 flex-1 rounded-md px-3 py-1 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "min-h-[34px] flex-1 rounded-sm px-3 py-1 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selected
-                    ? "bg-foreground font-medium text-background"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
                 {option.label}
@@ -411,15 +411,15 @@ export function OptionCards<T extends string>({
                 tabIndex={selected || (value === null && i === 0) ? 0 : -1}
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected ? "border-foreground bg-background" : "border-input hover:bg-muted/50",
+                  "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  selected ? "border-primary bg-accent ring-1 ring-primary" : "border-input bg-card hover:bg-inset",
                 )}
               >
-                <span className="flex items-center gap-1.5 text-sm font-medium">
-                  <Icon weight={selected ? "fill" : "regular"} className="size-4 shrink-0" />
+                <span className={cn("flex items-center gap-1.5 text-[15px] font-semibold", selected && "text-primary")}>
+                  <Icon weight={selected ? "fill" : "regular"} className="size-[18px] shrink-0" />
                   <span id={`${id}-${i}`}>{option.label}</span>
                 </span>
-                <span id={`${id}-${i}-description`} className="text-xs text-muted-foreground">
+                <span id={`${id}-${i}-description`} className="text-[13px] text-muted-foreground">
                   {option.description}
                 </span>
               </button>
@@ -444,7 +444,9 @@ export function SwitchField({
   return (
     <div className="flex items-center gap-2">
       <Switch id={id} checked={checked} onCheckedChange={(next) => onChange(next)} />
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="font-medium text-foreground">
+        {label}
+      </Label>
     </div>
   );
 }
