@@ -6,12 +6,14 @@ import { useDefaultLayout } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { analyseTournament, estimateSchedule } from "@/engine";
+import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
+import { applyLever } from "@/lib/tournament/levers";
 import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
+import { PreviewBar } from "./preview-bar";
 import { IssuesContext, issueMap, pathKey } from "./fields";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
@@ -115,9 +117,23 @@ function Editor() {
   // The timeline docked under the venue: its height is remembered too.
   const dock = useDefaultLayout({ id: "badminton:plan-layout-v", storage: window.localStorage });
 
+  // A suggested lever being previewed: everything derived shows the plan with it; not saved.
+  const [preview, setPreview] = useState<LeverChange | null>(null);
+
   useEffect(() => saveDraft(draft), [draft]);
 
-  const update = useCallback<Update>((recipe) => setDraft(produce(recipe)), []);
+  // Any edit ends a preview and is made to the plan itself. An edit to something only
+  // the preview has (the court a lever would add) goes with the preview.
+  const update = useCallback<Update>((recipe) => {
+    setPreview(null);
+    setDraft((current) => {
+      try {
+        return produce(current, recipe);
+      } catch {
+        return current;
+      }
+    });
+  }, []);
 
   const parsed = useMemo(() => parsePlan(draft), [draft]);
   const issues = useMemo(() => issueMap(parsed.ok ? [] : parsed.issues), [parsed]);
@@ -125,14 +141,39 @@ function Editor() {
     () => (parsed.ok ? analyseTournament(parsed.inputs) : null),
     [parsed],
   );
-  const schedule = useMemo(
-    () => (parsed.ok && analysis?.ok ? estimateSchedule(parsed.inputs, analysis.analysis) : null),
-    [parsed, analysis],
+
+  // What the summary, timeline and venue show: the plan, or the plan with the previewed lever.
+  const shown = useMemo(() => (preview ? applyLever(draft, preview) : draft), [draft, preview]);
+  const shownParsed = useMemo(() => (preview ? parsePlan(shown) : parsed), [preview, shown, parsed]);
+  const shownAnalysis = useMemo(
+    () => (!preview ? analysis : shownParsed.ok ? analyseTournament(shownParsed.inputs) : null),
+    [preview, analysis, shownParsed],
   );
-  const segments = useMemo(() => localSegments(draft, schedule), [draft, schedule]);
-  const zones = useMemo(() => zoneRows(draft, schedule), [draft, schedule]);
-  const warnings = useMemo(() => zoneWarnings(draft, zones), [draft, zones]);
-  const range = dayRange(draft);
+  const schedule = useMemo(
+    () =>
+      shownParsed.ok && shownAnalysis?.ok ? estimateSchedule(shownParsed.inputs, shownAnalysis.analysis) : null,
+    [shownParsed, shownAnalysis],
+  );
+  const segments = useMemo(() => localSegments(shown, schedule), [shown, schedule]);
+  const zones = useMemo(() => zoneRows(shown, schedule), [shown, schedule]);
+  const warnings = useMemo(() => zoneWarnings(shown, zones), [shown, zones]);
+  const range = dayRange(shown);
+
+  // Esc discards a preview.
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [preview]);
+
+  function keepPreview() {
+    if (!preview) return;
+    setDraft((current) => applyLever(current, preview));
+    setPreview(null);
+  }
 
   // The strips' shared view of the day, held still while a drag is under way.
   const liveRange = viewRangeOf(
@@ -148,8 +189,8 @@ function Editor() {
   );
   const moment = playhead ?? range?.start ?? null;
   const statuses = useMemo(
-    () => (moment !== null && schedule ? courtStatuses(draft, segments, moment) : null),
-    [draft, segments, moment, schedule],
+    () => (moment !== null && schedule ? courtStatuses(shown, segments, moment) : null),
+    [shown, segments, moment, schedule],
   );
 
   function chooseBreakEven(id: string) {
@@ -212,19 +253,19 @@ function Editor() {
                         <div className="@container h-full overflow-y-auto">
                           <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
                             <TournamentHeader draft={draft} update={update} />
-                            <VenueCanvas draft={draft} update={update} statuses={statuses} />
+                            <VenueCanvas draft={shown} update={update} statuses={statuses} />
                           </div>
                         </div>
                       </ResizablePanel>
                       <ResizableHandle withHandle />
                       <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
                         <Timeline
-                          draft={draft}
+                          draft={shown}
                           update={update}
                           schedule={schedule}
                           segments={segments}
                           zones={zones}
-                          fit={analysis?.ok ? analysis.analysis.capacity.status : null}
+                          fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
                           playhead={playhead}
                           onSeek={setPlayhead}
                           playing={playing}
@@ -237,10 +278,19 @@ function Editor() {
                 <ResizableHandle withHandle />
                 <ResizablePanel id="workbench" defaultSize={440} minSize={400} maxSize={480}>
                   <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
+                    {preview && parsed.ok ? (
+                      <PreviewBar
+                        change={preview}
+                        inputs={parsed.inputs}
+                        draft={draft}
+                        onKeep={keepPreview}
+                        onDiscard={() => setPreview(null)}
+                      />
+                    ) : null}
                     <Summary
-                      draft={draft}
-                      parsed={parsed}
-                      analysis={analysis}
+                      draft={shown}
+                      parsed={shownParsed}
+                      analysis={shownAnalysis}
                       breakEvenId={breakEvenId}
                       warnings={warnings}
                       onGoTo={goTo}
@@ -270,6 +320,8 @@ function Editor() {
                             analysis={analysis}
                             breakEvenId={breakEvenId}
                             onChooseBreakEven={chooseBreakEven}
+                            preview={preview}
+                            onPreview={setPreview}
                           />
                         </TabsContent>
                         <TabsContent value="finance" className="flex flex-col gap-4 p-4">
@@ -281,6 +333,8 @@ function Editor() {
                             analysis={analysis}
                             breakEvenId={breakEvenId}
                             onChooseBreakEven={chooseBreakEven}
+                            preview={preview}
+                            onPreview={setPreview}
                           />
                         </TabsContent>
                       </div>

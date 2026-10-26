@@ -1,8 +1,9 @@
 "use client";
 
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -22,6 +23,7 @@ import {
   type AnalysisResult,
   type CapacityStatus,
   type FormatType,
+  type LeverChange,
   type Levers,
   type TournamentInputs,
 } from "@/engine";
@@ -618,15 +620,25 @@ function ProfitCard({
   );
 }
 
-/** What-if suggestions: each re-runs the plan with one change. Never applied. */
+/** Two lever changes are the same suggestion. */
+function sameChange(a: LeverChange | null, b: LeverChange): boolean {
+  return a !== null && JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** What-if suggestions: each re-runs the plan with one change. Never applied unless kept. */
 function LeversCard({
   draft,
   analysis,
   inputs,
+  preview,
+  onPreview,
 }: {
   draft: PlanDraft;
   analysis: Analysis;
   inputs: TournamentInputs;
+  /** The lever being previewed, if any. */
+  preview: LeverChange | null;
+  onPreview: (change: LeverChange | null) => void;
 }) {
   const levers = useMemo(() => suggestLevers(inputs, analysis), [inputs, analysis]);
   const showFit = analysis.capacity.status !== "fits";
@@ -651,6 +663,17 @@ function LeversCard({
           }
           working={leverWorking(lever, analysis)}
         />
+        <div className="flex justify-end">
+          {sameChange(preview, lever.change) ? (
+            <Button size="sm" variant="secondary" aria-pressed onClick={() => onPreview(null)}>
+              <EyeSlashIcon /> Stop preview
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => onPreview(lever.change)}>
+              <EyeIcon /> Preview
+            </Button>
+          )}
+        </div>
       </div>
     ));
   return (
@@ -661,7 +684,8 @@ function LeversCard({
           <FigureTip />
         </CardTitle>
         <CardDescription>
-          Each re-runs the plan with one change. Suggestions only: change the input yourself to use one.
+          Each re-runs the plan with one change. Preview one to see it on the summary, timeline and venue,
+          then keep or discard it. Nothing changes until you keep it.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -693,6 +717,8 @@ export function DerivedCards({
   analysis,
   breakEvenId,
   onChooseBreakEven,
+  preview,
+  onPreview,
 }: {
   tab: "schedule" | "finance";
   draft: PlanDraft;
@@ -700,6 +726,8 @@ export function DerivedCards({
   analysis: AnalysisResult | null;
   breakEvenId: string | null;
   onChooseBreakEven: (id: string) => void;
+  preview: LeverChange | null;
+  onPreview: (change: LeverChange | null) => void;
 }) {
   if (!parsed.ok || !analysis?.ok) return null;
   if (tab === "schedule") {
@@ -721,7 +749,13 @@ export function DerivedCards({
         breakEvenId={breakEvenId}
         onChooseBreakEven={onChooseBreakEven}
       />
-      <LeversCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
+      <LeversCard
+        draft={draft}
+        analysis={analysis.analysis}
+        inputs={parsed.inputs}
+        preview={preview}
+        onPreview={onPreview}
+      />
     </>
   );
 }
