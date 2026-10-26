@@ -72,7 +72,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
           const path = (key: keyof CategoryDraft) => ["categories", i, key];
           const noun = entryNoun(unit, category.event);
           return (
-            <div key={category.id} className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+            <div key={category.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-medium">{categoryName(draft, category.id)}</h3>
                 <Badge variant="outline">{entryTag(draft, category)}</Badge>
@@ -247,7 +247,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
         lines.map((line, i) => {
           const path = (field: keyof Line) => ["finance", key, i, field];
           return (
-            <div key={line.id} className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+            <div key={line.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
                   <TextField

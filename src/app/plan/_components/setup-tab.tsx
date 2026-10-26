@@ -147,7 +147,7 @@ function EventChips({ draft, update }: { draft: PlanDraft; update: Update }) {
                   type="button"
                   aria-label={`Add a category: ${EVENT_LABELS[event]}${n > 0 ? ` (${n} added)` : ""}`}
                   onClick={() => update((d) => void d.categories.push({ ...emptyCategory(), event }))}
-                  className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring ${
                     n > 0 ? "border-foreground font-medium" : "border-input text-muted-foreground"
                   }`}
                 >
@@ -235,7 +235,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
   const category = draft.categories[index]!;
   const squad = squadLine(category);
   return (
-    <li className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+    <li className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <TextField

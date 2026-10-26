@@ -133,7 +133,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
   const set = (key: "expectedEntries" | "expectedExternal") => (value: number | null) =>
     update((d) => void (d.categories[index]![key] = value));
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+    <div className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
       <CategoryHeading draft={draft} category={category} />
       <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
         <StepperField
@@ -223,7 +223,7 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
   const path = (key: keyof CategoryDraft) => ["categories", index, key];
   const notice = unusedNotice(category, format);
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-muted/50 p-3">
+    <div className="flex flex-col gap-3 rounded-md border bg-card p-3">
       <CategoryHeading draft={draft} category={category} />
       <SegmentedField
         label="Groups set by"
@@ -276,7 +276,7 @@ function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
   const category = draft.categories[index]!;
   const notice = unusedNotice(category, draft.format!);
   return (
-    <div className="flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2">
+    <div className="flex flex-col gap-1 rounded-md border bg-card px-3 py-2">
       <CategoryHeading draft={draft} category={category} />
       <FormatPreview category={category} unit={draft.unit!} format={draft.format!} />
       {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
@@ -287,7 +287,7 @@ function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
 /** A bronze match switch for each category, inside the bronze card. */
 function BronzeSwitches({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
+    <div className="flex flex-col gap-2 rounded-md border bg-card p-3">
       {draft.categories.map((category, i) => (
         <SwitchField
           key={category.id}
@@ -387,7 +387,7 @@ function StageCard({
     update((d) => void (d.stageRules[stage][key] = value));
   const path = (key: keyof StageRulesDraft) => ["stageRules", stage, key];
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+    <div className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{STAGE_LABELS[stage]}</h3>
         {copyFrom && !rulesHidden ? (

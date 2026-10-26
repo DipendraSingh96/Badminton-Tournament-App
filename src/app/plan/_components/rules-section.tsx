@@ -169,7 +169,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
             const canUp = i > 0 && !fixedLast;
             const canDown = i < tiebreaks.length - 1 && !(lots !== -1 && i === lots - 1);
             return (
-              <li key={criterion} className="flex items-center gap-2 rounded-lg border bg-background py-1 pr-1 pl-3">
+              <li key={criterion} className="flex items-center gap-2 rounded-lg bg-inset py-1 pr-1 pl-3">
                 <span className="w-5 text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
                 <span className="flex-1 text-sm">
                   {TIEBREAK_LABELS[criterion]}
@@ -217,7 +217,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
               <button
                 key={criterion}
                 type="button"
-                className="rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+                className="rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-inset focus-visible:bg-inset"
                 onClick={() => add(criterion)}
               >
                 {TIEBREAK_LABELS[criterion]}

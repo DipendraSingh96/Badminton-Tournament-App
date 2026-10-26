@@ -37,6 +37,7 @@ import {
   formatGroupSizes,
   formatMoney,
   groupRange,
+  FIT_STATUS,
 } from "./labels";
 import { ProfitChart } from "./profit-chart";
 import {
@@ -85,7 +86,7 @@ function Row({
   return (
     <details className="group">
       <summary
-        className={`${rowClass} cursor-pointer list-none rounded-md hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden`}
+        className={`${rowClass} cursor-pointer list-none rounded-md hover:bg-inset focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden`}
       >
         <span className={`flex items-center gap-1 ${labelClass}`}>
           <CaretRightIcon
@@ -96,7 +97,7 @@ function Row({
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md border-l-2 border-foreground/30 bg-background px-3 py-2 text-xs font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md bg-inset px-3 py-2 text-[13px] font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
@@ -105,14 +106,14 @@ function Row({
   );
 }
 
-/** Headline figures for a card, large and monospaced. */
+/** Headline figures for a card: stat tiles, label above, numeral below. */
 function Stats({ items }: { items: { label: string; value: string }[] }) {
   return (
-    <dl className="grid grid-cols-3 gap-3">
+    <dl className="grid grid-cols-3 gap-2">
       {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5">
-          <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="font-display text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums @md:text-2xl">{item.value}</dd>
+        <div key={item.label} className="flex min-w-0 flex-col gap-1.5 rounded-lg bg-inset px-3 py-2.5">
+          <dt className="text-[13px] leading-tight font-semibold text-muted-foreground">{item.label}</dt>
+          <dd className="numeral-l whitespace-nowrap">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -124,22 +125,11 @@ function FigureTip() {
   return <InfoTip about="the figures">Select a figure to see how it was worked out.</InfoTip>;
 }
 
-const STATUS: Record<CapacityStatus, { label: string; text: string; className: string }> = {
-  fits: {
-    label: "Fits",
-    text: "Fits in the time and courts available, even if every match runs long.",
-    className: "bg-success text-success-foreground",
-  },
-  fitsTypicalOnly: {
-    label: "Tight",
-    text: "Fits on a typical day, but not if matches run long.",
-    className: "bg-warning text-warning-foreground",
-  },
-  doesNotFit: {
-    label: "Doesn't fit",
-    text: "Needs more court time than is available.",
-    className: "bg-destructive text-destructive-foreground",
-  },
+/** What each fit status means, in a sentence; its chip comes from FIT_STATUS. */
+const STATUS_TEXT: Record<CapacityStatus, string> = {
+  fits: "Fits in the time and courts available, even if every match runs long.",
+  fitsTypicalOnly: "Fits on a typical day, but not if matches run long.",
+  doesNotFit: "Needs more court time than is available.",
 };
 
 function LeverList({ levers, when, basis }: { levers: Levers; when: string; basis: string }) {
@@ -152,8 +142,8 @@ function LeverList({ levers, when, basis }: { levers: Levers; when: string; basi
     "shorten matches (fewer points, best of 1, or less organising time)",
   ].filter(Boolean) as string[];
   return (
-    <div className="rounded-lg bg-muted px-3 py-2">
-      <p className="font-medium">
+    <div className="rounded-lg border border-tight bg-card px-3.5 py-3">
+      <p className="font-semibold">
         Short by {formatMinutes(levers.courtMinutes)} of court time {when}. Any one of these would close the gap:
       </p>
       <ul className="mt-1 list-disc pl-5">
@@ -168,7 +158,7 @@ function LeverList({ levers, when, basis }: { levers: Levers; when: string; basi
 
 function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: TournamentInputs }) {
   const { capacity } = analysis;
-  const status = STATUS[capacity.status];
+  const status = FIT_STATUS[capacity.status];
   const length = capacity.levers.typical ? "typical" : "worst";
   const levers = capacity.levers[length];
   const spare = capacity.spare.worst;
@@ -187,9 +177,9 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
             Capacity
             <FigureTip />
           </span>
-          <Badge className={status.className}>{status.label}</Badge>
+          <Badge variant={status.variant}>{status.label}</Badge>
         </CardTitle>
-        <CardDescription>{status.text}</CardDescription>
+        <CardDescription>{STATUS_TEXT[capacity.status]}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Stats
@@ -484,7 +474,7 @@ function FinanceCard({
             Finance
             <FigureTip />
           </span>
-          <Badge className={loss ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}>
+          <Badge variant={loss ? "over" : "fits"}>
             {loss ? "Loss" : "Pays for itself"}
           </Badge>
         </CardTitle>
@@ -647,10 +637,10 @@ function LeversCard({
     .sort((a, b) => b.delta.profit - a.delta.profit);
   const list = (items: typeof levers, measure: "fit" | "profit") =>
     items.map((lever, i) => (
-      <div key={i} className="flex flex-col gap-1">
+      <div key={i} className="flex flex-col gap-1 rounded-lg border border-tight bg-card px-3.5 py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">{leverLabel(lever.change, inputs, draft)}</span>
-          <Badge className={STATUS[lever.outcome.status].className}>{STATUS[lever.outcome.status].label}</Badge>
+          <span className="text-[15px] font-semibold">{leverLabel(lever.change, inputs, draft)}</span>
+          <Badge variant={FIT_STATUS[lever.outcome.status].variant}>{FIT_STATUS[lever.outcome.status].label}</Badge>
         </div>
         <Row
           label={`Needs ${formatMinutesShort(lever.outcome.needed.typical)} · ${lever.outcome.profit < 0 ? "loss" : "profit"} ${formatMoney(Math.abs(lever.outcome.profit))}`}
@@ -680,13 +670,13 @@ function LeversCard({
         ) : null}
         {toFit.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">To fit</h3>
+            <h3 className="text-[15px] font-semibold text-muted-foreground">To fit</h3>
             {list(toFit, "fit")}
           </div>
         ) : null}
         {toProfit.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">To improve profit</h3>
+            <h3 className="text-[15px] font-semibold text-muted-foreground">To improve profit</h3>
             {list(toProfit, "profit")}
           </div>
         ) : null}
