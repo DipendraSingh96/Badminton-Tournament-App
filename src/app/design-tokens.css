@@ -1,0 +1,161 @@
+/*
+  Court green design tokens
+  Source of truth: docs/design-system.md
+  Drop into src/app/ and import from globals.css:  @import "./design-tokens.css";
+  Written for Tailwind v4 + shadcn/ui. For Tailwind v3, map the same variables in tailwind.config.ts.
+*/
+
+/* ---------- Plan theme (default): light surface, green accents ---------- */
+:root {
+  /* shadcn/ui semantic tokens */
+  --background: #F4F7F3;
+  --foreground: #0A2A1B;
+  --card: #FFFFFF;
+  --card-foreground: #0A2A1B;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A2A1B;
+  --primary: #0F6B45;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EDF3EE;
+  --secondary-foreground: #0A2A1B;
+  --muted: #EDF3EE;
+  --muted-foreground: #4A6556;
+  --accent: #E3F6E8;
+  --accent-foreground: #0A2A1B;
+  --destructive: #D8402F;
+  --destructive-foreground: #FFFFFF;
+  --border: #D5DFD7;       /* hairlines between cards and sections */
+  --input: #7F9A89;        /* input and secondary button borders (3:1 on white) */
+  --ring: #0F6B45;
+  --radius: 0.5rem;        /* controls 8px. Cards use --radius-card */
+
+  /* Extra surfaces */
+  --surface-inset: #EDF3EE;        /* tracks, segmented control wells, nested panels */
+  --surface-feature: #0A4A31;      /* the one deep-green block: the summary card */
+  --surface-feature-inner: #07241A;
+  --feature-foreground: #FFFFFF;
+  --feature-muted: #BDF2C9;
+  --tile: #E3F6E8;                 /* court tiles on the light theme */
+  --tile-border: #A9D9B8;
+  --radius-card: 14px;
+  --radius-tile: 12px;
+
+  /* Brand */
+  --turf: #0F6B45;
+  --turf-2: #14804F;
+  --mint: #BDF2C9;
+  --shuttle: #F4C430;              /* accent. Always a fill with dark text, never text on white */
+  --shuttle-foreground: #1A1400;
+
+  /* Status. Always shown with a word, never colour alone */
+  --status-fits: #58C27D;      --status-fits-fg: #07241A;
+  --status-tight: #FFB020;     --status-tight-fg: #2A1A00;
+  --status-over: #D8402F;      --status-over-fg: #FFFFFF;
+  --status-live: #F4C430;      --status-live-fg: #1A1400;
+  --status-off: #E4E7E5;       --status-off-fg: #2B343C;
+
+  /* Timeline and match blocks */
+  --tl-group: #7FD6A0;
+  --tl-knockout: #0F6B45;
+  --tl-bronze: #C97B2E;
+  --tl-final: #F4C430;
+  --tl-outline: rgba(10, 42, 27, 0.35);
+  --tl-worst: #D8402F;
+  --tl-now: #0A2A1B;
+  --gauge-on: #58C27D;
+  --gauge-warn: #FF7A6E;
+  --gauge-off: #0F3E27;            /* gauge sits on the deep feature card */
+
+  /* Type */
+  --font-display: var(--font-barlow-condensed), "Barlow Condensed", sans-serif;
+  --font-body: var(--font-barlow), "Barlow", system-ui, sans-serif;
+
+  /* Space (4px base) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  --control-h: 42px;               /* inputs, buttons. Touch targets on phone: 44px minimum */
+  --pane-left: 280px;
+  --pane-right-min: 400px;
+  --pane-right-max: 480px;
+}
+
+/* ---------- Live theme: dark court green, for the wall board and umpire phone ---------- */
+[data-theme="live"] {
+  --background: #071F15;
+  --foreground: #F3F7F2;
+  --card: #0D3022;
+  --card-foreground: #F3F7F2;
+  --popover: #0D3022;
+  --popover-foreground: #F3F7F2;
+  --primary: #F4C430;              /* the main live action is the shuttle yellow */
+  --primary-foreground: #1A1400;
+  --secondary: #124030;
+  --secondary-foreground: #F3F7F2;
+  --muted: #124030;
+  --muted-foreground: #A9C9B5;
+  --accent: #124030;
+  --accent-foreground: #F3F7F2;
+  --border: #2A6B4C;
+  --input: #2A6B4C;
+  --ring: #F4C430;
+  --surface-inset: #124030;
+  --tile: #0F6B45;
+  --tile-border: #1F8A4C;
+  --tl-group: #1F8A4C;
+  --tl-knockout: #BDF2C9;
+  --tl-outline: rgba(250, 250, 242, 0.5);
+  --tl-now: #F3F7F2;
+  --tl-worst: #FF7A6E;
+  --status-off: #2A6B4C;       --status-off-fg: #F3F7F2;
+}
+
+/* ---------- Tailwind v4 mapping ---------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-inset: var(--surface-inset);
+  --color-feature: var(--surface-feature);
+  --color-feature-foreground: var(--feature-foreground);
+  --color-turf: var(--turf);
+  --color-mint: var(--mint);
+  --color-shuttle: var(--shuttle);
+  --color-shuttle-foreground: var(--shuttle-foreground);
+
+  --color-fits: var(--status-fits);
+  --color-tight: var(--status-tight);
+  --color-over: var(--status-over);
+  --color-live: var(--status-live);
+
+  --color-tl-group: var(--tl-group);
+  --color-tl-knockout: var(--tl-knockout);
+  --color-tl-bronze: var(--tl-bronze);
+  --color-tl-final: var(--tl-final);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-tile);
+  --radius-xl: var(--radius-card);
+}
+
+/* Numerals never jitter as scores, times and money change */
+.tabular { font-variant-numeric: tabular-nums; }

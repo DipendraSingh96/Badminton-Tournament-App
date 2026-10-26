@@ -85,7 +85,7 @@ Inputs:
 
 Outputs: revenue (entry fees plus other money in), shuttle cost, total cost, profit or loss, break-even entries for a chosen category (others held at their expected entries), cost breakdown, profit curve across entry counts.
 
-**Suggested levers:** what-if suggestions, each re-running the plan with one input changed and showing the new fit status, court time needed and profit. They never change the plan. Only natural steps are used, so no step size is invented: one more court in a hall; best of 1 instead of best of 3 for a stage; no deuce for a stage; one group more or fewer, or a preferred group size one larger or smaller; no bronze match; the exact fee rise that breaks even (when there is a loss); shuttles per game down to the next whole number (not below 1); without each other cost. Levers that improve neither fit nor profit are not shown.
+**Suggested levers:** what-if suggestions, each re-running the plan with one input changed and showing the new fit status, court time needed and profit. They never change the plan. Only natural steps are used, so no step size is invented: one more court in a hall; best of 1 instead of best of 3 for a stage; no deuce for a stage; one group more or fewer, or a preferred group size one larger or smaller; no bronze match; the exact fee rise that breaks even (when there is a loss); shuttles per game down to the next whole number (not below 1); without each other cost. Levers that improve neither fit nor profit are not shown. Each lever can be **previewed**: the summary, timeline and court cards show the plan with that change, and the organiser then chooses **Keep** (the change is made to the input, which they can see and edit) or **Discard**. Editing any input ends a preview.
 
 Finance shares its inputs with the other sections (entries, match count, time per game). It recalculates live as the organiser changes format or entries. It must work with zero fees and zero prizes, in which case it shows the cost to the organisers.
 
@@ -150,14 +150,15 @@ Each slice is demoable. Start each in plan mode.
 Formats other than groups then knockout, knockout only, or groups only; online payments, notifications (email/SMS/push), multi-day events, public tournament discovery.
 
 ## 11. Design direction
-To be supplied by the product owner (a UX designer). Until it is, the app uses **neutral design tokens**: shadcn/ui neutral greys, one neutral primary, and no brand accent. Every colour, radius, spacing and type choice is a design token in `src/app/globals.css`, so a visual direction can be applied later without rewriting screens. (The earlier sporty high-contrast direction was withdrawn on 12 October 2026.)
+Supplied by the product owner on 26 October 2026: the **Court green** design system, `docs/design-system.md`, with its tokens in `src/app/design-tokens.css`. That document is the source of truth for colour, type, spacing, components and themes; this section only summarises it.
 
-- **Themes:** light and dark, with a toggle; the device setting is followed until the person chooses.
-- **Status colours** are semantic only: success (fits, pays for itself), warning (tight), destructive (doesn't fit, loss).
-- **Type:** Geist; Geist Mono with tabular figures for numbers.
+- **Themes:** Plan (light surface, green accents) and Plan dark for the planning screens, with a toggle that follows the device until the person chooses; Live (dark court green) for the wall board, control desk and umpire phone.
+- **Green is a signal, not a wallpaper;** one accent (shuttle yellow) marks the single most important thing on a screen.
+- **Status** always shows a word with its colour: Fits, Tight, Over, Live, Off.
+- **Type:** Barlow for text, Barlow Condensed for headings and numerals, tabular figures for all numbers.
 - **Icons:** Phosphor.
 - **Layout and content** of the Plan mode screens follow `docs/IA.md`.
-- **Accessibility:** WCAG AA contrast for all text, and at least 3:1 for input outlines and focus rings, in both themes.
+- **Accessibility:** WCAG AA contrast for all text, and at least 3:1 for input outlines and focus rings, in every theme.
 
 Live mode has the strictest requirements: score entry on a phone one-handed, and a court board readable from a distance on a large screen.
 

@@ -80,7 +80,7 @@ Derived
 - **Suggested levers** (see below)
 
 ## Suggested levers
-The app suggests levers the organiser can change to improve profit or fit. These are what-if suggestions that show their effect, not automatic optimisation. Examples: add a court or extend hours, shorten matches (fewer points per game, best of 1), change the group structure, raise the entry or external fee, cap entries, reduce shuttles per game, reduce other costs.
+The app suggests levers the organiser can change to improve profit or fit. These are what-if suggestions that show their effect, not automatic optimisation. Each can be previewed across the summary, timeline and venue, then kept (the input changes) or discarded. Examples: add a court or extend hours, shorten matches (fewer points per game, best of 1), change the group structure, raise the entry or external fee, cap entries, reduce shuttles per game, reduce other costs.
 
 ## Rules for the flow
 - Tabs run from stable to detailed. Setup is filled in once and rarely revisited; the other tabs are revisited constantly.

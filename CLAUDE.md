@@ -10,7 +10,7 @@ A web app that helps organisers plan, price and run a badminton tournament. One 
 * Supabase: Postgres, Auth, Realtime, Row Level Security
 * Hosting: Vercel (deploys from the main branch)
 * Tests: Vitest
-* UI: Tailwind + shadcn/ui with neutral design tokens in `src/app/globals.css` until a visual direction is supplied (see `docs/PRD.md`, "Design direction"). Light and dark themes. Icons: Phosphor. Plan mode layout and content follow `docs/IA.md`.
+* UI: Tailwind + shadcn/ui with the Court green design system: read `docs/design-system.md` before any UI work; tokens in `src/app/design-tokens.css` (Plan dark in `globals.css`). Fonts: Barlow and Barlow Condensed. Icons: Phosphor. Plan mode layout and content follow `docs/IA.md`.
 
 ## Structure
 

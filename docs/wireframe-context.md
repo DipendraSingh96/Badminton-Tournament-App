@@ -248,6 +248,11 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - A short key under the legend says how to move things; the help tip is shorter. Timeline text is at least 12px.
 - The worst-case line takes the fit status's colour: neutral when it fits, warning when tight, red when it doesn't fit or matches run past their court's hours. (Earlier it was always red.)
 
+### Court green design system (26 Oct)
+- The product owner supplied the visual direction: `docs/design-system.md` and `src/app/design-tokens.css` ("Court green"). Plan mode is restyled first; Live mode and the results page follow on the same tokens.
+- Decisions: Plan keeps a dark option (Plan dark, derived from the Live palette, mint primary); the worst-case line keeps following the fit status (recorded as an exception in the system); the Suggested lever's Preview is built now (Preview, then Keep or Discard).
+- The reference picture `docs/design/plan-venue-light.png` wasn't available; the written system was followed and the screens should be compared with the picture when it arrives.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
