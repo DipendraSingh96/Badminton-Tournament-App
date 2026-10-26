@@ -1,6 +1,21 @@
-import { playersPerEntry, type AnalysisError, type EventType, type FormatError, type Stage, type Unit } from "@/engine";
+import {
+  playersPerEntry,
+  type AnalysisError,
+  type CapacityStatus,
+  type EventType,
+  type FormatError,
+  type Stage,
+  type Unit,
+} from "@/engine";
 import { defaultCategoryName, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import type { PlanIssue } from "@/lib/tournament/schema";
+
+/** The fit status as a chip: always a word with its colour (docs/design-system.md §3). */
+export const FIT_STATUS: Record<CapacityStatus, { label: string; variant: "fits" | "tight" | "over" }> = {
+  fits: { label: "Fits", variant: "fits" },
+  fitsTypicalOnly: { label: "Tight", variant: "tight" },
+  doesNotFit: { label: "Over", variant: "over" },
+};
 
 export const STAGE_LABELS: Record<Stage, string> = {
   group: "Group stage",
