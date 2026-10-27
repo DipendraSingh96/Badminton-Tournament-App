@@ -1,6 +1,6 @@
 import type { Analysis } from "./analyse";
 import { available } from "./capacity";
-import { assignGroupCourts, groupKey } from "./court-groups";
+import { groupKey, resolveGroupCourts } from "./court-groups";
 import { groupMatchCount } from "./format";
 import { groupFixtures, groupLetter, knockoutBracket } from "./fixtures";
 import type { EventType, Stage, TournamentInputs, WindowKey, Zone } from "./types";
@@ -87,8 +87,16 @@ export interface WindowSpan {
 export interface CourtGroups {
   courtId: string;
   groups: { categoryId: string; groupIndex: number; group: string }[];
-  /** Given to its group by hand. */
+  /** Set by hand: given to its group, or to none. */
   pinned: boolean;
+}
+
+/** A group left with no court of its own, and the court it shares until one is chosen. */
+export interface HomelessGroupInfo {
+  categoryId: string;
+  groupIndex: number;
+  group: string;
+  courtId: string;
 }
 
 export interface EstimatedSchedule {
@@ -107,6 +115,8 @@ export interface EstimatedSchedule {
   late: number;
   /** Each court's groups when groups keep their own courts; empty when courts are shared. */
   courtGroups: CourtGroups[];
+  /** Groups left with no court of their own, each sharing a court meanwhile. */
+  homeless: HomelessGroupInfo[];
 }
 
 /** The zone a stage is played in: the group stage, or the knockout with its bronze match and final. */
@@ -164,31 +174,34 @@ function rubbersOf(inputs: TournamentInputs, categoryId: string): MatchInfo["rub
 function groupCourtsOf(inputs: TournamentInputs, analysis: Analysis, hallOfGroup: Map<string, string>) {
   const courtsOf = new Map<string, Set<string>>();
   const courtGroups: CourtGroups[] = [];
-  if (inputs.groupCourts !== "own") return { courtsOf, courtGroups };
-  const pins = new Map((inputs.courtGroups ?? []).map((p) => [p.courtId, groupKey(p.categoryId, p.groupIndex)]));
-  const loads = analysis.categories.flatMap((c) =>
-    c.format.groupSizes.map((size, groupIndex) => ({
-      categoryId: c.categoryId,
-      groupIndex,
-      courtMinutes: groupMatchCount(size) * c.rubbersPerFixture,
-    })),
+  const homeless: HomelessGroupInfo[] = [];
+  if (inputs.groupCourts !== "own") return { courtsOf, courtGroups, homeless };
+  const pins = new Map(
+    (inputs.courtGroups ?? []).map((p) => [p.courtId, p.group ? groupKey(p.group.categoryId, p.group.groupIndex) : ""]),
   );
-  for (const hall of inputs.frame.halls) {
-    const here = loads.filter((g) => hallOfGroup.get(groupKey(g.categoryId, g.groupIndex)) === hall.id);
-    const courtIds = hall.courts.map((c) => c.id);
-    const assigned = assignGroupCourts(here, courtIds, pins);
-    for (const [key, ids] of assigned) courtsOf.set(key, new Set(ids));
-    for (const courtId of courtIds) {
-      courtGroups.push({
-        courtId,
-        groups: here
-          .filter((g) => assigned.get(groupKey(g.categoryId, g.groupIndex))!.includes(courtId))
-          .map((g) => ({ categoryId: g.categoryId, groupIndex: g.groupIndex, group: groupLetter(g.groupIndex) })),
-        pinned: here.some((g) => pins.get(courtId) === groupKey(g.categoryId, g.groupIndex)),
-      });
-    }
+  const loads = analysis.categories.flatMap((c) =>
+    c.format.groupSizes.flatMap((size, groupIndex) => {
+      const hallId = hallOfGroup.get(groupKey(c.categoryId, groupIndex));
+      return hallId ? [{ categoryId: c.categoryId, groupIndex, courtMinutes: groupMatchCount(size) * c.rubbersPerFixture, hallId }] : [];
+    }),
+  );
+  const halls = inputs.frame.halls.map((h) => ({ hallId: h.id, courtIds: h.courts.map((c) => c.id) }));
+  const resolved = resolveGroupCourts(halls, loads, pins);
+  for (const [key, ids] of resolved.courtsOf) courtsOf.set(key, new Set(ids));
+  for (const courtId of halls.flatMap((h) => h.courtIds)) {
+    courtGroups.push({
+      courtId,
+      groups: loads
+        .filter((g) => resolved.courtsOf.get(groupKey(g.categoryId, g.groupIndex))!.includes(courtId))
+        .map((g) => ({ categoryId: g.categoryId, groupIndex: g.groupIndex, group: groupLetter(g.groupIndex) })),
+      pinned: pins.has(courtId),
+    });
   }
-  return { courtsOf, courtGroups };
+  for (const h of resolved.homeless) {
+    const g = loads.find((l) => groupKey(l.categoryId, l.groupIndex) === h.key)!;
+    homeless.push({ categoryId: g.categoryId, groupIndex: g.groupIndex, group: groupLetter(g.groupIndex), courtId: h.courtId });
+  }
+  return { courtsOf, courtGroups, homeless };
 }
 
 /** Every match in play order, with its dependencies and the halls (and courts) it may use. */
@@ -211,7 +224,8 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
   }
   const knockoutHalls = new Set(halls.map((h) => target(h, "knockout")));
   const allHalls = new Set(halls.map((h) => target(h, "group")));
-  const { courtsOf, courtGroups } = groupCourtsOf(inputs, analysis, hallOfGroup);
+  const { courtsOf, courtGroups, homeless } = groupCourtsOf(inputs, analysis, hallOfGroup);
+  const hallOfCourt = new Map(inputs.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
 
   const steps: Planned[][] = [];
   const byGroup = new Map<string, string[]>();
@@ -267,7 +281,12 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
             { categoryId: c.categoryId, stage: "group", group: letter, wave: w + 1, home: `${letter}${a}`, away: `${letter}${b}` },
             { type: "wave", wave: w + 1 },
             tie,
-            hall ? new Set([hall]) : allHalls,
+            // On its own courts, the group plays in their halls (one may be given a court in another).
+            courts && courts.size > 0
+              ? new Set([...courts].map((id) => hallOfCourt.get(id)!))
+              : hall
+                ? new Set([hall])
+                : allHalls,
             [],
             dayStart,
           ).map((m) => (courts && courts.size > 0 ? { ...m, courts } : m));
@@ -329,7 +348,7 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
   const last: Planned[] = [];
   for (let i = 0; lists.some((l) => i < l.length); i++) for (const list of lists) if (list[i]) last.push(list[i]!);
   steps.push(last);
-  return { steps, courtGroups };
+  return { steps, courtGroups, homeless };
 }
 
 /** Places the day at one slot length: assignment, moves by hand, then timing. */
@@ -346,7 +365,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   );
   const zoneStart = (court: number, stage: Stage) =>
     zoneStarts.get(zoneKey(courts[court]!.hallId, zoneOf(stage))) ?? -Infinity;
-  const { steps, courtGroups } = plan(inputs, analysis, dayStart);
+  const { steps, courtGroups, homeless } = plan(inputs, analysis, dayStart);
   // Groups on their own courts move on group by group; otherwise a category waits for its whole step.
   const own = inputs.groupCourts === "own";
   const gate = (info: MatchInfo) => (own && info.stage === "group" ? `${info.categoryId}:${info.group}` : info.categoryId);
@@ -494,7 +513,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
 
   // Anything that still couldn't be timed is reported, never dropped silently.
   unplaced += queues.reduce((n, queue, i) => n + queue.length - head[i]!, 0);
-  return { timed, unplaced, courts, courtGroups };
+  return { timed, unplaced, courts, courtGroups, homeless };
 }
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -585,5 +604,6 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
     unplaced: typical.unplaced,
     late: typical.timed.filter((t) => t.late).length,
     courtGroups: typical.courtGroups,
+    homeless: typical.homeless,
   };
 }

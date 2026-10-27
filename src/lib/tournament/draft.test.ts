@@ -235,6 +235,8 @@ describe("setCourtGroup", () => {
     const draft = emptyDraft("Europe/London");
     setCourtGroup(draft, "k1", "c1:0");
     expect(draft.courtGroups).toEqual({ k1: "c1:0" });
+    setCourtGroup(draft, "k1", "");
+    expect(draft.courtGroups).toEqual({ k1: "" });
     setCourtGroup(draft, "k1", null);
     expect(draft.courtGroups).toEqual({});
   });

@@ -197,11 +197,11 @@ export interface PlanDraft {
   matchMoves: Record<string, { courtId: string; before: string | null }>;
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
-  /** Courts given to a group by hand, by court id: the group's key, "categoryId:groupIndex". */
+  /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
   courtGroups: Record<string, string>;
 }
 
-/** Gives a court to a group for the group stage, or (null) back to the automatic split. */
+/** Gives a court to a group for the group stage, to no group (""), or (null) back to the automatic split. */
 export function setCourtGroup(draft: PlanDraft, courtId: string, key: string | null): void {
   if (key === null) delete draft.courtGroups[courtId];
   else draft.courtGroups[courtId] = key;

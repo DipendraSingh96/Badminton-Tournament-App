@@ -263,11 +263,10 @@ export interface MatchMove {
  */
 export type GroupCourts = "own" | "shared";
 
-/** A court the organiser gave to one group for the group stage. */
+/** A court the organiser set by hand for the group stage: given to one group (of any hall), or to none. */
 export interface CourtGroupPin {
   courtId: string;
-  categoryId: string;
-  groupIndex: number;
+  group: { categoryId: string; groupIndex: number } | null;
 }
 
 export interface TournamentInputs {

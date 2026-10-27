@@ -424,7 +424,12 @@ describe("parsePlan", () => {
     const result = parsePlan(draft);
     if (!result.ok) throw new Error(JSON.stringify(result.issues));
     expect(result.inputs.groupCourts).toBe("own");
-    expect(result.inputs.courtGroups).toEqual([{ courtId: "c2", categoryId: "c1", groupIndex: 0 }]);
+    expect(result.inputs.courtGroups).toEqual([{ courtId: "c2", group: { categoryId: "c1", groupIndex: 0 } }]);
+
+    draft.courtGroups = { c1: "" };
+    const none = parsePlan(draft);
+    if (!none.ok) throw new Error(JSON.stringify(none.issues));
+    expect(none.inputs.courtGroups).toEqual([{ courtId: "c1", group: null }]);
   });
 
   it("passes zone and match moves on, ignoring any that no longer fit", () => {

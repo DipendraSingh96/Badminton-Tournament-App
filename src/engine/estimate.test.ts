@@ -422,15 +422,39 @@ describe("estimateSchedule with groups on their own courts", () => {
 
   it("hands a court given to a group by hand to that group", () => {
     const plan = own();
-    plan.courtGroups = [{ courtId: "h1-c4", categoryId: "md", groupIndex: 0 }];
+    plan.courtGroups = [{ courtId: "h1-c4", group: { categoryId: "md", groupIndex: 0 } }];
     const { schedule } = estimate(plan);
     const onC4 = groupMatches(schedule).find((c) => c.courtId === "h1-c4")!.matches;
     expect(onC4.length).toBeGreaterThan(0);
     expect(onC4.every((m) => m.group === "A")).toBe(true);
     expect(schedule.courtGroups.find((c) => c.courtId === "h1-c4")).toMatchObject({ pinned: true });
-    // Group A keeps court 1 too; group D, which had court 4, shares the court carrying least.
+    // Group A keeps court 1 too; group D, which had court 4, shares a court meanwhile and is reported.
     const courtsOfA = groupMatches(schedule).filter((c) => c.matches.some((m) => m.group === "A")).map((c) => c.courtId);
     expect(courtsOfA).toEqual(["h1-c1", "h1-c4"]);
+    expect(schedule.unplaced).toBe(0);
+    expect(schedule.homeless).toMatchObject([{ group: "D" }]);
+  });
+
+  it("plays a group on a court given to it in another hall", () => {
+    const plan = own();
+    plan.frame.halls = [hall("h1", "09:00", "20:00", { courtCount: 4 }), hall("h2", "09:00", "20:00", { courtCount: 4 })];
+    const before = estimate(plan).schedule;
+    const groupOn = (s: typeof before, courtId: string) => s.courtGroups.find((c) => c.courtId === courtId)!.groups[0]!;
+    const fromH2 = groupOn(before, "h2-c1");
+    plan.courtGroups = [{ courtId: "h1-c3", group: { categoryId: fromH2.categoryId, groupIndex: fromH2.groupIndex } }];
+    const { schedule } = estimate(plan);
+    const onC3 = groupMatches(schedule).find((c) => c.courtId === "h1-c3")!.matches;
+    expect(onC3.length).toBeGreaterThan(0);
+    expect(onC3.every((m) => m.group === fromH2.group)).toBe(true);
+    expect(schedule.unplaced).toBe(0);
+  });
+
+  it("leaves a court set to no group out of the group stage", () => {
+    const plan = own();
+    plan.courtGroups = [{ courtId: "h1-c2", group: null }];
+    const { schedule } = estimate(plan);
+    expect(groupMatches(schedule).find((c) => c.courtId === "h1-c2")!.matches).toEqual([]);
+    expect(schedule.courtGroups.find((c) => c.courtId === "h1-c2")).toMatchObject({ groups: [], pinned: true });
     expect(schedule.unplaced).toBe(0);
   });
 
@@ -451,5 +475,6 @@ describe("estimateSchedule with groups on their own courts", () => {
 
   it("reports no court groups when courts are shared", () => {
     expect(estimate(tournament()).schedule.courtGroups).toEqual([]);
+    expect(estimate(tournament()).schedule.homeless).toEqual([]);
   });
 });

@@ -12,6 +12,7 @@ import {
   type OtherCost,
   type OtherIncome,
   type Rules,
+  type CourtGroupPin,
   type MatchMove,
   type WindowKey,
   type StageRules,
@@ -479,11 +480,13 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   const matchMoves: MatchMove[] = Object.entries(draft.matchMoves)
     .filter(([, move]) => courtIds.has(move.courtId))
     .map(([matchId, move]) => ({ matchId, courtId: move.courtId, before: move.before }));
-  // Courts given to a group: dropped once the court or the category is gone.
-  const courtGroups = Object.entries(draft.courtGroups).flatMap(([courtId, key]) => {
+  // Courts set by hand (to a group, or "" for none): dropped once the court or the category is gone.
+  const courtGroups: CourtGroupPin[] = Object.entries(draft.courtGroups).flatMap(([courtId, key]): CourtGroupPin[] => {
+    if (!courtIds.has(courtId)) return [];
+    if (key === "") return [{ courtId, group: null }];
     const match = /^(.+):(\d+)$/.exec(key);
-    if (!match || !courtIds.has(courtId) || !draft.categories.some((c) => c.id === match[1])) return [];
-    return [{ courtId, categoryId: match[1]!, groupIndex: Number(match[2]) }];
+    if (!match || !draft.categories.some((c) => c.id === match[1])) return [];
+    return [{ courtId, group: { categoryId: match[1]!, groupIndex: Number(match[2]) } }];
   });
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
