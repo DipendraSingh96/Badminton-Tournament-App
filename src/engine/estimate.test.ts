@@ -366,3 +366,88 @@ describe("estimateSchedule", () => {
     expect(estimate(plan).schedule.finish).toBe(at("11:15"));
   });
 });
+
+describe("estimateSchedule with groups on their own courts", () => {
+  function own() {
+    const plan = tournament();
+    plan.groupCourts = "own";
+    return plan;
+  }
+  const groupMatches = (schedule: ReturnType<typeof estimateSchedule>) =>
+    schedule.courts.map((c) => ({
+      courtId: c.courtId,
+      matches: c.segments.filter((s) => s.stage === "group").map((s) => s.details[0]!.match),
+    }));
+
+  it("keeps each group on its own court and plays its waves in order there", () => {
+    const { schedule } = estimate(own());
+    for (const { matches } of groupMatches(schedule)) {
+      expect(new Set(matches.map((m) => m.group)).size).toBe(1);
+      const waves = matches.map((m) => m.wave!);
+      expect(waves).toEqual([...waves].sort((a, b) => a - b));
+    }
+    expect(schedule.courtGroups.map((c) => c.groups.map((g) => g.group))).toEqual([["A"], ["B"], ["C"], ["D"]]);
+  });
+
+  it("gives each group a block of courts in its hall, rubbers of a tie side by side", () => {
+    const plan = own();
+    plan.unit = "team";
+    plan.categories[0] = {
+      ...plan.categories[0]!,
+      entry: { type: "team", lineUp: [{ event: "MD", count: 3 }] },
+    };
+    plan.frame.halls = [hall("h1", "09:00", "20:00", { courtCount: 4 }), hall("h2", "09:00", "20:00", { courtCount: 4 })];
+    const { schedule } = estimate(plan);
+    const byCourt = new Map(schedule.courtGroups.map((c) => [c.courtId, c.groups.map((g) => g.group).join()]));
+    // Two groups a hall, two courts each, in court order.
+    expect(byCourt.get("h1-c1")).toBe(byCourt.get("h1-c2"));
+    expect(byCourt.get("h1-c3")).toBe(byCourt.get("h1-c4"));
+    expect(byCourt.get("h1-c1")).not.toBe(byCourt.get("h1-c3"));
+    for (const { courtId, matches } of groupMatches(schedule)) {
+      expect(matches.every((m) => m.group === byCourt.get(courtId))).toBe(true);
+    }
+  });
+
+  it("alternates waves when groups share a court", () => {
+    const plan = own();
+    plan.frame.halls = [hall("h1", "09:00", "20:00", { courtCount: 2 })];
+    const { schedule } = estimate(plan);
+    for (const { matches } of groupMatches(schedule)) {
+      const groups = new Set(matches.map((m) => m.group));
+      expect(groups.size).toBe(2);
+      const waves = matches.map((m) => m.wave!);
+      expect(waves).toEqual([...waves].sort((a, b) => a - b));
+    }
+  });
+
+  it("keeps a court given to a group by hand for that group", () => {
+    const plan = own();
+    plan.courtGroups = [{ courtId: "h1-c4", categoryId: "md", groupIndex: 0 }];
+    const { schedule } = estimate(plan);
+    const onC4 = groupMatches(schedule).find((c) => c.courtId === "h1-c4")!.matches;
+    expect(onC4.length).toBeGreaterThan(0);
+    expect(onC4.every((m) => m.group === "A")).toBe(true);
+    expect(schedule.courtGroups.find((c) => c.courtId === "h1-c4")).toMatchObject({ pinned: true });
+    const elsewhere = groupMatches(schedule).filter((c) => c.courtId !== "h1-c4").flatMap((c) => c.matches);
+    expect(elsewhere.some((m) => m.group === "A")).toBe(false);
+  });
+
+  it("still plays every match and never has a side in two matches at once", () => {
+    const shared = estimate(tournament());
+    const { schedule } = estimate(own());
+    expect(segments(schedule)).toHaveLength(segments(shared.schedule).length);
+    expect(schedule.unplaced).toBe(0);
+    const all = segments(schedule).map((s) => s.details[0]!);
+    for (const a of all) {
+      for (const b of all) {
+        if (a === b) continue;
+        const clash = [a.match.home, a.match.away].some((x) => x === b.match.home || x === b.match.away);
+        if (clash) expect(a.to <= b.from || b.to <= a.from).toBe(true);
+      }
+    }
+  });
+
+  it("reports no court groups when courts are shared", () => {
+    expect(estimate(tournament()).schedule.courtGroups).toEqual([]);
+  });
+});

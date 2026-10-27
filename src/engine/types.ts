@@ -256,6 +256,20 @@ export interface MatchMove {
   before: string | null;
 }
 
+/**
+ * How the group stage uses a hall's courts: "own" keeps each group on its own
+ * courts, playing its waves in order there; "shared" puts each match on the
+ * first free court in the hall.
+ */
+export type GroupCourts = "own" | "shared";
+
+/** A court the organiser gave to one group for the group stage. */
+export interface CourtGroupPin {
+  courtId: string;
+  categoryId: string;
+  groupIndex: number;
+}
+
 export interface TournamentInputs {
   unit: Unit;
   format: FormatType;
@@ -275,4 +289,8 @@ export interface TournamentInputs {
   /** Zones and matches moved by hand on the timeline; the rest follow the estimate. */
   zoneMoves?: ZoneMove[];
   matchMoves?: MatchMove[];
+  /** Missing means shared. */
+  groupCourts?: GroupCourts;
+  /** Courts given to a group by hand; the rest are shared out (own courts only). */
+  courtGroups?: CourtGroupPin[];
 }

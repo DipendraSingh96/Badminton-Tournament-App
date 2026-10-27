@@ -1,11 +1,14 @@
 import type { Analysis } from "./analyse";
 import { available } from "./capacity";
+import { assignGroupCourts, groupKey } from "./court-groups";
+import { groupMatchCount } from "./format";
 import { groupFixtures, groupLetter, knockoutBracket } from "./fixtures";
 import type { EventType, Stage, TournamentInputs, WindowKey, Zone } from "./types";
 
 // A first estimate of the day, until the scheduler is built. Two passes:
 // 1. Assignment: matches go in play order onto the first court that can
-//    start them (groups in their hall, the knockout in the halls allowed),
+//    start them (groups in their hall, on their own courts when the plan
+//    keeps groups to their courts; the knockout in the halls allowed),
 //    then any matches moved by hand change court or order.
 // 2. Timing: each court keeps its order, and every match starts at the
 //    earliest time its court, its zone, its feeders and its sides allow.
@@ -80,6 +83,14 @@ export interface WindowSpan {
   late: number;
 }
 
+/** The groups a court plays in the group stage, when groups keep their own courts. */
+export interface CourtGroups {
+  courtId: string;
+  groups: { categoryId: string; groupIndex: number; group: string }[];
+  /** Given to its group by hand. */
+  pinned: boolean;
+}
+
 export interface EstimatedSchedule {
   /** Each hall's group and KO zones, keyed "hallId:group" or "hallId:knockout". */
   windows: Partial<Record<WindowKey, WindowSpan>>;
@@ -94,6 +105,8 @@ export interface EstimatedSchedule {
   unplaced: number;
   /** Matches that run past their court's hours: still placed, flagged. */
   late: number;
+  /** Each court's groups when groups keep their own courts; empty when courts are shared. */
+  courtGroups: CourtGroups[];
 }
 
 /** The zone a stage is played in: the group stage, or the knockout with its bronze match and final. */
@@ -118,6 +131,8 @@ interface Planned {
   sides: string[];
   /** Halls it may be played in. */
   halls: Set<string>;
+  /** Courts it may be played on, when its group keeps its own courts. */
+  courts?: Set<string>;
   /** Assignment-pass release: when its category is ready. */
   release: number;
 }
@@ -142,8 +157,42 @@ function rubbersOf(inputs: TournamentInputs, categoryId: string): MatchInfo["rub
   return events.map((event, i) => ({ number: i + 1, of: events.length, event }));
 }
 
-/** Every match in play order, with its dependencies and the halls it may use. */
-function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number): Planned[][] {
+/**
+ * Each group's courts when groups keep their own: per hall, the groups placed
+ * there share its courts (see assignGroupCourts). Empty when courts are shared.
+ */
+function groupCourtsOf(inputs: TournamentInputs, analysis: Analysis, hallOfGroup: Map<string, string>) {
+  const courtsOf = new Map<string, Set<string>>();
+  const courtGroups: CourtGroups[] = [];
+  if (inputs.groupCourts !== "own") return { courtsOf, courtGroups };
+  const pins = new Map((inputs.courtGroups ?? []).map((p) => [p.courtId, groupKey(p.categoryId, p.groupIndex)]));
+  const loads = analysis.categories.flatMap((c) =>
+    c.format.groupSizes.map((size, groupIndex) => ({
+      categoryId: c.categoryId,
+      groupIndex,
+      courtMinutes: groupMatchCount(size) * c.rubbersPerFixture,
+    })),
+  );
+  for (const hall of inputs.frame.halls) {
+    const here = loads.filter((g) => hallOfGroup.get(groupKey(g.categoryId, g.groupIndex)) === hall.id);
+    const courtIds = hall.courts.map((c) => c.id);
+    const assigned = assignGroupCourts(here, courtIds, pins);
+    for (const [key, ids] of assigned) courtsOf.set(key, new Set(ids));
+    for (const courtId of courtIds) {
+      courtGroups.push({
+        courtId,
+        groups: here
+          .filter((g) => assigned.get(groupKey(g.categoryId, g.groupIndex))!.includes(courtId))
+          .map((g) => ({ categoryId: g.categoryId, groupIndex: g.groupIndex, group: groupLetter(g.groupIndex) })),
+        pinned: here.some((g) => pins.get(courtId) === groupKey(g.categoryId, g.groupIndex)),
+      });
+    }
+  }
+  return { courtsOf, courtGroups };
+}
+
+/** Every match in play order, with its dependencies and the halls (and courts) it may use. */
+function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
   const halls = inputs.frame.halls.map((h) => h.id);
   const moves = new Map((inputs.zoneMoves ?? []).filter((m) => m.hallId).map((m) => [m.key, m.hallId!]));
   const target = (hallId: string, zone: Zone) => {
@@ -154,8 +203,15 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number): P
   for (const hall of analysis.groupsPerHall) {
     for (const g of hall.groups) hallOfGroup.set(`${g.categoryId}:${g.groupIndex}`, target(hall.hallId, "group"));
   }
+  // With one hall, every group plays there.
+  if (halls.length === 1) {
+    for (const c of analysis.categories) {
+      c.format.groupSizes.forEach((_, g) => hallOfGroup.set(`${c.categoryId}:${g}`, target(halls[0]!, "group")));
+    }
+  }
   const knockoutHalls = new Set(halls.map((h) => target(h, "knockout")));
   const allHalls = new Set(halls.map((h) => target(h, "group")));
+  const { courtsOf, courtGroups } = groupCourtsOf(inputs, analysis, hallOfGroup);
 
   const steps: Planned[][] = [];
   const byGroup = new Map<string, string[]>();
@@ -206,6 +262,7 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number): P
           const letter = groupLetter(g);
           const tie = `${c.categoryId}:group:${letter}:${letter}${a}-${letter}${b}`;
           const hall = hallOfGroup.get(`${c.categoryId}:${g}`);
+          const courts = courtsOf.get(groupKey(c.categoryId, g));
           const matches = make(
             { categoryId: c.categoryId, stage: "group", group: letter, wave: w + 1, home: `${letter}${a}`, away: `${letter}${b}` },
             { type: "wave", wave: w + 1 },
@@ -213,7 +270,7 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number): P
             hall ? new Set([hall]) : allHalls,
             [],
             dayStart,
-          );
+          ).map((m) => (courts && courts.size > 0 ? { ...m, courts } : m));
           const key = `${c.categoryId}:${letter}`;
           byGroup.set(key, [...(byGroup.get(key) ?? []), ...matches.map((m) => m.id)]);
           return matches;
@@ -272,7 +329,7 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number): P
   const last: Planned[] = [];
   for (let i = 0; lists.some((l) => i < l.length); i++) for (const list of lists) if (list[i]) last.push(list[i]!);
   steps.push(last);
-  return steps;
+  return { steps, courtGroups };
 }
 
 /** Places the day at one slot length: assignment, moves by hand, then timing. */
@@ -289,7 +346,10 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   );
   const zoneStart = (court: number, stage: Stage) =>
     zoneStarts.get(zoneKey(courts[court]!.hallId, zoneOf(stage))) ?? -Infinity;
-  const steps = plan(inputs, analysis, dayStart);
+  const { steps, courtGroups } = plan(inputs, analysis, dayStart);
+  // Groups on their own courts move on group by group; otherwise a category waits for its whole step.
+  const own = inputs.groupCourts === "own";
+  const gate = (info: MatchInfo) => (own && info.stage === "group" ? `${info.categoryId}:${info.group}` : info.categoryId);
 
   // 1. Assignment: play order onto the first court that can start each match.
   // Closing times play no part, so changing a hall's or court's hours never
@@ -303,11 +363,12 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     for (const match of step) {
       const minutes = slot.get(match.info.stage);
       if (minutes === undefined) continue;
-      const release = Math.max(match.release, ready.get(match.info.categoryId) ?? -Infinity);
+      const release = Math.max(match.release, ready.get(gate(match.info)) ?? -Infinity);
       let best = -1;
       let bestStart = Infinity;
       courts.forEach((court, i) => {
         if (!match.halls.has(court.hallId)) return;
+        if (match.courts && !match.courts.has(court.courtId)) return;
         const start = Math.max(freeAt[i]!, release, court.start, zoneStart(i, match.info.stage));
         if (start < bestStart) {
           best = i;
@@ -320,7 +381,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
       }
       freeAt[best] = bestStart + minutes;
       queues[best]!.push(match);
-      const id = match.info.categoryId;
+      const id = gate(match.info);
       ends.set(id, Math.max(ends.get(id) ?? -Infinity, bestStart + minutes));
     }
     // A category's next step waits for this one.
@@ -433,7 +494,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
 
   // Anything that still couldn't be timed is reported, never dropped silently.
   unplaced += queues.reduce((n, queue, i) => n + queue.length - head[i]!, 0);
-  return { timed, unplaced, courts };
+  return { timed, unplaced, courts, courtGroups };
 }
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -523,5 +584,6 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
     worstFinish: lastEnd(worst.timed),
     unplaced: typical.unplaced,
     late: typical.timed.filter((t) => t.late).length,
+    courtGroups: typical.courtGroups,
   };
 }
