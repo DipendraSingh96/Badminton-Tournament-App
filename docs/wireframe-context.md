@@ -253,6 +253,13 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Decisions: Plan keeps a dark option (Plan dark, derived from the Live palette, mint primary); the worst-case line keeps following the fit status (recorded as an exception in the system); the Suggested lever's Preview is built now (Preview, then Keep or Discard).
 - The reference picture `docs/design/plan-venue-light.png` wasn't available; the written system was followed and the screens should be compared with the picture when it arrives.
 
+### Shell, court face and density (27 Oct)
+- The page no longer scrolls as a whole: screen-reader hints in the panes were positioned against the page, so it grew to the workbench's height. Each pane now contains them and the shell clips.
+- The left panel collapses to a thin rail, remembered in this browser.
+- Hall header: name, chevron for the settings (expanded in place), summary, copy from another hall; Clear hall and Delete hall on the right (Clear only when there is one hall).
+- Courts follow the organiser's wireframe (`docs/design/court-face-wireframe.webp`, the middle court): side codes in the halves and "Team A1"-style name bands until names exist in Live; the court number as a watermark; umpire spots toggled anywhere (positions are saved with the court, the count follows); hours stepped by the hall's unit at the bottom; copy and delete at the top. The court popover is gone.
+- Density: workbench sections and figure panels are flat, divided by rules; at most one inset level; paired fields sit side by side at the workbench's width.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

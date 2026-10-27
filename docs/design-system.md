@@ -95,11 +95,12 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 ## 5. Space, shape, layout
 
-- Base unit 4px. Card padding 16–18px, gaps 14–20px, page padding 24px.
+- Base unit 4px. Card padding 16–18px, gaps 14–20px, page padding 16px in Plan panes.
+- **No cards inside cards.** Panels (the workbench tabs, figure panels) are flat sections divided by a 1px `border` rule, not framed cards. Inside a section, at most one level of `inset` blocks (one per category or line); nothing framed inside those. Halls sit flat on the venue, divided by a rule.
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
 - Controls are 42px high on desktop and 44px or more on touch.
-- **Plan layout:** three panes. Left list 280px fixed, centre flexible (`min-width: 0`), right workbench 400–480px. The summary card is sticky at the top of the right pane, with tabs beneath it. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
+- **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Left list 280px, collapsible to a 56px rail, centre flexible (`min-width: 0`), right workbench 400–480px. The summary card is sticky at the top of the right pane, with tabs beneath it. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
 - **Live layout:** the wall board is a grid of widgets. The phone is two full-width tap halves with Undo, Fault and End set below.
 
 ## 6. Components
@@ -113,7 +114,7 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Tabs.** Text tabs with a 3px `primary` underline on the active tab. Wrap or scroll on narrow widths.
 - **Chip.** Pill, status fill and text from the status table.
 - **Card.** White, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `turf`.
-- **Court tile.** `accent` fill, `tile-border`, 12px radius. Court icon (green court, white lines) on the left, court name in `turf` condensed, hours muted, current assignment below.
+- **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines, compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, the group and wave either side of the net, the court number as a dark translucent watermark (multiplied). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
 - **Summary card.** The only `feature` block. Shows "SUMMARY", Fits chip, court time needed as numeral XL in shuttle yellow with "of" available time, 40-segment fit gauge, matches tile, profit tile (shuttle fill).
 - **Fit gauge.** 40 segments, `gauge-on` filled, one `gauge-warn` segment at the worst-case position, the rest `gauge-off`. The segment count is fixed, the fill is computed.
 - **Timeline.** Time axis with hourly ticks, one row per hall band, a stages row, one lane per court. Blocks use the timeline colours and a 1px outline. Now line is solid, worst-case line is dashed red with a labelled flag. A buffer zone is hatched.

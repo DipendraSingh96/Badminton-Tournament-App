@@ -13,21 +13,25 @@ Ask for the biggest, most stable information first, and the most detailed, most 
 Plan mode is desktop only. Only Live mode needs a phone layout.
 
 ## Screen layout (three areas)
-1. **Left panel:** list of previous tournaments, and **New tournament**. A new tournament can be started by duplicating a previous one. A duplicate copies everything (including expected entries) except name, date and results.
+1. **Left panel:** list of previous tournaments, and **New tournament**. A new tournament can be started by duplicating a previous one. A duplicate copies everything (including expected entries) except name, date and results. The panel collapses to a thin rail (expand, New tournament, the current tournament's initial); the choice is remembered.
 2. **Middle: working area.** Tournament name, date and time zone across the top. Below them, the venue canvas (halls, courts). The timeline is docked along the bottom of the working area, with a draggable height that is remembered, so the venue and the timeline are visible together.
 3. **Right: workbench.** A sticky summary on top, then tabs. Panel width is variable (to be settled in the UI).
 
+The shell (top bar, left panel, workbench) never scrolls as a page; only the panes inside it scroll.
+
 ## Middle: venue canvas
 - **Halls** hold **courts**. Add hall, add court. Scalable to any hall and court structure.
+- **Hall header**, on one line: the editable hall name, a chevron that opens the hall settings in place, the summary (hours, charging unit, rate, courts), and a **copy from another hall** button at the end of the summary. On the right, **Clear hall** (keeps the name; empties hours, rates and courts) and **Delete hall** (only when there is more than one hall).
 - **Hall settings** (rates are per hall):
   - Hall hours: from, until
   - **Rate bands:** one or more time bands, each with a from, until and a rate per court per hour (for example peak and off-peak). A hall starts with a single band covering its hours. Bands must not overlap and must cover the hall's hours. Gaps are flagged.
   - Shown as a strip across the day, so bands can be seen and edited visually
-  - Option to copy hall settings from another hall
-- **Selecting a court** opens its details:
-  - Available from, until (defaults to the hall's hours; can be narrowed)
-  - Umpires on the court
-  - Option to copy these from the previous court
+- **Court face.** Each court is drawn from above and edited on the court itself (see docs/design/court-face-wireframe.webp):
+  - Surround, top: copy from the previous court (left) and delete court (right), with the rubber between.
+  - Each end: the side's name band ("Team A1"; the team's name in Live) and its draw slot, large. Player names arrive in Live.
+  - Along the net: the group and wave (or the knockout match), at the timeline's playhead. The court number is a watermark.
+  - Umpire spots at the four corners and each end of the net; any spot toggles an umpire on or off, and the court's umpire count follows.
+  - Surround, bottom: the court's hours (defaults to the hall's hours; can be narrowed), each stepped up or down by the hall's charging unit.
 - **Court hire** is calculated per court: its available time within each rate band, multiplied by that band's rate. Only booked time is charged.
 - **Timeline.** One overall timeline with a lane per hall, with rate bands shown as shading. Once the schedule is run, it shows stages and match waves across the halls. Used to see how groups and stages are distributed. It opens showing the whole day and can be zoomed (buttons, or Ctrl and the scroll wheel) and scrolled sideways; "Fit play" frames the matches.
 
