@@ -862,7 +862,7 @@ export function Timeline({
         {notice}
       </p>
 
-      <div ref={scroller} className="min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
+      <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className="flex w-max min-w-full pr-4 pb-3">
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
           <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-card pr-3 pl-4" aria-hidden="true">

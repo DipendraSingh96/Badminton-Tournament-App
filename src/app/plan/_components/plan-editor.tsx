@@ -233,7 +233,7 @@ function Editor() {
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
-          <div className="flex h-dvh min-w-[1024px] flex-col bg-background">
+          <div className="relative flex h-dvh min-w-[1024px] flex-col overflow-hidden overscroll-none bg-background">
             <TopBar />
             <div className="flex min-h-0 flex-1">
               <TournamentList draft={draft} onNew={newTournament} />
@@ -250,7 +250,7 @@ function Editor() {
                       onLayoutChanged={dock.onLayoutChanged}
                     >
                       <ResizablePanel id="venue" minSize={160}>
-                        <div className="@container h-full overflow-y-auto">
+                        <div className="@container relative h-full overflow-y-auto">
                           <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
                             <TournamentHeader draft={draft} update={update} />
                             <VenueCanvas draft={shown} update={update} statuses={statuses} />
@@ -307,7 +307,7 @@ function Editor() {
                           </TabsTrigger>
                         ))}
                       </TabsList>
-                      <div className="@container min-h-0 flex-1 overflow-y-auto bg-background">
+                      <div className="@container relative min-h-0 flex-1 overflow-y-auto bg-background">
                         <TabsContent value="setup" className="flex flex-col gap-4 p-4">
                           <SetupTab draft={draft} update={update} />
                         </TabsContent>
