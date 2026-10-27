@@ -217,3 +217,42 @@
     transparent 1.5px 4px
   );
 }
+
+/* Scrollbars: thin, rounded, no arrows, no track. A pane that scrolls keeps the
+   same width of gutter on both sides, and its content's side padding is the
+   pane padding less the gutter, so the bar sits inside the padding and the two
+   sides look even (docs/design-system.md, "Scrollbars"). */
+:root {
+  --scrollbar: 8px;
+  --pane-x: 16px;
+}
+::-webkit-scrollbar {
+  width: var(--scrollbar);
+  height: var(--scrollbar);
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 28%, transparent) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+/* Browsers without the styles above (Chrome ignores them once these are set). */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent) transparent;
+  }
+}
+.scroll-pane {
+  scrollbar-gutter: stable both-edges;
+  --pane-x: calc(16px - var(--scrollbar));
+}
