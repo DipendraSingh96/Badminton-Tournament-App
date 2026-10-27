@@ -260,6 +260,10 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Courts follow the organiser's wireframe (`docs/design/court-face-wireframe.webp`, the middle court): side codes in the halves and "Team A1"-style name bands until names exist in Live; the court number as a watermark; umpire spots toggled anywhere (positions are saved with the court, the count follows); hours stepped by the hall's unit at the bottom; copy and delete at the top. The court popover is gone.
 - Density: workbench sections and figure panels are flat, divided by rules; at most one inset level; paired fields sit side by side at the workbench's width.
 
+### Group courts (27 Oct)
+- The estimate had put each group match on the first free court in the hall, so one wave of 3-rubber ties filled several rounds and groups mixed across courts. The organiser wants each group on its own courts, waves in order.
+- Decisions: a stored setting "Group courts" (own courts per group by default, or shared across the hall); courts split automatically in proportion to each group's matches, editable per court from the court face (the court changes hands; Automatic undoes it); groups sharing a court alternate waves; the knockout uses any free court.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

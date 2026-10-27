@@ -27,13 +27,13 @@ The shell (top bar, left panel, workbench) never scrolls as a page; only the pan
   - **Rate bands:** one or more time bands, each with a from, until and a rate per court per hour (for example peak and off-peak). A hall starts with a single band covering its hours. Bands must not overlap and must cover the hall's hours. Gaps are flagged.
   - Shown as a strip across the day, so bands can be seen and edited visually
 - **Court face.** Each court is drawn from above and edited on the court itself (see docs/design/court-face-wireframe.webp):
-  - Surround, top: copy from the previous court (left) and delete court (right), with the rubber between.
+  - Surround, top: copy from the previous court (left) and delete court (right). Between them, with own courts per group, the court's group as a menu: give the court to another group of the hall, or Automatic. A court given by hand shows a pin.
   - Each end: the side's name band ("Team A1"; the team's name in Live) and its draw slot, large. Player names arrive in Live.
-  - Along the net: the group and wave (or the knockout match), at the timeline's playhead. The court number is a watermark.
+  - Along the net: the group and wave with the rubber (or the knockout match), at the timeline's playhead. The court number is a watermark.
   - Umpire spots at the four corners and each end of the net; any spot toggles an umpire on or off, and the court's umpire count follows.
   - Surround, bottom: the court's hours (defaults to the hall's hours; can be narrowed), each stepped up or down by the hall's charging unit.
 - **Court hire** is calculated per court: its available time within each rate band, multiplied by that band's rate. Only booked time is charged.
-- **Timeline.** One overall timeline with a lane per hall, with rate bands shown as shading. Once the schedule is run, it shows stages and match waves across the halls. Used to see how groups and stages are distributed. It opens showing the whole day and can be zoomed (buttons, or Ctrl and the scroll wheel) and scrolled sideways; "Fit play" frames the matches.
+- **Timeline.** One overall timeline with a lane per hall, with rate bands shown as shading. Once the schedule is run, it shows stages and match waves across the halls. Used to see how groups and stages are distributed. With own courts per group, each court's lane label names its group(s), e.g. "Court 1 · A". It opens showing the whole day and can be zoomed (buttons, or Ctrl and the scroll wheel) and scrolled sideways; "Fit play" frames the matches.
 
 ## Right: workbench
 ### Sticky summary (always visible)
@@ -58,6 +58,7 @@ Inputs
 - Number of groups or preferred group size
 - Qualifiers per group
 - Bronze match
+- **Group courts:** own courts per group (default) or shared across the hall
 - **Per stage** (group, knockout games, finals): points per game, deuce rule and cap, games per match (best of 1 or 3), minutes per game, organising time per match
 - Buffer
 
