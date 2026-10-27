@@ -48,6 +48,8 @@
   --color-tight-text: var(--status-tight-text);
   --color-over-text: var(--status-over-text);
   --color-over-strong: var(--status-over-strong);
+  --color-court: var(--court);
+  --color-umpire: var(--umpire);
   --font-heading: var(--font-display);
   --radius-2xl: var(--radius-card);
 }
@@ -62,6 +64,15 @@
   /* Over as a fill behind text (chips, the loss tile, badges): white on #D8402F is
      4.47:1, just under AA for small text, so text-bearing fills use this shade. */
   --status-over-strong: #C6372A;
+  /* The court face on the venue (docs/design-system.md, "Court face"): white lines
+     and text on court green; umpire spots in blue, 3:1 on the court. */
+  --court: #0F6B45;
+  --umpire: #7CC4FF;
+}
+
+[data-theme="live"] {
+  --court: #0F6B45;
+  --umpire: #7CC4FF;
 }
 
 /* Plan dark: derived from the Live palette, with a mint primary so shuttle
@@ -99,6 +110,7 @@
   --status-fits-text: #58C27D;
   --status-tight-text: #FFB020;
   --status-over-text: #FF7A6E;
+  --court: #0F6B45;
 }
 
 @layer base {

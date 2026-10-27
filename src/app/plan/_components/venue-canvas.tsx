@@ -1,7 +1,6 @@
 "use client";
 
 import { PlusIcon } from "@phosphor-icons/react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { emptyHall, type PlanDraft } from "@/lib/tournament/draft";
 import { HallCard } from "./hall-card";
@@ -19,7 +18,6 @@ export function VenueCanvas({
   /** What each court is doing at the timeline's playhead; null without an estimate. */
   statuses: Map<string, CourtStatus> | null;
 }) {
-  const [openCourtId, setOpenCourtId] = useState<string | null>(null);
   return (
     <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -37,8 +35,6 @@ export function VenueCanvas({
             draft={draft}
             hallIndex={i}
             update={update}
-            openCourtId={openCourtId}
-            onOpenCourt={setOpenCourtId}
             statuses={statuses}
           />
         ))}

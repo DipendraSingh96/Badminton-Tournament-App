@@ -182,8 +182,31 @@ export function localSegments(draft: PlanDraft, schedule: EstimatedSchedule | nu
   );
 }
 
+/** A knockout match's short name for the court: "QF 1", "SF 2", "Final", "R16 · 3". */
+function knockoutShort(code: string | undefined): string {
+  if (!code) return "Knockout";
+  if (code === "Bronze") return "Bronze";
+  const numbered = /^(QF|SF)(\d+)$/.exec(code);
+  if (numbered) return `${numbered[1]} ${numbered[2]}`;
+  const round = /^R(\d+)-(\d+)$/.exec(code);
+  return round ? `R${round[1]} · ${round[2]}` : code;
+}
+
+/** A match laid out on a court: who's at each end, and what sits along the net. */
+export interface CourtFace {
+  /** Along the net, each a label over a value: "Group" over "A", "Wave" over "1". */
+  left: { label: string; value: string };
+  right: { label: string; value: string } | null;
+  rubber: string | null;
+  /** Each end: the draw slot ("A1", "Winner QF1") and the name band above it ("Team A1"). */
+  home: string;
+  away: string;
+  homeLabel: string;
+  awayLabel: string;
+}
+
 export type CourtStatus =
-  | { kind: "playing"; stage: Stage; label: string }
+  | { kind: "playing"; stage: Stage; label: string; face: CourtFace }
   | { kind: "free" }
   | { kind: "notBooked" };
 
@@ -201,7 +224,23 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
         const short = [where, sides.replace(/\b(Pair|Player|Team) /g, ""), rubber?.replace(/: .*/, ""), categoryName(draft, segment.match.categoryId)]
           .filter(Boolean)
           .join(" · ");
-        statuses.set(court.id, { kind: "playing", stage: segment.stage, label: short });
+        const m = segment.match;
+        const noun = sideNoun(draft, m.categoryId);
+        const group = m.stage === "group";
+        statuses.set(court.id, {
+          kind: "playing",
+          stage: segment.stage,
+          label: short,
+          face: {
+            left: group ? { label: "Group", value: m.group ?? "" } : { label: "Knockout", value: knockoutShort(m.code) },
+            right: group ? { label: "Wave", value: String(m.wave ?? "") } : null,
+            rubber: m.rubber ? `Rubber ${m.rubber.number} of ${m.rubber.of}` : null,
+            home: m.home,
+            away: m.away,
+            homeLabel: group ? `${noun} ${m.home}` : noun,
+            awayLabel: group ? `${noun} ${m.away}` : noun,
+          },
+        });
       } else {
         statuses.set(
           court.id,

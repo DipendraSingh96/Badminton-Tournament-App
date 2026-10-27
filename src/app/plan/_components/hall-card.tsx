@@ -233,21 +233,16 @@ export function HallCard({
   draft,
   hallIndex,
   update,
-  openCourtId,
-  onOpenCourt,
   statuses,
 }: {
   draft: PlanDraft;
   hallIndex: number;
   update: Update;
-  openCourtId: string | null;
-  onOpenCourt: (courtId: string | null) => void;
   statuses: Map<string, CourtStatus> | null;
 }) {
   const hall = draft.frame.halls[hallIndex]!;
   const [settingsOpen, setSettingsOpen] = useState(!hall.from || !hall.to);
   const [copyOpen, setCopyOpen] = useState(false);
-  const courtOpenHere = hall.courts.some((c) => c.id === openCourtId);
   const summary = [
     hall.from && hall.to ? `${hall.from}–${hall.to}` : "Hours not set",
     hall.unitMinutes ? `charged per ${hall.unitMinutes === 60 ? "hour" : `${hall.unitMinutes} min`}` : "unit not set",
@@ -357,7 +352,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}
@@ -365,9 +360,6 @@ export function HallCard({
             hallIndex={hallIndex}
             courtIndex={i}
             number={courtNumber(draft.frame.halls, hallIndex, i)}
-            open={openCourtId === court.id}
-            dimmed={courtOpenHere && openCourtId !== court.id}
-            onOpenChange={(open) => onOpenCourt(open ? court.id : null)}
             status={statuses?.get(court.id) ?? null}
             update={update}
           />
@@ -375,9 +367,7 @@ export function HallCard({
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className={`flex min-h-[5.5rem] items-center justify-center gap-2 rounded-lg border border-dashed border-input text-[15px] font-semibold text-primary transition-[opacity,colors] outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring ${
-            courtOpenHere ? "opacity-40" : ""
-          }`}
+          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input text-[15px] font-semibold text-primary transition-colors outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring"
         >
           <PlusIcon className="size-5" /> Add court
         </button>
