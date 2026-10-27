@@ -11,6 +11,7 @@ import {
   moveZone,
   removeCategory,
   resetZone,
+  setCourtGroup,
   setCourtTime,
   setHallWindow,
   shiftZone,
@@ -217,6 +218,25 @@ describe("normaliseDraft moves", () => {
     const draft = normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
     expect(draft.zoneMoves).toEqual({});
     expect(draft.matchMoves).toEqual({});
+  });
+
+  it("keeps groups on their own courts in a draft saved before the setting", () => {
+    const saved: Partial<ReturnType<typeof emptyDraft>> = emptyDraft("Europe/London");
+    delete saved.groupCourts;
+    delete saved.courtGroups;
+    const draft = normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
+    expect(draft.groupCourts).toBe("own");
+    expect(draft.courtGroups).toEqual({});
+  });
+});
+
+describe("setCourtGroup", () => {
+  it("gives a court to a group, and back to the automatic split", () => {
+    const draft = emptyDraft("Europe/London");
+    setCourtGroup(draft, "k1", "c1:0");
+    expect(draft.courtGroups).toEqual({ k1: "c1:0" });
+    setCourtGroup(draft, "k1", null);
+    expect(draft.courtGroups).toEqual({});
   });
 });
 

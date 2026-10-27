@@ -479,6 +479,12 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   const matchMoves: MatchMove[] = Object.entries(draft.matchMoves)
     .filter(([, move]) => courtIds.has(move.courtId))
     .map(([matchId, move]) => ({ matchId, courtId: move.courtId, before: move.before }));
+  // Courts given to a group: dropped once the court or the category is gone.
+  const courtGroups = Object.entries(draft.courtGroups).flatMap(([courtId, key]) => {
+    const match = /^(.+):(\d+)$/.exec(key);
+    if (!match || !courtIds.has(courtId) || !draft.categories.some((c) => c.id === match[1])) return [];
+    return [{ courtId, categoryId: match[1]!, groupIndex: Number(match[2]) }];
+  });
 
   const finance = collect(financeSchema, draft.finance, ["finance"]);
   const categoryIds = new Set(draft.categories.map((c) => c.id));
@@ -606,6 +612,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         ...(m.hallId ? { hallId: m.hallId } : {}),
       })),
       matchMoves,
+      groupCourts: draft.groupCourts,
+      courtGroups,
     },
   };
 }

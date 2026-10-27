@@ -2,6 +2,7 @@ import {
   EVENT_TYPES,
   type EventType,
   type FormatType,
+  type GroupCourts,
   type Stage,
   type TiebreakCriterion,
   type Unit,
@@ -194,6 +195,16 @@ export interface PlanDraft {
   zoneMoves: Record<string, ZoneMoveDraft>;
   /** Matches moved on the timeline, by match id: onto a court, before another match there (or last). */
   matchMoves: Record<string, { courtId: string; before: string | null }>;
+  /** Group stage: each group on its own courts, or any free court in the hall. */
+  groupCourts: GroupCourts;
+  /** Courts given to a group by hand, by court id: the group's key, "categoryId:groupIndex". */
+  courtGroups: Record<string, string>;
+}
+
+/** Gives a court to a group for the group stage, or (null) back to the automatic split. */
+export function setCourtGroup(draft: PlanDraft, courtId: string, key: string | null): void {
+  if (key === null) delete draft.courtGroups[courtId];
+  else draft.courtGroups[courtId] = key;
 }
 
 export function newId(): string {
@@ -576,5 +587,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     rules: emptyRules(),
     zoneMoves: {},
     matchMoves: {},
+    groupCourts: "own",
+    courtGroups: {},
   };
 }

@@ -417,6 +417,16 @@ describe("parsePlan", () => {
     expect(result.inputs.frame.bufferStart).toBe("2026-07-04T15:00:00.000Z");
   });
 
+  it("passes the group courts setting on, and courts given to a group that still exist", () => {
+    const draft = completeDraft();
+    draft.groupCourts = "own";
+    draft.courtGroups = { c2: "c1:0", missing: "c1:1", c1: "gone:0" };
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.groupCourts).toBe("own");
+    expect(result.inputs.courtGroups).toEqual([{ courtId: "c2", categoryId: "c1", groupIndex: 0 }]);
+  });
+
   it("passes zone and match moves on, ignoring any that no longer fit", () => {
     const draft = completeDraft();
     draft.zoneMoves = {
