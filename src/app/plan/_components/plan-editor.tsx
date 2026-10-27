@@ -83,6 +83,25 @@ function tabFor(issue: PlanIssue): Tab | null {
   }
 }
 
+// The tournament list, collapsed to a rail or not.
+const SIDEBAR_KEY = "badminton:plan-sidebar";
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SIDEBAR_KEY, collapsed ? "collapsed" : "open");
+  } catch {
+    // Not remembered; the list opens next time.
+  }
+}
+
 // The category break-even varies, chosen on the Finance tab.
 const BREAK_EVEN_KEY = "badminton:break-even-category";
 
@@ -110,6 +129,7 @@ function Editor() {
   const [draft, setDraft] = useState<PlanDraft>(() => loadDraft() ?? emptyDraft(browserTimeZone()));
   const [tab, setTab] = useState<Tab>(loadTab);
   const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   // The timeline's playhead, in minutes since midnight; not saved.
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -198,6 +218,11 @@ function Editor() {
     saveBreakEven(id);
   }
 
+  function collapseSidebar(collapsed: boolean) {
+    setSidebarCollapsed(collapsed);
+    saveSidebarCollapsed(collapsed);
+  }
+
   function chooseTab(next: Tab) {
     setTab(next);
     saveTab(next);
@@ -236,7 +261,12 @@ function Editor() {
           <div className="relative flex h-dvh min-w-[1024px] flex-col overflow-hidden overscroll-none bg-background">
             <TopBar />
             <div className="flex min-h-0 flex-1">
-              <TournamentList draft={draft} onNew={newTournament} />
+              <TournamentList
+                draft={draft}
+                onNew={newTournament}
+                collapsed={sidebarCollapsed}
+                onCollapsedChange={collapseSidebar}
+              />
               <ResizablePanelGroup
                 orientation="horizontal"
                 defaultLayout={layout.defaultLayout}

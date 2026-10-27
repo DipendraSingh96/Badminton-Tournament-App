@@ -1,7 +1,8 @@
 "use client";
 
 import { CheckCircleIcon, CircleIcon, InfoIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
-import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useId, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,28 @@ export function issueMap(issues: PlanIssue[]): Map<string, string> {
     if (!map.has(key)) map.set(key, issue.message);
   }
   return map;
+}
+
+/** An icon-only button named by its tooltip; the label is also its accessible name. */
+export function IconButton({
+  label,
+  side = "top",
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "aria-label"> & { label: string; side?: "top" | "bottom" | "left" | "right" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button variant="ghost" size="icon-sm" aria-label={label} className={className} {...props} />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side={side}>{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /**
