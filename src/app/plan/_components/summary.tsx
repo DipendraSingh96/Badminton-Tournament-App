@@ -21,7 +21,7 @@ const DASH = "–";
 /** The fit gauge is drawn in this many segments: a display constant, the fill is computed. */
 const GAUGE_SEGMENTS = 40;
 
-/** A figure on the deep summary card: label above, numeral below. */
+/** A figure in the summary: label above, numeral below. */
 function Tile({
   label,
   value,
@@ -38,17 +38,17 @@ function Tile({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-1 rounded-lg px-3 py-2.5",
-        tone === "plain" && "bg-feature-inner text-feature-foreground",
+        "flex min-w-0 flex-col gap-1 rounded-lg px-3 py-2",
+        tone === "plain" && "bg-inset text-foreground",
         tone === "profit" && "bg-shuttle text-shuttle-foreground",
         tone === "loss" && "bg-over-strong text-over-foreground",
       )}
     >
-      <dt className={cn("truncate text-[13px] font-semibold", tone === "plain" && "text-feature-muted")}>{label}</dt>
+      <dt className={cn("truncate text-[13px] font-semibold", tone === "plain" && "text-muted-foreground")}>{label}</dt>
       <dd className={cn("truncate", size === "l" ? "numeral-l" : "font-display text-xl font-semibold tabular-nums")}>
         {value}
       </dd>
-      {note ? <p className={cn("truncate text-xs", tone === "plain" && "text-feature-muted")}>{note}</p> : null}
+      {note ? <p className={cn("truncate text-xs", tone === "plain" && "text-muted-foreground")}>{note}</p> : null}
     </div>
   );
 }
@@ -73,9 +73,7 @@ function FitGauge({ capacity }: { capacity: Capacity | null }) {
           key={i}
           className={cn(
             "flex-1 rounded-[2px]",
-            i === worst ? "bg-gauge-warn" : i < filled
-                ? "bg-gauge-on"
-                : "bg-gauge-off",
+            i === worst ? "bg-over-strong" : i < filled ? "bg-turf" : "bg-border",
           )}
         />
       ))}
@@ -103,9 +101,9 @@ function saveCollapsed(collapsed: boolean) {
 }
 
 /**
- * Always-visible results at the top of the workbench: the one deep-green card
- * (docs/design-system.md, "Summary card"). Recalculates with every change;
- * shows what is missing until the plan is complete.
+ * Always-visible results at the top of the workbench, on the workbench's own
+ * surface like the sections below it (docs/design-system.md, "Summary").
+ * Recalculates with every change; shows what is missing until the plan is complete.
  */
 export function Summary({
   draft,
@@ -149,37 +147,36 @@ export function Summary({
   const notes: string[] = problems.length > 0 ? problems.slice(0, 1) : warnings;
   const toFill =
     missing.length > 0 ? (
-      <p className="text-sm text-feature-muted">
+      <p className="text-sm text-muted-foreground">
         {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
         <button
           type="button"
-          className="rounded-sm font-semibold text-feature-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-mint"
+          className="rounded-sm font-semibold text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onGoTo(missing[0]!)}
         >
           {issueSection(draft, missing[0]!)}: {missing[0]!.message}
         </button>
       </p>
     ) : notes.length > 0 ? (
-      <ul className="flex flex-col gap-1 text-sm text-feature-foreground">
+      <ul className="flex flex-col gap-1 text-sm">
         {notes.slice(0, 2).map((w) => (
-          <li key={w} className="flex gap-1.5">
-            <WarningCircleIcon weight="fill" className="mt-0.5 size-4 shrink-0 text-gauge-warn" aria-hidden="true" />
+          <li key={w} className="flex gap-2">
+            <WarningCircleIcon weight="fill" className="mt-0.5 size-4 shrink-0 text-over-text" aria-hidden="true" />
             {w}
           </li>
         ))}
-        {notes.length > 2 ? <li className="pl-5.5 text-feature-muted">and {notes.length - 2} more on the timeline</li> : null}
+        {notes.length > 2 ? <li className="pl-6 text-muted-foreground">and {notes.length - 2} more on the timeline</li> : null}
       </ul>
     ) : null;
 
   const header = (
     <div className="flex items-center justify-between gap-2">
-      <h2 className="heading-card text-mint">Summary</h2>
-      <div className="flex items-center gap-1.5">
+      <h2 className="heading-card">Summary</h2>
+      <div className="flex items-center gap-2">
         {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-feature-foreground hover:bg-white/10 aria-expanded:bg-transparent aria-expanded:hover:bg-white/10 focus-visible:ring-mint focus-visible:ring-offset-feature"
           aria-expanded={!collapsed}
           aria-controls="summary-body"
           aria-label={collapsed ? "Show summary" : "Hide summary"}
@@ -192,17 +189,17 @@ export function Summary({
   );
 
   return (
-    <section aria-label="Summary" className="@container shrink-0 border-b bg-card p-4">
-      <div className="flex flex-col gap-3.5 rounded-xl bg-feature p-[18px] text-feature-foreground">
+    <section aria-label="Summary" className="@container shrink-0 border-b bg-card px-4 py-4">
+      <div className="flex flex-col gap-3">
         {header}
         {collapsed ? (
           result && capacity && finance ? (
-            <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm tabular-nums">
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tabular-nums">
               <span>
                 {formatMinutesShort(capacity.needed.typical)} of {formatMinutesShort(capacity.available.courtMinutes)}
               </span>
               <span>{result.totalMatches} matches</span>
-              <span className={cn("font-semibold", !loss && "text-shuttle")}>
+              <span className={cn("font-semibold", loss ? "text-over-text" : "text-fits-text")}>
                 {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(finance.profit))}
               </span>
             </p>
@@ -210,23 +207,23 @@ export function Summary({
             toFill
           )
         ) : (
-          <div id="summary-body" className="flex flex-col gap-3.5">
+          <div id="summary-body" className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-semibold text-feature-muted">Court time needed</p>
+              <p className="text-sm font-semibold text-muted-foreground">Court time needed</p>
               <p className="flex items-baseline gap-2">
-                <span className="numeral-xl text-shuttle">
+                <span className="numeral-xl text-turf">
                   {capacity ? formatMinutesShort(capacity.needed.typical) : DASH}
                 </span>
                 {capacity ? (
-                  <span className="text-[15px] text-feature-muted tabular-nums">
+                  <span className="text-[15px] text-muted-foreground tabular-nums">
                     of {formatMinutesShort(capacity.available.courtMinutes)} available
                   </span>
                 ) : null}
               </p>
               <FitGauge capacity={capacity ?? null} />
               {capacity ? (
-                <p className="flex items-center gap-1.5 text-[13px] text-feature-muted tabular-nums">
-                  <span className="h-2.5 w-1.5 rounded-[2px] bg-gauge-warn" aria-hidden="true" />
+                <p className="flex items-center gap-2 text-[13px] text-muted-foreground tabular-nums">
+                  <span className="h-2.5 w-1.5 rounded-[2px] bg-over-strong" aria-hidden="true" />
                   Worst case {formatMinutesShort(capacity.needed.worst)}
                 </p>
               ) : null}
