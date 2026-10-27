@@ -11,7 +11,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl border bg-card py-(--card-spacing) text-sm text-card-foreground shadow-[0_1px_0_rgba(10,42,27,.04)] [--card-spacing:--spacing(4.5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=flat]:overflow-visible data-[size=flat]:rounded-none data-[size=flat]:border-0 data-[size=flat]:border-b data-[size=flat]:bg-transparent data-[size=flat]:shadow-none data-[size=flat]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl border bg-card py-(--card-spacing) text-sm text-card-foreground shadow-[0_1px_0_rgba(10,42,27,.04)] [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=flat]:overflow-visible data-[size=flat]:rounded-none data-[size=flat]:border-0 data-[size=flat]:border-b data-[size=flat]:bg-transparent data-[size=flat]:shadow-none data-[size=flat]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}

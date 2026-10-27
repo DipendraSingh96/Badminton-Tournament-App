@@ -37,7 +37,7 @@ export function TournamentList({
       id={LIST_ID}
       aria-label="Tournaments"
       className={`relative flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r bg-card transition-[width] duration-200 motion-reduce:transition-none ${
-        collapsed ? "w-14 items-center gap-2 px-2 py-3" : "w-(--pane-left) gap-5 p-5"
+        collapsed ? "w-14 items-center gap-2 px-2 py-3" : "w-(--pane-left) gap-4 p-4"
       }`}
     >
       {collapsed ? (

@@ -103,7 +103,7 @@ function Field({
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
+    <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
       <div className="flex items-center gap-1">
         <Label htmlFor={id}>{label}</Label>
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
@@ -317,7 +317,7 @@ function ChoiceGroup({
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-1.5" data-path={pathKey(path)}>
+    <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
       <div className="flex items-center gap-1">
         <span id={id} className="text-sm leading-none font-semibold text-muted-foreground">
           {label}
@@ -438,7 +438,7 @@ export function OptionCards<T extends string>({
                   selected ? "border-primary bg-accent ring-1 ring-primary" : "border-input bg-card hover:bg-inset",
                 )}
               >
-                <span className={cn("flex items-center gap-1.5 text-[15px] font-semibold", selected && "text-primary")}>
+                <span className={cn("flex items-center gap-2 text-[15px] font-semibold", selected && "text-primary")}>
                   <Icon weight={selected ? "fill" : "regular"} className="size-[18px] shrink-0" />
                   <span id={`${id}-${i}`}>{option.label}</span>
                 </span>
@@ -489,7 +489,7 @@ export function Section({
     <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             {title}
             {description ? <InfoTip about={title}>{description}</InfoTip> : null}
           </span>

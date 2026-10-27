@@ -104,7 +104,7 @@ export function HallTrack({
           {bands.map(({ band, index, from, to }, i) => (
             <span
               key={band.id}
-              className={`absolute inset-y-0 flex items-center overflow-hidden border-l border-foreground/20 px-1.5 ${
+              className={`absolute inset-y-0 flex items-center overflow-hidden border-l border-foreground/20 px-2 ${
                 detailed ? "text-xs font-medium" : "text-xs text-muted-foreground"
               } ${i % 2 === 0 ? "bg-foreground/[0.05]" : "bg-foreground/[0.11]"}`}
               style={{ left: pct(from), width: `calc(${pct(to)} - ${pct(from)})` }}

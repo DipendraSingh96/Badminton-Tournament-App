@@ -99,7 +99,7 @@ function Row({
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-0.5 rounded-md bg-inset px-3 py-2 text-[13px] font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-1 rounded-md bg-inset px-3 py-2 text-[13px] font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
@@ -113,7 +113,7 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
   return (
     <dl className="grid grid-cols-3 gap-2">
       {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 flex-col gap-1.5 rounded-lg bg-inset px-3 py-2.5">
+        <div key={item.label} className="flex min-w-0 flex-col gap-2 rounded-lg bg-inset px-3 py-2">
           <dt className="text-[13px] leading-tight font-semibold text-muted-foreground">{item.label}</dt>
           <dd className="numeral-l whitespace-nowrap">{item.value}</dd>
         </div>
@@ -144,11 +144,11 @@ function LeverList({ levers, when, basis }: { levers: Levers; when: string; basi
     "shorten matches (fewer points, best of 1, or less organising time)",
   ].filter(Boolean) as string[];
   return (
-    <div className="rounded-lg border border-tight bg-card px-3.5 py-3">
+    <div className="rounded-lg border border-tight bg-card px-4 py-3">
       <p className="font-semibold">
         Short by {formatMinutes(levers.courtMinutes)} of court time {when}. Any one of these would close the gap:
       </p>
-      <ul className="mt-1 list-disc pl-5">
+      <ul className="mt-1 list-disc pl-4">
         {options.map((option) => (
           <li key={option}>{option}</li>
         ))}
@@ -175,7 +175,7 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
     <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             Capacity
             <FigureTip />
           </span>
@@ -247,7 +247,7 @@ function MatchesCard({
   return (
     <Card size="flat">
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle className="flex items-center gap-2">
           Matches
           <FigureTip />
         </CardTitle>
@@ -353,7 +353,7 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
   return (
     <Card size="flat">
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle className="flex items-center gap-2">
           Group stage
           <FigureTip />
         </CardTitle>
@@ -420,7 +420,7 @@ function GroupsPerHallCard({
   return (
     <Card size="flat">
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle className="flex items-center gap-2">
           Suggested groups per hall
           <FigureTip />
         </CardTitle>
@@ -472,7 +472,7 @@ function FinanceCard({
     <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             Finance
             <FigureTip />
           </span>
@@ -649,7 +649,7 @@ function LeversCard({
     .sort((a, b) => b.delta.profit - a.delta.profit);
   const list = (items: typeof levers, measure: "fit" | "profit") =>
     items.map((lever, i) => (
-      <div key={i} className="flex flex-col gap-1 rounded-lg border border-tight bg-card px-3.5 py-3">
+      <div key={i} className="flex flex-col gap-1 rounded-lg border border-tight bg-card px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[15px] font-semibold">{leverLabel(lever.change, inputs, draft)}</span>
           <Badge variant={FIT_STATUS[lever.outcome.status].variant}>{FIT_STATUS[lever.outcome.status].label}</Badge>
@@ -679,7 +679,7 @@ function LeversCard({
   return (
     <Card size="flat">
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle className="flex items-center gap-2">
           Suggested levers
           <FigureTip />
         </CardTitle>

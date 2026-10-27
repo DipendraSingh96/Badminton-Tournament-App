@@ -69,14 +69,14 @@ function CourtTime({
     if (next) onChange(next);
   }
   return (
-    <span className="flex items-center gap-0.5" data-path={pathKey(path)}>
+    <span className="flex items-center gap-1" data-path={pathKey(path)}>
       <span
         role="spinbutton"
         tabIndex={0}
         aria-label={own ? `${label} (own hours)` : label}
         aria-valuetext={value || "Not set"}
         onKeyDown={onKeyDown}
-        className={`rounded px-0.5 text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-white ${
+        className={`rounded px-1 text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-white ${
           own ? "font-bold" : "font-medium"
         }`}
       >
@@ -154,7 +154,7 @@ function GroupMenu({
           <button
             type="button"
             aria-label={`Court ${number} plays ${groups.groups.length === 0 ? "no group" : text}${groups.pinned ? ", given by hand" : ""}. Change`}
-            className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-white outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white"
+            className="flex min-w-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-white outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white"
           />
         }
       >
@@ -256,7 +256,7 @@ export function CourtCard({
       role="group"
       aria-label={`Court ${number}`}
       aria-describedby={descriptionId}
-      className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-1.5 text-white transition-opacity ${
+      className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-opacity ${
         status?.kind === "notBooked" ? "opacity-60" : ""
       }`}
     >

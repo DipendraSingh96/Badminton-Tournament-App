@@ -185,13 +185,13 @@ function HallSettings({
             <PlusIcon /> Add band
           </Button>
           {problems === null ? null : problems.length === 0 ? (
-            <p className="flex items-center gap-1.5 text-sm text-fits-text">
+            <p className="flex items-center gap-2 text-sm text-fits-text">
               <CheckCircleIcon weight="fill" /> Bands cover the hall&apos;s hours with no overlap
             </p>
           ) : (
-            <ul className="flex flex-col gap-0.5 text-sm text-over-text">
+            <ul className="flex flex-col gap-1 text-sm text-over-text">
               {problems.map((p) => (
-                <li key={p} className="flex items-center gap-1.5">
+                <li key={p} className="flex items-center gap-2">
                   <WarningCircleIcon weight="fill" /> {p}
                 </li>
               ))}
@@ -284,13 +284,13 @@ export function HallCard({
   return (
     <section className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
       <header className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1">
           <input
             aria-label="Hall name"
             value={hall.name}
             placeholder={name}
             onChange={(e) => update((d) => void (d.frame.halls[hallIndex]!.name = e.target.value))}
-            className="heading-card -mx-1 field-sizing-content max-w-full min-w-[4ch] rounded-md bg-transparent px-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+            className="heading-card -mx-2 field-sizing-content max-w-full min-w-[4ch] rounded-md bg-transparent px-2 py-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
           />
           <IconButton
             label={settingsOpen ? `Hide ${name} settings` : `${name} settings`}
@@ -315,7 +315,7 @@ export function HallCard({
                 </TooltipTrigger>
                 <TooltipContent>Copy from another hall</TooltipContent>
               </Tooltip>
-              <PopoverContent align="start" className="w-60 gap-1 p-1.5">
+              <PopoverContent align="start" className="w-60 gap-1 p-2">
                 <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Copy hours, rates and courts from</p>
                 {others.map(({ hall: other, index }) => (
                   <button

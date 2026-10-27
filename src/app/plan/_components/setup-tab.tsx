@@ -136,7 +136,7 @@ function EventChips({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
     <div className="flex flex-col gap-3">
       {CHIP_GROUPS.map((group) => (
-        <div key={group.label} className="flex flex-col gap-1.5">
+        <div key={group.label} className="flex flex-col gap-2">
           <span className="text-xs font-medium text-muted-foreground">{group.label}</span>
           <div className="flex flex-wrap gap-2">
             {group.events.map((event) => {
@@ -147,14 +147,14 @@ function EventChips({ draft, update }: { draft: PlanDraft; update: Update }) {
                   type="button"
                   aria-label={`Add a category: ${EVENT_LABELS[event]}${n > 0 ? ` (${n} added)` : ""}`}
                   onClick={() => update((d) => void d.categories.push({ ...emptyCategory(), event }))}
-                  className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring ${
                     n > 0 ? "border-foreground font-medium" : "border-input text-muted-foreground"
                   }`}
                 >
                   <PlusIcon className="size-3.5" />
                   {EVENT_LABELS[event]}
                   {n > 0 ? (
-                    <span className="rounded-full bg-foreground px-1.5 text-xs leading-5 text-background tabular-nums">
+                    <span className="rounded-full bg-foreground px-2 text-xs leading-5 text-background tabular-nums">
                       {n}
                     </span>
                   ) : null}

@@ -217,7 +217,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
               <button
                 key={criterion}
                 type="button"
-                className="rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-inset focus-visible:bg-inset"
+                className="rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-inset focus-visible:bg-inset"
                 onClick={() => add(criterion)}
               >
                 {TIEBREAK_LABELS[criterion]}

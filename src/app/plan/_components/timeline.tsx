@@ -818,7 +818,7 @@ export function Timeline({
   return (
     <section aria-label="Timeline" className="flex h-full flex-col bg-card">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-2">
-        <h2 className="heading-card flex items-center gap-1.5 text-xl">
+        <h2 className="heading-card flex items-center gap-2 text-xl">
             Timeline
             <InfoTip about="the timeline">
               Each hall has its hours and rate bands, a Stages row showing where its group and KO stages fall, and a
@@ -999,7 +999,7 @@ export function Timeline({
                             role="button"
                             tabIndex={0}
                             aria-label={`${z.label}, ${clock(z.window.from)}–${clock(z.window.to)}${z.moved ? ", moved" : ""}. Drag along the timeline to leave free time, or onto another hall.`}
-                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-1.5 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
+                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-2 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
                               z.earliest !== null || z.late > 0 ? "text-over-text ring-1 ring-destructive" : ""
                             } ${dragging && dragging.targetHall !== hall.id ? "opacity-40" : ""}`}
                             style={{ left: pct(from), width: width(from, to) }}
@@ -1277,39 +1277,39 @@ export function Timeline({
 
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
           {usedStages.map((stage) => (
-            <span key={stage} className="flex items-center gap-1.5">
+            <span key={stage} className="flex items-center gap-2">
               <span className={`size-2.5 rounded-sm ${STAGE_COLOURS[stage]}`} aria-hidden="true" />
               {STAGE_LABELS[stage]}
             </span>
           ))}
           {zones.length > 0 ? (
             <>
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-2">
                 <span className="zone-group size-2.5 rounded-sm ring-1 ring-foreground/30" aria-hidden="true" />
                 Group stage zone
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-2">
                 <span className="zone-ko size-2.5 rounded-sm ring-1 ring-foreground/30" aria-hidden="true" />
                 KO stage zone
               </span>
             </>
           ) : null}
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <span className="size-2.5 rounded-sm bg-muted ring-1 ring-foreground/30" aria-hidden="true" />
             Court available
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <span className="hatch size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
             Buffer{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
           </span>
           {worstFinish !== null ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <span className={`h-2.5 border-l-2 border-dashed ${WORST_TONES[worstTone].line}`} aria-hidden="true" />
               Worst-case finish
             </span>
           ) : null}
           {anyMoves ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />
               Moved by hand
             </span>
@@ -1344,7 +1344,7 @@ export function Timeline({
         {hovered && !pillDrag ? (
           <div
             role="tooltip"
-            className="pointer-events-none fixed z-50 flex w-72 flex-col gap-0.5 rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-lg"
+            className="pointer-events-none fixed z-50 flex w-72 flex-col gap-1 rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-lg"
             // Kept on screen: flips to the left of the pointer near the right edge.
             style={{
               left: hovered.x + 300 > window.innerWidth ? Math.max(8, hovered.x - 300) : hovered.x + 12,
