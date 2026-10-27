@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearHall,
   costPerShuttle,
   defaultCategoryName,
   emptyCategory,
@@ -10,8 +11,12 @@ import {
   moveZone,
   removeCategory,
   resetZone,
+  setCourtTime,
   setHallWindow,
   shiftZone,
+  steppedCourtTime,
+  toggleUmpire,
+  umpireSpots,
   zoneHall,
 } from "./draft";
 import { normaliseDraft } from "./storage";
@@ -129,6 +134,78 @@ describe("setHallWindow", () => {
     expect(hall.bands[0]).toMatchObject({ from: "09:00", to: "15:40" });
     setHallWindow(hall, "", "");
     expect(hall.bands[0]).toMatchObject({ from: "", to: "" });
+  });
+});
+
+describe("court hours on the court", () => {
+  function hall() {
+    const h = emptyHall();
+    h.from = "09:00";
+    h.to = "12:00";
+    h.unitMinutes = 40;
+    h.courts = [{ id: "c1", from: null, to: null, umpires: 1 }];
+    return h;
+  }
+
+  it("steps a court's time by the hall's unit, within the hall's hours", () => {
+    const h = hall();
+    const court = h.courts[0]!;
+    expect(steppedCourtTime(h, court, "from", 1)).toBe("09:40");
+    expect(steppedCourtTime(h, court, "from", -1)).toBeNull();
+    expect(steppedCourtTime(h, court, "to", -1)).toBe("11:20");
+    expect(steppedCourtTime(h, court, "to", 1)).toBeNull();
+  });
+
+  it("keeps at least one unit between start and end", () => {
+    const h = hall();
+    const court = { ...h.courts[0]!, from: "10:20", to: "11:00" };
+    expect(steppedCourtTime(h, court, "from", 1)).toBeNull();
+    expect(steppedCourtTime(h, court, "to", -1)).toBeNull();
+  });
+
+  it("can't step without the hall's unit or hours", () => {
+    const h = hall();
+    h.unitMinutes = null;
+    expect(steppedCourtTime(h, h.courts[0]!, "from", 1)).toBeNull();
+  });
+
+  it("follows the hall again when stepped back to the hall's time", () => {
+    const h = hall();
+    const court = h.courts[0]!;
+    setCourtTime(h, court, "from", "09:40");
+    expect(court.from).toBe("09:40");
+    setCourtTime(h, court, "from", "09:00");
+    expect(court.from).toBeNull();
+  });
+});
+
+describe("umpire spots", () => {
+  it("fills spots in order for courts saved with a count only", () => {
+    expect(umpireSpots({ id: "c", from: null, to: null, umpires: 2 })).toEqual(["topLeft", "topRight"]);
+    expect(umpireSpots({ id: "c", from: null, to: null, umpires: null })).toEqual([]);
+  });
+
+  it("toggles any spot and keeps the count in step", () => {
+    const court = { id: "c", from: null, to: null, umpires: null as number | null };
+    toggleUmpire(court, "netRight");
+    toggleUmpire(court, "topLeft");
+    expect(court).toMatchObject({ umpires: 2, umpireSpots: ["topLeft", "netRight"] });
+    toggleUmpire(court, "topLeft");
+    toggleUmpire(court, "netRight");
+    expect(court).toMatchObject({ umpires: 0, umpireSpots: [] });
+  });
+});
+
+describe("clearHall", () => {
+  it("keeps the name and empties everything else", () => {
+    const h = emptyHall();
+    Object.assign(h, { name: "Main", from: "09:00", to: "12:00", unitMinutes: 60, multipleRates: true });
+    h.courts.push({ id: "c2", from: null, to: null, umpires: 2 });
+    const id = h.id;
+    clearHall(h);
+    expect(h).toMatchObject({ id, name: "Main", from: "", to: "", unitMinutes: null, multipleRates: false });
+    expect(h.courts).toHaveLength(1);
+    expect(h.bands).toHaveLength(1);
   });
 });
 

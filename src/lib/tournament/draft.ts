@@ -29,12 +29,18 @@ export interface RateBandDraft {
   rate: N;
 }
 
+/** Where an umpire stands, shown as a dot on the court: the four corners and each end of the net. */
+export const UMPIRE_SPOTS = ["topLeft", "topRight", "netLeft", "netRight", "bottomLeft", "bottomRight"] as const;
+export type UmpireSpot = (typeof UMPIRE_SPOTS)[number];
+
 export interface CourtDraft {
   id: string;
   /** Null follows the hall's hours, so the court moves with them. */
   from: string | null;
   to: string | null;
   umpires: N;
+  /** Where the umpires stand; kept in step with `umpires`. Absent on courts saved before positions. */
+  umpireSpots?: UmpireSpot[];
 }
 
 export interface HallDraft {
@@ -297,6 +303,53 @@ export function emptyHall(): HallDraft {
     bands: [emptyBand()],
     courts: [emptyCourt()],
   };
+}
+
+/** Empties a hall but keeps its name: hours, unit, rates and courts start again. */
+export function clearHall(hall: HallDraft): void {
+  const { id, name } = hall;
+  Object.assign(hall, emptyHall(), { id, name });
+}
+
+/** The spots a court's umpires stand at; courts saved before positions fill them in order. */
+export function umpireSpots(court: CourtDraft): UmpireSpot[] {
+  return court.umpireSpots ?? UMPIRE_SPOTS.slice(0, court.umpires ?? 0);
+}
+
+/** Puts an umpire at a spot, or takes them away; the court's count follows. */
+export function toggleUmpire(court: CourtDraft, spot: UmpireSpot): void {
+  const spots = umpireSpots(court);
+  const next = spots.includes(spot) ? spots.filter((s) => s !== spot) : [...spots, spot];
+  court.umpireSpots = UMPIRE_SPOTS.filter((s) => next.includes(s));
+  court.umpires = next.length;
+}
+
+/**
+ * A court's start or end moved one of its hall's charging units earlier or
+ * later, kept within the hall's hours and at least one unit long. Null when it
+ * can't move that way (or the hall's hours or unit aren't set).
+ */
+export function steppedCourtTime(
+  hall: HallDraft,
+  court: CourtDraft,
+  key: "from" | "to",
+  direction: 1 | -1,
+): string | null {
+  const unit = hall.unitMinutes;
+  const open = minutesOfDay(hall.from);
+  const close = minutesOfDay(hall.to);
+  const hours = courtHours(hall, court);
+  const from = minutesOfDay(hours.from);
+  const to = minutesOfDay(hours.to);
+  if (!unit || open === null || close === null || from === null || to === null) return null;
+  const next = (key === "from" ? from : to) + direction * unit;
+  const ok = key === "from" ? next >= open && next <= to - unit : next <= close && next >= from + unit;
+  return ok ? clock(next) : null;
+}
+
+/** Sets a court's start or end; a time equal to the hall's follows the hall again. */
+export function setCourtTime(hall: HallDraft, court: CourtDraft, key: "from" | "to", value: string): void {
+  court[key] = value === hall[key] ? null : value;
 }
 
 /** A court's hours: its own if narrowed, otherwise its hall's. */

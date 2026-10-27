@@ -1,13 +1,23 @@
 "use client";
 
-import { CheckCircleIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  CaretDownIcon,
+  CheckCircleIcon,
+  CopySimpleIcon,
+  EraserIcon,
+  PlusIcon,
+  TrashIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import { useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bandCoverage, type Span } from "@/engine";
 import {
+  clearHall,
   courtNumber,
   emptyBand,
   emptyCourt,
@@ -23,7 +33,7 @@ import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { HallTrack } from "./hall-track";
 import { CourtCard } from "./court-card";
 import type { CourtStatus } from "./timeline";
-import { InfoTip, NumberField, StepperField, TextField } from "./fields";
+import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
 import { formatMoney } from "./labels";
 import type { Update } from "./plan-editor";
 import { ViewRangeContext } from "./time-window";
@@ -64,9 +74,6 @@ function HallSettings({
 }) {
   const [selectedBand, setSelectedBand] = useState<number | null>(null);
   const problems = bandProblems(hall);
-  const others = draft.frame.halls
-    .map((h, i) => ({ hall: h, index: i }))
-    .filter(({ index }) => index !== hallIndex);
   const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
   const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
   const editBand =
@@ -81,7 +88,7 @@ function HallSettings({
 
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
         <div className={`grid gap-3 ${hall.multipleRates ? "grid-cols-[1fr_1fr_8.5rem]" : "grid-cols-[1fr_1fr_8.5rem_8.5rem]"}`}>
           <TextField label="Hall hours from" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
           <TextField label="Until" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
@@ -107,35 +114,6 @@ function HallSettings({
             />
           ) : null}
         </div>
-        {others.length > 0 ? (
-          <NativeSelect
-            aria-label="Copy everything from another hall"
-            value=""
-            onChange={(e) => {
-              const source = draft.frame.halls[Number(e.target.value)];
-              if (!source) return;
-              const name = hallName(source, Number(e.target.value));
-              if (!window.confirm(`Replace this hall's hours, rates and courts with ${name}'s?`)) return;
-              editHall((h) => {
-                h.from = source.from;
-                h.to = source.to;
-                h.unitMinutes = source.unitMinutes;
-                h.multipleRates = source.multipleRates;
-                h.bands = source.bands.map((b) => ({ ...b, id: newId() }));
-                h.courts = source.courts.map((c) => ({ ...c, id: newId() }));
-              });
-            }}
-          >
-            <NativeSelectOption value="" disabled>
-              Copy everything from another hall
-            </NativeSelectOption>
-            {others.map(({ hall: other, index }) => (
-              <NativeSelectOption key={other.id} value={String(index)}>
-                {hallName(other, index)}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
       </div>
 
       <div className="flex items-center gap-2">
@@ -268,6 +246,7 @@ export function HallCard({
 }) {
   const hall = draft.frame.halls[hallIndex]!;
   const [settingsOpen, setSettingsOpen] = useState(!hall.from || !hall.to);
+  const [copyOpen, setCopyOpen] = useState(false);
   const courtOpenHere = hall.courts.some((c) => c.id === openCourtId);
   const summary = [
     hall.from && hall.to ? `${hall.from}–${hall.to}` : "Hours not set",
@@ -280,41 +259,99 @@ export function HallCard({
     `${hall.courts.length} ${hall.courts.length === 1 ? "court" : "courts"}`,
   ].join(" · ");
 
+  const name = hallName(hall, hallIndex);
+  const others = draft.frame.halls
+    .map((h, i) => ({ hall: h, index: i }))
+    .filter(({ index }) => index !== hallIndex);
+
+  function copyFrom(index: number) {
+    const source = draft.frame.halls[index];
+    if (!source) return;
+    if (!window.confirm(`Replace ${name}'s hours, rates and courts with ${hallName(source, index)}'s?`)) return;
+    setCopyOpen(false);
+    update((d) => {
+      const h = d.frame.halls[hallIndex]!;
+      h.from = source.from;
+      h.to = source.to;
+      h.unitMinutes = source.unitMinutes;
+      h.multipleRates = source.multipleRates;
+      h.bands = source.bands.map((b) => ({ ...b, id: newId() }));
+      h.courts = source.courts.map((c) => ({ ...c, id: newId() }));
+    });
+  }
+
   return (
-    <section className="flex flex-col gap-4 rounded-xl border bg-card p-[18px] shadow-[0_1px_0_rgba(10,42,27,.04)]">
-      <header className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
+    <section className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
+      <header className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5">
           <input
             aria-label="Hall name"
             value={hall.name}
-            placeholder={hallName(hall, hallIndex)}
+            placeholder={name}
             onChange={(e) => update((d) => void (d.frame.halls[hallIndex]!.name = e.target.value))}
-            className="heading-card -mx-1 rounded-md bg-transparent px-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+            className="heading-card -mx-1 field-sizing-content max-w-full min-w-[4ch] rounded-md bg-transparent px-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <p className="text-sm text-muted-foreground tabular-nums">{summary}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {draft.frame.halls.length > 1 ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Remove ${hallName(hall, hallIndex)}`}
-              onClick={() => {
-                if (!window.confirm(`Remove ${hallName(hall, hallIndex)} and its courts?`)) return;
-                update((d) => void d.frame.halls.splice(hallIndex, 1));
-              }}
-            >
-              <TrashIcon />
-            </Button>
-          ) : null}
-          <Button
-            variant={settingsOpen ? "secondary" : "outline"}
+          <IconButton
+            label={settingsOpen ? `Hide ${name} settings` : `${name} settings`}
             aria-expanded={settingsOpen}
             data-hall-settings={hallIndex}
             onClick={() => setSettingsOpen((v) => !v)}
           >
-            <SlidersHorizontalIcon /> Hall settings
-          </Button>
+            <CaretDownIcon weight="bold" className={`transition-transform motion-reduce:transition-none ${settingsOpen ? "rotate-180" : ""}`} />
+          </IconButton>
+          <p className="ml-1 text-sm text-muted-foreground tabular-nums">{summary}</p>
+          {others.length > 0 ? (
+            <Popover open={copyOpen} onOpenChange={setCopyOpen}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <PopoverTrigger
+                      render={<Button variant="ghost" size="icon-sm" aria-label={`Copy another hall into ${name}`} />}
+                    />
+                  }
+                >
+                  <CopySimpleIcon />
+                </TooltipTrigger>
+                <TooltipContent>Copy from another hall</TooltipContent>
+              </Tooltip>
+              <PopoverContent align="start" className="w-60 gap-1 p-1.5">
+                <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Copy hours, rates and courts from</p>
+                {others.map(({ hall: other, index }) => (
+                  <button
+                    key={other.id}
+                    type="button"
+                    onClick={() => copyFrom(index)}
+                    className="rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {hallName(other, index)}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <IconButton
+            label={`Clear ${name}`}
+            onClick={() => {
+              if (!window.confirm(`Clear ${name}'s hours, rates and courts? Its name is kept.`)) return;
+              update((d) => clearHall(d.frame.halls[hallIndex]!));
+              setSettingsOpen(true);
+            }}
+          >
+            <EraserIcon />
+          </IconButton>
+          {draft.frame.halls.length > 1 ? (
+            <IconButton
+              label={`Delete ${name}`}
+              onClick={() => {
+                if (!window.confirm(`Delete ${name} and its courts?`)) return;
+                update((d) => void d.frame.halls.splice(hallIndex, 1));
+              }}
+            >
+              <TrashIcon />
+            </IconButton>
+          ) : null}
         </div>
       </header>
 

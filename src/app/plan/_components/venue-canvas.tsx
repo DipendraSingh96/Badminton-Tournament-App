@@ -30,17 +30,19 @@ export function VenueCanvas({
           <PlusIcon /> Add hall
         </Button>
       </div>
-      {draft.frame.halls.map((hall, i) => (
-        <HallCard
-          key={hall.id}
-          draft={draft}
-          hallIndex={i}
-          update={update}
-          openCourtId={openCourtId}
-          onOpenCourt={setOpenCourtId}
-          statuses={statuses}
-        />
-      ))}
+      <div className="flex flex-col gap-4">
+        {draft.frame.halls.map((hall, i) => (
+          <HallCard
+            key={hall.id}
+            draft={draft}
+            hallIndex={i}
+            update={update}
+            openCourtId={openCourtId}
+            onOpenCourt={setOpenCourtId}
+            statuses={statuses}
+          />
+        ))}
+      </div>
     </section>
   );
 }
