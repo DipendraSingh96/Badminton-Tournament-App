@@ -7,6 +7,7 @@
 
 export * from "./analyse";
 export * from "./capacity";
+export * from "./court-groups";
 export * from "./distribution";
 export * from "./duration";
 export * from "./entry";
