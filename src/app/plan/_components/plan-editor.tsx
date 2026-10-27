@@ -1,12 +1,13 @@
 "use client";
 
 import { produce } from "immer";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
+import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
 import { courtNumber, emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { minutesOfDay } from "@/lib/tournament/time";
@@ -142,18 +143,58 @@ function Editor() {
 
   useEffect(() => saveDraft(draft), [draft]);
 
+  // Undo and redo: earlier drafts, in memory only. The ref is the draft as of the
+  // last change, so changes made before the next render build on each other.
+  const draftRef = useRef(draft);
+  const history = useRef(emptyHistory<PlanDraft>());
+  // How many steps can be undone and redone, for the top bar's buttons.
+  const [steps, setSteps] = useState({ back: 0, forward: 0 });
+  const countSteps = () => setSteps({ back: history.current.past.length, forward: history.current.future.length });
+  const commit = useCallback((next: PlanDraft, merge = true) => {
+    const current = draftRef.current;
+    if (next === current) return;
+    history.current = record(history.current, current, Date.now(), merge);
+    countSteps();
+    draftRef.current = next;
+    setDraft(next);
+  }, []);
+  const step = useCallback((back: boolean) => {
+    const result = (back ? undoIn : redoIn)(history.current, draftRef.current);
+    if (!result) return;
+    history.current = result.history;
+    countSteps();
+    draftRef.current = result.value;
+    setPreview(null);
+    setDraft(result.value);
+  }, []);
+
+  // Ctrl+Z undoes (Cmd+Z on a Mac); Ctrl+Shift+Z or Ctrl+Y redoes. Typing is undone in runs.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" || key === "y") {
+        event.preventDefault();
+        step(key === "z" && !event.shiftKey);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step]);
+
   // Any edit ends a preview and is made to the plan itself. An edit to something only
   // the preview has (the court a lever would add) goes with the preview.
-  const update = useCallback<Update>((recipe) => {
-    setPreview(null);
-    setDraft((current) => {
+  const update = useCallback<Update>(
+    (recipe) => {
+      setPreview(null);
       try {
-        return produce(current, recipe);
+        commit(produce(draftRef.current, recipe));
       } catch {
-        return current;
+        // A recipe that no longer applies (the preview's court is gone): nothing changes.
       }
-    });
-  }, []);
+    },
+    [commit],
+  );
 
   const parsed = useMemo(() => parsePlan(draft), [draft]);
   const issues = useMemo(() => issueMap(parsed.ok ? [] : parsed.issues), [parsed]);
@@ -204,7 +245,7 @@ function Editor() {
 
   function keepPreview() {
     if (!preview) return;
-    setDraft((current) => applyLever(current, preview));
+    commit(applyLever(draftRef.current, preview), false);
     setPreview(null);
   }
 
@@ -270,7 +311,7 @@ function Editor() {
   function newTournament() {
     if (!window.confirm("Clear every input and start a new tournament?")) return;
     clearDraft();
-    setDraft(emptyDraft(browserTimeZone()));
+    commit(emptyDraft(browserTimeZone()), false);
   }
 
   return (
@@ -278,7 +319,12 @@ function Editor() {
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
           <div className="relative flex h-dvh min-w-[1024px] flex-col overflow-hidden overscroll-none bg-background">
-            <TopBar />
+            <TopBar
+              onUndo={() => step(true)}
+              onRedo={() => step(false)}
+              canUndo={steps.back > 0}
+              canRedo={steps.forward > 0}
+            />
             <div className="flex min-h-0 flex-1">
               <TournamentList
                 draft={draft}
@@ -299,8 +345,8 @@ function Editor() {
                       onLayoutChanged={dock.onLayoutChanged}
                     >
                       <ResizablePanel id="venue" minSize={160}>
-                        <div className="@container relative h-full overflow-y-auto">
-                          <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
+                        <div className="@container scroll-pane relative h-full overflow-y-auto">
+                          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
                             <TournamentHeader draft={draft} update={update} />
                             <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
                           </div>
@@ -356,7 +402,7 @@ function Editor() {
                           </TabsTrigger>
                         ))}
                       </TabsList>
-                      <div className="@container relative min-h-0 flex-1 overflow-y-auto bg-card">
+                      <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto bg-card">
                         <TabsContent value="setup" className="flex flex-col">
                           <SetupTab draft={draft} update={update} />
                         </TabsContent>

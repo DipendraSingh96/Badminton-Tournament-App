@@ -269,6 +269,10 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - The net band is one centred line ("Wave 1 · R1/2"); the watermark number is half as strong.
 - Spacing is a 4px grid (4, 8, 12, 16, 24px). The summary moved off the deep green card onto the workbench surface, collapsible like a hall.
 
+### Scrollbars and undo (27 Oct)
+- Scrollbars are thin and sit within the panes' padding (equal gutter both sides).
+- Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) undo and redo up to 10 changes, with buttons in the top bar; history is in memory only.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

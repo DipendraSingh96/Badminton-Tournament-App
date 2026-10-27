@@ -97,6 +97,7 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 - **Spacing is a 4px grid.** Every padding and gap is one of 4, 8, 12, 16 or 24px (Tailwind 1, 2, 3, 4, 6); no 2, 6, 10, 14, 18 or 20px one-offs. Typical uses: 4px around small edit and hover boxes (with 8px either side of text), 8px inside chips, tiles and menus, 12px inside inset blocks, 16px around sections and panes, 24px between major regions. Control sizes (42px controls, 44px stepper buttons) are set by the controls, not the grid.
 - **No cards inside cards.** Panels (the workbench tabs, figure panels) are flat sections divided by a 1px `border` rule, not framed cards. Inside a section, at most one level of `inset` blocks (one per category or line); nothing framed inside those. Halls sit flat on the venue, divided by a rule.
+- **Scrollbars:** thin (8px), rounded thumb, no track or arrows. A scrolling pane keeps an equal gutter on both sides and its content's side padding is the pane padding less the gutter, so the bar sits inside the 16px padding and both sides look even.
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
 - Controls are 42px high on desktop and 44px or more on touch.

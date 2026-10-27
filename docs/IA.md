@@ -19,6 +19,8 @@ Plan mode is desktop only. Only Live mode needs a phone layout.
 
 The shell (top bar, left panel, workbench) never scrolls as a page; only the panes inside it scroll.
 
+**Undo and redo.** Ctrl+Z (Cmd+Z on a Mac) undoes the last change to the plan, up to 10 changes back; Ctrl+Shift+Z or Ctrl+Y redoes. Changes made close together (typing, a run of stepper clicks) undo as one. Undo and redo buttons sit in the top bar. The history lives in the browser tab only and is lost on reload.
+
 ## Middle: venue canvas
 - **Halls** hold **courts**. Add hall, add court. Scalable to any hall and court structure.
 - **Hall header**, on one line: the editable hall name, a chevron that opens the hall settings in place, the summary (hours, charging unit, rate, courts), and a **copy from another hall** button at the end of the summary. On the right, **Clear hall** (keeps the name; empties hours, rates and courts) and **Delete hall** (only when there is more than one hall).
