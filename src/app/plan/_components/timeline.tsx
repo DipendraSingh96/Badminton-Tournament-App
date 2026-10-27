@@ -194,10 +194,9 @@ function knockoutShort(code: string | undefined): string {
 
 /** A match laid out on a court: who's at each end, and what sits along the net. */
 export interface CourtFace {
-  /** Along the net, each a label over a value: "Group" over "A", "Wave" over "1". */
+  /** Along the net, each a label over a value: "Group" over "A", "Wave · R1/3" over "1". */
   left: { label: string; value: string };
   right: { label: string; value: string } | null;
-  rubber: string | null;
   /** Each end: the draw slot ("A1", "Winner QF1") and the name band above it ("Team A1"). */
   home: string;
   away: string;
@@ -233,8 +232,11 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
           label: short,
           face: {
             left: group ? { label: "Group", value: m.group ?? "" } : { label: "Knockout", value: knockoutShort(m.code) },
-            right: group ? { label: "Wave", value: String(m.wave ?? "") } : null,
-            rubber: m.rubber ? `Rubber ${m.rubber.number} of ${m.rubber.of}` : null,
+            right: group
+              ? { label: m.rubber ? `Wave · R${m.rubber.number}/${m.rubber.of}` : "Wave", value: String(m.wave ?? "") }
+              : m.rubber
+                ? { label: "Rubber", value: `${m.rubber.number} of ${m.rubber.of}` }
+                : null,
             home: m.home,
             away: m.away,
             homeLabel: group ? `${noun} ${m.home}` : noun,
@@ -371,6 +373,12 @@ export function Timeline({
 }) {
   // The strips show the view range; the playhead runs over the day itself.
   const { range, setDragging } = useContext(ViewRangeContext);
+  /** A court's groups when groups keep their own courts: "A" or "A, E". */
+  const groupsOn = (courtId: string) =>
+    schedule?.courtGroups
+      .find((c) => c.courtId === courtId)
+      ?.groups.map((g) => g.group)
+      .join(", ") ?? "";
   const day = dayRange(draft) ?? range;
   const start = day.start;
   const end = day.end;
@@ -911,8 +919,9 @@ export function Timeline({
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
                 {schedule ? <div className="h-5 text-xs leading-5 font-medium">Stages</div> : null}
                 {hall.courts.map((court, c) => (
-                  <div key={court.id} className="h-5 text-xs leading-5 text-muted-foreground tabular-nums">
+                  <div key={court.id} className="h-5 truncate text-xs leading-5 text-muted-foreground tabular-nums">
                     Court {courtNumber(draft.frame.halls, h, c)}
+                    {groupsOn(court.id) ? <span className="font-semibold text-foreground"> · {groupsOn(court.id)}</span> : null}
                   </div>
                 ))}
               </div>

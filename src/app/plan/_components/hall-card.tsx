@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { bandCoverage, type Span } from "@/engine";
+import { bandCoverage, type CourtGroups, type Span } from "@/engine";
 import {
   clearHall,
   courtNumber,
@@ -31,10 +31,10 @@ import {
 } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { HallTrack } from "./hall-track";
-import { CourtCard } from "./court-card";
+import { CourtCard, type HallGroup } from "./court-card";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
-import { formatMoney } from "./labels";
+import { categoryName, formatMoney } from "./labels";
 import type { Update } from "./plan-editor";
 import { ViewRangeContext } from "./time-window";
 
@@ -234,10 +234,13 @@ export function HallCard({
   hallIndex,
   update,
   statuses,
+  courtGroups,
 }: {
   draft: PlanDraft;
   hallIndex: number;
   update: Update;
+  /** Each court's groups when groups keep their own courts; null when courts are shared. */
+  courtGroups: Map<string, CourtGroups> | null;
   statuses: Map<string, CourtStatus> | null;
 }) {
   const hall = draft.frame.halls[hallIndex]!;
@@ -255,6 +258,17 @@ export function HallCard({
   ].join(" · ");
 
   const name = hallName(hall, hallIndex);
+  // The groups this hall plays, for each court's group menu.
+  const hallGroups: HallGroup[] = [];
+  for (const court of hall.courts) {
+    for (const g of courtGroups?.get(court.id)?.groups ?? []) {
+      const key = `${g.categoryId}:${g.groupIndex}`;
+      if (hallGroups.some((x) => x.key === key)) continue;
+      const label = draft.categories.length > 1 ? `Group ${g.group} · ${categoryName(draft, g.categoryId)}` : `Group ${g.group}`;
+      hallGroups.push({ key, label });
+    }
+  }
+  hallGroups.sort((a, b) => a.label.localeCompare(b.label));
   const others = draft.frame.halls
     .map((h, i) => ({ hall: h, index: i }))
     .filter(({ index }) => index !== hallIndex);
@@ -361,6 +375,8 @@ export function HallCard({
             courtIndex={i}
             number={courtNumber(draft.frame.halls, hallIndex, i)}
             status={statuses?.get(court.id) ?? null}
+            groups={courtGroups?.get(court.id) ?? null}
+            hallGroups={hallGroups}
             update={update}
           />
         ))}

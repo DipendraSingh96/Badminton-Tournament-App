@@ -26,11 +26,11 @@ describe("assignGroupCourts", () => {
     expect(result.get("c1:4")).toEqual(["k2"]);
   });
 
-  it("keeps a pinned court for its group and splits the rest between the others", () => {
-    const pins = new Map([["k4", "c1:0"]]);
+  it("hands a pinned court to its group and leaves the other courts as they were", () => {
+    const pins = new Map([["k3", "c1:0"]]);
     const result = assignGroupCourts([group(0, 120), group(1, 120)], courts(4), pins);
-    expect(result.get("c1:0")).toEqual(["k4"]);
-    expect(result.get("c1:1")).toEqual(["k1", "k2", "k3"]);
+    expect(result.get("c1:0")).toEqual(["k1", "k2", "k3"]);
+    expect(result.get("c1:1")).toEqual(["k4"]);
   });
 
   it("ignores pins to groups or courts not in the hall", () => {
@@ -49,6 +49,7 @@ describe("assignGroupCourts", () => {
       ["k2", "c1:0"],
     ]);
     const result = assignGroupCourts([group(0, 120), group(1, 60)], courts(2), pins);
+    expect(result.get("c1:0")).toEqual(["k1", "k2"]);
     expect(result.get("c1:1")).toHaveLength(1);
   });
 });

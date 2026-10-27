@@ -420,7 +420,7 @@ describe("estimateSchedule with groups on their own courts", () => {
     }
   });
 
-  it("keeps a court given to a group by hand for that group", () => {
+  it("hands a court given to a group by hand to that group", () => {
     const plan = own();
     plan.courtGroups = [{ courtId: "h1-c4", categoryId: "md", groupIndex: 0 }];
     const { schedule } = estimate(plan);
@@ -428,8 +428,10 @@ describe("estimateSchedule with groups on their own courts", () => {
     expect(onC4.length).toBeGreaterThan(0);
     expect(onC4.every((m) => m.group === "A")).toBe(true);
     expect(schedule.courtGroups.find((c) => c.courtId === "h1-c4")).toMatchObject({ pinned: true });
-    const elsewhere = groupMatches(schedule).filter((c) => c.courtId !== "h1-c4").flatMap((c) => c.matches);
-    expect(elsewhere.some((m) => m.group === "A")).toBe(false);
+    // Group A keeps court 1 too; group D, which had court 4, shares the court carrying least.
+    const courtsOfA = groupMatches(schedule).filter((c) => c.matches.some((m) => m.group === "A")).map((c) => c.courtId);
+    expect(courtsOfA).toEqual(["h1-c1", "h1-c4"]);
+    expect(schedule.unplaced).toBe(0);
   });
 
   it("still plays every match and never has a side in two matches at once", () => {

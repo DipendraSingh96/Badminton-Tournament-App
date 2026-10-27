@@ -30,6 +30,11 @@ const GROUP_MODES = [
   { value: "auto", label: "Preferred group size" },
 ] as const;
 
+const GROUP_COURTS = [
+  { value: "own", label: "Own courts per group" },
+  { value: "shared", label: "Shared across the hall" },
+] as const;
+
 const DEUCE_RULES = [
   { value: "none", label: "None" },
   { value: "cap", label: "Hard cap" },
@@ -353,7 +358,18 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
           !hasCategories
             ? null
             : stage === "group"
-              ? draft.categories.map((c, i) => <GroupBlock key={c.id} draft={draft} index={i} update={update} />)
+              ? [
+                  <SegmentedField
+                    key="group-courts"
+                    label="Group courts"
+                    path={["groupCourts"]}
+                    value={draft.groupCourts}
+                    options={GROUP_COURTS}
+                    hint="Own: each group keeps its courts and plays its waves in order there; give a court to another group on the venue. Shared: each match goes to the first free court in the hall, which can finish sooner but mixes groups across courts."
+                    onChange={(v) => update((d) => void (d.groupCourts = v))}
+                  />,
+                  ...draft.categories.map((c, i) => <GroupBlock key={c.id} draft={draft} index={i} update={update} />),
+                ]
               : stage === "knockout" && draft.format === "knockout"
                 ? draft.categories.map((c, i) => <BracketLine key={c.id} draft={draft} index={i} />)
                 : null;

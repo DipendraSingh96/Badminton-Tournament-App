@@ -1,10 +1,13 @@
 "use client";
 
-import { CaretDownIcon, CaretUpIcon, CopyIcon, TrashIcon } from "@phosphor-icons/react";
-import type { KeyboardEvent } from "react";
+import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
+import { useState, type KeyboardEvent } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { CourtGroups } from "@/engine";
 import {
   UMPIRE_SPOTS,
   courtHours,
+  setCourtGroup,
   setCourtTime,
   steppedCourtTime,
   toggleUmpire,
@@ -105,6 +108,78 @@ function CourtTime({
   );
 }
 
+/** A group the hall plays, for the court's group menu. */
+export interface HallGroup {
+  /** "categoryId:groupIndex". */
+  key: string;
+  label: string;
+}
+
+/**
+ * The court's groups in the group stage, as a menu: give the court to one of
+ * the hall's groups, or back to the automatic split.
+ */
+function GroupMenu({
+  number,
+  groups,
+  hallGroups,
+  onChoose,
+}: {
+  number: number;
+  groups: CourtGroups;
+  hallGroups: HallGroup[];
+  onChoose: (key: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const names = groups.groups.map((g) => g.group).join(", ");
+  const text = groups.groups.length === 0 ? "No group" : `${groups.groups.length > 1 ? "Groups" : "Group"} ${names}`;
+  const choose = (key: string | null) => {
+    setOpen(false);
+    onChoose(key);
+  };
+  const current = groups.pinned && groups.groups[0] ? `${groups.groups[0].categoryId}:${groups.groups[0].groupIndex}` : null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Court ${number} plays ${groups.groups.length === 0 ? "no group" : text}${groups.pinned ? ", given by hand" : ""}. Change`}
+            className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-white outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white"
+          />
+        }
+      >
+        {groups.pinned ? <PushPinIcon weight="fill" className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+        <span className="truncate">{text}</span>
+        <CaretDownIcon weight="bold" className="size-3 shrink-0" aria-hidden="true" />
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-56 gap-1 p-1.5">
+        <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Group stage on court {number}</p>
+        <button
+          type="button"
+          aria-pressed={current === null}
+          onClick={() => choose(null)}
+          className="rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent"
+        >
+          Automatic
+          <span className="block text-xs font-normal text-muted-foreground">Shared out by each group&apos;s matches</span>
+        </button>
+        {hallGroups.map((g) => (
+          <button
+            key={g.key}
+            type="button"
+            aria-pressed={current === g.key}
+            onClick={() => choose(g.key)}
+            className="rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent"
+          >
+            {g.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** A side's draw slot, large, in its half of the court. */
 function Half({ code }: { code: string | null }) {
   return (
@@ -145,6 +220,8 @@ export function CourtCard({
   courtIndex,
   number,
   status,
+  groups,
+  hallGroups,
   update,
 }: {
   hall: HallDraft;
@@ -153,6 +230,10 @@ export function CourtCard({
   number: number;
   /** What the court is doing at the timeline's playhead. */
   status: CourtStatus | null;
+  /** The court's groups when groups keep their own courts; null when courts are shared. */
+  groups: CourtGroups | null;
+  /** The groups playing in the court's hall, for its group menu. */
+  hallGroups: HallGroup[];
   update: Update;
 }) {
   const court = hall.courts[courtIndex]!;
@@ -184,7 +265,7 @@ export function CourtCard({
           .join(". ")}
       </p>
 
-      {/* Surround, top: copy and delete, with the rubber or a missing count between. */}
+      {/* Surround, top: copy and delete, with the court's groups (or a missing count) between. */}
       <div className="flex h-8 items-center justify-between gap-1">
         <button
           type="button"
@@ -206,9 +287,18 @@ export function CourtCard({
         >
           <CopyIcon />
         </button>
-        <span className="truncate text-xs font-semibold text-white/85">
-          {face?.rubber ?? (court.umpires === null ? "Umpires not set" : null)}
-        </span>
+        {groups ? (
+          <GroupMenu
+            number={number}
+            groups={groups}
+            hallGroups={hallGroups}
+            onChoose={(key) => update((d) => setCourtGroup(d, court.id, key))}
+          />
+        ) : (
+          <span className="truncate text-xs font-semibold text-white/85">
+            {court.umpires === null ? "Umpires not set" : null}
+          </span>
+        )}
         <button
           type="button"
           aria-label={`Delete court ${number}`}

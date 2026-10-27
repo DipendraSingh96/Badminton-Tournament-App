@@ -213,6 +213,12 @@ function Editor() {
     [shown, segments, moment, schedule],
   );
 
+  const courtGroups = useMemo(
+    () =>
+      schedule && schedule.courtGroups.length > 0 ? new Map(schedule.courtGroups.map((c) => [c.courtId, c])) : null,
+    [schedule],
+  );
+
   function chooseBreakEven(id: string) {
     setBreakEvenId(id);
     saveBreakEven(id);
@@ -283,7 +289,7 @@ function Editor() {
                         <div className="@container relative h-full overflow-y-auto">
                           <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
                             <TournamentHeader draft={draft} update={update} />
-                            <VenueCanvas draft={shown} update={update} statuses={statuses} />
+                            <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
                           </div>
                         </div>
                       </ResizablePanel>

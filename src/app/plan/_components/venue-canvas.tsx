@@ -2,6 +2,7 @@
 
 import { PlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import type { CourtGroups } from "@/engine";
 import { emptyHall, type PlanDraft } from "@/lib/tournament/draft";
 import { HallCard } from "./hall-card";
 import type { Update } from "./plan-editor";
@@ -12,11 +13,14 @@ export function VenueCanvas({
   draft,
   update,
   statuses,
+  courtGroups,
 }: {
   draft: PlanDraft;
   update: Update;
   /** What each court is doing at the timeline's playhead; null without an estimate. */
   statuses: Map<string, CourtStatus> | null;
+  /** Each court's groups when groups keep their own courts; null when courts are shared or there's no estimate. */
+  courtGroups: Map<string, CourtGroups> | null;
 }) {
   return (
     <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
@@ -36,6 +40,7 @@ export function VenueCanvas({
             hallIndex={i}
             update={update}
             statuses={statuses}
+            courtGroups={courtGroups}
           />
         ))}
       </div>
