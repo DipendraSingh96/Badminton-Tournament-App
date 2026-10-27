@@ -264,6 +264,11 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - The estimate had put each group match on the first free court in the hall, so one wave of 3-rubber ties filled several rounds and groups mixed across courts. The organiser wants each group on its own courts, waves in order.
 - Decisions: a stored setting "Group courts" (own courts per group by default, or shared across the hall); courts split automatically in proportion to each group's matches, editable per court from the court face (the court changes hands; Automatic undoes it); groups sharing a court alternate waves; the knockout uses any free court.
 
+### Group menu, court face and spacing (27 Oct)
+- The court's group menu lists every group of the tournament with the courts it has; choosing one adds this court to it (from any hall). No group and Automatic split are offered too. A group left without a court is named in the summary and shares a court meanwhile.
+- The net band is one centred line ("Wave 1 · R1/2"); the watermark number is half as strong.
+- Spacing is a 4px grid (4, 8, 12, 16, 24px). The summary moved off the deep green card onto the workbench surface, collapsible like a hall.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.
