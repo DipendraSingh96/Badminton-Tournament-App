@@ -281,7 +281,7 @@ function Editor() {
                     >
                       <ResizablePanel id="venue" minSize={160}>
                         <div className="@container relative h-full overflow-y-auto">
-                          <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+                          <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
                             <TournamentHeader draft={draft} update={update} />
                             <VenueCanvas draft={shown} update={update} statuses={statuses} />
                           </div>
@@ -337,11 +337,11 @@ function Editor() {
                           </TabsTrigger>
                         ))}
                       </TabsList>
-                      <div className="@container relative min-h-0 flex-1 overflow-y-auto bg-background">
-                        <TabsContent value="setup" className="flex flex-col gap-4 p-4">
+                      <div className="@container relative min-h-0 flex-1 overflow-y-auto bg-card">
+                        <TabsContent value="setup" className="flex flex-col">
                           <SetupTab draft={draft} update={update} />
                         </TabsContent>
-                        <TabsContent value="schedule" className="flex flex-col gap-4 p-4">
+                        <TabsContent value="schedule" className="flex flex-col">
                           <ScheduleTab draft={draft} update={update} />
                           <DerivedCards
                             tab="schedule"
@@ -354,7 +354,7 @@ function Editor() {
                             onPreview={setPreview}
                           />
                         </TabsContent>
-                        <TabsContent value="finance" className="flex flex-col gap-4 p-4">
+                        <TabsContent value="finance" className="flex flex-col">
                           <FinanceTab draft={draft} update={update} />
                           <DerivedCards
                             tab="finance"

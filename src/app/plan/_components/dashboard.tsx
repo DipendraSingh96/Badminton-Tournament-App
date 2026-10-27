@@ -172,7 +172,7 @@ function CapacityCard({ analysis, inputs }: { analysis: Analysis; inputs: Tourna
     `Worked out from an average of ${formatNumber(averageCourts)} courts across the playing time ` +
     `and an average slot of ${formatMinutes(averageSlot)}.`;
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
@@ -245,7 +245,7 @@ function MatchesCard({
   format: FormatType;
 }) {
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           Matches
@@ -351,7 +351,7 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
   const withGroups = analysis.categories.filter((c) => c.format.groupSizes.length > 0);
   if (withGroups.length === 0) return null;
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           Group stage
@@ -418,7 +418,7 @@ function GroupsPerHallCard({
   if (analysis.groupsPerHall.length === 0) return null;
   const hallNames = new Map(inputs.frame.halls.map((h) => [h.id, h.name]));
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           Suggested groups per hall
@@ -469,7 +469,7 @@ function FinanceCard({
   const { finance } = analysis;
   const loss = finance.profit < 0;
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5">
@@ -576,7 +576,7 @@ function ProfitCard({
   );
 
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle>Break-even</CardTitle>
         <CardDescription>
@@ -677,7 +677,7 @@ function LeversCard({
       </div>
     ));
   return (
-    <Card>
+    <Card size="flat">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           Suggested levers

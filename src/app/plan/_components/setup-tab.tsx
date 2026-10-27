@@ -235,7 +235,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
   const category = draft.categories[index]!;
   const squad = squadLine(category);
   return (
-    <li className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
+    <li className="flex flex-col gap-3 rounded-lg bg-inset p-3">
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <TextField

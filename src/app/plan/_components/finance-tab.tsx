@@ -72,7 +72,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
           const path = (key: keyof CategoryDraft) => ["categories", i, key];
           const noun = entryNoun(unit, category.event);
           return (
-            <div key={category.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
+            <div key={category.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-medium">{categoryName(draft, category.id)}</h3>
                 <Badge variant="outline">{entryTag(draft, category)}</Badge>
@@ -87,7 +87,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
                 ]}
                 onChange={set("feeBasis")}
               />
-              <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
                 <NumberField label="Fee (£)" path={path("feeAmount")} value={category.feeAmount} onChange={set("feeAmount")} />
                 <NumberField
                   label="External fee (£)"
@@ -110,7 +110,7 @@ function Shuttles({ draft, update }: { draft: PlanDraft; update: Update }) {
   const perShuttle = costPerShuttle(finance);
   return (
     <Section title="Shuttles" description="Shuttle use follows the games played, at typical length.">
-      <div className="@md:max-w-64">
+      <div className="@sm:max-w-64">
         <NumberField
           label="Shuttles expected per game"
           path={["finance", "shuttlesPerGame"]}
@@ -125,7 +125,7 @@ function Shuttles({ draft, update }: { draft: PlanDraft; update: Update }) {
         options={PRICE_BASES}
         onChange={(v) => update((d) => void (d.finance.shuttlePriceBasis = v))}
       />
-      <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
         <NumberField
           label={finance.shuttlePriceBasis === "tube" ? "Price per tube (£)" : "Price per shuttle (£)"}
           path={["finance", "shuttlePrice"]}
@@ -177,7 +177,7 @@ function Prizes({ draft, update }: { draft: PlanDraft; update: Update }) {
           const path = (key: keyof PrizeDraft) => ["finance", "prizes", i, key];
           return (
             <div key={prize.id} className="flex items-end gap-2">
-              <div className="grid flex-1 grid-cols-1 gap-2 @md:grid-cols-[1fr_1fr_7rem]">
+              <div className="grid flex-1 grid-cols-1 gap-2 @sm:grid-cols-[1fr_1fr_7rem]">
                 <SelectField
                   label="Category"
                   path={path("categoryId")}
@@ -247,7 +247,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
         lines.map((line, i) => {
           const path = (field: keyof Line) => ["finance", key, i, field];
           return (
-            <div key={line.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3.5">
+            <div key={line.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3">
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
                   <TextField
@@ -283,7 +283,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
                   onChange={(v) => edit(i, (l) => void ((l as OtherCostDraft).basis = v))}
                 />
               ) : null}
-              <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
                 <NumberField
                   label={line.type === "perPerson" ? "Amount per person (£)" : "Amount (£)"}
                   path={path("amount")}

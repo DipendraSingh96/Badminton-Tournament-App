@@ -236,7 +236,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
     <div className="flex flex-col gap-4">
       <Heading title="Eligibility" description="Who may enter what. Checked when entries are taken." />
-      <div className="@md:max-w-64">
+      <div className="@sm:max-w-64">
         <StepperField
           label="Most categories one person may enter"
           hint="Leave empty for no limit."
@@ -266,7 +266,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
                   data-path={pathKey(["rules", "eligibility", "exclusivePairs", i])}
                 >
                   <div className="flex items-end gap-2">
-                    <div className="grid flex-1 grid-cols-1 gap-2 @md:grid-cols-2">
+                    <div className="grid flex-1 grid-cols-1 gap-2 @sm:grid-cols-2">
                       <SelectField
                         label="Category"
                         path={["rules", "eligibility", "exclusivePairs", i, "first"]}
