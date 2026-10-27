@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { applyLever } from "@/lib/tournament/levers";
-import { emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
+import { courtNumber, emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
@@ -176,7 +176,20 @@ function Editor() {
   );
   const segments = useMemo(() => localSegments(shown, schedule), [shown, schedule]);
   const zones = useMemo(() => zoneRows(shown, schedule), [shown, schedule]);
-  const warnings = useMemo(() => zoneWarnings(shown, zones), [shown, zones]);
+  const warnings = useMemo(() => {
+    // A group left with no court of its own, sharing one until the organiser chooses a court for it.
+    const courtName = (courtId: string) => {
+      for (const [h, hall] of shown.frame.halls.entries()) {
+        const c = hall.courts.findIndex((x) => x.id === courtId);
+        if (c !== -1) return `court ${courtNumber(shown.frame.halls, h, c)}`;
+      }
+      return "another court";
+    };
+    const homeless = (schedule?.homeless ?? []).map(
+      (g) => `Group ${g.group} has no court of its own; it's sharing ${courtName(g.courtId)}. Choose it on a court.`,
+    );
+    return [...homeless, ...zoneWarnings(shown, zones)];
+  }, [shown, zones, schedule]);
   const range = dayRange(shown);
 
   // Esc discards a preview.

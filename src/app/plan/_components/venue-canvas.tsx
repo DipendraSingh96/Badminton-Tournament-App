@@ -3,8 +3,10 @@
 import { PlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import type { CourtGroups } from "@/engine";
-import { emptyHall, type PlanDraft } from "@/lib/tournament/draft";
+import { courtNumber, emptyHall, type PlanDraft } from "@/lib/tournament/draft";
+import type { GroupOption } from "./court-card";
 import { HallCard } from "./hall-card";
+import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import type { CourtStatus } from "./timeline";
 
@@ -22,6 +24,31 @@ export function VenueCanvas({
   /** Each court's groups when groups keep their own courts; null when courts are shared or there's no estimate. */
   courtGroups: Map<string, CourtGroups> | null;
 }) {
+  // Every group, with the courts it plays on now, for the courts' group menus.
+  const allGroups: GroupOption[] = [];
+  if (courtGroups) {
+    const found = new Map<string, { categoryId: string; groupIndex: number; group: string; courts: number[] }>();
+    draft.frame.halls.forEach((hall, h) =>
+      hall.courts.forEach((court, c) => {
+        for (const g of courtGroups.get(court.id)?.groups ?? []) {
+          const key = `${g.categoryId}:${g.groupIndex}`;
+          const entry = found.get(key) ?? { ...g, courts: [] };
+          entry.courts.push(courtNumber(draft.frame.halls, h, c));
+          found.set(key, entry);
+        }
+      }),
+    );
+    const order = (id: string) => draft.categories.findIndex((c) => c.id === id);
+    for (const [key, g] of [...found].sort(
+      ([, a], [, b]) => order(a.categoryId) - order(b.categoryId) || a.groupIndex - b.groupIndex,
+    )) {
+      allGroups.push({
+        key,
+        label: draft.categories.length > 1 ? `Group ${g.group} · ${categoryName(draft, g.categoryId)}` : `Group ${g.group}`,
+        courts: g.courts.map((n) => `C${n}`).join(", "),
+      });
+    }
+  }
   return (
     <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -41,6 +68,7 @@ export function VenueCanvas({
             update={update}
             statuses={statuses}
             courtGroups={courtGroups}
+            allGroups={allGroups}
           />
         ))}
       </div>

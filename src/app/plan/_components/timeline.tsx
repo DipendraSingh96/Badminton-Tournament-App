@@ -194,9 +194,8 @@ function knockoutShort(code: string | undefined): string {
 
 /** A match laid out on a court: who's at each end, and what sits along the net. */
 export interface CourtFace {
-  /** Along the net, each a label over a value: "Group" over "A", "Wave · R1/3" over "1". */
-  left: { label: string; value: string };
-  right: { label: string; value: string } | null;
+  /** One line above the net: "Wave 1 · R1/2", or the knockout match ("SF 1 · R1/2"). */
+  net: string;
   /** Each end: the draw slot ("A1", "Winner QF1") and the name band above it ("Team A1"). */
   home: string;
   away: string;
@@ -231,12 +230,9 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
           stage: segment.stage,
           label: short,
           face: {
-            left: group ? { label: "Group", value: m.group ?? "" } : { label: "Knockout", value: knockoutShort(m.code) },
-            right: group
-              ? { label: m.rubber ? `Wave · R${m.rubber.number}/${m.rubber.of}` : "Wave", value: String(m.wave ?? "") }
-              : m.rubber
-                ? { label: "Rubber", value: `${m.rubber.number} of ${m.rubber.of}` }
-                : null,
+            net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `R${m.rubber.number}/${m.rubber.of}` : null]
+              .filter(Boolean)
+              .join(" · "),
             home: m.home,
             away: m.away,
             homeLabel: group ? `${noun} ${m.home}` : noun,

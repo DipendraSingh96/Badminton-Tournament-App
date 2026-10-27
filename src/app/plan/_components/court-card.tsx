@@ -108,11 +108,13 @@ function CourtTime({
   );
 }
 
-/** A group the hall plays, for the court's group menu. */
-export interface HallGroup {
+/** A group of the tournament, for the courts' group menus. */
+export interface GroupOption {
   /** "categoryId:groupIndex". */
   key: string;
   label: string;
+  /** The courts it plays on now: "C1, C2". */
+  courts: string;
 }
 
 /**
@@ -122,12 +124,13 @@ export interface HallGroup {
 function GroupMenu({
   number,
   groups,
-  hallGroups,
+  allGroups,
   onChoose,
 }: {
   number: number;
   groups: CourtGroups;
-  hallGroups: HallGroup[];
+  allGroups: GroupOption[];
+  /** A group's key, "" for no group, or null for the automatic split. */
   onChoose: (key: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -137,7 +140,13 @@ function GroupMenu({
     setOpen(false);
     onChoose(key);
   };
-  const current = groups.pinned && groups.groups[0] ? `${groups.groups[0].categoryId}:${groups.groups[0].groupIndex}` : null;
+  const current = !groups.pinned
+    ? null
+    : groups.groups[0]
+      ? `${groups.groups[0].categoryId}:${groups.groups[0].groupIndex}`
+      : "";
+  const optionClass =
+    "flex items-baseline justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent";
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -153,28 +162,24 @@ function GroupMenu({
         <span className="truncate">{text}</span>
         <CaretDownIcon weight="bold" className="size-3 shrink-0" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent align="center" className="w-56 gap-1 p-1.5">
+      <PopoverContent align="center" className="max-h-96 w-64 gap-1 overflow-y-auto p-2">
         <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Group stage on court {number}</p>
-        <button
-          type="button"
-          aria-pressed={current === null}
-          onClick={() => choose(null)}
-          className="rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent"
-        >
-          Automatic
-          <span className="block text-xs font-normal text-muted-foreground">Shared out by each group&apos;s matches</span>
-        </button>
-        {hallGroups.map((g) => (
-          <button
-            key={g.key}
-            type="button"
-            aria-pressed={current === g.key}
-            onClick={() => choose(g.key)}
-            className="rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent"
-          >
-            {g.label}
+        {allGroups.map((g) => (
+          <button key={g.key} type="button" aria-pressed={current === g.key} onClick={() => choose(g.key)} className={optionClass}>
+            <span>{g.label}</span>
+            <span className="shrink-0 text-xs font-normal text-muted-foreground tabular-nums">{g.courts || "No court"}</span>
           </button>
         ))}
+        <span className="my-1 h-px bg-border" aria-hidden="true" />
+        <button type="button" aria-pressed={current === ""} onClick={() => choose("")} className={optionClass}>
+          No group
+        </button>
+        <button type="button" aria-pressed={current === null} onClick={() => choose(null)} className={optionClass}>
+          <span>
+            Automatic split
+            <span className="block text-xs font-normal text-muted-foreground">Shared out by each group&apos;s matches</span>
+          </span>
+        </button>
       </PopoverContent>
     </Popover>
   );
@@ -221,7 +226,7 @@ export function CourtCard({
   number,
   status,
   groups,
-  hallGroups,
+  allGroups,
   update,
 }: {
   hall: HallDraft;
@@ -232,8 +237,8 @@ export function CourtCard({
   status: CourtStatus | null;
   /** The court's groups when groups keep their own courts; null when courts are shared. */
   groups: CourtGroups | null;
-  /** The groups playing in the court's hall, for its group menu. */
-  hallGroups: HallGroup[];
+  /** Every group of the tournament, for its group menu. */
+  allGroups: GroupOption[];
   update: Update;
 }) {
   const court = hall.courts[courtIndex]!;
@@ -291,7 +296,7 @@ export function CourtCard({
           <GroupMenu
             number={number}
             groups={groups}
-            hallGroups={hallGroups}
+            allGroups={allGroups}
             onChoose={(key) => update((d) => setCourtGroup(d, court.id, key))}
           />
         ) : (
@@ -317,41 +322,23 @@ export function CourtCard({
         <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-2 w-px bg-white/60" />
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[132px] leading-none font-bold text-black/35 mix-blend-multiply select-none"
+          className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[132px] leading-none font-bold text-black/18 mix-blend-multiply select-none"
         >
           {number}
         </span>
 
         <NameBand edge="top" text={face?.homeLabel ?? null} />
         <Half code={face?.home ?? null} />
-        <div className="relative z-10 grid grid-cols-2 border-y-2 border-white/90 px-3 py-1">
-          <span aria-hidden="true" className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 bg-white" />
-          {face ? (
-            <>
-              <span className="flex flex-col items-start pb-1.5">
-                <span className="flex items-center gap-1 text-xs font-semibold text-white/85">
-                  {status?.kind === "playing" ? (
-                    <span
-                      aria-hidden="true"
-                      className={`size-2.5 rounded-[3px] ring-1 ring-white/70 ${STAGE_COLOURS[status.stage]}`}
-                    />
-                  ) : null}
-                  {face.left.label}
-                </span>
-                <span className="pt-1.5 font-display text-lg leading-none font-bold">{face.left.value}</span>
-              </span>
-              {face.right ? (
-                <span className="flex flex-col items-end pb-1.5">
-                  <span className="text-xs font-semibold text-white/85">{face.right.label}</span>
-                  <span className="pt-1.5 font-display text-lg leading-none font-bold">{face.right.value}</span>
-                </span>
-              ) : null}
-            </>
-          ) : (
-            <span className="col-span-2 py-2 text-center text-[13px] font-semibold">
-              <span className="relative bg-court px-1.5">{idle ?? "No estimate yet"}</span>
-            </span>
-          )}
+        {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
+        <div className="relative z-10 flex flex-col border-y-2 border-white/90">
+          <p className="flex h-7 items-center justify-center gap-2 px-2 text-[13px] font-semibold">
+            {status?.kind === "playing" ? (
+              <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-[3px] ring-1 ring-white/70 ${STAGE_COLOURS[status.stage]}`} />
+            ) : null}
+            <span className="truncate">{face?.net ?? idle ?? "No estimate yet"}</span>
+          </p>
+          <span aria-hidden="true" className="h-[3px] bg-white" />
+          <span aria-hidden="true" className="h-7" />
         </div>
         <Half code={face?.away ?? null} />
         <NameBand edge="bottom" text={face?.awayLabel ?? null} />
