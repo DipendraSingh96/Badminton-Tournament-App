@@ -95,12 +95,12 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 ## 5. Space, shape, layout
 
-- **Spacing is a 4px grid.** Every padding and gap is one of 4, 8, 12, 16 or 24px (Tailwind 1, 2, 3, 4, 6); no 2, 6, 10, 14, 18 or 20px one-offs. Typical uses: 4px around small edit and hover boxes (with 8px either side of text), 8px inside chips, tiles and menus, 12px inside inset blocks, 16px around sections and panes, 24px between major regions. Control sizes (42px controls, 44px stepper buttons) are set by the controls, not the grid.
+- **Spacing is a 4px grid.** Every padding and gap is one of 4, 8, 12, 16 or 24px (Tailwind 1, 2, 3, 4, 6); no 2, 6, 10, 14, 18 or 20px one-offs. Typical uses: 4px around small edit and hover boxes (with 8px either side of text), 8px inside chips, tiles and menus, 12px inside inset blocks, 16px around sections and panes, 24px between major regions. Control sizes (32px controls and stepper buttons) are set by the controls, not the grid.
 - **No cards inside cards.** Panels (the workbench tabs, figure panels) are flat sections divided by a 1px `border` rule, not framed cards. Inside a section, at most one level of `inset` blocks (one per category or line); nothing framed inside those. Halls sit flat on the venue, divided by a rule.
 - **Scrollbars:** thin (8px), rounded thumb, no track or arrows. A scrolling pane keeps an equal gutter on both sides and its content's side padding is the pane padding less the gutter, so the bar sits inside the 16px padding and both sides look even.
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
-- Controls are 42px high on desktop and 44px or more on touch.
+- Controls are 32px high in Plan (dense, desktop): inputs and selects with 14px text, buttons 32px (small 28px), steppers 32px, segmented controls 32px with 24px segments. Live's touch screens use 44px or more.
 - **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Left list 280px, collapsible to a 56px rail, centre flexible (`min-width: 0`), right workbench 400–480px. The summary card is sticky at the top of the right pane, with tabs beneath it. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
 - **Live layout:** the wall board is a grid of widgets. The phone is two full-width tap halves with Undo, Fault and End set below.
 
@@ -108,14 +108,14 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 Build these once in `src/components/ui` (extend shadcn where it exists) and reuse them.
 
-- **Button.** Primary: `primary` fill, white text. Secondary: white fill, `input` border. Accent: shuttle fill, only for the single key action on a screen. Height 42px.
-- **Input.** White, 1px `input` border, 8px radius, 42px high. Label above in 14px muted.
+- **Button.** Primary: `primary` fill, white text. Secondary: white fill, `input` border. Accent: shuttle fill, only for the single key action on a screen. Height 32px (small 28px), 14px text.
+- **Input.** White, 1px `input` border, 8px radius, 32px high, 14px text. Label above in 14px muted.
 - **Segmented control.** Inset well, selected segment `primary` fill with white text.
-- **Stepper.** Minus, numeral, plus. Minus is dimmed (opacity .4) at zero. Buttons 44px square.
+- **Stepper.** Minus, numeral, plus. Minus is dimmed (opacity .4) at zero. 32px high, 32px-wide buttons, 15px numeral.
 - **Tabs.** Text tabs with a 3px `primary` underline on the active tab. Wrap or scroll on narrow widths.
 - **Chip.** Pill, status fill and text from the status table.
 - **Card.** White, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `turf`.
-- **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines, compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, one centred line above the net ("Wave 1 · R1/2", or the knockout match), the court number as a faint watermark (black at 18%, multiplied). With own courts per group, the top surround carries the court's group as a menu (every group of the tournament, with the courts it has, plus No group and Automatic split). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
+- **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines (only the outer box, 2px at 90%, and the net, 3px, are heavy; the singles sidelines 10px in, the service lines and the centre lines are 1px at 50%), compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, one centred line above the net ("Wave 1 · R1/2", or the knockout match), the court number as a faint watermark (black at 18%, multiplied). With own courts per group, the top surround carries the court's group as a menu (every group of the tournament, with the courts it has, plus No group and Automatic split). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
 - **Summary.** On the workbench surface like any section (no card): "SUMMARY" heading, status chip and a collapse chevron. Court time needed as numeral XL in `turf` with "of" available time; 40-segment fit gauge in `turf` on a `border` track, the worst case as one `status-over-strong` segment; matches, revenue, cost and break-even as `inset` tiles; profit a shuttle-fill tile, loss a `status-over-strong` tile, always with the word. Collapsed, one line, profit in the fits text colour and loss in the over text colour.
 - **Fit gauge.** 40 segments, `gauge-on` filled, one `gauge-warn` segment at the worst-case position, the rest `gauge-off`. The segment count is fixed, the fill is computed.
 - **Timeline.** Time axis with hourly ticks, one row per hall band, a stages row, one lane per court. Blocks use the timeline colours and a 1px outline. Now line is solid, worst-case line is dashed red with a labelled flag. A buffer zone is hatched.

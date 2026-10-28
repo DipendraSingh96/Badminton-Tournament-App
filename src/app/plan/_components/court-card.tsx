@@ -18,7 +18,7 @@ import {
 } from "@/lib/tournament/draft";
 import { pathKey } from "./fields";
 import type { Update } from "./plan-editor";
-import { STAGE_COLOURS, type CourtStatus } from "./timeline";
+import type { CourtStatus } from "./timeline";
 
 /** Where each umpire spot sits on the court, and what it's called. */
 const SPOTS: Record<UmpireSpot, { className: string; name: string }> = {
@@ -32,7 +32,7 @@ const SPOTS: Record<UmpireSpot, { className: string; name: string }> = {
 
 /** Small icon buttons in the court's surround: white on court green. */
 const SURROUND_BUTTON =
-  "grid size-7 shrink-0 place-items-center rounded-md text-white outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4";
+  "grid size-6 shrink-0 place-items-center rounded-md text-white outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4";
 
 function umpireText(umpires: number | null): string {
   if (umpires === null) return "Umpires not set";
@@ -50,6 +50,7 @@ function CourtTime({
   label,
   path,
   onChange,
+  className = "",
 }: {
   hall: HallDraft;
   court: CourtDraft;
@@ -57,6 +58,7 @@ function CourtTime({
   label: string;
   path: PropertyKey[];
   onChange: (value: string) => void;
+  className?: string;
 }) {
   const value = courtHours(hall, court)[which];
   const later = steppedCourtTime(hall, court, which, 1);
@@ -69,7 +71,7 @@ function CourtTime({
     if (next) onChange(next);
   }
   return (
-    <span className="flex items-center gap-1" data-path={pathKey(path)}>
+    <span className={`flex items-center gap-1 ${className}`} data-path={pathKey(path)}>
       <span
         role="spinbutton"
         tabIndex={0}
@@ -200,13 +202,18 @@ function Half({ code }: { code: string | null }) {
   );
 }
 
+/** The centre line of one half, from the back line to the front service line, behind the text. */
+function CentreLine() {
+  return <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/50" />;
+}
+
 /** The band behind a back line, holding a side's name. */
 function NameBand({ text, edge }: { text: string | null; edge: "top" | "bottom" }) {
   return (
     <div
       className={`relative z-10 grid h-7 place-items-center truncate px-3 text-xs font-semibold ${
-        edge === "top" ? "border-b-2" : "border-t-2"
-      } border-white/90`}
+        edge === "top" ? "border-b" : "border-t"
+      } border-white/50`}
     >
       {text}
     </div>
@@ -271,13 +278,13 @@ export function CourtCard({
       </p>
 
       {/* Surround, top: copy and delete, with the court's groups (or a missing count) between. */}
-      <div className="flex h-8 items-center justify-between gap-1">
+      <div className="mx-1 flex h-8 items-center justify-between gap-1">
         <button
           type="button"
           aria-label={`Copy court ${courtIndex} into court ${number}`}
           title="Copy hours and umpires from the previous court"
           disabled={courtIndex === 0}
-          className={SURROUND_BUTTON}
+          className={`-ml-1 ${SURROUND_BUTTON}`}
           onClick={() =>
             update((d) => {
               const courts = d.frame.halls[hallIndex]!.courts;
@@ -309,7 +316,7 @@ export function CourtCard({
           aria-label={`Delete court ${number}`}
           title="Delete court"
           disabled={hall.courts.length === 1}
-          className={SURROUND_BUTTON}
+          className={`-mr-1 ${SURROUND_BUTTON}`}
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.splice(courtIndex, 1))}
         >
           <TrashIcon />
@@ -318,8 +325,8 @@ export function CourtCard({
 
       {/* The court: outer lines, tramlines, the net band in the middle. */}
       <div className="relative mx-1 flex min-h-64 flex-col border-2 border-white/90" data-path={pathKey(path("umpires"))}>
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-2 w-px bg-white/60" />
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-2 w-px bg-white/60" />
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[10px] w-px bg-white/50" />
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-[10px] w-px bg-white/50" />
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[132px] leading-none font-bold text-black/18 mix-blend-multiply select-none"
@@ -327,21 +334,24 @@ export function CourtCard({
           {number}
         </span>
 
-        <NameBand edge="top" text={face?.homeLabel ?? null} />
-        <Half code={face?.home ?? null} />
+        <div className="relative flex flex-1 flex-col">
+          <CentreLine />
+          <NameBand edge="top" text={face?.homeLabel ?? null} />
+          <Half code={face?.home ?? null} />
+        </div>
         {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
-        <div className="relative z-10 flex flex-col border-y-2 border-white/90">
-          <p className="flex h-7 items-center justify-center gap-2 px-2 text-[13px] font-semibold">
-            {status?.kind === "playing" ? (
-              <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-[3px] ring-1 ring-white/70 ${STAGE_COLOURS[status.stage]}`} />
-            ) : null}
+        <div className="relative z-10 flex flex-col border-y border-white/50">
+          <p className="flex h-7 items-center justify-center px-2 text-[13px] font-semibold">
             <span className="truncate">{face?.net ?? idle ?? "No estimate yet"}</span>
           </p>
           <span aria-hidden="true" className="h-[3px] bg-white" />
           <span aria-hidden="true" className="h-7" />
         </div>
-        <Half code={face?.away ?? null} />
-        <NameBand edge="bottom" text={face?.awayLabel ?? null} />
+        <div className="relative flex flex-1 flex-col">
+          <CentreLine />
+          <Half code={face?.away ?? null} />
+          <NameBand edge="bottom" text={face?.awayLabel ?? null} />
+        </div>
 
         {UMPIRE_SPOTS.map((spot) => {
           const on = spots.includes(spot);
@@ -366,12 +376,13 @@ export function CourtCard({
       </div>
 
       {/* Surround, bottom: the court's hours. */}
-      <div className="flex items-center justify-center gap-1 pt-1">
+      <div className="mx-1 flex items-center justify-between gap-1 pt-1">
         <CourtTime
           hall={hall}
           court={court}
           which="from"
           label={`Court ${number} starts`}
+          className="-ml-1"
           path={path("from")}
           onChange={(v) => edit((c) => setCourtTime(hall, c, "from", v))}
         />
@@ -383,6 +394,7 @@ export function CourtCard({
           court={court}
           which="to"
           label={`Court ${number} ends`}
+          className="-mr-1"
           path={path("to")}
           onChange={(v) => edit((c) => setCourtTime(hall, c, "to", v))}
         />
