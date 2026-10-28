@@ -184,11 +184,11 @@ export function StepperField({
   const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
-      <div className="flex items-stretch overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring">
+      <div className="flex h-(--control-h) items-stretch overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring">
         <button
           type="button"
           aria-label={`Decrease ${label.toLowerCase()}`}
-          className="grid size-11 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset disabled:opacity-40 [&_svg]:size-5"
+          className="grid w-8 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset disabled:opacity-40 [&_svg]:size-4"
           disabled={value === null || value <= min}
           onClick={() => step(-1)}
         >
@@ -203,7 +203,7 @@ export function StepperField({
           value={value ?? ""}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
-          className="h-11 w-full min-w-0 [appearance:textfield] bg-transparent text-center font-display text-xl font-semibold tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
             const parsed = raw === "" ? null : Number(raw);
@@ -213,7 +213,7 @@ export function StepperField({
         <button
           type="button"
           aria-label={`Increase ${label.toLowerCase()}`}
-          className="grid size-11 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset [&_svg]:size-5"
+          className="grid w-8 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset [&_svg]:size-4"
           onClick={() => step(1)}
         >
           <PlusIcon />
@@ -380,7 +380,7 @@ export function SegmentedField<T extends string | number>({
                 tabIndex={selected || (value === null && i === 0) ? 0 : -1}
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "min-h-[34px] flex-1 rounded-sm px-3 py-1 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "min-h-6 flex-1 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selected
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-card hover:text-foreground",

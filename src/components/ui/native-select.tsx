@@ -23,7 +23,7 @@ function NativeSelect({
       <select
         data-slot="native-select"
         data-size={size}
-        className="h-(--control-h) w-full min-w-0 appearance-none rounded-md border border-input bg-card py-1 pr-9 pl-3 text-base transition-colors outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/30 data-[size=sm]:h-9 data-[size=sm]:py-0.5 data-[size=sm]:text-sm dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
+        className="h-(--control-h) w-full min-w-0 appearance-none rounded-md border border-input bg-card py-1 pr-9 pl-3 text-sm transition-colors outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/30 data-[size=sm]:h-9 data-[size=sm]:py-0.5 data-[size=sm]:text-sm dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
         {...props}
       />
       <CaretDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground select-none" aria-hidden="true" data-slot="native-select-icon" />
