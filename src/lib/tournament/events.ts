@@ -33,11 +33,11 @@ export const TIEBREAK_LABELS: Record<TiebreakCriterion, string> = {
 };
 
 export const WITHDRAWAL_LABELS: Record<WithdrawalRule, string> = {
-  byesThenWalkovers: "Walkovers; played results stand",
-  byesThenVoid: "Void all their results",
+  byesThenWalkovers: "Walkovers",
+  byesThenVoid: "Void results",
 };
 
 export const WALKOVER_LABELS: Record<WalkoverRule, string> = {
-  straightGamesAtTarget: "Straight games at the target score",
-  winOnly: "A win with no games or points",
+  straightGamesAtTarget: "Straight-games win",
+  winOnly: "Win only",
 };

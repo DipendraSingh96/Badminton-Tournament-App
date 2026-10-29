@@ -33,7 +33,7 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
   - Court cards: a top-down court drawing, "Court 1", "09:30–18:00 · 1 umpire". Court 2 is shown selected.
 - **Right, Summary:** "Tight" badge; "Court time needed: 000 h of 000 h available" with a bar; tiles for Matches, Revenue, Total cost, Profit or loss, Break-even entries.
 - **Right, Tournament setup tab:**
-  - Tournament type as a segmented control: "Individual and pair events" / "Team". Note: "Team is always its own tournament. Choosing it replaces categories with a team line-up."
+  - Tournament type as a segmented control: "Individuals and pairs" / "Team". Note: "Team is always its own tournament. Choosing it replaces categories with a team line-up."
   - Categories as chips. Individual: Men's singles, Women's singles. Pair: Men's doubles, Women's doubles, Mixed doubles, Open doubles.
   - Format as large options: Groups then knockout, Groups only, Knockout only.
 

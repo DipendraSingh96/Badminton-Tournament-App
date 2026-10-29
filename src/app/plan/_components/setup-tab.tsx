@@ -18,7 +18,7 @@ import type { Update } from "./plan-editor";
 import { RulesSection } from "./rules-section";
 
 const UNITS: { value: Unit; label: string }[] = [
-  { value: "individual", label: "Individual and pair events" },
+  { value: "individual", label: "Individuals and pairs" },
   { value: "team", label: "Team" },
 ];
 

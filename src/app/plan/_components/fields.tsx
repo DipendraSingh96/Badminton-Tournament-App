@@ -104,8 +104,10 @@ function Field({
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
     <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
-      <div className="flex items-center gap-1">
-        <Label htmlFor={id}>{label}</Label>
+      <div className="flex min-w-0 items-center gap-1">
+        <Label htmlFor={id} className="min-w-0 truncate" title={label}>
+          {label}
+        </Label>
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
       </div>
       {children}
@@ -318,8 +320,8 @@ function ChoiceGroup({
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
     <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
-      <div className="flex items-center gap-1">
-        <span id={id} className="text-sm leading-none font-semibold text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-1">
+        <span id={id} title={label} className="min-w-0 truncate text-sm leading-none font-semibold text-muted-foreground">
           {label}
         </span>
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
@@ -367,6 +369,7 @@ export function SegmentedField<T extends string | number>({
           role="radiogroup"
           aria-labelledby={labelId}
           onKeyDown={onRadioKeyDown}
+          data-slot="segmented"
           className="flex gap-1 rounded-md bg-inset p-1"
         >
           {options.map((option, i) => {
@@ -380,13 +383,13 @@ export function SegmentedField<T extends string | number>({
                 tabIndex={selected || (value === null && i === 0) ? 0 : -1}
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "min-h-6 flex-1 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "min-h-6 min-w-0 flex-1 truncate rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selected
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-card hover:text-foreground",
                 )}
               >
-                {option.label}
+                <span title={option.label}>{option.label}</span>
               </button>
             );
           })}
@@ -418,7 +421,7 @@ export function OptionCards<T extends string>({
           role="radiogroup"
           aria-labelledby={labelId}
           onKeyDown={onRadioKeyDown}
-          className="grid grid-cols-1 gap-2 @md:grid-cols-3"
+          className="grid grid-cols-1 gap-2 @2xl:grid-cols-3"
         >
           {options.map((option, i) => {
             const selected = option.value === value;
@@ -438,9 +441,11 @@ export function OptionCards<T extends string>({
                   selected ? "border-primary bg-accent ring-1 ring-primary" : "border-input bg-card hover:bg-inset",
                 )}
               >
-                <span className={cn("flex items-center gap-2 text-[15px] font-semibold", selected && "text-primary")}>
+                <span className={cn("flex min-w-0 items-center gap-2 text-[15px] font-semibold", selected && "text-primary")}>
                   <Icon weight={selected ? "fill" : "regular"} className="size-[18px] shrink-0" />
-                  <span id={`${id}-${i}`}>{option.label}</span>
+                  <span id={`${id}-${i}`} className="truncate" title={option.label}>
+                    {option.label}
+                  </span>
                 </span>
                 <span id={`${id}-${i}-description`} className="text-[13px] text-muted-foreground">
                   {option.description}

@@ -176,8 +176,9 @@ function Prizes({ draft, update }: { draft: PlanDraft; update: Update }) {
             update((d) => void (d.finance.prizes[i]![key] = value));
           const path = (key: keyof PrizeDraft) => ["finance", "prizes", i, key];
           return (
-            <div key={prize.id} className="flex items-end gap-2">
-              <div className="grid flex-1 grid-cols-1 gap-2 @sm:grid-cols-[1fr_1fr_7rem]">
+            // One prize: its category, then its position and amount on one line.
+            <div key={prize.id} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] items-end gap-2">
+              <div className="col-span-3">
                 <SelectField
                   label="Category"
                   path={path("categoryId")}
@@ -185,15 +186,15 @@ function Prizes({ draft, update }: { draft: PlanDraft; update: Update }) {
                   options={options}
                   onChange={set("categoryId")}
                 />
-                <TextField
-                  label="Position"
-                  placeholder="e.g. Winner"
-                  path={path("position")}
-                  value={prize.position}
-                  onChange={set("position")}
-                />
-                <NumberField label="Amount (£)" path={path("amount")} value={prize.amount} onChange={set("amount")} />
               </div>
+              <TextField
+                label="Position"
+                placeholder="e.g. Winner"
+                path={path("position")}
+                value={prize.position}
+                onChange={set("position")}
+              />
+              <NumberField label="Amount (£)" path={path("amount")} value={prize.amount} onChange={set("amount")} />
               <Button
                 variant="ghost"
                 size="icon"

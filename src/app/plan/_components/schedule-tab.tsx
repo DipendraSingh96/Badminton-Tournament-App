@@ -466,8 +466,8 @@ function StageCard({
               onChange={set("minutesPerGame")}
             />
             <StepperField
-              label="Organising time per match (minutes)"
-              hint="Walk-on, warm-up and changeover."
+              label="Organising time (min)"
+              hint="Per match: walk-on, warm-up and changeover."
               path={path("changeoverMinutes")}
               value={rules.changeoverMinutes}
               onChange={set("changeoverMinutes")}
