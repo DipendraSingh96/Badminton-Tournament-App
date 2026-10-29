@@ -321,10 +321,9 @@ function Editor() {
   /** Move the tournament on to a stage, after asking. */
   function advance(next: TournamentStage) {
     if (next === "draw") {
-      const count = draft.entries.length;
       if (
         !window.confirm(
-          `Close entries? The plan will use the ${count} ${count === 1 ? "entry" : "entries"} entered instead of the expected numbers. You can reopen them.`,
+          "Move on to the draw? From here the plan uses the entries you enter instead of the expected numbers. You can go back to the expected numbers.",
         )
       )
         return;
@@ -334,7 +333,7 @@ function Editor() {
   }
 
   function reopenEntries() {
-    if (!window.confirm("Reopen entries? The plan goes back to the expected numbers until they close again.")) return;
+    if (!window.confirm("Use the expected numbers again? The entries are kept; the plan uses them again when you move on to the draw.")) return;
     commit(produce(draftRef.current, (d) => void (d.stage = "plan")), false);
     setStageView("plan");
   }
@@ -378,7 +377,7 @@ function Editor() {
                 onCollapsedChange={collapseSidebar}
               />
               {viewing !== "plan" ? (
-                <DrawStage draft={draft} />
+                <DrawStage draft={draft} update={update} locked={locked} />
               ) : (
                 <ResizablePanelGroup
                   orientation="horizontal"

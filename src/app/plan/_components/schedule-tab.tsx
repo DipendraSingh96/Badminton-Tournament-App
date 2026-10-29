@@ -161,7 +161,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
       </div>
       {draft.stage !== "plan" ? (
         <p className="text-sm text-muted-foreground tabular-nums">
-          Entries are closed: the plan uses the {entered.length} entered ({entered.filter((e) => e.external).length}{" "}
+          Using real entries: the plan uses the {entered.length} entered ({entered.filter((e) => e.external).length}{" "}
           external). The expected numbers are kept for comparison.
         </p>
       ) : null}

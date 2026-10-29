@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import { entriesFromRows, parseDelimited } from "./csv";
 import { effectiveCategory, emptyDraft, emptyEntry, entryName, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { entryForSlot, groupIndexOf, rubberPlayers } from "./entries";
+import {
+  entryForSlot,
+  groupIndexOf,
+  importedEntries,
+  lineUpComplete,
+  playersFor,
+  repeatedSeeds,
+  rubberPlayers,
+  rubbersOf,
+} from "./entries";
 import { parsePlan } from "./schema";
 import { normaliseDraft } from "./storage";
 
@@ -68,7 +77,7 @@ function drawn(): PlanDraft {
 }
 
 describe("entries in the plan", () => {
-  it("uses the real entries in place of the expected numbers once entries close", () => {
+  it("uses the real entries in place of the expected numbers past the Plan stage", () => {
     const draft = drawn();
     const category = draft.categories[0]!;
     expect(effectiveCategory(draft, category)).toMatchObject({ expectedEntries: 6, expectedExternal: 2 });
@@ -114,5 +123,54 @@ describe("entries in the plan", () => {
     delete saved.draw;
     const draft = normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
     expect(draft).toMatchObject({ stage: "plan", entries: [], draw: {} });
+  });
+});
+
+describe("team entries", () => {
+  function teamDraft() {
+    const draft = completeDraft();
+    draft.unit = "team";
+    const category = draft.categories[0]!;
+    category.lineUp = { MS: 1, WS: null, MD: 2, WD: null, XD: null, OPEN: null };
+    return { draft, category };
+  }
+
+  it("numbers a tie's rubbers in event order, as the schedule does", () => {
+    const { category } = teamDraft();
+    expect(rubbersOf(category)).toEqual([
+      { number: 1, event: "MS", players: 1 },
+      { number: 2, event: "MD", players: 2 },
+      { number: 3, event: "MD", players: 2 },
+    ]);
+  });
+
+  it("starts a team with enough players for every rubber, and a pair with two", () => {
+    const { draft, category } = teamDraft();
+    expect(playersFor(draft, category)).toBe(5);
+    const pairs = completeDraft();
+    expect(playersFor(pairs, pairs.categories[0]!)).toBe(2);
+  });
+
+  it("knows when a team's line-up is complete", () => {
+    const { draft, category } = teamDraft();
+    const team = emptyEntry(category.id, 5);
+    const [a, b, c, d, e] = team.players.map((p) => p.id);
+    team.lineUp = { "1": [a!], "2": [b!, c!] };
+    expect(lineUpComplete(draft, team, category)).toBe(false);
+    team.lineUp["3"] = [d!, e!];
+    expect(lineUpComplete(draft, team, category)).toBe(true);
+  });
+
+  it("finds repeated seeds", () => {
+    const entries = [1, 2, 1, null].map((seed) => ({ ...emptyEntry("c", 2), seed }));
+    expect([...repeatedSeeds(entries)]).toEqual([1]);
+  });
+
+  it("turns imported rows into entries with the players their event needs", () => {
+    const draft = completeDraft();
+    const category = draft.categories[0]!;
+    const [entry] = importedEntries(draft, [{ categoryId: category.id, name: "", players: ["Ann"], external: true, seed: 2 }]);
+    expect(entry!.players.map((p) => p.name)).toEqual(["Ann", ""]);
+    expect(entry).toMatchObject({ external: true, seed: 2, categoryId: category.id });
   });
 });

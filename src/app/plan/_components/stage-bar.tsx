@@ -4,9 +4,9 @@ import { LockSimpleIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 
 /**
- * Above the summary while planning after entries have closed: what the plan
- * now uses, and the way back. With the draw locked, the structure is
- * read-only until the draw is unlocked.
+ * Above the summary while planning once the tournament has moved on to the
+ * draw: the plan uses the real entries, and the way back. With the draw
+ * locked, the structure is read-only until the draw is unlocked.
  */
 export function StageBar({
   locked,
@@ -34,13 +34,13 @@ export function StageBar({
           </>
         ) : (
           <>
-            <span className="font-semibold">Entries closed.</span> The plan uses the {entries}{" "}
+            <span className="font-semibold">Using real entries.</span> The plan uses the {entries}{" "}
             {entries === 1 ? "entry" : "entries"} entered.
           </>
         )}
       </p>
       <Button size="sm" variant="outline" onClick={locked ? onUnlock : onReopen}>
-        {locked ? "Unlock draw" : "Reopen entries"}
+        {locked ? "Unlock draw" : "Use expected numbers"}
       </Button>
     </div>
   );

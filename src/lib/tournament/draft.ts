@@ -270,7 +270,7 @@ export function entryName(entry: EntryDraft): string | null {
 }
 
 /**
- * A category as the plan uses it: once entries close (past the Plan stage),
+ * A category as the plan uses it: past the Plan stage,
  * its entries and their external flags replace the expected numbers.
  */
 export function effectiveCategory(draft: PlanDraft, category: CategoryDraft): CategoryDraft {
