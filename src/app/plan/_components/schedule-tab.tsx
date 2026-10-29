@@ -21,7 +21,7 @@ import {
   type PlanDraft,
   type StageRulesDraft,
 } from "@/lib/tournament/draft";
-import { Section, SegmentedField, StepperField, SwitchField } from "./fields";
+import { ReadOnly, Section, SegmentedField, StepperField, SwitchField } from "./fields";
 import { STAGE_LABELS, categoryName, entryNoun, formatErrorMessage, formatGroupSizes } from "./labels";
 import type { Update } from "./plan-editor";
 
@@ -53,21 +53,23 @@ const BEST_OF = [
 ] as const;
 
 /** Entries, structure, stages and buffer: tuned until demand fits the day. */
-export function ScheduleTab({ draft, update }: { draft: PlanDraft; update: Update }) {
+export function ScheduleTab({ draft, update, locked }: { draft: PlanDraft; update: Update; locked: boolean }) {
   const ready = draft.unit !== null && draft.categories.length > 0;
   return (
     <>
-      <Section title="Entries" description="How many you expect in each category, and how many of them are external.">
-        {ready ? (
-          draft.categories.map((category, i) => (
-            <EntriesCard key={category.id} draft={draft} index={i} update={update} />
-          ))
-        ) : (
-          <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
-        )}
-      </Section>
+      <ReadOnly when={locked}>
+        <Section title="Entries" description="How many you expect in each category, and how many of them are external.">
+          {ready ? (
+            draft.categories.map((category, i) => (
+              <EntriesCard key={category.id} draft={draft} index={i} update={update} />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
+          )}
+        </Section>
 
-      <StagesSection draft={draft} update={update} />
+        <StagesSection draft={draft} update={update} />
+      </ReadOnly>
 
       <Section
         title="Buffer"
@@ -135,6 +137,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
   const category = draft.categories[index]!;
   const unit = draft.unit!;
   const nouns = entryNoun(unit, category.event, true);
+  const entered = draft.entries.filter((e) => e.categoryId === category.id);
   const set = (key: "expectedEntries" | "expectedExternal") => (value: number | null) =>
     update((d) => void (d.categories[index]![key] = value));
   return (
@@ -156,6 +159,12 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
           onChange={set("expectedExternal")}
         />
       </div>
+      {draft.stage !== "plan" ? (
+        <p className="text-sm text-muted-foreground tabular-nums">
+          Entries are closed: the plan uses the {entered.length} entered ({entered.filter((e) => e.external).length}{" "}
+          external). The expected numbers are kept for comparison.
+        </p>
+      ) : null}
     </div>
   );
 }

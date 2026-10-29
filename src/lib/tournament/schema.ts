@@ -426,6 +426,14 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   const schema = categorySchema(draft.unit, draft.format);
   // Past the Plan stage, the real entries replace the expected numbers.
   const categories = draft.categories.map((c, i) => collect(schema, effectiveCategory(draft, c), ["categories", i]));
+  // Then a count that's too low is about the entries, not the expected number.
+  if (draft.stage !== "plan") {
+    for (const issue of issues) {
+      if (issue.path[0] === "categories" && (issue.path[2] === "expectedEntries" || issue.path[2] === "expectedExternal")) {
+        issue.message = "Needs at least 2 entries: add them on the Draw stage";
+      }
+    }
+  }
   if (draft.categories.length === 0) {
     issues.push({ path: ["categories"], message: "Add at least one category" });
   }

@@ -273,6 +273,9 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 - Scrollbars are thin and sit within the panes' padding (equal gutter both sides).
 - Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) undo and redo up to 10 changes, with buttons in the top bar; history is in memory only.
 
+### Stages (29 Oct)
+- Slice 2 begins: the tournament has a stage (Plan, Draw, Live, Results) with a switch in the top bar. Moving to Draw closes entries and the plan uses the real entries; a locked draw makes the structure read-only until unlocked. Live and Results wait for the next slice.
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

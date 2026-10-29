@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
-import { courtNumber, emptyDraft, type PlanDraft } from "@/lib/tournament/draft";
+import { courtNumber, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
+import { DrawStage } from "./draw-stage";
 import { PreviewBar } from "./preview-bar";
-import { IssuesContext, issueMap, pathKey } from "./fields";
+import { StageBar } from "./stage-bar";
+import { IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
@@ -30,6 +32,8 @@ import { VenueCanvas } from "./venue-canvas";
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
 
 type Tab = "setup" | "schedule" | "finance";
+
+const STAGE_ORDER: TournamentStage[] = ["plan", "draw", "live", "results"];
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "setup", label: "Tournament setup" },
@@ -308,6 +312,43 @@ function Editor() {
     );
   }
 
+  // The stage being looked at: any stage reached so far; it opens on the furthest.
+  const [stageView, setStageView] = useState<TournamentStage>(draft.stage);
+  // Once any category's draw is locked, the structure is read-only.
+  const locked = Object.values(draft.draw).some((d) => d.locked);
+  const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
+
+  /** Move the tournament on to a stage, after asking. */
+  function advance(next: TournamentStage) {
+    if (next === "draw") {
+      const count = draft.entries.length;
+      if (
+        !window.confirm(
+          `Close entries? The plan will use the ${count} ${count === 1 ? "entry" : "entries"} entered instead of the expected numbers. You can reopen them.`,
+        )
+      )
+        return;
+    }
+    commit(produce(draftRef.current, (d) => void (d.stage = next)), false);
+    setStageView(next);
+  }
+
+  function reopenEntries() {
+    if (!window.confirm("Reopen entries? The plan goes back to the expected numbers until they close again.")) return;
+    commit(produce(draftRef.current, (d) => void (d.stage = "plan")), false);
+    setStageView("plan");
+  }
+
+  function unlockDraw() {
+    if (!window.confirm("Unlock the draw? Categories, groups, rules and entries become editable; the draw is kept.")) return;
+    commit(
+      produce(draftRef.current, (d) => {
+        for (const id of Object.keys(d.draw)) d.draw[id]!.locked = false;
+      }),
+      false,
+    );
+  }
+
   function newTournament() {
     if (!window.confirm("Clear every input and start a new tournament?")) return;
     clearDraft();
@@ -324,6 +365,10 @@ function Editor() {
               onRedo={() => step(false)}
               canUndo={steps.back > 0}
               canRedo={steps.forward > 0}
+              stage={draft.stage}
+              view={viewing}
+              onView={setStageView}
+              onAdvance={advance}
             />
             <div className="flex min-h-0 flex-1">
               <TournamentList
@@ -332,111 +377,127 @@ function Editor() {
                 collapsed={sidebarCollapsed}
                 onCollapsedChange={collapseSidebar}
               />
-              <ResizablePanelGroup
-                orientation="horizontal"
-                defaultLayout={layout.defaultLayout}
-                onLayoutChanged={layout.onLayoutChanged}
-              >
-                <ResizablePanel id="working-area" minSize="40">
-                  <main className="h-full">
-                    <ResizablePanelGroup
-                      orientation="vertical"
-                      defaultLayout={dock.defaultLayout}
-                      onLayoutChanged={dock.onLayoutChanged}
-                    >
-                      <ResizablePanel id="venue" minSize={160}>
-                        <div className="@container scroll-pane relative h-full overflow-y-auto">
-                          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
-                            <TournamentHeader draft={draft} update={update} />
-                            <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
+              {viewing !== "plan" ? (
+                <DrawStage draft={draft} />
+              ) : (
+                <ResizablePanelGroup
+                  orientation="horizontal"
+                  defaultLayout={layout.defaultLayout}
+                  onLayoutChanged={layout.onLayoutChanged}
+                >
+                  <ResizablePanel id="working-area" minSize="40">
+                    <main className="h-full">
+                      <ResizablePanelGroup
+                        orientation="vertical"
+                        defaultLayout={dock.defaultLayout}
+                        onLayoutChanged={dock.onLayoutChanged}
+                      >
+                        <ResizablePanel id="venue" minSize={160}>
+                          <div className="@container scroll-pane relative h-full overflow-y-auto">
+                            <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
+                              <TournamentHeader draft={draft} update={update} />
+                              <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
+                            </div>
                           </div>
-                        </div>
-                      </ResizablePanel>
-                      <ResizableHandle withHandle />
-                      <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
-                        <Timeline
-                          draft={shown}
-                          update={update}
-                          schedule={schedule}
-                          segments={segments}
-                          zones={zones}
-                          fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
-                          playhead={playhead}
-                          onSeek={setPlayhead}
-                          playing={playing}
-                          onPlayingChange={setPlaying}
+                        </ResizablePanel>
+                        <ResizableHandle withHandle />
+                        <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
+                          <Timeline
+                            draft={shown}
+                            update={update}
+                            schedule={schedule}
+                            segments={segments}
+                            zones={zones}
+                            fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
+                            playhead={playhead}
+                            onSeek={setPlayhead}
+                            playing={playing}
+                            onPlayingChange={setPlaying}
+                          />
+                        </ResizablePanel>
+                      </ResizablePanelGroup>
+                    </main>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel id="workbench" defaultSize={440} minSize={400} maxSize={480}>
+                    <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
+                      {draft.stage !== "plan" ? (
+                        <StageBar
+                          locked={locked}
+                          entries={draft.entries.length}
+                          onReopen={reopenEntries}
+                          onUnlock={unlockDraw}
                         />
-                      </ResizablePanel>
-                    </ResizablePanelGroup>
-                  </main>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel id="workbench" defaultSize={440} minSize={400} maxSize={480}>
-                  <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
-                    {preview && parsed.ok ? (
-                      <PreviewBar
-                        change={preview}
-                        inputs={parsed.inputs}
-                        draft={draft}
-                        onKeep={keepPreview}
-                        onDiscard={() => setPreview(null)}
+                      ) : null}
+                      {preview && parsed.ok ? (
+                        <PreviewBar
+                          change={preview}
+                          inputs={parsed.inputs}
+                          draft={draft}
+                          onKeep={keepPreview}
+                          onDiscard={() => setPreview(null)}
+                        />
+                      ) : null}
+                      <Summary
+                        draft={shown}
+                        parsed={shownParsed}
+                        analysis={shownAnalysis}
+                        breakEvenId={breakEvenId}
+                        warnings={warnings}
+                        onGoTo={goTo}
                       />
-                    ) : null}
-                    <Summary
-                      draft={shown}
-                      parsed={shownParsed}
-                      analysis={shownAnalysis}
-                      breakEvenId={breakEvenId}
-                      warnings={warnings}
-                      onGoTo={goTo}
-                    />
-                    <Tabs
-                      value={tab}
-                      onValueChange={(value) => chooseTab(value as Tab)}
-                      className="min-h-0 flex-1 gap-0"
-                    >
-                      <TabsList variant="line" className="w-full justify-start border-b px-3">
-                        {TABS.map((t) => (
-                          <TabsTrigger key={t.value} value={t.value}>
-                            {t.label}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                      <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto bg-card">
-                        <TabsContent value="setup" className="flex flex-col">
-                          <SetupTab draft={draft} update={update} />
-                        </TabsContent>
-                        <TabsContent value="schedule" className="flex flex-col">
-                          <ScheduleTab draft={draft} update={update} />
-                          <DerivedCards
-                            tab="schedule"
-                            draft={draft}
-                            parsed={parsed}
-                            analysis={analysis}
-                            breakEvenId={breakEvenId}
-                            onChooseBreakEven={chooseBreakEven}
-                            preview={preview}
-                            onPreview={setPreview}
-                          />
-                        </TabsContent>
-                        <TabsContent value="finance" className="flex flex-col">
-                          <FinanceTab draft={draft} update={update} />
-                          <DerivedCards
-                            tab="finance"
-                            draft={draft}
-                            parsed={parsed}
-                            analysis={analysis}
-                            breakEvenId={breakEvenId}
-                            onChooseBreakEven={chooseBreakEven}
-                            preview={preview}
-                            onPreview={setPreview}
-                          />
-                        </TabsContent>
-                      </div>
-                    </Tabs>
-                  </aside>
-                </ResizablePanel>
-              </ResizablePanelGroup>
+                      <Tabs
+                        value={tab}
+                        onValueChange={(value) => chooseTab(value as Tab)}
+                        className="min-h-0 flex-1 gap-0"
+                      >
+                        <TabsList variant="line" className="w-full justify-start border-b px-3">
+                          {TABS.map((t) => (
+                            <TabsTrigger key={t.value} value={t.value}>
+                              {t.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto bg-card">
+                          <TabsContent value="setup" className="flex flex-col">
+                            <ReadOnly when={locked}>
+                              <SetupTab draft={draft} update={update} />
+                            </ReadOnly>
+                          </TabsContent>
+                          <TabsContent value="schedule" className="flex flex-col">
+                            <ScheduleTab draft={draft} update={update} locked={locked} />
+                            <DerivedCards
+                              tab="schedule"
+                              draft={draft}
+                              parsed={parsed}
+                              analysis={analysis}
+                              breakEvenId={breakEvenId}
+                              onChooseBreakEven={chooseBreakEven}
+                              preview={preview}
+                              onPreview={setPreview}
+                              locked={locked}
+                            />
+                          </TabsContent>
+                          <TabsContent value="finance" className="flex flex-col">
+                            <FinanceTab draft={draft} update={update} />
+                            <DerivedCards
+                              tab="finance"
+                              draft={draft}
+                              parsed={parsed}
+                              analysis={analysis}
+                              breakEvenId={breakEvenId}
+                              onChooseBreakEven={chooseBreakEven}
+                              preview={preview}
+                              onPreview={setPreview}
+                              locked={locked}
+                            />
+                          </TabsContent>
+                        </div>
+                      </Tabs>
+                    </aside>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              )}
             </div>
           </div>
         </IssuesContext>

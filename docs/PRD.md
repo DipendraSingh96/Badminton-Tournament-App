@@ -19,6 +19,8 @@ This document defines the structure, inputs, logic and behaviour of the app. It 
 
 **Live mode.** Same tournament, structure frozen. Court board, call-ups, score entry, live standings, automatic bracket progression, delay tracking.
 
+**Stages.** A tournament moves through four stages, shown as a switch in the top bar: **Plan → Draw → Live → Results**. Any stage reached so far can be viewed; moving on asks first. Moving to Draw closes entries: from then on groups, schedule and finance use the real entries and their external flags instead of the expected numbers (kept for comparison), until entries are reopened. Once a category's draw is locked, the structure is read-only (categories, unit and format, groups, match rules, rules and entries; suggested levers that would change them aren't offered) until the draw is unlocked; venue hours, courts, the timeline, the buffer and finance stay editable.
+
 **Locking.** When the organiser takes the tournament Live, structural settings lock (categories, groups, match rules, pair list, handicap). Controlled changes remain, restricted to organiser and referee, each written to an audit log: withdrawals, walkovers, court reassignment, score corrections, schedule reshuffles.
 
 ## 4. Tournament sections

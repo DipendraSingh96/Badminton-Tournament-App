@@ -633,12 +633,16 @@ function sameChange(a: LeverChange | null, b: LeverChange): boolean {
 }
 
 /** What-if suggestions: each re-runs the plan with one change. Never applied unless kept. */
+/** Levers that change the structure the draw is made from: offered only while the draw is unlocked. */
+const STRUCTURAL: ReadonlySet<LeverChange["kind"]> = new Set(["bestOfOne", "noDeuce", "groupCount", "groupSize", "noBronze"]);
+
 function LeversCard({
   draft,
   analysis,
   inputs,
   preview,
   onPreview,
+  locked,
 }: {
   draft: PlanDraft;
   analysis: Analysis;
@@ -646,8 +650,11 @@ function LeversCard({
   /** The lever being previewed, if any. */
   preview: LeverChange | null;
   onPreview: (change: LeverChange | null) => void;
+  /** The draw is locked: structural levers are left out. */
+  locked: boolean;
 }) {
-  const levers = useMemo(() => suggestLevers(inputs, analysis), [inputs, analysis]);
+  const all = useMemo(() => suggestLevers(inputs, analysis), [inputs, analysis]);
+  const levers = locked ? all.filter((l) => !STRUCTURAL.has(l.change.kind)) : all;
   const showFit = analysis.capacity.status !== "fits";
   const toFit = showFit ? levers.filter((l) => l.improvesFit) : [];
   // A lever that helps both is listed once, under fit.
@@ -693,6 +700,7 @@ function LeversCard({
         <CardDescription>
           Each re-runs the plan with one change. Preview one to see it on the summary, timeline and venue,
           then keep or discard it. Nothing changes until you keep it.
+          {locked ? " The draw is locked, so changes to groups and match rules aren't offered." : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -726,6 +734,7 @@ export function DerivedCards({
   onChooseBreakEven,
   preview,
   onPreview,
+  locked,
 }: {
   tab: "schedule" | "finance";
   draft: PlanDraft;
@@ -735,6 +744,8 @@ export function DerivedCards({
   onChooseBreakEven: (id: string) => void;
   preview: LeverChange | null;
   onPreview: (change: LeverChange | null) => void;
+  /** The draw is locked: levers that change the structure are left out. */
+  locked: boolean;
 }) {
   if (!parsed.ok || !analysis?.ok) return null;
   if (tab === "schedule") {
@@ -762,6 +773,7 @@ export function DerivedCards({
         inputs={parsed.inputs}
         preview={preview}
         onPreview={onPreview}
+        locked={locked}
       />
     </>
   );

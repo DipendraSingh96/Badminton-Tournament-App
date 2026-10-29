@@ -19,6 +19,8 @@ Plan mode is desktop only. Only Live mode needs a phone layout.
 
 The shell (top bar, left panel, workbench) never scrolls as a page; only the panes inside it scroll.
 
+**Stages.** A stage switch in the top bar: Plan · Draw · Live · Results. Stages reached show a tick and can be viewed; the next is reached by choosing it (asks first); later ones wait. In Plan, once entries are closed a bar above the summary says so ("Entries closed. The plan uses the N entries entered." with Reopen entries) or, with the draw locked, "Draw locked. Categories, groups, rules and entries are read-only." with Unlock draw.
+
 **Undo and redo.** Ctrl+Z (Cmd+Z on a Mac) undoes the last change to the plan, up to 10 changes back; Ctrl+Shift+Z or Ctrl+Y redoes. Changes made close together (typing, a run of stepper clicks) undo as one. Undo and redo buttons sit in the top bar. The history lives in the browser tab only and is lost on reload.
 
 ## Middle: venue canvas

@@ -4,7 +4,9 @@ import { ArrowArcLeftIcon, ArrowArcRightIcon, MoonIcon, SunIcon, UserIcon } from
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { PRODUCT_NAME } from "@/lib/product";
+import type { TournamentStage } from "@/lib/tournament/draft";
 import { IconButton } from "./fields";
+import { StageSwitch } from "./stage-switch";
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -32,17 +34,26 @@ export function TopBar({
   onRedo,
   canUndo,
   canRedo,
+  stage,
+  view,
+  onView,
+  onAdvance,
 }: {
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  stage: TournamentStage;
+  view: TournamentStage;
+  onView: (stage: TournamentStage) => void;
+  onAdvance: (stage: TournamentStage) => void;
 }) {
   const mod = modifier();
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-6">
+    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b bg-card px-6">
       <span className="font-display text-2xl leading-none font-bold text-turf uppercase">{PRODUCT_NAME}</span>
-      <div className="flex items-center gap-2">
+      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
+      <div className="flex items-center justify-end gap-2">
         <IconButton label={`Undo (${mod}+Z)`} side="bottom" variant="outline" className="rounded-full" disabled={!canUndo} onClick={onUndo}>
           <ArrowArcLeftIcon />
         </IconButton>

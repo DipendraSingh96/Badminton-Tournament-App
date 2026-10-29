@@ -53,6 +53,19 @@ export function IconButton({
 }
 
 /**
+ * Inputs that can't be changed right now (the structure once the draw is
+ * locked): every field, button and choice inside is disabled. Info tips stay
+ * readable.
+ */
+export function ReadOnly({ when, children }: { when: boolean; children: ReactNode }) {
+  return (
+    <fieldset disabled={when} className="contents">
+      {children}
+    </fieldset>
+  );
+}
+
+/**
  * Help text behind an ⓘ beside a label or title, so it doesn't crowd the
  * workbench. Shown on hover and on keyboard focus; screen readers get it as
  * the button's description.
@@ -63,8 +76,10 @@ export function InfoTip({ about, children }: { about: string; children: ReactNod
     <Tooltip>
       <TooltipTrigger
         render={
-          <button
-            type="button"
+          // Not a form button, so it stays usable inside a read-only (disabled) fieldset.
+          <span
+            role="button"
+            tabIndex={0}
             aria-label={`About ${about}`}
             aria-describedby={id}
             className="inline-grid size-4 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
