@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDownIcon, CaretUpIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { profitCurve, type AnalysisResult, type Capacity } from "@/engine";
@@ -38,14 +38,20 @@ function Tile({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-1 rounded-lg px-3 py-2",
+        "@container flex min-w-0 flex-col gap-1 rounded-lg px-3 py-2",
         tone === "plain" && "bg-inset text-foreground",
         tone === "profit" && "bg-shuttle text-shuttle-foreground",
         tone === "loss" && "bg-over-strong text-over-foreground",
       )}
     >
       <dt className={cn("truncate text-[13px] font-semibold", tone === "plain" && "text-muted-foreground")}>{label}</dt>
-      <dd className={cn("truncate", size === "l" ? "numeral-l" : "font-display text-xl font-semibold tabular-nums")}>
+      <dd
+        className={cn(
+          "numeral-fit whitespace-nowrap",
+          size === "l" ? "numeral-l" : "font-display text-xl font-semibold tabular-nums",
+        )}
+        style={{ "--chars": value.length, "--fit-max": size === "l" ? "30px" : "20px" } as CSSProperties}
+      >
         {value}
       </dd>
       {note ? <p className={cn("truncate text-xs", tone === "plain" && "text-muted-foreground")}>{note}</p> : null}

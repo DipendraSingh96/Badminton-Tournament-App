@@ -256,3 +256,15 @@
   scrollbar-gutter: stable both-edges;
   --pane-x: calc(16px - var(--scrollbar));
 }
+
+/* A segmented control inside an inset block: its well would match the block,
+   so it takes a step from it (darker in light, lighter in dark). */
+.bg-inset [data-slot="segmented"] {
+  background-color: color-mix(in oklch, var(--surface-inset), var(--foreground) 7%);
+}
+
+/* A figure that fits its tile: full size when short, smaller when long.
+   The tile is a size container; the value sets --chars and --fit-max. */
+.numeral-fit {
+  font-size: min(var(--fit-max, 30px), calc(100cqi / (var(--chars, 6) * 0.55)));
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretRightIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,9 +113,16 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
   return (
     <dl className="grid grid-cols-3 gap-2">
       {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 flex-col gap-2 rounded-lg bg-inset px-3 py-2">
-          <dt className="text-[13px] leading-tight font-semibold text-muted-foreground">{item.label}</dt>
-          <dd className="numeral-l whitespace-nowrap">{item.value}</dd>
+        <div key={item.label} className="@container flex min-w-0 flex-col gap-2 rounded-lg bg-inset px-3 py-2">
+          <dt className="truncate text-[13px] leading-tight font-semibold text-muted-foreground" title={item.label}>
+            {item.label}
+          </dt>
+          <dd
+            className="numeral-l numeral-fit whitespace-nowrap"
+            style={{ "--chars": item.value.length, "--fit-max": "30px" } as CSSProperties}
+          >
+            {item.value}
+          </dd>
         </div>
       ))}
     </dl>
@@ -487,7 +494,7 @@ function FinanceCard({
             items={[
               { label: "Revenue", value: formatMoney(finance.revenue) },
               { label: "Total cost", value: formatMoney(finance.totalCost) },
-              { label: loss ? "Cost to organisers" : "Profit", value: formatMoney(Math.abs(finance.profit)) },
+              { label: loss ? "Loss" : "Profit", value: formatMoney(Math.abs(finance.profit)) },
             ]}
           />
         </div>
