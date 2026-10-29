@@ -199,6 +199,84 @@ export interface PlanDraft {
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
   courtGroups: Record<string, string>;
+  /** Where the tournament is: planning, the draw, the day, or after it. */
+  stage: TournamentStage;
+  /** Who entered: teams, pairs or players, each in a category. Names only (no contact details). */
+  entries: EntryDraft[];
+  /** Each category's draw, by category id. */
+  draw: Record<string, DrawDraft>;
+}
+
+/** Plan, then the draw, then the day itself, then the results. */
+export type TournamentStage = "plan" | "draw" | "live" | "results";
+
+/** Checked in at the desk on the day. */
+export type Attendance = "notYet" | "arrived" | "absent";
+
+export interface PlayerDraft {
+  id: string;
+  name: string;
+  attendance: Attendance;
+}
+
+/** A team, pair or single player entered in a category. */
+export interface EntryDraft {
+  id: string;
+  categoryId: string;
+  /** A team's name; optional for pairs and singles, which show their players' names. */
+  name: string;
+  external: boolean;
+  /** 1 is the top seed; null is unseeded. */
+  seed: N;
+  /** A team's squad, a pair's two players, or one player. */
+  players: PlayerDraft[];
+  /**
+   * Teams only: who plays each rubber, by rubber number ("1", "2"…), fixed for
+   * the day: the same players play that rubber in every tie.
+   */
+  lineUp: Record<string, string[]>;
+}
+
+/** A category's draw: entry ids by group, in place order (index 0 is slot 1, "A1"). */
+export interface DrawDraft {
+  groups: string[][];
+  /** The number the random part of the draw came from; a redraw is a new one. */
+  randomSeed: number;
+  /** Locked: the draw is final and the post-draw views use it. */
+  locked: boolean;
+}
+
+export function emptyPlayer(): PlayerDraft {
+  return { id: newId(), name: "", attendance: "notYet" };
+}
+
+export function emptyEntry(categoryId: string, players: number): EntryDraft {
+  return {
+    id: newId(),
+    categoryId,
+    name: "",
+    external: false,
+    seed: null,
+    players: Array.from({ length: players }, emptyPlayer),
+    lineUp: {},
+  };
+}
+
+/** An entry's name: its own, or its players' ("Ann Lee / Raj Shah"), or null when neither is set. */
+export function entryName(entry: EntryDraft): string | null {
+  if (entry.name.trim()) return entry.name.trim();
+  const names = entry.players.map((p) => p.name.trim()).filter(Boolean);
+  return names.length > 0 ? names.join(" / ") : null;
+}
+
+/**
+ * A category as the plan uses it: once entries close (past the Plan stage),
+ * its entries and their external flags replace the expected numbers.
+ */
+export function effectiveCategory(draft: PlanDraft, category: CategoryDraft): CategoryDraft {
+  if (draft.stage === "plan") return category;
+  const entries = draft.entries.filter((e) => e.categoryId === category.id);
+  return { ...category, expectedEntries: entries.length, expectedExternal: entries.filter((e) => e.external).length };
 }
 
 /** Gives a court to a group for the group stage, to no group (""), or (null) back to the automatic split. */
@@ -589,5 +667,8 @@ export function emptyDraft(timeZone: string): PlanDraft {
     matchMoves: {},
     groupCourts: "own",
     courtGroups: {},
+    stage: "plan",
+    entries: [],
+    draw: {},
   };
 }

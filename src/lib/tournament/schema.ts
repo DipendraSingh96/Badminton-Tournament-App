@@ -21,6 +21,7 @@ import {
 } from "@/engine";
 import {
   defaultCategoryName,
+  effectiveCategory,
   openDoublesInUse,
   stagesInPlay,
   zoneStart,
@@ -423,7 +424,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
   if (!draft.format) issues.push({ path: ["format"], message: "Choose a format" });
   const frame = collect(frameSchema, draft.frame, ["frame"]);
   const schema = categorySchema(draft.unit, draft.format);
-  const categories = draft.categories.map((c, i) => collect(schema, c, ["categories", i]));
+  // Past the Plan stage, the real entries replace the expected numbers.
+  const categories = draft.categories.map((c, i) => collect(schema, effectiveCategory(draft, c), ["categories", i]));
   if (draft.categories.length === 0) {
     issues.push({ path: ["categories"], message: "Add at least one category" });
   }

@@ -28,13 +28,19 @@ type EarlyHall = Omit<HallDraft, "unitMinutes" | "multipleRates"> & {
  * - Halls saved before the rate-bands switch have it on when they have several bands.
  */
 export function normaliseDraft(
-  saved: Omit<PlanDraft, "finance" | "frame" | "zoneMoves" | "matchMoves" | "groupCourts" | "courtGroups"> & {
+  saved: Omit<
+    PlanDraft,
+    "finance" | "frame" | "zoneMoves" | "matchMoves" | "groupCourts" | "courtGroups" | "stage" | "entries" | "draw"
+  > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
     zoneMoves?: PlanDraft["zoneMoves"];
     matchMoves?: PlanDraft["matchMoves"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
+    stage?: PlanDraft["stage"];
+    entries?: PlanDraft["entries"];
+    draw?: PlanDraft["draw"];
     finance: EarlyFinance;
     frame: Omit<PlanDraft["frame"], "halls" | "bufferStart"> & { halls: EarlyHall[]; bufferStart?: string | null };
   },
@@ -59,6 +65,10 @@ export function normaliseDraft(
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},
+    // Saved before entries: still planning, with none.
+    stage: saved.stage ?? "plan",
+    entries: saved.entries ?? [],
+    draw: saved.draw ?? {},
     frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null },
   };
   const { costPerShuttle, ...finance } = draft.finance;
