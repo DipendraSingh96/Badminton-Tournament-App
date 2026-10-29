@@ -1,9 +1,10 @@
 "use client";
 
-import { PlusIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
+import { CopyIcon, PlusIcon, SidebarSimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PlanDraft } from "@/lib/tournament/draft";
+import { sortTournaments, type TournamentMeta } from "@/lib/tournament/storage";
 import { IconButton } from "./fields";
 
 function formatDate(iso: string): string {
@@ -14,24 +15,50 @@ function formatDate(iso: string): string {
   );
 }
 
+/** When a tournament was last saved: the time today, with the date on other days. */
+function formatSaved(at: number): string {
+  const when = new Date(at);
+  const today = new Date().toDateString() === when.toDateString();
+  return new Intl.DateTimeFormat("en-GB", {
+    ...(today ? {} : { day: "numeric", month: "short" }),
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(when);
+}
+
 const LIST_ID = "tournament-list";
 
 /**
- * Left panel. Holds the tournament being planned; the list of previous
- * tournaments and Duplicate arrive with saved tournaments. Collapses to a rail.
+ * Left panel: the saved tournaments, newest first, and New tournament. The
+ * open one saves as it changes and can be duplicated or deleted; another
+ * opens with a click. Collapses to a rail.
  */
 export function TournamentList({
   draft,
+  currentId,
+  items,
   onNew,
+  onDuplicate,
+  onDelete,
+  onOpen,
   collapsed,
   onCollapsedChange,
 }: {
   draft: PlanDraft;
+  currentId: string;
+  items: TournamentMeta[];
   onNew: () => void;
+  onDuplicate: () => void;
+  onDelete: (id: string) => void;
+  onOpen: (id: string) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
   const name = draft.name.trim() || "Untitled tournament";
+  // The open tournament shows as it is now, ahead of its next save.
+  const listed = sortTournaments(
+    items.map((t) => (t.id === currentId ? { ...t, name: draft.name, date: draft.frame.date } : t)),
+  );
   return (
     <aside
       id={LIST_ID}
@@ -90,10 +117,43 @@ export function TournamentList({
             <h2 id="tournaments-heading" className="heading-card text-xl">
               Tournaments
             </h2>
-            <div aria-current="true" className="rounded-lg border border-tile-border bg-tile px-4 py-3">
-              <p className="truncate text-[17px] font-semibold text-turf">{name}</p>
-              <p className="text-sm text-muted-foreground tabular-nums">{formatDate(draft.frame.date)}</p>
-            </div>
+            <ul className="flex flex-col gap-2">
+              {listed.map((t) => {
+                const title = t.name.trim() || "Untitled tournament";
+                return t.id === currentId ? (
+                  <li key={t.id} aria-current="true" className="rounded-lg border border-tile-border bg-tile px-4 py-3">
+                    <p className="truncate text-[17px] font-semibold text-turf" title={title}>
+                      {title}
+                    </p>
+                    <p className="text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</p>
+                    <div className="mt-2 flex items-center gap-1">
+                      <p className="flex-1 truncate text-xs text-muted-foreground tabular-nums">
+                        Saved {formatSaved(t.updatedAt)}
+                      </p>
+                      <IconButton label="Duplicate as a new tournament" onClick={onDuplicate}>
+                        <CopyIcon />
+                      </IconButton>
+                      <IconButton label="Delete tournament" onClick={() => onDelete(t.id)}>
+                        <TrashIcon />
+                      </IconButton>
+                    </div>
+                  </li>
+                ) : (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpen(t.id)}
+                      className="w-full rounded-lg border border-transparent px-4 py-3 text-left outline-none hover:bg-tile/60 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="block truncate text-[17px] font-semibold" title={title}>
+                        {title}
+                      </span>
+                      <span className="block text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
         </>
       )}

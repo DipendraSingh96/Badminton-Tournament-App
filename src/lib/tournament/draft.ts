@@ -289,6 +289,16 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * A new tournament with another's structure: venue, categories and their
+ * expected numbers, rules, timings, finance and timeline moves. It has no
+ * name or date, no entries or draw, and starts at the Plan stage.
+ */
+export function duplicateDraft(draft: PlanDraft): PlanDraft {
+  const copy = structuredClone(draft);
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {} };
+}
+
 export function emptyStageRules(): StageRulesDraft {
   return {
     pointsPerGame: null,

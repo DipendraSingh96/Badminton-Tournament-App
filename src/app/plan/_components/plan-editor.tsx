@@ -9,10 +9,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
-import { courtNumber, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
+import { courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
-import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
+import {
+  createTournament,
+  deleteTournament,
+  loadIndex,
+  loadTournament,
+  saveTournament,
+  setCurrent,
+  type TournamentIndex,
+} from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
 import { CourtSelectionContext } from "./court-card";
 import { CourtPanel } from "./court-panel";
@@ -132,8 +140,18 @@ function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-function Editor() {
-  const [draft, setDraft] = useState<PlanDraft>(() => loadDraft() ?? emptyDraft(browserTimeZone()));
+/** What the editor can do with the list of saved tournaments. */
+interface TournamentActions {
+  index: TournamentIndex;
+  onSave: (id: string, draft: PlanDraft) => void;
+  onNew: () => void;
+  onDuplicate: (draft: PlanDraft) => void;
+  onDelete: (id: string) => void;
+  onOpen: (id: string) => void;
+}
+
+function Editor({ id, tournaments }: { id: string; tournaments: TournamentActions }) {
+  const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id) ?? emptyDraft(browserTimeZone()));
   const [tab, setTab] = useState<Tab>(loadTab);
   const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
@@ -147,7 +165,14 @@ function Editor() {
   // A suggested lever being previewed: everything derived shows the plan with it; not saved.
   const [preview, setPreview] = useState<LeverChange | null>(null);
 
-  useEffect(() => saveDraft(draft), [draft]);
+  // Autosave: each change is saved to this tournament. Opening it isn't a change.
+  const savedDraft = useRef(draft);
+  const { onSave } = tournaments;
+  useEffect(() => {
+    if (draft === savedDraft.current) return;
+    savedDraft.current = draft;
+    onSave(id, draft);
+  }, [draft, id, onSave]);
 
   // Undo and redo: earlier drafts, in memory only. The ref is the draft as of the
   // last change, so changes made before the next render build on each other.
@@ -353,12 +378,6 @@ function Editor() {
     );
   }
 
-  function newTournament() {
-    if (!window.confirm("Clear every input and start a new tournament?")) return;
-    clearDraft();
-    commit(emptyDraft(browserTimeZone()), false);
-  }
-
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Courts view.
   const workingArea = (
     <ResizablePanelGroup
@@ -410,7 +429,12 @@ function Editor() {
             <div className="flex min-h-0 flex-1">
               <TournamentList
                 draft={draft}
-                onNew={newTournament}
+                currentId={id}
+                items={tournaments.index.items}
+                onNew={tournaments.onNew}
+                onDuplicate={() => tournaments.onDuplicate(draftRef.current)}
+                onDelete={tournaments.onDelete}
+                onOpen={tournaments.onOpen}
                 collapsed={sidebarCollapsed}
                 onCollapsedChange={collapseSidebar}
               />
@@ -537,6 +561,46 @@ function Editor() {
   );
 }
 
+/**
+ * The saved tournaments, with one open in the editor. Opening another remounts
+ * the editor, so its undo history, preview and selections start afresh.
+ */
+function Workspace() {
+  const [index, setIndex] = useState<TournamentIndex>(() => {
+    const saved = loadIndex();
+    if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) return saved;
+    if (saved.items[0]) return setCurrent(saved, saved.items[0].id);
+    return createTournament(saved, emptyDraft(browserTimeZone())).index;
+  });
+  const indexRef = useRef(index);
+  const change = useCallback((next: TournamentIndex) => {
+    indexRef.current = next;
+    setIndex(next);
+  }, []);
+
+  const onSave = useCallback(
+    (id: string, draft: PlanDraft) => change(saveTournament(indexRef.current, id, draft)),
+    [change],
+  );
+
+  const actions: TournamentActions = {
+    index,
+    onSave,
+    onNew: () => change(createTournament(indexRef.current, emptyDraft(browserTimeZone())).index),
+    onDuplicate: (draft) => change(createTournament(indexRef.current, duplicateDraft(draft)).index),
+    onDelete: (id) => {
+      const name = indexRef.current.items.find((t) => t.id === id)?.name.trim() || "Untitled tournament";
+      if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return;
+      const next = deleteTournament(indexRef.current, id);
+      // The last one gone: start a new one.
+      change(next.currentId ? next : createTournament(next, emptyDraft(browserTimeZone())).index);
+    },
+    onOpen: (id) => change(setCurrent(indexRef.current, id)),
+  };
+  const currentId = index.currentId!;
+  return <Editor key={currentId} id={currentId} tournaments={actions} />;
+}
+
 const subscribe = () => () => {};
 
 /**
@@ -548,5 +612,5 @@ export function PlanEditor() {
   if (!isClient) {
     return <p className="p-6 text-sm text-muted-foreground">Loading your plan…</p>;
   }
-  return <Editor />;
+  return <Workspace />;
 }
