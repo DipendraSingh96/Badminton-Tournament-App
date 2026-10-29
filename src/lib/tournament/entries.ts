@@ -1,4 +1,11 @@
-import { EVENT_TYPES, categoryFormat, playersPerEntry, type EventType, type GroupMode } from "@/engine";
+import {
+  EVENT_TYPES,
+  categoryFormat,
+  playersPerEntry,
+  type CategoryFormat,
+  type EventType,
+  type GroupMode,
+} from "@/engine";
 import type { ImportedEntry } from "./csv";
 import { emptyEntry, entryName, type CategoryDraft, type EntryDraft, type PlanDraft, type PlayerDraft } from "./draft";
 
@@ -112,29 +119,39 @@ export function importedEntries(draft: PlanDraft, imported: ImportedEntry[]): En
   });
 }
 
-/**
- * The places a category's draw fills: its group sizes from the plan (with the
- * real entries), or for knockout only one list in seed order. A message
- * instead when the plan can't give them yet.
- */
-export function drawSizes(draft: PlanDraft, category: CategoryDraft): { ok: true; sizes: number[] } | { ok: false; message: string } {
+/** A category's format with its real entries: group sizes, qualifiers and the knockout, or why not yet. */
+export function categoryFormatOf(
+  draft: PlanDraft,
+  category: CategoryDraft,
+): { ok: true; format: CategoryFormat } | { ok: false; message: string } {
   const entries = draft.entries.filter((e) => e.categoryId === category.id).length;
   if (entries < 2) return { ok: false, message: "Add at least 2 entries first." };
   if (!draft.format) return { ok: false, message: "Choose a format on the Plan stage first." };
-  if (draft.format === "knockout") return { ok: true, sizes: [entries] };
   const groups: GroupMode | undefined =
     category.groupMode === "fixed" && category.groupCount
       ? { type: "fixed", groupCount: category.groupCount }
       : category.groupMode === "auto" && category.preferredGroupSize
         ? { type: "auto", preferredSize: category.preferredGroupSize }
         : undefined;
-  if (!groups) return { ok: false, message: "Set how groups are made on the Plan stage first." };
+  if (draft.format !== "knockout" && !groups) return { ok: false, message: "Set how groups are made on the Plan stage first." };
   const result = categoryFormat(
     { expectedEntries: entries, groups, qualifiersPerGroup: category.qualifiersPerGroup ?? undefined, bronze: category.bronze },
     draft.format,
   );
   if (!result.ok) return { ok: false, message: "The plan's group settings don't work with this many entries." };
-  return { ok: true, sizes: result.format.groupSizes };
+  return { ok: true, format: result.format };
+}
+
+/**
+ * The places a category's draw fills: its group sizes from the plan (with the
+ * real entries), or for knockout only one list in seed order. A message
+ * instead when the plan can't give them yet.
+ */
+export function drawSizes(draft: PlanDraft, category: CategoryDraft): { ok: true; sizes: number[] } | { ok: false; message: string } {
+  const format = categoryFormatOf(draft, category);
+  if (!format.ok) return format;
+  if (draft.format === "knockout") return { ok: true, sizes: [format.format.qualifiers] };
+  return { ok: true, sizes: format.format.groupSizes };
 }
 
 /** A draw made before the entries or group sizes changed: it no longer matches and must be made again. */

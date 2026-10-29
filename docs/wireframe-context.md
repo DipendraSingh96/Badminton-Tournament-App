@@ -276,6 +276,10 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 ### Stages (29 Oct)
 - Slice 2 begins: the tournament has a stage (Plan, Draw, Live, Results) with a switch in the top bar. Moving to Draw switches the plan to the real entries (taken on the Draw stage: typed, pasted or CSV, with team squads and fixed line-ups); a locked draw makes the structure read-only until unlocked. Live and Results wait for the next slice.
 
+### Slice 2 views (29 Oct)
+- Draw stage views built: Entries (typed, pasted, CSV; team squads and fixed line-ups), Draw (seeded then random, swaps, redraw, lock), Courts (names on courts and timeline, court panel and call-up list), Teams (search, check-in, every team's matches), Groups (tables at zero with the cut line until Live) and Bracket (the knockout with times and courts).
+- Withdrawing an absent entry, results, live standings and the moving bracket come with Live (slice 3).
+
 ### Workbench and dashboard
 - Sticky summary always visible; break-even uses the category chosen on the Finance tab (the first by default).
 - Every figure can be opened to show its working, with exact minutes so each line adds up.

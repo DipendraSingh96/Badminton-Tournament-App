@@ -3,8 +3,10 @@
 import { useState, type ReactNode } from "react";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
+import { BracketView } from "./bracket-view";
 import { DrawView } from "./draw-view";
 import { EntriesView } from "./entries-view";
+import { GroupsView } from "./groups-view";
 import type { Update } from "./plan-editor";
 import { TeamsView } from "./teams-view";
 import type { LocalSegment } from "./timeline";
@@ -17,8 +19,8 @@ const VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
   { value: "draw", label: "Draw" },
   { value: "courts", label: "Courts" },
   { value: "teams", label: "Teams" },
-  { value: "groups", label: "Groups", comingIn: "Group standings come in a later step." },
-  { value: "bracket", label: "Bracket", comingIn: "The bracket comes in a later step." },
+  { value: "groups", label: "Groups" },
+  { value: "bracket", label: "Bracket" },
 ];
 
 /** The Draw stage: entries, the draw, and the post-draw views (built step by step). */
@@ -75,6 +77,8 @@ export function DrawStage({
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
             {view === "teams" ? <TeamsView draft={draft} update={update} segments={segments} moment={moment} /> : null}
+            {view === "groups" ? <GroupsView draft={draft} /> : null}
+            {view === "bracket" ? <BracketView draft={draft} segments={segments} /> : null}
           </div>
         </div>
       )}
