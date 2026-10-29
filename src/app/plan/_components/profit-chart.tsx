@@ -6,7 +6,7 @@ import type { ProfitPoint } from "@/engine";
 import { formatMoney } from "./labels";
 
 const config = {
-  profit: { label: "Profit", color: "var(--chart-1)" },
+  profit: { label: "Profit", color: "var(--turf)" },
 } satisfies ChartConfig;
 
 const compactMoney = new Intl.NumberFormat("en-GB", {
@@ -49,8 +49,8 @@ export function ProfitChart({
         {breakEven !== null ? (
           <ReferenceLine
             x={breakEven}
-            stroke="var(--success)"
-            label={{ value: "Break-even", position: "insideTopRight", fill: "var(--success)", fontSize: 12 }}
+            stroke="var(--status-fits-text)"
+            label={{ value: "Break-even", position: "insideTopRight", fill: "var(--status-fits-text)", fontSize: 12 }}
           />
         ) : null}
         <ChartTooltip
