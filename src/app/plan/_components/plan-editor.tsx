@@ -419,6 +419,8 @@ function Editor() {
                   draft={draft}
                   update={update}
                   locked={locked}
+                  segments={segments}
+                  moment={moment}
                   courts={
                     <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
                       <div className="flex min-h-0 flex-1">

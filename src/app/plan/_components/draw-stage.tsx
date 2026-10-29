@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { DrawView } from "./draw-view";
 import { EntriesView } from "./entries-view";
 import type { Update } from "./plan-editor";
+import { TeamsView } from "./teams-view";
+import type { LocalSegment } from "./timeline";
 
 type DrawStageView = "entries" | "draw" | "courts" | "teams" | "groups" | "bracket";
 
@@ -14,7 +16,7 @@ const VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
   { value: "entries", label: "Entries" },
   { value: "draw", label: "Draw" },
   { value: "courts", label: "Courts" },
-  { value: "teams", label: "Teams", comingIn: "Teams and check-in come in a later step." },
+  { value: "teams", label: "Teams" },
   { value: "groups", label: "Groups", comingIn: "Group standings come in a later step." },
   { value: "bracket", label: "Bracket", comingIn: "The bracket comes in a later step." },
 ];
@@ -25,10 +27,15 @@ export function DrawStage({
   update,
   locked,
   courts,
+  segments,
+  moment,
 }: {
   draft: PlanDraft;
   update: Update;
   locked: boolean;
+  /** The schedule's matches and the timeline's playhead, for the Teams view. */
+  segments: LocalSegment[];
+  moment: number | null;
   /** The Courts view: the venue and timeline with names, and the court panel. */
   courts: ReactNode;
 }) {
@@ -67,6 +74,7 @@ export function DrawStage({
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-(--pane-x) py-4">
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
+            {view === "teams" ? <TeamsView draft={draft} update={update} segments={segments} moment={moment} /> : null}
           </div>
         </div>
       )}
