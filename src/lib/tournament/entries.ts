@@ -1,6 +1,6 @@
 import { EVENT_TYPES, categoryFormat, playersPerEntry, type EventType, type GroupMode } from "@/engine";
 import type { ImportedEntry } from "./csv";
-import { emptyEntry, type CategoryDraft, type EntryDraft, type PlanDraft } from "./draft";
+import { emptyEntry, entryName, type CategoryDraft, type EntryDraft, type PlanDraft, type PlayerDraft } from "./draft";
 
 // From draw slots to the people in them: "A1" is group A's first place, and
 // the draw says which entry holds it. Before the draw, slots stay as they are.
@@ -26,6 +26,27 @@ export function entryForSlot(draft: PlanDraft, categoryId: string, slot: string)
   const place = Number(seeded ? seeded[1] : match![2]) - 1;
   const id = group === null ? undefined : draft.draw[categoryId]?.groups[group]?.[place];
   return (id && draft.entries.find((e) => e.id === id)) || null;
+}
+
+/** A side's name once the draw places an entry there ("Smashers"); null for a slot not decided yet. */
+export function sideName(draft: PlanDraft, categoryId: string, slot: string): string | null {
+  const entry = entryForSlot(draft, categoryId, slot);
+  return entry ? (entryName(entry) ?? "Unnamed entry") : null;
+}
+
+/**
+ * Who plays for a side in a match: a team's players for the rubber (by its
+ * fixed line-up), or a pair's or single's players. Empty until the draw
+ * places someone there or the line-up is set.
+ */
+export function sidePlayers(draft: PlanDraft, categoryId: string, slot: string, rubber?: number): PlayerDraft[] {
+  const entry = entryForSlot(draft, categoryId, slot);
+  if (!entry) return [];
+  if (draft.unit === "team") {
+    const ids = rubber === undefined ? [] : (entry.lineUp[String(rubber)] ?? []);
+    return ids.map((id) => entry.players.find((p) => p.id === id)).filter((p): p is PlayerDraft => Boolean(p));
+  }
+  return entry.players;
 }
 
 /** The players of a team who play a rubber, by the team's fixed line-up; empty when not set. */

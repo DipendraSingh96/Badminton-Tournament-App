@@ -14,6 +14,8 @@ import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
+import { CourtSelectionContext } from "./court-card";
+import { CourtPanel } from "./court-panel";
 import { DrawStage } from "./draw-stage";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
@@ -312,6 +314,9 @@ function Editor() {
     );
   }
 
+  // The court shown in the Draw stage's court panel; none shows the call-up list.
+  const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
+
   // The stage being looked at: any stage reached so far; it opens on the furthest.
   const [stageView, setStageView] = useState<TournamentStage>(draft.stage);
   // Once any category's draw is locked, the structure is read-only.
@@ -354,6 +359,39 @@ function Editor() {
     commit(emptyDraft(browserTimeZone()), false);
   }
 
+  // The venue over the timeline: the Plan stage's working area, and the Draw stage's Courts view.
+  const workingArea = (
+    <ResizablePanelGroup
+      orientation="vertical"
+      defaultLayout={dock.defaultLayout}
+      onLayoutChanged={dock.onLayoutChanged}
+    >
+      <ResizablePanel id="venue" minSize={160}>
+        <div className="@container scroll-pane relative h-full overflow-y-auto">
+          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
+            <TournamentHeader draft={draft} update={update} />
+            <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
+          </div>
+        </div>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
+        <Timeline
+          draft={shown}
+          update={update}
+          schedule={schedule}
+          segments={segments}
+          zones={zones}
+          fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
+          playhead={playhead}
+          onSeek={setPlayhead}
+          playing={playing}
+          onPlayingChange={setPlaying}
+        />
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+
   return (
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
@@ -377,7 +415,27 @@ function Editor() {
                 onCollapsedChange={collapseSidebar}
               />
               {viewing !== "plan" ? (
-                <DrawStage draft={draft} update={update} locked={locked} />
+                <DrawStage
+                  draft={draft}
+                  update={update}
+                  locked={locked}
+                  courts={
+                    <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
+                      <div className="flex min-h-0 flex-1">
+                        <div className="min-w-0 flex-1">{workingArea}</div>
+                        <div className="w-(--pane-right-min) shrink-0">
+                          <CourtPanel
+                            draft={shown}
+                            segments={segments}
+                            moment={moment}
+                            courtId={selectedCourt}
+                            onClose={() => setSelectedCourt(null)}
+                          />
+                        </div>
+                      </div>
+                    </CourtSelectionContext>
+                  }
+                />
               ) : (
                 <ResizablePanelGroup
                   orientation="horizontal"
@@ -386,35 +444,7 @@ function Editor() {
                 >
                   <ResizablePanel id="working-area" minSize="40">
                     <main className="h-full">
-                      <ResizablePanelGroup
-                        orientation="vertical"
-                        defaultLayout={dock.defaultLayout}
-                        onLayoutChanged={dock.onLayoutChanged}
-                      >
-                        <ResizablePanel id="venue" minSize={160}>
-                          <div className="@container scroll-pane relative h-full overflow-y-auto">
-                            <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
-                              <TournamentHeader draft={draft} update={update} />
-                              <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
-                            </div>
-                          </div>
-                        </ResizablePanel>
-                        <ResizableHandle withHandle />
-                        <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
-                          <Timeline
-                            draft={shown}
-                            update={update}
-                            schedule={schedule}
-                            segments={segments}
-                            zones={zones}
-                            fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
-                            playhead={playhead}
-                            onSeek={setPlayhead}
-                            playing={playing}
-                            onPlayingChange={setPlaying}
-                          />
-                        </ResizablePanel>
-                      </ResizablePanelGroup>
+                      {workingArea}
                     </main>
                   </ResizablePanel>
                   <ResizableHandle withHandle />

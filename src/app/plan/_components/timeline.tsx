@@ -42,6 +42,7 @@ import {
   shiftZone,
   type PlanDraft,
 } from "@/lib/tournament/draft";
+import { sideName, sidePlayers } from "@/lib/tournament/entries";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { GRID_MINUTES } from "@/lib/tournament/snap";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
@@ -122,12 +123,16 @@ function sideNoun(draft: PlanDraft, categoryId: string): string {
   return event && playersPerEntry(event) === 1 ? "Player" : "Pair";
 }
 
+/** A side of a match in words: its entry's name once drawn, otherwise its slot ("Team A1", "Winner QF1"). */
+export function sideLabel(draft: PlanDraft, match: MatchInfo, slot: string): string {
+  return sideName(draft, match.categoryId, slot) ?? (match.stage === "group" ? `${sideNoun(draft, match.categoryId)} ${slot}` : slot);
+}
+
 /** A match in words, for running it: where it sits, who plays, the rubber. */
 export function matchText(draft: PlanDraft, match: MatchInfo): { where: string; sides: string; rubber: string | null } {
   const where = match.stage === "group" ? `Group ${match.group} · Wave ${match.wave}` : knockoutName(match.code);
-  const noun = sideNoun(draft, match.categoryId);
-  const sides =
-    match.stage === "group" ? `${noun} ${match.home} v ${noun} ${match.away}` : `${match.home} v ${match.away}`;
+  // Once the draw places entries, their names replace the slots.
+  const sides = `${sideLabel(draft, match, match.home)} v ${sideLabel(draft, match, match.away)}`;
   const rubber = match.rubber
     ? `Rubber ${match.rubber.number} of ${match.rubber.of}: ${EVENT_LABELS[match.rubber.event]}`
     : null;
@@ -196,17 +201,27 @@ function knockoutShort(code: string | undefined): string {
 export interface CourtFace {
   /** One line above the net: "Wave 1 · R1/2", or the knockout match ("SF 1 · R1/2"). */
   net: string;
-  /** Each end: the draw slot ("A1", "Winner QF1") and the name band above it ("Team A1"). */
+  /** Each end: the draw slot ("A1", "Winner QF1") and the name band above it ("Team A1", or the team's name). */
   home: string;
   away: string;
   homeLabel: string;
   awayLabel: string;
+  /** Who plays at each end once the draw and line-ups say: shown in the halves instead of the slot. */
+  homePlayers: string[];
+  awayPlayers: string[];
 }
 
 export type CourtStatus =
   | { kind: "playing"; stage: Stage; label: string; face: CourtFace }
   | { kind: "free" }
   | { kind: "notBooked" };
+
+/** The named players for a side in a match, for the court face. */
+function playerNames(draft: PlanDraft, categoryId: string, slot: string, rubber: number | undefined): string[] {
+  return sidePlayers(draft, categoryId, slot, rubber)
+    .map((p) => p.name.trim())
+    .filter(Boolean);
+}
 
 /** What each court is doing at a moment: the match on it, in short. */
 export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute: number): Map<string, CourtStatus> {
@@ -235,8 +250,10 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
               .join(" · "),
             home: m.home,
             away: m.away,
-            homeLabel: group ? `${noun} ${m.home}` : noun,
-            awayLabel: group ? `${noun} ${m.away}` : noun,
+            homeLabel: sideName(draft, m.categoryId, m.home) ?? (group ? `${noun} ${m.home}` : noun),
+            awayLabel: sideName(draft, m.categoryId, m.away) ?? (group ? `${noun} ${m.away}` : noun),
+            homePlayers: playerNames(draft, m.categoryId, m.home, m.rubber?.number),
+            awayPlayers: playerNames(draft, m.categoryId, m.away, m.rubber?.number),
           },
         });
       } else {

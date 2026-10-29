@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { DrawView } from "./draw-view";
@@ -13,14 +13,25 @@ type DrawStageView = "entries" | "draw" | "courts" | "teams" | "groups" | "brack
 const VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
   { value: "entries", label: "Entries" },
   { value: "draw", label: "Draw" },
-  { value: "courts", label: "Courts", comingIn: "Courts come once the draw is locked (next step)." },
+  { value: "courts", label: "Courts" },
   { value: "teams", label: "Teams", comingIn: "Teams and check-in come in a later step." },
   { value: "groups", label: "Groups", comingIn: "Group standings come in a later step." },
   { value: "bracket", label: "Bracket", comingIn: "The bracket comes in a later step." },
 ];
 
 /** The Draw stage: entries, the draw, and the post-draw views (built step by step). */
-export function DrawStage({ draft, update, locked }: { draft: PlanDraft; update: Update; locked: boolean }) {
+export function DrawStage({
+  draft,
+  update,
+  locked,
+  courts,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  locked: boolean;
+  /** The Courts view: the venue and timeline with names, and the court panel. */
+  courts: ReactNode;
+}) {
   const [view, setView] = useState<DrawStageView>("entries");
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -42,12 +53,23 @@ export function DrawStage({ draft, update, locked }: { draft: PlanDraft; update:
           </button>
         ))}
       </nav>
-      <div className="scroll-pane min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-(--pane-x) py-4">
-          {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
-          {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
+      {view === "courts" ? (
+        <>
+          {Object.keys(draft.draw).length === 0 ? (
+            <p className="shrink-0 border-b bg-inset px-4 py-2 text-sm">
+              No draw yet: courts show draw slots (A1, B2…) until the draw places teams.
+            </p>
+          ) : null}
+          {courts}
+        </>
+      ) : (
+        <div className="scroll-pane min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-(--pane-x) py-4">
+            {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
+            {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }

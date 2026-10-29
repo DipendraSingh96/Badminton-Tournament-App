@@ -13,6 +13,8 @@ import {
   repeatedSeeds,
   rubberPlayers,
   rubbersOf,
+  sideName,
+  sidePlayers,
 } from "./entries";
 import { parsePlan } from "./schema";
 import { normaliseDraft } from "./storage";
@@ -108,6 +110,19 @@ describe("entries in the plan", () => {
     expect(entryName(entry)).toBe("Ann / Raj");
     entry.name = "Smashers";
     expect(entryName(entry)).toBe("Smashers");
+  });
+
+  it("names the side in a slot, and who plays for it", () => {
+    const draft = drawn();
+    const id = draft.categories[0]!.id;
+    draft.entries[0]!.players[0]!.name = "Ann";
+    expect(sideName(draft, id, "A1")).toBe("Entry 1");
+    expect(sideName(draft, id, "Winner A")).toBeNull();
+    expect(sidePlayers(draft, id, "A1").map((p) => p.name)).toEqual(["Ann", ""]);
+    draft.unit = "team";
+    draft.entries[0]!.lineUp = { "2": [draft.entries[0]!.players[0]!.id] };
+    expect(sidePlayers(draft, id, "A1", 2).map((p) => p.name)).toEqual(["Ann"]);
+    expect(sidePlayers(draft, id, "A1", 1)).toEqual([]);
   });
 
   it("lists who plays a rubber by the team's line-up", () => {

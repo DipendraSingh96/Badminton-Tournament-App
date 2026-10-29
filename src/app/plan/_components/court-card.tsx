@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
-import { useState, type KeyboardEvent } from "react";
+import { createContext, useContext, useState, type KeyboardEvent } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CourtGroups } from "@/engine";
 import {
@@ -110,6 +110,11 @@ function CourtTime({
   );
 }
 
+/** Picking a court to show in a side panel (the Draw and Live stages); absent while planning. */
+export const CourtSelectionContext = createContext<{ selected: string | null; onSelect: (courtId: string) => void } | null>(
+  null,
+);
+
 /** A group of the tournament, for the courts' group menus. */
 export interface GroupOption {
   /** "categoryId:groupIndex". */
@@ -187,11 +192,19 @@ function GroupMenu({
   );
 }
 
-/** A side's draw slot, large, in its half of the court. */
-function Half({ code }: { code: string | null }) {
+/** A side in its half of the court: who plays once known, otherwise its draw slot, large. */
+function Half({ code, players }: { code: string | null; players: string[] }) {
   return (
     <div className="relative z-10 grid min-h-14 flex-1 place-items-center px-3 text-center">
-      {code ? (
+      {players.length > 0 ? (
+        <span className="flex max-w-full flex-col gap-1 text-[13px] leading-tight font-semibold">
+          {players.map((name) => (
+            <span key={name} className="truncate" title={name}>
+              {name}
+            </span>
+          ))}
+        </span>
+      ) : code ? (
         <span
           className={`font-display leading-none font-bold text-balance uppercase ${code.length > 4 ? "text-lg" : "text-[28px]"}`}
         >
@@ -257,16 +270,32 @@ export function CourtCard({
   const idle = status?.kind === "free" ? "Free" : status?.kind === "notBooked" ? "Not booked" : null;
   const hours = courtHours(hall, court);
   const descriptionId = `court-${court.id}-about`;
+  const selection = useContext(CourtSelectionContext);
+  const selected = selection?.selected === court.id;
 
   return (
     <div
       role="group"
       aria-label={`Court ${number}`}
       aria-describedby={descriptionId}
-      className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-opacity ${
+      onClick={selection ? () => selection.onSelect(court.id) : undefined}
+      className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-[opacity,box-shadow] ${
         status?.kind === "notBooked" ? "opacity-60" : ""
-      }`}
+      } ${selection ? "cursor-pointer" : ""} ${selected ? "ring-2 ring-shuttle ring-offset-2 ring-offset-background" : ""}`}
     >
+      {selection ? (
+        <button
+          type="button"
+          aria-pressed={selected}
+          onClick={(e) => {
+            e.stopPropagation();
+            selection.onSelect(court.id);
+          }}
+          className="sr-only focus:not-sr-only focus:rounded-md focus:bg-shuttle focus:px-2 focus:py-1 focus:text-xs focus:font-semibold focus:text-shuttle-foreground"
+        >
+          Show court {number} in the panel
+        </button>
+      ) : null}
       <p id={descriptionId} className="sr-only">
         {[
           hours.from && hours.to ? `${hours.from} to ${hours.to}` : "Hours not set",
@@ -337,7 +366,7 @@ export function CourtCard({
         <div className="relative flex flex-1 flex-col">
           <CentreLine />
           <NameBand edge="top" text={face?.homeLabel ?? null} />
-          <Half code={face?.home ?? null} />
+          <Half code={face?.home ?? null} players={face?.homePlayers ?? []} />
         </div>
         {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
         <div className="relative z-10 flex flex-col border-y border-white/50">
@@ -349,7 +378,7 @@ export function CourtCard({
         </div>
         <div className="relative flex flex-1 flex-col">
           <CentreLine />
-          <Half code={face?.away ?? null} />
+          <Half code={face?.away ?? null} players={face?.awayPlayers ?? []} />
           <NameBand edge="bottom" text={face?.awayLabel ?? null} />
         </div>
 
