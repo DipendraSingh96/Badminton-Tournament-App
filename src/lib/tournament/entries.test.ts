@@ -3,6 +3,8 @@ import { entriesFromRows, parseDelimited } from "./csv";
 import { effectiveCategory, emptyDraft, emptyEntry, entryName, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
 import {
+  drawSizes,
+  drawStale,
   entryForSlot,
   groupIndexOf,
   importedEntries,
@@ -172,5 +174,40 @@ describe("team entries", () => {
     const [entry] = importedEntries(draft, [{ categoryId: category.id, name: "", players: ["Ann"], external: true, seed: 2 }]);
     expect(entry!.players.map((p) => p.name)).toEqual(["Ann", ""]);
     expect(entry).toMatchObject({ external: true, seed: 2, categoryId: category.id });
+  });
+});
+
+describe("the draw's places", () => {
+  it("takes group sizes from the plan with the real entries", () => {
+    const draft = drawn();
+    const category = draft.categories[0]!;
+    category.groupMode = "auto";
+    category.preferredGroupSize = 3;
+    expect(drawSizes(draft, category)).toEqual({ ok: true, sizes: [3, 3] });
+    expect(drawStale(draft, category)).toBe(false);
+  });
+
+  it("is one seeded list for knockout only, with slots by seed", () => {
+    const draft = drawn();
+    draft.format = "knockout";
+    const category = draft.categories[0]!;
+    expect(drawSizes(draft, category)).toEqual({ ok: true, sizes: [6] });
+    draft.draw[category.id] = { groups: [["e3", "e1", "e2", "e4", "e5", "e6"]], randomSeed: 1, locked: false };
+    expect(entryForSlot(draft, category.id, "Seed 1")?.id).toBe("e3");
+  });
+
+  it("goes stale when entries change after the draw", () => {
+    const draft = drawn();
+    const category = draft.categories[0]!;
+    category.groupMode = "auto";
+    category.preferredGroupSize = 3;
+    draft.entries.push({ ...emptyEntry(category.id, 2), id: "e7" });
+    expect(drawStale(draft, category)).toBe(true);
+  });
+
+  it("says why there's nothing to draw yet", () => {
+    const draft = drawn();
+    draft.entries = draft.entries.slice(0, 1);
+    expect(drawSizes(draft, draft.categories[0]!)).toEqual({ ok: false, message: "Add at least 2 entries first." });
   });
 });

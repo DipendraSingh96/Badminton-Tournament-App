@@ -1,4 +1,4 @@
-import { EVENT_TYPES, playersPerEntry, type EventType } from "@/engine";
+import { EVENT_TYPES, categoryFormat, playersPerEntry, type EventType, type GroupMode } from "@/engine";
 import type { ImportedEntry } from "./csv";
 import { emptyEntry, type CategoryDraft, type EntryDraft, type PlanDraft } from "./draft";
 
@@ -18,10 +18,12 @@ export function groupIndexOf(letter: string): number | null {
  * are read only up to 26 groups.)
  */
 export function entryForSlot(draft: PlanDraft, categoryId: string, slot: string): EntryDraft | null {
-  const match = /^([A-Z])(\d+)$/.exec(slot);
-  if (!match) return null;
-  const group = groupIndexOf(match[1]!);
-  const place = Number(match[2]) - 1;
+  // Knockout only: "Seed 3" is the third place in the draw's one list.
+  const seeded = /^Seed (\d+)$/.exec(slot);
+  const match = seeded ? null : /^([A-Z])(\d+)$/.exec(slot);
+  if (!seeded && !match) return null;
+  const group = seeded ? 0 : groupIndexOf(match![1]!);
+  const place = Number(seeded ? seeded[1] : match![2]) - 1;
   const id = group === null ? undefined : draft.draw[categoryId]?.groups[group]?.[place];
   return (id && draft.entries.find((e) => e.id === id)) || null;
 }
@@ -87,4 +89,45 @@ export function importedEntries(draft: PlanDraft, imported: ImportedEntry[]): En
     row.players.forEach((name, i) => (entry.players[i]!.name = name));
     return entry;
   });
+}
+
+/**
+ * The places a category's draw fills: its group sizes from the plan (with the
+ * real entries), or for knockout only one list in seed order. A message
+ * instead when the plan can't give them yet.
+ */
+export function drawSizes(draft: PlanDraft, category: CategoryDraft): { ok: true; sizes: number[] } | { ok: false; message: string } {
+  const entries = draft.entries.filter((e) => e.categoryId === category.id).length;
+  if (entries < 2) return { ok: false, message: "Add at least 2 entries first." };
+  if (!draft.format) return { ok: false, message: "Choose a format on the Plan stage first." };
+  if (draft.format === "knockout") return { ok: true, sizes: [entries] };
+  const groups: GroupMode | undefined =
+    category.groupMode === "fixed" && category.groupCount
+      ? { type: "fixed", groupCount: category.groupCount }
+      : category.groupMode === "auto" && category.preferredGroupSize
+        ? { type: "auto", preferredSize: category.preferredGroupSize }
+        : undefined;
+  if (!groups) return { ok: false, message: "Set how groups are made on the Plan stage first." };
+  const result = categoryFormat(
+    { expectedEntries: entries, groups, qualifiersPerGroup: category.qualifiersPerGroup ?? undefined, bronze: category.bronze },
+    draft.format,
+  );
+  if (!result.ok) return { ok: false, message: "The plan's group settings don't work with this many entries." };
+  return { ok: true, sizes: result.format.groupSizes };
+}
+
+/** A draw made before the entries or group sizes changed: it no longer matches and must be made again. */
+export function drawStale(draft: PlanDraft, category: CategoryDraft): boolean {
+  const draw = draft.draw[category.id];
+  if (!draw) return false;
+  const sizes = drawSizes(draft, category);
+  if (!sizes.ok) return true;
+  const ids = draft.entries.filter((e) => e.categoryId === category.id).map((e) => e.id);
+  const placed = draw.groups.flat();
+  return (
+    sizes.sizes.length !== draw.groups.length ||
+    sizes.sizes.some((n, i) => draw.groups[i]!.length !== n) ||
+    placed.length !== ids.length ||
+    ids.some((id) => !placed.includes(id))
+  );
 }

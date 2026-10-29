@@ -26,6 +26,7 @@ import {
 import { importedEntries, lineUpComplete, playersFor, repeatedSeeds, rubbersOf } from "@/lib/tournament/entries";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { cn } from "@/lib/utils";
+import { CategoryTabs } from "./category-tabs";
 import { IconButton, ReadOnly } from "./fields";
 import { categoryName, entryNoun } from "./labels";
 import type { Update } from "./plan-editor";
@@ -49,30 +50,12 @@ export function EntriesView({ draft, update, locked }: { draft: PlanDraft; updat
   }
   return (
     <div className="flex flex-col gap-4">
-      {draft.categories.length > 1 ? (
-        <div role="tablist" aria-label="Categories" className="flex flex-wrap gap-1 self-start rounded-md bg-inset p-1">
-          {draft.categories.map((c) => {
-            const count = draft.entries.filter((e) => e.categoryId === c.id).length;
-            const selected = c.id === category.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setCategoryId(c.id)}
-                className={cn(
-                  "flex h-6 items-center gap-2 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
-                )}
-              >
-                {categoryName(draft, c.id)}
-                <span className="tabular-nums opacity-80">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <CategoryTabs
+        draft={draft}
+        value={category.id}
+        onChange={setCategoryId}
+        count={(id) => draft.entries.filter((e) => e.categoryId === id).length}
+      />
       <ReadOnly when={locked}>
         <CategoryEntries key={category.id} draft={draft} category={category} update={update} />
       </ReadOnly>

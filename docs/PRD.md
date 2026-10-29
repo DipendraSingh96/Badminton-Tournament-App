@@ -19,7 +19,7 @@ This document defines the structure, inputs, logic and behaviour of the app. It 
 
 **Live mode.** Same tournament, structure frozen. Court board, call-ups, score entry, live standings, automatic bracket progression, delay tracking.
 
-**Stages.** A tournament moves through four stages, shown as a switch in the top bar: **Plan → Draw → Live → Results**. Any stage reached so far can be viewed; moving on asks first. Moving to Draw switches the plan to the real entries: from then on groups, schedule and finance use the entries entered and their external flags instead of the expected numbers (kept for comparison), until the organiser goes back to the expected numbers. Entries are taken on the Draw stage: typed in, pasted from a spreadsheet, or imported from CSV (columns Category, Name, Player 1…n, External, Seed, found by their heading); a team also lists its squad and who plays each rubber, fixed for the day. Once a category's draw is locked, the structure is read-only (categories, unit and format, groups, match rules, rules and entries; suggested levers that would change them aren't offered) until the draw is unlocked; venue hours, courts, the timeline, the buffer and finance stay editable.
+**Stages.** A tournament moves through four stages, shown as a switch in the top bar: **Plan → Draw → Live → Results**. Any stage reached so far can be viewed; moving on asks first. Moving to Draw switches the plan to the real entries: from then on groups, schedule and finance use the entries entered and their external flags instead of the expected numbers (kept for comparison), until the organiser goes back to the expected numbers. Entries are taken on the Draw stage: typed in, pasted from a spreadsheet, or imported from CSV (columns Category, Name, Player 1…n, External, Seed, found by their heading); a team also lists its squad and who plays each rubber, fixed for the day. **The draw** is made per category: seeds, in seed order, are spread snake-wise across the groups at the top of each (1–4 to A–D, then 5 to D, 6 to C…), and everyone else is placed at random from a stored number (so a draw repeats exactly and Redraw is a new number); for knockout only the draw is the seed order, seeds first. Any two entries can then be swapped by hand before the draw is locked. Once a category's draw is locked, the structure is read-only (categories, unit and format, groups, match rules, rules and entries; suggested levers that would change them aren't offered) until the draw is unlocked; venue hours, courts, the timeline, the buffer and finance stay editable.
 
 **Locking.** When the organiser takes the tournament Live, structural settings lock (categories, groups, match rules, pair list, handicap). Controlled changes remain, restricted to organiser and referee, each written to an audit log: withdrawals, walkovers, court reassignment, score corrections, schedule reshuffles.
 
@@ -170,8 +170,8 @@ Live mode has the strictest requirements: score entry on a phone one-handed, and
 
 ## 12. Open questions
 - Entry fee basis: per player or per pair; per-category fees; different fees for members and external players?
-- Who registers pairs: organiser only, or self-registration?
-- Draw method: seeded, random, or manual placement?
+- Who registers pairs: settled for now as the organiser (typed, pasted or CSV); self-registration may come later.
+- Draw method: settled as seeded, then random, with swaps by hand before locking.
 - Score entry correction window and approval flow
 
 ## 13. Data and privacy
