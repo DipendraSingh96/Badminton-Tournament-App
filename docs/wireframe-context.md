@@ -296,7 +296,7 @@ Three wireframes, supplied on 12 October 2026. They show layout and content, not
 | 4. Schedule structure tab | Done | Commits `fef582d` onwards (12 Oct). |
 | 5. Finance tab and suggested levers | Done | Commits from the step 5 PRD update onwards (12 Oct). |
 | 6. Timeline | Done | Commits from the step 6 PRD update onwards (12 Oct). |
-| 7. Previous tournaments and duplicate | Next | |
+| 7. Previous tournaments and duplicate | Done | Saved tournaments: list, switch, duplicate (structure only), delete (29 Oct). |
 
 **Still interim**
 - The timeline's stages come from an estimate until the scheduler is built.
