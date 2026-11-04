@@ -76,7 +76,7 @@ function MatchBox({
 }
 
 /**
- * The Draw stage's Bracket view: the knockout tree from the first round to the
+ * The Draw stage's KO stage page: the knockout tree from the first round to the
  * final, with the bronze match. Sides show where they come from ("Winner A",
  * "Winner QF1") until results fill them in Live; knockout-only draws show the
  * seeds' names.
@@ -96,7 +96,7 @@ export function BracketView({ draft, segments }: { draft: PlanDraft; segments: L
 function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segments: LocalSegment[]; category: CategoryDraft }) {
   const format = categoryFormatOf(draft, category);
   if (draft.format === "groups") {
-    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">Groups only: there&apos;s no knockout. See the Groups view.</p>;
+    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">Groups only: there&apos;s no knockout. See Group stage.</p>;
   }
   if (!format.ok) return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">{format.message}</p>;
   const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);

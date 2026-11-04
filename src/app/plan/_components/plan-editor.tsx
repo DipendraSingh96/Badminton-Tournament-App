@@ -24,7 +24,7 @@ import {
 import { DerivedCards } from "./dashboard";
 import { CourtSelectionContext } from "./court-card";
 import { CourtPanel } from "./court-panel";
-import { DrawStage } from "./draw-stage";
+import { DrawStage, type DrawStageView } from "./draw-stage";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
@@ -339,6 +339,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     );
   }
 
+  // The Draw stage's open page.
+  const [drawView, setDrawView] = useState<DrawStageView>("entries");
+
   // The court shown in the Draw stage's court panel; none shows the call-up list.
   const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
 
@@ -378,7 +381,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     );
   }
 
-  // The venue over the timeline: the Plan stage's working area, and the Draw stage's Courts view.
+  // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
     <ResizablePanelGroup
       orientation="vertical"
@@ -446,6 +449,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   locked={locked}
                   segments={segments}
                   moment={moment}
+                  view={drawView}
+                  onViewChange={setDrawView}
                   courts={
                     <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
                       <div className="flex min-h-0 flex-1">

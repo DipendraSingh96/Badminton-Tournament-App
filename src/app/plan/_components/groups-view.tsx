@@ -13,7 +13,7 @@ import { CategoryTabs } from "./category-tabs";
 import { categoryName } from "./labels";
 
 /**
- * The Draw stage's Groups view: a standings table per group, in the
+ * The Draw stage's Group stage page: a standings table per group, in the
  * configured tiebreak order, with the qualifying line. Before Live records
  * results every table is at zero, in draw order, and everyone is in contention.
  */
@@ -42,12 +42,12 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
   const tiebreaks = draft.rules.tiebreaks;
 
   if (draft.format === "knockout") {
-    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">This category is knockout only: see the Bracket view.</p>;
+    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">This category is knockout only: see KO stage.</p>;
   }
   if (!draw) {
     return (
       <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">
-        {format.ok ? "No draw yet: make it on the Draw view." : format.message}
+        {format.ok ? "No draw yet: make it on the Draw page." : format.message}
       </p>
     );
   }

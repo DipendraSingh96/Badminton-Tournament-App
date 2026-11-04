@@ -144,7 +144,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
       {incomplete > 0 ? (
         <p className="flex items-start gap-2 text-sm text-tight-text">
           <WarningCircleIcon weight="fill" className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {incomplete} {incomplete === 1 ? "team's" : "teams'"} line-up still to set on the Entries view.
+          {incomplete} {incomplete === 1 ? "team's" : "teams'"} line-up still to set on the Entries page.
         </p>
       ) : null}
 

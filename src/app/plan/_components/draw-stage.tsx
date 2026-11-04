@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { BracketView } from "./bracket-view";
@@ -11,16 +11,16 @@ import type { Update } from "./plan-editor";
 import { TeamsView } from "./teams-view";
 import type { LocalSegment } from "./timeline";
 
-type DrawStageView = "entries" | "draw" | "courts" | "teams" | "groups" | "bracket";
+export type DrawStageView = "entries" | "draw" | "courts" | "teams" | "groups" | "bracket";
 
-/** The Draw stage's views; those not built yet say when they arrive. */
-const VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
+/** The Draw stage's pages, in order; those not built yet say when they arrive. */
+export const DRAW_VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
   { value: "entries", label: "Entries" },
   { value: "draw", label: "Draw" },
-  { value: "courts", label: "Courts" },
   { value: "teams", label: "Teams" },
-  { value: "groups", label: "Groups" },
-  { value: "bracket", label: "Bracket" },
+  { value: "groups", label: "Group stage" },
+  { value: "bracket", label: "KO stage" },
+  { value: "courts", label: "Schedule" },
 ];
 
 /** The Draw stage: entries, the draw, and the post-draw views (built step by step). */
@@ -31,6 +31,8 @@ export function DrawStage({
   courts,
   segments,
   moment,
+  view,
+  onViewChange,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -38,21 +40,23 @@ export function DrawStage({
   /** The schedule's matches and the timeline's playhead, for the Teams view. */
   segments: LocalSegment[];
   moment: number | null;
-  /** The Courts view: the venue and timeline with names, and the court panel. */
+  /** The Schedule page: the venue and timeline with names, and the court panel. */
   courts: ReactNode;
+  /** The page open; kept by the editor so the top bar knows it. */
+  view: DrawStageView;
+  onViewChange: (view: DrawStageView) => void;
 }) {
-  const [view, setView] = useState<DrawStageView>("entries");
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <nav aria-label="Draw views" className="flex shrink-0 items-end gap-4 border-b bg-card px-4">
-        {VIEWS.map((v) => (
+        {DRAW_VIEWS.map((v) => (
           <button
             key={v.value}
             type="button"
             aria-current={view === v.value ? "page" : undefined}
             disabled={v.comingIn !== undefined}
             title={v.comingIn}
-            onClick={() => setView(v.value)}
+            onClick={() => onViewChange(v.value)}
             className={cn(
               "-mb-px border-b-[3px] py-3 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
               view === v.value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
@@ -73,7 +77,7 @@ export function DrawStage({
         </>
       ) : (
         <div className="scroll-pane min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-(--pane-x) py-4">
+          <div className="flex flex-col gap-4 px-(--pane-x) py-4">
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
             {view === "teams" ? <TeamsView draft={draft} update={update} segments={segments} moment={moment} /> : null}
