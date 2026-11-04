@@ -123,7 +123,12 @@ export function dummySummary(draft: PlanDraft): string {
   const live = liveMarks(draft);
   let entries = 0;
   let draws = 0;
-  let other = Object.keys(live.values).length;
+  let checkIns = 0;
+  let other = 0;
+  for (const key of Object.keys(live.values)) {
+    if (pathOf(key).at(-1) === "attendance") checkIns++;
+    else other++;
+  }
   for (const key of Object.keys(live.items)) {
     const path = pathOf(key);
     if (path.length === 2 && path[0] === "entries") entries++;
@@ -134,6 +139,7 @@ export function dummySummary(draft: PlanDraft): string {
   return [
     entries > 0 ? plural(entries, "entry", "entries") : null,
     draws > 0 ? plural(draws, "draw", "draws") : null,
+    checkIns > 0 ? plural(checkIns, "check-in", "check-ins") : null,
     other > 0 ? plural(other, "other value", "other values") : null,
   ]
     .filter(Boolean)

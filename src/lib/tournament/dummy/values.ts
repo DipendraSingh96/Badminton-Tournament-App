@@ -9,7 +9,7 @@ import type { StageRulesDraft } from "../draft";
 export const DUMMY_TOURNAMENT_NAME = "Dummy tournament";
 
 /** The venue, when it hasn't been touched. */
-export const DUMMY_HALL = { from: "09:00", to: "18:00", unitMinutes: 60, rate: 15, courts: 6, umpires: 1 };
+export const DUMMY_HALL = { from: "09:00", to: "18:00", unitMinutes: 60, rate: 10, courts: 6, umpires: 1 };
 export const DUMMY_BUFFER_MINUTES = 30;
 
 /** Categories, when there are none. */
@@ -21,8 +21,8 @@ export const DUMMY_CATEGORY = {
   preferredGroupSize: 4,
   groupCount: 4,
   qualifiersPerGroup: 2,
-  feeAmount: 20,
-  externalFeeAmount: 25,
+  feeAmount: 15,
+  externalFeeAmount: 20,
   expectedExternal: 2,
 };
 

@@ -96,7 +96,7 @@ export function fillPlan(draft: PlanDraft, today: Date): PlanDraft {
         else c.groupCount ??= DUMMY_CATEGORY.groupCount;
       }
       if (d.format === "groupsKnockout") c.qualifiersPerGroup ??= DUMMY_CATEGORY.qualifiersPerGroup;
-      c.feeBasis ??= "entry";
+      c.feeBasis ??= "player";
       c.feeAmount ??= DUMMY_CATEGORY.feeAmount;
       c.externalFeeAmount ??= DUMMY_CATEGORY.externalFeeAmount;
       c.expectedExternal ??= Math.min(DUMMY_CATEGORY.expectedExternal, c.expectedEntries);

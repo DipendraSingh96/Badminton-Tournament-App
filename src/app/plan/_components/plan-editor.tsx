@@ -10,6 +10,8 @@ import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine"
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
 import { courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
+import { fillPage, type FillPage } from "@/lib/tournament/dummy/fill";
+import { dummySummary, liveMarks, removeDummy } from "@/lib/tournament/dummy/marks";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import {
@@ -25,6 +27,7 @@ import { DerivedCards } from "./dashboard";
 import { CourtSelectionContext } from "./court-card";
 import { CourtPanel } from "./court-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
+import { DummyDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
@@ -351,6 +354,37 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const locked = Object.values(draft.draw).some((d) => d.locked);
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
 
+  // Dummy data: the page open can be filled (if it takes data); all of it can be removed.
+  const fillTarget: { page: FillPage; name: string } | null =
+    viewing === "plan"
+      ? { page: "plan", name: "the plan" }
+      : viewing === "draw" && drawView === "entries"
+        ? { page: "entries", name: "Entries" }
+        : viewing === "draw" && drawView === "draw"
+          ? { page: "draw", name: "the draw" }
+          : viewing === "draw" && drawView === "teams"
+            ? { page: "teams", name: "check-in" }
+            : null;
+  const fillCheck = useMemo(
+    () => (fillTarget ? fillPage(fillTarget.page, draft, { today: new Date(), randomSeed: 0 }) : null),
+    [fillTarget?.page, draft], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const dummyFill = !fillTarget
+    ? { label: "Nothing to fill on this page: it shows what the plan and the draw produce.", onFill: null }
+    : fillCheck && !fillCheck.ok
+      ? { label: `Fill ${fillTarget.name} with dummy data: ${fillCheck.reason}`, onFill: null }
+      : {
+          label: `Fill ${fillTarget.name} with dummy data (only what's empty)`,
+          onFill: () => {
+            const result = fillPage(fillTarget.page, draftRef.current, {
+              today: new Date(),
+              randomSeed: Math.floor(Math.random() * 2 ** 31),
+            });
+            if (result.ok) commit(result.draft, false);
+          },
+        };
+  const dummyLeft = useMemo(() => dummySummary(draft), [draft]);
+
   /** Move the tournament on to a stage, after asking. */
   function advance(next: TournamentStage) {
     if (next === "draw") {
@@ -440,6 +474,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 view={viewing}
                 onView={setStageView}
                 onAdvance={advance}
+                actions={
+                  <DummyDataButtons
+                    fill={dummyFill}
+                    remove={{
+                      summary: dummyLeft || null,
+                      onRemove: () => commit(removeDummy(draftRef.current), false),
+                    }}
+                  />
+                }
               />
               <div className="flex min-h-0 flex-1">
               {viewing !== "plan" ? (
@@ -594,7 +637,11 @@ function Workspace() {
     index,
     onSave,
     onNew: () => change(createTournament(indexRef.current, emptyDraft(browserTimeZone())).index),
-    onDuplicate: (draft) => change(createTournament(indexRef.current, duplicateDraft(draft)).index),
+    onDuplicate: (draft) => {
+      // Dummy data the copy no longer has (entries, the draw, name and date) isn't carried over.
+      const copy = duplicateDraft(draft);
+      change(createTournament(indexRef.current, { ...copy, dummy: liveMarks(copy) }).index);
+    },
     onDelete: (id) => {
       const name = indexRef.current.items.find((t) => t.id === id)?.name.trim() || "Untitled tournament";
       if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return;
