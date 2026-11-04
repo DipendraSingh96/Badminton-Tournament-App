@@ -205,6 +205,23 @@ export interface PlanDraft {
   entries: EntryDraft[];
   /** Each category's draw, by category id. */
   draw: Record<string, DrawDraft>;
+  /** What "Fill with dummy data" added, so it can be removed again. */
+  dummy: DummyMarks;
+}
+
+/**
+ * Dummy data in a draft, by path (a JSON list of keys, with `{ id }` for an
+ * item of a list). Anything changed since it was filled is the organiser's.
+ */
+export interface DummyMarks {
+  /** Fields given a dummy value, with what they held before. */
+  values: Record<string, { was: unknown; value: unknown }>;
+  /** Things added as dummy (a court, a category, an entry, a draw), as they were added (JSON). */
+  items: Record<string, string>;
+}
+
+export function emptyDummyMarks(): DummyMarks {
+  return { values: {}, items: {} };
 }
 
 /** Plan, then the draw, then the day itself, then the results. */
@@ -680,5 +697,6 @@ export function emptyDraft(timeZone: string): PlanDraft {
     stage: "plan",
     entries: [],
     draw: {},
+    dummy: emptyDummyMarks(),
   };
 }

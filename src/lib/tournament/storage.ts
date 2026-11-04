@@ -1,4 +1,4 @@
-import { newId, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
+import { emptyDummyMarks, newId, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
 import { migrateV3, migrateV4 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase: a list
@@ -32,7 +32,7 @@ type EarlyHall = Omit<HallDraft, "unitMinutes" | "multipleRates"> & {
 export function normaliseDraft(
   saved: Omit<
     PlanDraft,
-    "finance" | "frame" | "zoneMoves" | "matchMoves" | "groupCourts" | "courtGroups" | "stage" | "entries" | "draw"
+    "finance" | "frame" | "zoneMoves" | "matchMoves" | "groupCourts" | "courtGroups" | "stage" | "entries" | "draw" | "dummy"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
@@ -43,6 +43,7 @@ export function normaliseDraft(
     stage?: PlanDraft["stage"];
     entries?: PlanDraft["entries"];
     draw?: PlanDraft["draw"];
+    dummy?: PlanDraft["dummy"];
     finance: EarlyFinance;
     frame: Omit<PlanDraft["frame"], "halls" | "bufferStart"> & { halls: EarlyHall[]; bufferStart?: string | null };
   },
@@ -71,6 +72,8 @@ export function normaliseDraft(
     stage: saved.stage ?? "plan",
     entries: saved.entries ?? [],
     draw: saved.draw ?? {},
+    // Saved before dummy data: none of it is dummy.
+    dummy: saved.dummy ?? emptyDummyMarks(),
     frame: { ...saved.frame, halls, bufferStart: saved.frame.bufferStart ?? null },
   };
   const { costPerShuttle, ...finance } = draft.finance;
