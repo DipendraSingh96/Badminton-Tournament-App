@@ -1,34 +1,21 @@
 "use client";
 
-import { ArrowArcLeftIcon, ArrowArcRightIcon, MoonIcon, SunIcon, UserIcon } from "@phosphor-icons/react";
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { PRODUCT_NAME } from "@/lib/product";
+import { ArrowArcLeftIcon, ArrowArcRightIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import type { TournamentStage } from "@/lib/tournament/draft";
 import { IconButton } from "./fields";
 import { StageSwitch } from "./stage-switch";
-
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
-  return (
-    <Button
-      variant="outline"
-      size="icon-sm"
-      className="rounded-full"
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      onClick={() => setTheme(dark ? "light" : "dark")}
-    >
-      {dark ? <SunIcon /> : <MoonIcon />}
-    </Button>
-  );
-}
 
 /** Ctrl or Cmd, as this computer names it. */
 function modifier(): string {
   return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl";
 }
 
+/**
+ * The open tournament's bar, over the main area: its stage switch in the
+ * middle; undo, redo and any further tournament actions on the right. The
+ * app's own controls (name, profile, settings) live in the sidebar.
+ */
 export function TopBar({
   onUndo,
   onRedo,
@@ -38,6 +25,7 @@ export function TopBar({
   view,
   onView,
   onAdvance,
+  actions,
 }: {
   onUndo: () => void;
   onRedo: () => void;
@@ -47,11 +35,13 @@ export function TopBar({
   view: TournamentStage;
   onView: (stage: TournamentStage) => void;
   onAdvance: (stage: TournamentStage) => void;
+  /** More of the tournament's actions, after undo and redo. */
+  actions?: ReactNode;
 }) {
   const mod = modifier();
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b bg-card px-6">
-      <span className="font-display text-2xl leading-none font-bold text-turf uppercase">{PRODUCT_NAME}</span>
+      <span />
       <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
       <div className="flex items-center justify-end gap-2">
         <IconButton label={`Undo (${mod}+Z)`} side="bottom" variant="outline" className="rounded-full" disabled={!canUndo} onClick={onUndo}>
@@ -67,11 +57,7 @@ export function TopBar({
         >
           <ArrowArcRightIcon />
         </IconButton>
-        <ThemeToggle />
-        {/* Accounts arrive with sign-in (PRD build slice 4). */}
-        <Button variant="outline" size="icon-sm" className="rounded-full" aria-label="Account" disabled>
-          <UserIcon />
-        </Button>
+        {actions}
       </div>
     </header>
   );

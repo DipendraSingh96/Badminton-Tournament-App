@@ -36,7 +36,7 @@ import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
 import { TopBar } from "./top-bar";
 import { TournamentHeader } from "./tournament-header";
-import { TournamentList } from "./tournament-list";
+import { Sidebar } from "./sidebar";
 import { VenueCanvas } from "./venue-canvas";
 
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
@@ -415,29 +415,30 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
-          <div className="relative flex h-dvh min-w-[1024px] flex-col overflow-hidden overscroll-none bg-background">
-            <TopBar
-              onUndo={() => step(true)}
-              onRedo={() => step(false)}
-              canUndo={steps.back > 0}
-              canRedo={steps.forward > 0}
-              stage={draft.stage}
-              view={viewing}
-              onView={setStageView}
-              onAdvance={advance}
+          <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background">
+            <Sidebar
+              draft={draft}
+              currentId={id}
+              items={tournaments.index.items}
+              onNew={tournaments.onNew}
+              onDuplicate={() => tournaments.onDuplicate(draftRef.current)}
+              onDelete={tournaments.onDelete}
+              onOpen={tournaments.onOpen}
+              collapsed={sidebarCollapsed}
+              onCollapsedChange={collapseSidebar}
             />
-            <div className="flex min-h-0 flex-1">
-              <TournamentList
-                draft={draft}
-                currentId={id}
-                items={tournaments.index.items}
-                onNew={tournaments.onNew}
-                onDuplicate={() => tournaments.onDuplicate(draftRef.current)}
-                onDelete={tournaments.onDelete}
-                onOpen={tournaments.onOpen}
-                collapsed={sidebarCollapsed}
-                onCollapsedChange={collapseSidebar}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopBar
+                onUndo={() => step(true)}
+                onRedo={() => step(false)}
+                canUndo={steps.back > 0}
+                canRedo={steps.forward > 0}
+                stage={draft.stage}
+                view={viewing}
+                onView={setStageView}
+                onAdvance={advance}
               />
+              <div className="flex min-h-0 flex-1">
               {viewing !== "plan" ? (
                 <DrawStage
                   draft={draft}
@@ -553,6 +554,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </ResizablePanel>
                 </ResizablePanelGroup>
               )}
+              </div>
             </div>
           </div>
         </IssuesContext>

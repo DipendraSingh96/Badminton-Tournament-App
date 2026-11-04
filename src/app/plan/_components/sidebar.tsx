@@ -1,10 +1,24 @@
 "use client";
 
-import { CopyIcon, PlusIcon, SidebarSimpleIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  CopyIcon,
+  DesktopIcon,
+  GearSixIcon,
+  MoonIcon,
+  PlusIcon,
+  SidebarSimpleIcon,
+  SunIcon,
+  TrashIcon,
+  UserIcon,
+} from "@phosphor-icons/react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PRODUCT_NAME } from "@/lib/product";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { sortTournaments, type TournamentMeta } from "@/lib/tournament/storage";
+import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
 
 function formatDate(iso: string): string {
@@ -26,14 +40,75 @@ function formatSaved(at: number): string {
   }).format(when);
 }
 
-const LIST_ID = "tournament-list";
+const SIDEBAR_ID = "sidebar";
+
+const THEMES = [
+  { value: "light", label: "Light", icon: SunIcon },
+  { value: "dark", label: "Dark", icon: MoonIcon },
+  { value: "system", label: "System", icon: DesktopIcon },
+] as const;
+
+/** Settings: for now, the theme. Opens from the sidebar's foot. */
+function SettingsMenu({ collapsed }: { collapsed: boolean }) {
+  const { theme, setTheme } = useTheme();
+  const optionClass =
+    "flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent";
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          collapsed ? (
+            <Button variant="ghost" size="icon-sm" aria-label="Settings" />
+          ) : (
+            <Button variant="ghost" className="w-full justify-start" />
+          )
+        }
+      >
+        <GearSixIcon />
+        {collapsed ? null : "Settings"}
+      </PopoverTrigger>
+      <PopoverContent side={collapsed ? "right" : "top"} align="start" className="w-56 gap-1 p-2">
+        <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Theme</p>
+        {THEMES.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={(theme ?? "system") === value}
+            onClick={() => setTheme(value)}
+            className={optionClass}
+          >
+            <Icon className="size-4" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** The account; arrives with sign-in (PRD build slice 4). */
+function ProfileButton({ collapsed }: { collapsed: boolean }) {
+  return collapsed ? (
+    <Button variant="ghost" size="icon-sm" aria-label="Profile (sign-in arrives later)" disabled>
+      <UserIcon />
+    </Button>
+  ) : (
+    <Button variant="ghost" className="w-full justify-start" disabled>
+      <UserIcon />
+      Profile
+      <span className="ml-auto text-xs font-normal">Sign-in later</span>
+    </Button>
+  );
+}
 
 /**
- * Left panel: the saved tournaments, newest first, and New tournament. The
- * open one saves as it changes and can be duplicated or deleted; another
- * opens with a click. Collapses to a rail.
+ * The app's sidebar, the full height of the window: the product name and
+ * collapse at the top; New tournament and the saved tournaments (newest
+ * first) in the middle; profile and settings at the foot. The open tournament
+ * saves as it changes and can be duplicated or deleted; another opens with a
+ * click. Collapses to a rail.
  */
-export function TournamentList({
+export function Sidebar({
   draft,
   currentId,
   items,
@@ -61,23 +136,35 @@ export function TournamentList({
   );
   return (
     <aside
-      id={LIST_ID}
+      id={SIDEBAR_ID}
       aria-label="Tournaments"
-      className={`scroll-pane relative flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r bg-card transition-[width] duration-200 motion-reduce:transition-none ${
-        collapsed ? "w-14 items-center gap-2 py-3" : "w-(--pane-left) gap-4 px-(--pane-x) py-4"
-      }`}
+      className={cn(
+        "relative flex h-full shrink-0 flex-col overflow-hidden border-r bg-card transition-[width] duration-200 motion-reduce:transition-none",
+        collapsed ? "w-14" : "w-(--pane-left)",
+      )}
     >
+      <div
+        className={cn(
+          "flex h-14 shrink-0 items-center gap-2 border-b",
+          collapsed ? "justify-center" : "justify-between px-(--pane-x)",
+        )}
+      >
+        {collapsed ? null : (
+          <span className="truncate font-display text-2xl leading-none font-bold text-turf uppercase">{PRODUCT_NAME}</span>
+        )}
+        <IconButton
+          label={collapsed ? "Show sidebar" : "Hide sidebar"}
+          side={collapsed ? "right" : "bottom"}
+          aria-expanded={!collapsed}
+          aria-controls={SIDEBAR_ID}
+          onClick={() => onCollapsedChange(!collapsed)}
+        >
+          <SidebarSimpleIcon />
+        </IconButton>
+      </div>
+
       {collapsed ? (
-        <>
-          <IconButton
-            label="Show tournaments"
-            side="right"
-            aria-expanded={false}
-            aria-controls={LIST_ID}
-            onClick={() => onCollapsedChange(false)}
-          >
-            <SidebarSimpleIcon />
-          </IconButton>
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-2 py-3">
           <IconButton label="New tournament" side="right" variant="default" onClick={onNew}>
             <PlusIcon />
           </IconButton>
@@ -96,23 +183,12 @@ export function TournamentList({
             </TooltipTrigger>
             <TooltipContent side="right">{name}</TooltipContent>
           </Tooltip>
-        </>
+        </div>
       ) : (
-        <>
-          <div className="flex items-center gap-2">
-            <Button className="flex-1" onClick={onNew}>
-              <PlusIcon /> New tournament
-            </Button>
-            <IconButton
-              label="Hide tournaments"
-              side="right"
-              aria-expanded
-              aria-controls={LIST_ID}
-              onClick={() => onCollapsedChange(true)}
-            >
-              <SidebarSimpleIcon />
-            </IconButton>
-          </div>
+        <div className="scroll-pane flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-(--pane-x) py-4">
+          <Button onClick={onNew}>
+            <PlusIcon /> New tournament
+          </Button>
           <section aria-labelledby="tournaments-heading" className="flex flex-col gap-2">
             <h2 id="tournaments-heading" className="heading-card text-xl">
               Tournaments
@@ -155,8 +231,13 @@ export function TournamentList({
               })}
             </ul>
           </section>
-        </>
+        </div>
       )}
+
+      <div className={cn("flex shrink-0 flex-col gap-1 border-t py-2", collapsed ? "items-center" : "px-(--pane-x)")}>
+        <ProfileButton collapsed={collapsed} />
+        <SettingsMenu collapsed={collapsed} />
+      </div>
     </aside>
   );
 }
