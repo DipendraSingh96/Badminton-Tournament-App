@@ -108,6 +108,9 @@ Set once per tournament on the Tournament setup tab and stored with it. Plan mod
 - **Walkovers:** the organiser's choice: a win in straight games at the stage's points per game (e.g. 21–0, 21–0), or a win with no games or points added.
 - **Match start and rest policies**
 
+### 4.6 Dummy data
+So an organiser can see how the plan, the draw and the day will look before real data exists, any page where data is entered (the Plan stage as a whole; Entries, Draw and Teams on the Draw stage) can be filled with dummy data. A fill only fills what's still empty and never overwrites the organiser's data. Dummy data is marked; **Remove dummy data** takes it all out and keeps anything the organiser has since edited. Live and Results show the outcome of Plan and Draw and take no dummy data; in slice 3 the organiser still marks attendance and makes overrides there. Dummy values are the one exception to "no tournament values in application code": they live in one place and are used only on request.
+
 ## 5. Calculations (engine)
 All calculation logic lives in a separate engine of pure functions with tests. It takes the tournament inputs and returns results; it contains no tournament-specific values.
 

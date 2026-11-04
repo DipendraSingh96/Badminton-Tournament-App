@@ -28,7 +28,7 @@ A web app that helps organisers plan, price and run a badminton tournament. One 
 ## Conventions
 
 * All calculation logic lives in `src/engine/` and has tests. Never put business rules in components.
-* No tournament values (pair counts, group sizes, match counts, durations, fees, costs) in application code. Every one is an organiser input or is calculated from inputs. Sample values belong only in test files.
+* No tournament values (pair counts, group sizes, match counts, durations, fees, costs) in application code. Every one is an organiser input or is calculated from inputs. Sample values belong only in test files. The one exception is dummy data: its values live only in `src/lib/tournament/dummy/values.ts`, are used only when the organiser asks to fill a page with dummy data, and are always marked as dummy so they can be removed. Plans and engine calculations never read them.
 * Every tournament setting that affects results (match rules, group sizes, handicap, slot length, tiebreak order, eligibility) is a stored, editable value.
 * Tournament structure is locked once a tournament goes Live. Only the controlled changes listed in the PRD may modify it, and each must write an audit log entry.
 * Permissions are enforced in Supabase RLS, not only in the UI.
