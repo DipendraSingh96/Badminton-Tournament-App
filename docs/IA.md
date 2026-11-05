@@ -19,6 +19,8 @@ Plan mode is desktop only. Only Live mode needs a phone layout.
 
 **Top bar** (over the main area only; everything in the main area is about the open tournament): the stage switch in the middle; undo, redo and the dummy-data buttons on the right.
 
+**One surface.** The top bar and the main area share one surface (the page background), with no line between them. The workbench (right) and the timeline (under the venue) are cards on that surface: bordered, the same colour, with 8px gutters that drag to resize. Each folds away: the workbench to a narrow strip with Show workbench and the fit status as a dot; the timeline to its title row (title, zoom, play) with Show timeline. Both are remembered. The Draw stage's Schedule page uses the same timeline card, and its court panel is a card too. The sidebar keeps its own colour and has no visible borders: the colour change is its edge, and spacing separates its top, middle and foot.
+
 The shell (sidebar, top bar, workbench) never scrolls as a page; only the panes inside it scroll.
 
 **Stages.** A stage switch in the top bar: Plan · Draw · Live · Results. Stages reached show a tick and can be viewed; the next is reached by choosing it (asks first); later ones wait. In Plan, once entries are closed a bar above the summary says so ("Using real entries. The plan uses the N entries entered." with Use expected numbers) or, with the draw locked, "Draw locked. Categories, groups, rules and entries are read-only." with Unlock draw.

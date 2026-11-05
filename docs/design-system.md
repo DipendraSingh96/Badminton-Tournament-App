@@ -104,6 +104,11 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 - **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Left list 280px, collapsible to a 56px rail, centre flexible (`min-width: 0`), right workbench 400–480px. The summary card is sticky at the top of the right pane, with tabs beneath it. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
 - **Live layout:** the wall board is a grid of widgets. The phone is two full-width tap halves with Undo, Fault and End set below.
 
+### Surfaces in the shell
+- The sidebar is the app's own space: `--card`, no borders (the change of colour is its edge; spacing separates its sections).
+- Everything about the open tournament sits on one surface, `--background`: the top bar and the main area, with no divider between them.
+- Panels that come into and out of attention (the workbench, the timeline, the court panel) are cards on that surface: `--background` fill, 1px `--border`, `rounded-xl`, 8px gutters, no shadow. Inside, flat sections with dividers, as everywhere. The workbench and the timeline fold away (to a strip, or to the title row).
+
 ## 6. Components
 
 Build these once in `src/components/ui` (extend shadcn where it exists) and reuse them.
