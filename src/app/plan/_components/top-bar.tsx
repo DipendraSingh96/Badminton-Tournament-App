@@ -40,7 +40,7 @@ export function TopBar({
 }) {
   const mod = modifier();
   return (
-    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b bg-card px-6">
+    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 bg-background px-6">
       <span />
       <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
       <div className="flex items-center justify-end gap-2">

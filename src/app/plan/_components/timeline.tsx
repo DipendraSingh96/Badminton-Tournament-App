@@ -833,7 +833,7 @@ export function Timeline({
   const anyMoves = hasMoves(draft);
 
   return (
-    <section aria-label="Timeline" className="flex h-full flex-col bg-card">
+    <section aria-label="Timeline" className="flex h-full flex-col bg-background">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-2">
         <h2 className="heading-card flex items-center gap-2 text-xl">
             Timeline
@@ -925,8 +925,8 @@ export function Timeline({
       <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className="flex w-max min-w-full pr-4 pb-3">
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
-          <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-card pr-3 pl-4" aria-hidden="true">
-            <div className="sticky top-0 z-10 h-7 bg-card" />
+          <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col bg-background pr-3 pl-4" aria-hidden="true">
+            <div className="sticky top-0 z-10 h-7 bg-background" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
@@ -965,7 +965,7 @@ export function Timeline({
               onPointerMove={(e) => {
                 if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFrom(e);
               }}
-              className="sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b bg-card outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b bg-background outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ticks.map((m) => (
                 <span

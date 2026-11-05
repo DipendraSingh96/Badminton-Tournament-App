@@ -562,7 +562,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                             </TabsTrigger>
                           ))}
                         </TabsList>
-                        <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto bg-card">
+                        <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
                           <TabsContent value="setup" className="flex flex-col">
                             <ReadOnly when={locked}>
                               <SetupTab draft={draft} update={update} />

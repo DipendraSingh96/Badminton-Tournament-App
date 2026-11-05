@@ -48,7 +48,7 @@ export function DrawStage({
 }) {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <nav aria-label="Draw views" className="flex shrink-0 items-end gap-4 border-b bg-card px-4">
+      <nav aria-label="Draw views" className="flex shrink-0 items-end gap-4 border-b bg-background px-4">
         {DRAW_VIEWS.map((v) => (
           <button
             key={v.value}

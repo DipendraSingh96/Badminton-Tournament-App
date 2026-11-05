@@ -195,7 +195,7 @@ export function Summary({
   );
 
   return (
-    <section aria-label="Summary" className="@container shrink-0 border-b bg-card px-4 py-4">
+    <section aria-label="Summary" className="@container shrink-0 border-b px-4 py-4">
       <div className="flex flex-col gap-3">
         {header}
         {collapsed ? (
