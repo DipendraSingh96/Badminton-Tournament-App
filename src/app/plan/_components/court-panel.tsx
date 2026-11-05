@@ -123,7 +123,7 @@ export function CourtPanel({
       .sort((a, b) => a.from - b.from || a.courtId.localeCompare(b.courtId))
       .slice(0, CALL_UP);
     return (
-      <aside aria-label="Call-up" className="flex h-full flex-col border-l bg-card">
+      <aside aria-label="Call-up" className="flex h-full flex-col">
         <div className="flex flex-col gap-1 border-b px-4 py-4">
           <h2 className="heading-card">Call-up</h2>
           <p className="text-sm text-muted-foreground">
@@ -147,7 +147,7 @@ export function CourtPanel({
   const next = after.slice(0, UP_NEXT);
   const later = after.slice(UP_NEXT);
   return (
-    <aside aria-label={courtLabel(draft, courtId)} className="flex h-full flex-col border-l bg-card">
+    <aside aria-label={courtLabel(draft, courtId)} className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-4">
         <div className="flex flex-col gap-1">
           <h2 className="heading-card">{courtLabel(draft, courtId)}</h2>

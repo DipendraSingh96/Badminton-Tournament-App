@@ -4,6 +4,8 @@ import {
   ArrowCounterClockwiseIcon,
   ArrowsInLineHorizontalIcon,
   ArrowsOutLineHorizontalIcon,
+  CaretDownIcon,
+  CaretUpIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   PauseIcon,
@@ -46,7 +48,7 @@ import { sideName, sidePlayers } from "@/lib/tournament/entries";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { GRID_MINUTES } from "@/lib/tournament/snap";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
-import { InfoTip } from "./fields";
+import { IconButton, InfoTip } from "./fields";
 import { HallTrack } from "./hall-track";
 import { STAGE_LABELS, categoryName } from "./labels";
 import type { Update } from "./plan-editor";
@@ -370,6 +372,8 @@ export function Timeline({
   onSeek,
   playing,
   onPlayingChange,
+  collapsed = false,
+  onCollapsedChange,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -383,6 +387,9 @@ export function Timeline({
   onSeek: (minute: number) => void;
   playing: boolean;
   onPlayingChange: (playing: boolean) => void;
+  /** Folded to its title row, so the venue has the room. */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }) {
   // The strips show the view range; the playhead runs over the day itself.
   const { range, setDragging } = useContext(ViewRangeContext);
@@ -834,7 +841,7 @@ export function Timeline({
 
   return (
     <section aria-label="Timeline" className="flex h-full flex-col bg-background">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-2">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-x-3 overflow-hidden border-b px-4">
         <h2 className="heading-card flex items-center gap-2 text-xl">
             Timeline
             <InfoTip about="the timeline">
@@ -902,6 +909,15 @@ export function Timeline({
             >
               {playing ? <PauseIcon /> : <PlayIcon />} {playing ? "Pause" : "Play"}
             </Button>
+            {onCollapsedChange ? (
+              <IconButton
+                label={collapsed ? "Show timeline" : "Hide timeline"}
+                aria-expanded={!collapsed}
+                onClick={() => onCollapsedChange(!collapsed)}
+              >
+                {collapsed ? <CaretUpIcon /> : <CaretDownIcon />}
+              </IconButton>
+            ) : null}
           </span>
       </div>
       <div className="flex shrink-0 flex-col gap-1 px-4 pt-2 empty:hidden">

@@ -2,9 +2,11 @@
 
 import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useDefaultLayout } from "react-resizable-panels";
+import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { SidebarSimpleIcon } from "@phosphor-icons/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
@@ -30,7 +32,8 @@ import { DrawStage, type DrawStageView } from "./draw-stage";
 import { DummyDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
-import { IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { FIT_STATUS } from "./labels";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
@@ -45,6 +48,15 @@ import { VenueCanvas } from "./venue-canvas";
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
 
 type Tab = "setup" | "schedule" | "finance";
+
+// The workbench and the timeline are cards on the tournament's surface. Between
+// them and the venue, a gutter that drags to resize and shows a line on hover.
+const GUTTER =
+  "bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring aria-[orientation=vertical]:w-2 aria-[orientation=vertical]:after:w-px aria-[orientation=horizontal]:h-2 aria-[orientation=horizontal]:after:h-px focus-visible:ring-0";
+const CARD = "h-full overflow-hidden rounded-xl border bg-background";
+/** The timeline folded to its title row, and the workbench to its strip (border included). */
+const TIMELINE_FOLDED = 50;
+const WORKBENCH_FOLDED = 48;
 
 const STAGE_ORDER: TournamentStage[] = ["plan", "draw", "live", "results"];
 
@@ -415,6 +427,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     );
   }
 
+  // The timeline and the workbench fold away; the panels remember their size.
+  const timelinePanel = usePanelRef();
+  const workbenchPanel = usePanelRef();
+  const [timelineFolded, setTimelineFolded] = useState(false);
+  const [workbenchFolded, setWorkbenchFolded] = useState(false);
+  const fold = (panel: typeof timelinePanel, folded: boolean) => (folded ? panel.current?.collapse() : panel.current?.expand());
+  const fit = shownAnalysis?.ok ? FIT_STATUS[shownAnalysis.analysis.capacity.status] : null;
+
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
     <ResizablePanelGroup
@@ -430,8 +450,17 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           </div>
         </div>
       </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel id="timeline" defaultSize="45" minSize={220}>
+      <ResizableHandle className={GUTTER} />
+      <ResizablePanel
+        id="timeline"
+        defaultSize="45"
+        minSize={220}
+        collapsible
+        collapsedSize={TIMELINE_FOLDED}
+        panelRef={timelinePanel}
+        onResize={(size) => setTimelineFolded(size.inPixels <= TIMELINE_FOLDED + 1)}
+        className={CARD}
+      >
         <Timeline
           draft={shown}
           update={update}
@@ -443,6 +472,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onSeek={setPlayhead}
           playing={playing}
           onPlayingChange={setPlaying}
+          collapsed={timelineFolded}
+          onCollapsedChange={(folded) => fold(timelinePanel, folded)}
         />
       </ResizablePanel>
     </ResizablePanelGroup>
@@ -496,9 +527,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   onViewChange={setDrawView}
                   courts={
                     <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
-                      <div className="flex min-h-0 flex-1">
+                      <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
                         <div className="min-w-0 flex-1">{workingArea}</div>
-                        <div className="w-(--pane-right-min) shrink-0">
+                        <div className={cn(CARD, "w-(--pane-right-min) shrink-0")}>
                           <CourtPanel
                             draft={shown}
                             segments={segments}
@@ -516,15 +547,48 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   orientation="horizontal"
                   defaultLayout={layout.defaultLayout}
                   onLayoutChanged={layout.onLayoutChanged}
+                  className="px-2 pt-2 pb-2"
                 >
                   <ResizablePanel id="working-area" minSize="40">
                     <main className="h-full">
                       {workingArea}
                     </main>
                   </ResizablePanel>
-                  <ResizableHandle withHandle />
-                  <ResizablePanel id="workbench" defaultSize={440} minSize={400} maxSize={480}>
-                    <aside aria-label="Workbench" className="flex h-full flex-col border-l bg-card">
+                  <ResizableHandle className={GUTTER} />
+                  <ResizablePanel
+                    id="workbench"
+                    defaultSize={440}
+                    minSize={400}
+                    maxSize={480}
+                    collapsible
+                    collapsedSize={WORKBENCH_FOLDED}
+                    panelRef={workbenchPanel}
+                    onResize={(size) => setWorkbenchFolded(size.inPixels <= WORKBENCH_FOLDED + 1)}
+                    className={CARD}
+                  >
+                    {workbenchFolded ? (
+                      <aside aria-label="Workbench (hidden)" className="flex h-full flex-col items-center gap-3 py-2">
+                        <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => fold(workbenchPanel, false)}>
+                          <SidebarSimpleIcon className="-scale-x-100" />
+                        </IconButton>
+                        <span
+                          role="img"
+                          aria-label={`Summary: ${fit?.label ?? "Incomplete"}`}
+                          title={`Summary: ${fit?.label ?? "Incomplete"}`}
+                          className={cn(
+                            "size-3 rounded-full",
+                            fit?.variant === "fits"
+                              ? "bg-fits"
+                              : fit?.variant === "tight"
+                                ? "bg-tight"
+                                : fit?.variant === "over"
+                                  ? "bg-over-strong"
+                                  : "bg-muted-foreground",
+                          )}
+                        />
+                      </aside>
+                    ) : (
+                    <aside aria-label="Workbench" className="flex h-full flex-col">
                       {draft.stage !== "plan" ? (
                         <StageBar
                           locked={locked}
@@ -555,13 +619,18 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         onValueChange={(value) => chooseTab(value as Tab)}
                         className="min-h-0 flex-1 gap-0"
                       >
-                        <TabsList variant="line" className="w-full justify-start border-b px-3">
-                          {TABS.map((t) => (
-                            <TabsTrigger key={t.value} value={t.value}>
-                              {t.label}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
+                        <div className="flex items-center border-b pr-2">
+                          <TabsList variant="line" className="flex-1 justify-start px-3">
+                            {TABS.map((t) => (
+                              <TabsTrigger key={t.value} value={t.value}>
+                                {t.label}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                          <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => fold(workbenchPanel, true)}>
+                            <SidebarSimpleIcon className="-scale-x-100" />
+                          </IconButton>
+                        </div>
                         <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
                           <TabsContent value="setup" className="flex flex-col">
                             <ReadOnly when={locked}>
@@ -599,6 +668,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         </div>
                       </Tabs>
                     </aside>
+                    )}
                   </ResizablePanel>
                 </ResizablePanelGroup>
               )}
