@@ -139,13 +139,13 @@ export function Sidebar({
       id={SIDEBAR_ID}
       aria-label="Tournaments"
       className={cn(
-        "relative flex h-full shrink-0 flex-col overflow-hidden border-r bg-card transition-[width] duration-200 motion-reduce:transition-none",
+        "relative flex h-full shrink-0 flex-col overflow-hidden bg-card transition-[width] duration-200 motion-reduce:transition-none",
         collapsed ? "w-14" : "w-(--pane-left)",
       )}
     >
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center gap-2 border-b",
+          "flex h-14 shrink-0 items-center gap-2",
           collapsed ? "justify-center" : "justify-between px-(--pane-x)",
         )}
       >
@@ -234,7 +234,7 @@ export function Sidebar({
         </div>
       )}
 
-      <div className={cn("flex shrink-0 flex-col gap-1 border-t py-2", collapsed ? "items-center" : "px-(--pane-x)")}>
+      <div className={cn("flex shrink-0 flex-col gap-1 pt-4 pb-2", collapsed ? "items-center" : "px-(--pane-x)")}>
         <ProfileButton collapsed={collapsed} />
         <SettingsMenu collapsed={collapsed} />
       </div>
