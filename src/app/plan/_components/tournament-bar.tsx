@@ -34,14 +34,12 @@ export function NameRow({
     <header className="@container flex shrink-0 items-center gap-4 px-(--pane-x) pt-4 pb-2">
       <div className="min-w-0 flex-1">{fields}</div>
       <div className="flex shrink-0 items-center gap-2">
-        <IconButton label={`Undo (${mod}+Z)`} side="bottom" variant="outline" className="rounded-full" disabled={!canUndo} onClick={onUndo}>
+        <IconButton label={`Undo (${mod}+Z)`} side="bottom" disabled={!canUndo} onClick={onUndo}>
           <ArrowArcLeftIcon />
         </IconButton>
         <IconButton
           label={`Redo (${mod}+Shift+Z)`}
           side="bottom"
-          variant="outline"
-          className="rounded-full"
           disabled={!canRedo}
           onClick={onRedo}
         >

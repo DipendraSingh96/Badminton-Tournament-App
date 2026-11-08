@@ -934,7 +934,7 @@ export function Timeline({
           <span className="flex items-center" role="group" aria-label="Zoom">
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               aria-label="Zoom out"
               title="Zoom out"
               disabled={zoom <= 1}
@@ -944,7 +944,7 @@ export function Timeline({
             </Button>
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               aria-label="Zoom in"
               title="Zoom in"
               disabled={!hasHours || zoom >= maxZoom}

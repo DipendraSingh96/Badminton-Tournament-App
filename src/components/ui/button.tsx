@@ -7,13 +7,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Court green buttons (docs/design-system.md §6): primary turf, secondary white
-        // with an input border, accent shuttle for the single key action on a screen.
+        // Court green buttons (docs/design-system.md §6): primary turf; outline is the
+        // secondary button, a soft fill with no border; ghost has no fill until hovered;
+        // accent shuttle for the single key action on a screen.
         default: "bg-primary text-primary-foreground hover:bg-turf-2",
-        outline: "border-input bg-card text-foreground hover:bg-inset aria-expanded:bg-inset",
+        outline: "bg-inset text-foreground hover:bg-[color-mix(in_oklch,var(--surface-inset),var(--foreground)_8%)]",
         secondary: "bg-inset text-secondary-foreground hover:bg-accent aria-expanded:bg-accent",
         accent: "bg-shuttle text-shuttle-foreground hover:brightness-95",
-        ghost: "text-foreground hover:bg-inset aria-expanded:bg-inset",
+        ghost: "text-foreground hover:bg-inset",
         destructive: "bg-over-strong text-destructive-foreground hover:brightness-95 focus-visible:ring-destructive",
         link: "text-primary underline-offset-4 hover:underline",
       },

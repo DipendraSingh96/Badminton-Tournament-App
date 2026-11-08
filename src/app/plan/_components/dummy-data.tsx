@@ -24,8 +24,7 @@ export function SampleDataButtons({
       <IconButton
         label={fill.label}
         side="bottom"
-        variant="outline"
-        className={cn("rounded-full", !fill.onFill && off)}
+        className={cn(!fill.onFill && off)}
         aria-disabled={!fill.onFill}
         onClick={() => fill.onFill?.()}
       >
@@ -34,8 +33,7 @@ export function SampleDataButtons({
       <IconButton
         label={remove.label}
         side="bottom"
-        variant="outline"
-        className={cn("rounded-full", !remove.onRemove && off)}
+        className={cn(!remove.onRemove && off)}
         aria-disabled={!remove.onRemove}
         onClick={() => remove.onRemove?.()}
       >

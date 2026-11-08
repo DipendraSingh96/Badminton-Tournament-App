@@ -177,7 +177,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 </span>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   aria-label={`Move ${TIEBREAK_LABELS[criterion].toLowerCase()} up`}
                   disabled={!canUp}
                   onClick={() => move(i, i - 1)}
@@ -186,7 +186,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   aria-label={`Move ${TIEBREAK_LABELS[criterion].toLowerCase()} down`}
                   disabled={!canDown}
                   onClick={() => move(i, i + 1)}
@@ -195,7 +195,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   aria-label={`Remove ${TIEBREAK_LABELS[criterion].toLowerCase()}`}
                   onClick={() => update((d) => void d.rules.tiebreaks.splice(i, 1))}
                 >

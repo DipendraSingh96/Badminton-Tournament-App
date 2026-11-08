@@ -307,7 +307,7 @@ export function HallCard({
                 <TooltipTrigger
                   render={
                     <PopoverTrigger
-                      render={<Button variant="ghost" size="icon-sm" aria-label={`Copy another hall into ${name}`} />}
+                      render={<Button variant="ghost" size="icon" aria-label={`Copy another hall into ${name}`} />}
                     />
                   }
                 >

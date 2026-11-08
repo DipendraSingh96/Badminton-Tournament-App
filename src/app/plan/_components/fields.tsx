@@ -30,7 +30,10 @@ export function issueMap(issues: PlanIssue[]): Map<string, string> {
   return map;
 }
 
-/** An icon-only button named by its tooltip; the label is also its accessible name. */
+/**
+ * An icon-only button named by its tooltip; the label is also its accessible
+ * name. A square hugging its icon, with no fill until hovered.
+ */
 export function IconButton({
   label,
   side = "top",
@@ -42,7 +45,7 @@ export function IconButton({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button variant="ghost" size="icon-sm" aria-label={label} className={className} {...props} />
+          <Button variant="ghost" size="icon" aria-label={label} className={className} {...props} />
         }
       >
         {children}

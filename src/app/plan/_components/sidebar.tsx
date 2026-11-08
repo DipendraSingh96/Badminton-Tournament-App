@@ -58,7 +58,7 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
       <PopoverTrigger
         render={
           collapsed ? (
-            <Button variant="ghost" size="icon-sm" aria-label="Settings" />
+            <Button variant="ghost" size="icon" aria-label="Settings" />
           ) : (
             <Button variant="ghost" className="w-full justify-start" />
           )
@@ -89,7 +89,7 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
 /** The account; arrives with sign-in (PRD build slice 4). */
 function ProfileButton({ collapsed }: { collapsed: boolean }) {
   return collapsed ? (
-    <Button variant="ghost" size="icon-sm" aria-label="Profile (sign-in arrives later)" disabled>
+    <Button variant="ghost" size="icon" aria-label="Profile (sign-in arrives later)" disabled>
       <UserIcon />
     </Button>
   ) : (
