@@ -4,12 +4,12 @@ import {
   ArrowCounterClockwiseIcon,
   ArrowsInLineHorizontalIcon,
   ArrowsOutLineHorizontalIcon,
-  CaretDownIcon,
   CaretUpIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   PauseIcon,
   PlayIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import {
   useContext,
@@ -839,10 +839,70 @@ export function Timeline({
   );
   const anyMoves = hasMoves(draft);
 
+  const playButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-pressed={playing}
+      disabled={!hasHours}
+      onClick={() => {
+        if (!playing && now >= end) onSeek(start);
+        onPlayingChange(!playing);
+      }}
+    >
+      {playing ? <PauseIcon /> : <PlayIcon />} {playing ? "Pause" : "Play"}
+    </Button>
+  );
+
+  // Folded: one bar with play, the time, a scrubber over the day marked where each stage starts, and expand.
+  if (collapsed && onCollapsedChange) {
+    const span = Math.max(1, end - start);
+    const markers = (["group", "knockout", "final"] as const)
+      .map((stage) => {
+        const first = segments.filter((x) => x.stage === stage).reduce((min, x) => Math.min(min, x.from), Infinity);
+        return Number.isFinite(first) ? { stage, at: first } : null;
+      })
+      .filter((m): m is { stage: "group" | "knockout" | "final"; at: number } => m !== null);
+    return (
+      <section aria-label="Timeline" className="flex h-full items-center gap-3 bg-background px-4">
+        <h2 className="heading-card text-xl">Timeline</h2>
+        {playButton}
+        <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <input
+            type="range"
+            aria-label="Time of day"
+            aria-valuetext={clock(Math.round(now))}
+            min={start}
+            max={end}
+            step={1}
+            value={Math.round(now)}
+            disabled={!hasHours}
+            onChange={(e) => onSeek(Number(e.target.value))}
+            className="w-full accent-primary"
+          />
+          {markers.map((m) => (
+            <span
+              key={m.stage}
+              title={`${STAGE_LABELS[m.stage]} starts ${clock(m.at)}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-1 h-2 w-0.5 rounded-full bg-muted-foreground"
+              style={{ left: `${((m.at - start) / span) * 100}%` }}
+            />
+          ))}
+        </div>
+        <IconButton label="Show timeline" aria-expanded={false} onClick={() => onCollapsedChange(false)}>
+          <CaretUpIcon />
+        </IconButton>
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Timeline" className="flex h-full flex-col bg-background">
       <div className="flex h-12 shrink-0 items-center justify-between gap-x-3 overflow-hidden border-b px-4">
-        <h2 className="heading-card flex items-center gap-2 text-xl">
+        <span className="flex items-center gap-3">
+          <h2 className="heading-card flex items-center gap-2 text-xl">
             Timeline
             <InfoTip about="the timeline">
               Each hall has its hours and rate bands, a Stages row showing where its group and KO stages fall, and a
@@ -852,73 +912,59 @@ export function Timeline({
                 ? "Times are an estimate at typical length; rest isn't modelled yet."
                 : "Complete the plan to see the estimated schedule."}
             </InfoTip>
-        </h2>
-          <span className="flex items-center gap-2">
-            {anyMoves ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  update((d) => {
-                    d.matchMoves = {};
-                    d.zoneMoves = {};
-                  })
-                }
-              >
-                <ArrowCounterClockwiseIcon /> Reset all moves
-              </Button>
-            ) : null}
-            <span className="flex items-center" role="group" aria-label="Zoom">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Zoom out"
-                title="Zoom out"
-                disabled={zoom <= 1}
-                onClick={() => zoomTo(zoom / ZOOM_STEP)}
-              >
-                <MagnifyingGlassMinusIcon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Zoom in"
-                title="Zoom in"
-                disabled={!hasHours || zoom >= maxZoom}
-                onClick={() => zoomTo(zoom * ZOOM_STEP)}
-              >
-                <MagnifyingGlassPlusIcon />
-              </Button>
-              <Button variant="ghost" size="sm" disabled={segments.length === 0} onClick={fitPlay}>
-                <ArrowsInLineHorizontalIcon /> Fit play
-              </Button>
-              <Button variant="ghost" size="sm" disabled={zoom === 1} onClick={wholeDay}>
-                <ArrowsOutLineHorizontalIcon /> Whole day
-              </Button>
-            </span>
-            <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
+          </h2>
+          {playButton}
+          <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
+        </span>
+        <span className="flex items-center gap-2">
+          {anyMoves ? (
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              aria-pressed={playing}
-              disabled={!hasHours}
-              onClick={() => {
-                if (!playing && now >= end) onSeek(start);
-                onPlayingChange(!playing);
-              }}
+              onClick={() =>
+                update((d) => {
+                  d.matchMoves = {};
+                  d.zoneMoves = {};
+                })
+              }
             >
-              {playing ? <PauseIcon /> : <PlayIcon />} {playing ? "Pause" : "Play"}
+              <ArrowCounterClockwiseIcon /> Reset all moves
             </Button>
-            {onCollapsedChange ? (
-              <IconButton
-                label={collapsed ? "Show timeline" : "Hide timeline"}
-                aria-expanded={!collapsed}
-                onClick={() => onCollapsedChange(!collapsed)}
-              >
-                {collapsed ? <CaretUpIcon /> : <CaretDownIcon />}
-              </IconButton>
-            ) : null}
+          ) : null}
+          <span className="flex items-center" role="group" aria-label="Zoom">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Zoom out"
+              title="Zoom out"
+              disabled={zoom <= 1}
+              onClick={() => zoomTo(zoom / ZOOM_STEP)}
+            >
+              <MagnifyingGlassMinusIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Zoom in"
+              title="Zoom in"
+              disabled={!hasHours || zoom >= maxZoom}
+              onClick={() => zoomTo(zoom * ZOOM_STEP)}
+            >
+              <MagnifyingGlassPlusIcon />
+            </Button>
+            <Button variant="ghost" size="sm" disabled={segments.length === 0} onClick={fitPlay}>
+              <ArrowsInLineHorizontalIcon /> Fit play
+            </Button>
+            <Button variant="ghost" size="sm" disabled={zoom === 1} onClick={wholeDay}>
+              <ArrowsOutLineHorizontalIcon /> Whole day
+            </Button>
           </span>
+          {onCollapsedChange ? (
+            <IconButton label="Hide timeline" aria-expanded onClick={() => onCollapsedChange(true)}>
+              <XIcon />
+            </IconButton>
+          ) : null}
+        </span>
       </div>
       <div className="flex shrink-0 flex-col gap-1 px-4 pt-2 empty:hidden">
         {schedule && schedule.late > 0 ? (

@@ -481,7 +481,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           </div>
         </div>
       </ResizablePanel>
-      <ResizableHandle className={GUTTER} />
+      <ResizableHandle className={DIVIDER} />
       <ResizablePanel
         id="timeline"
         defaultSize="45"
@@ -490,7 +490,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         collapsedSize={TIMELINE_FOLDED}
         panelRef={timelinePanel}
         onResize={(size) => setTimelineFolded(size.inPixels <= TIMELINE_FOLDED + 1)}
-        className={CARD}
+        className="h-full"
       >
         <Timeline
           draft={shown}
@@ -581,7 +581,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   orientation="horizontal"
                   defaultLayout={layout.defaultLayout}
                   onLayoutChanged={layout.onLayoutChanged}
-                  className="px-2 pb-2"
                 >
                   <ResizablePanel id="working-area" minSize="40">
                     <main className="flex h-full flex-col">
