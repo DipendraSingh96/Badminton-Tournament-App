@@ -31,7 +31,7 @@ export function NameRow({
 }) {
   const mod = modifier();
   return (
-    <header className="@container flex shrink-0 items-center gap-4 px-(--pane-x) pt-4 pb-2">
+    <header className="@container flex shrink-0 items-center gap-4 pt-4 pb-2">
       <div className="min-w-0 flex-1">{fields}</div>
       <div className="flex shrink-0 items-center gap-2">
         <IconButton label={`Undo (${mod}+Z)`} side="bottom" disabled={!canUndo} onClick={onUndo}>
@@ -69,7 +69,7 @@ export function StageRow({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex shrink-0 items-center justify-between gap-4 px-(--pane-x) py-2">
+    <div className="flex shrink-0 items-center justify-between gap-4">
       <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
       <div className="flex items-center gap-2">{actions}</div>
     </div>

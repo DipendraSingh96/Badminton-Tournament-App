@@ -48,7 +48,8 @@ export function DrawStage({
 }) {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <nav aria-label="Draw views" className="flex shrink-0 items-end gap-4 border-b bg-background px-4">
+      <div className="shrink-0 px-(--pane-x) pt-2">
+      <nav aria-label="Draw views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b bg-background">
         {DRAW_VIEWS.map((v) => (
           <button
             key={v.value}
@@ -66,6 +67,7 @@ export function DrawStage({
           </button>
         ))}
       </nav>
+      </div>
       {view === "courts" ? (
         <>
           {Object.keys(draft.draw).length === 0 ? (
@@ -76,8 +78,8 @@ export function DrawStage({
           {courts}
         </>
       ) : (
-        <div className="scroll-pane min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-4 px-(--pane-x) py-4">
+        <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
+          <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 py-4">
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
             {view === "teams" ? <TeamsView draft={draft} update={update} segments={segments} moment={moment} /> : null}

@@ -54,11 +54,12 @@ type Tab = "setup" | "schedule" | "finance";
 const GUTTER =
   "bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring aria-[orientation=vertical]:w-2 aria-[orientation=vertical]:after:w-px aria-[orientation=horizontal]:h-2 aria-[orientation=horizontal]:after:h-px focus-visible:ring-0";
 const CARD = "h-full overflow-hidden rounded-xl border bg-background";
+/** The central column the tournament sits in: at most 960px, centred in the space the workbench leaves. */
+const COLUMN = "mx-auto w-full max-w-[960px]";
 /** A gutter that is also a soft divider: a faint line, stronger on hover. */
 const DIVIDER = GUTTER.replace("after:bg-transparent", "after:bg-border");
-/** The timeline folded to its title row, and the workbench to its strip (border included). */
-const TIMELINE_FOLDED = 50;
-const WORKBENCH_FOLDED = 48;
+/** The timeline folded to its bar. */
+const TIMELINE_FOLDED = 40;
 
 const STAGE_ORDER: TournamentStage[] = ["plan", "draw", "live", "results"];
 const STAGE_NAMES: Record<TournamentStage, string> = { plan: "Plan", draw: "Draw", live: "Live", results: "Results" };
@@ -130,6 +131,25 @@ function partOf(issue: PlanIssue): (typeof PROGRESS_PARTS)[number] {
   return tab === "setup" ? "Setup" : tab === "schedule" ? "Schedule" : tab === "finance" ? "Finance" : "Basics";
 }
 
+// The workbench, folded to a rail or not.
+const WORKBENCH_KEY = "badminton:workbench-folded";
+
+function loadWorkbenchFolded(): boolean {
+  try {
+    return window.localStorage.getItem(WORKBENCH_KEY) === "folded";
+  } catch {
+    return false;
+  }
+}
+
+function saveWorkbenchFolded(folded: boolean) {
+  try {
+    window.localStorage.setItem(WORKBENCH_KEY, folded ? "folded" : "open");
+  } catch {
+    // Not remembered; the workbench opens next time.
+  }
+}
+
 // The tournament list, collapsed to a rail or not.
 const SIDEBAR_KEY = "badminton:plan-sidebar";
 
@@ -190,7 +210,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // The timeline's playhead, in minutes since midnight; not saved.
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
-  const layout = useDefaultLayout({ id: "badminton:plan-layout", storage: window.localStorage });
   // The timeline docked under the venue: its height is remembered too.
   const dock = useDefaultLayout({ id: "badminton:plan-layout-v", storage: window.localStorage });
 
@@ -460,12 +479,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     );
   }
 
-  // The timeline and the workbench fold away; the panels remember their size.
+  // The timeline folds to a bar (its panel remembers its size); the workbench to a rail (remembered here).
   const timelinePanel = usePanelRef();
-  const workbenchPanel = usePanelRef();
   const [timelineFolded, setTimelineFolded] = useState(false);
-  const [workbenchFolded, setWorkbenchFolded] = useState(false);
-  const fold = (panel: typeof timelinePanel, folded: boolean) => (folded ? panel.current?.collapse() : panel.current?.expand());
+  const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
+  const [workbenchFolded, setWorkbenchFolded] = useState(loadWorkbenchFolded);
+  function foldWorkbench(folded: boolean) {
+    setWorkbenchFolded(folded);
+    saveWorkbenchFolded(folded);
+  }
 
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
@@ -475,8 +497,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       onLayoutChanged={dock.onLayoutChanged}
     >
       <ResizablePanel id="venue" minSize={160}>
-        <div className="@container scroll-pane relative h-full overflow-y-auto">
-          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
+        <div className="@container scroll-pane relative h-full overflow-y-auto px-(--pane-x)">
+          <div className={cn(COLUMN, "flex flex-col gap-4 pt-2 pb-4")}>
             <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
           </div>
         </div>
@@ -504,7 +526,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           playing={playing}
           onPlayingChange={setPlaying}
           collapsed={timelineFolded}
-          onCollapsedChange={(folded) => fold(timelinePanel, folded)}
+          onCollapsedChange={foldTimeline}
         />
       </ResizablePanel>
     </ResizablePanelGroup>
@@ -540,156 +562,141 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
             />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <NameRow
-                fields={<TournamentHeader draft={draft} update={update} />}
-                onUndo={() => step(true)}
-                onRedo={() => step(false)}
-                canUndo={steps.back > 0}
-                canRedo={steps.forward > 0}
-              />
-              {viewing !== "plan" ? stageRow : null}
-              <div className="flex min-h-0 flex-1">
-              {viewing !== "plan" ? (
-                <DrawStage
-                  draft={draft}
-                  update={update}
-                  locked={locked}
-                  segments={segments}
-                  moment={moment}
-                  view={drawView}
-                  onViewChange={setDrawView}
-                  courts={
-                    <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
-                      <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
-                        <div className="min-w-0 flex-1">{workingArea}</div>
-                        <div className={cn(CARD, "w-(--pane-right-min) shrink-0")}>
-                          <CourtPanel
-                            draft={shown}
-                            segments={segments}
-                            moment={moment}
-                            courtId={selectedCourt}
-                            onClose={() => setSelectedCourt(null)}
-                          />
-                        </div>
-                      </div>
-                    </CourtSelectionContext>
-                  }
-                />
-              ) : (
-                <ResizablePanelGroup
-                  orientation="horizontal"
-                  defaultLayout={layout.defaultLayout}
-                  onLayoutChanged={layout.onLayoutChanged}
-                >
-                  <ResizablePanel id="working-area" minSize="40">
-                    <main className="flex h-full flex-col">
-                      {stageRow}
-                      <div className="min-h-0 flex-1">{workingArea}</div>
-                    </main>
-                  </ResizablePanel>
-                  <ResizableHandle className={DIVIDER} />
-                  <ResizablePanel
-                    id="workbench"
-                    defaultSize={440}
-                    minSize={400}
-                    maxSize={480}
-                    collapsible
-                    collapsedSize={WORKBENCH_FOLDED}
-                    panelRef={workbenchPanel}
-                    onResize={(size) => setWorkbenchFolded(size.inPixels <= WORKBENCH_FOLDED + 1)}
-                    className="h-full"
-                  >
-                    {workbenchFolded ? (
-                      <aside aria-label="Workbench (hidden)" className="flex h-full flex-col items-center gap-3 py-2">
-                        <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => fold(workbenchPanel, false)}>
-                          <CaretDoubleLeftIcon />
-                        </IconButton>
-                        <div className="h-48">
-                          <ProgressSegments parts={progress} vertical />
-                        </div>
-                      </aside>
-                    ) : (
-                    <aside aria-label="Workbench" className="flex h-full flex-col">
-                      <div className="flex shrink-0 items-center justify-between gap-2 px-4 pt-2 pb-3">
-                        <PanelMenu value={tab} options={TABS} onChoose={chooseTab} />
-                        <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => fold(workbenchPanel, true)}>
-                          <XIcon />
-                        </IconButton>
-                      </div>
-                      {draft.stage !== "plan" ? (
-                        <StageBar
-                          locked={locked}
-                          entries={draft.entries.length}
-                          onReopen={reopenEntries}
-                          onUnlock={unlockDraw}
-                        />
-                      ) : null}
-                      {preview && parsed.ok ? (
-                        <PreviewBar
-                          change={preview}
-                          inputs={parsed.inputs}
-                          draft={draft}
-                          onKeep={keepPreview}
-                          onDiscard={() => setPreview(null)}
-                        />
-                      ) : null}
-                      <Summary
-                        draft={shown}
-                        parsed={shownParsed}
-                        analysis={shownAnalysis}
-                        progress={progress}
-                        warnings={warnings}
-                        onGoTo={goTo}
-                      />
-                      <Tabs
-                        value={tab}
-                        onValueChange={(value) => chooseTab(value as Tab)}
-                        className="min-h-0 flex-1 gap-0"
-                      >
-                        <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
-                          <TabsContent value="setup" className="flex flex-col">
-                            <ReadOnly when={locked}>
-                              <SetupTab draft={draft} update={update} />
-                            </ReadOnly>
-                          </TabsContent>
-                          <TabsContent value="schedule" className="flex flex-col">
-                            <ScheduleTab draft={draft} update={update} locked={locked} />
-                            <DerivedCards
-                              tab="schedule"
-                              draft={draft}
-                              parsed={parsed}
-                              analysis={analysis}
-                              breakEvenId={breakEvenId}
-                              onChooseBreakEven={chooseBreakEven}
-                              preview={preview}
-                              onPreview={setPreview}
-                              locked={locked}
-                            />
-                          </TabsContent>
-                          <TabsContent value="finance" className="flex flex-col">
-                            <FinanceTab draft={draft} update={update} />
-                            <DerivedCards
-                              tab="finance"
-                              draft={draft}
-                              parsed={parsed}
-                              analysis={analysis}
-                              breakEvenId={breakEvenId}
-                              onChooseBreakEven={chooseBreakEven}
-                              preview={preview}
-                              onPreview={setPreview}
-                              locked={locked}
-                            />
-                          </TabsContent>
-                        </div>
-                      </Tabs>
-                    </aside>
-                    )}
-                  </ResizablePanel>
-                </ResizablePanelGroup>
-              )}
+            <main className="flex min-w-0 flex-1 flex-col">
+              <div className="shrink-0 px-(--pane-x)">
+                <div className={COLUMN}>
+                  <NameRow
+                    fields={<TournamentHeader draft={draft} update={update} />}
+                    onUndo={() => step(true)}
+                    onRedo={() => step(false)}
+                    canUndo={steps.back > 0}
+                    canRedo={steps.forward > 0}
+                  />
+                  {stageRow}
+                </div>
               </div>
-            </div>
+              <div className="flex min-h-0 flex-1">
+                {viewing !== "plan" ? (
+                  <DrawStage
+                    draft={draft}
+                    update={update}
+                    locked={locked}
+                    segments={segments}
+                    moment={moment}
+                    view={drawView}
+                    onViewChange={setDrawView}
+                    courts={
+                      <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
+                        <div className="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
+                          <div className="min-w-0 flex-1">{workingArea}</div>
+                          <div className={cn(CARD, "w-(--pane-right-min) shrink-0")}>
+                            <CourtPanel
+                              draft={shown}
+                              segments={segments}
+                              moment={moment}
+                              courtId={selectedCourt}
+                              onClose={() => setSelectedCourt(null)}
+                            />
+                          </div>
+                        </div>
+                      </CourtSelectionContext>
+                    }
+                  />
+                ) : (
+                  <div className="min-w-0 flex-1">{workingArea}</div>
+                )}
+              </div>
+            </main>
+            {viewing === "plan" ? (
+              workbenchFolded ? (
+                <aside
+                  aria-label="Workbench (hidden)"
+                  className="flex h-full w-10 shrink-0 flex-col items-center gap-3 border-l py-2"
+                >
+                  <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
+                    <CaretDoubleLeftIcon />
+                  </IconButton>
+                  <div className="h-48">
+                    <ProgressSegments parts={progress} vertical />
+                  </div>
+                </aside>
+              ) : (
+                <aside aria-label="Workbench" className="flex h-full w-[440px] shrink-0 flex-col border-l">
+                  <div className="flex shrink-0 items-center justify-between gap-2 px-4 pt-4 pb-3">
+                    <PanelMenu value={tab} options={TABS} onChoose={chooseTab} />
+                    <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
+                      <XIcon />
+                    </IconButton>
+                  </div>
+                  {draft.stage !== "plan" ? (
+                    <StageBar
+                      locked={locked}
+                      entries={draft.entries.length}
+                      onReopen={reopenEntries}
+                      onUnlock={unlockDraw}
+                    />
+                  ) : null}
+                  {preview && parsed.ok ? (
+                    <PreviewBar
+                      change={preview}
+                      inputs={parsed.inputs}
+                      draft={draft}
+                      onKeep={keepPreview}
+                      onDiscard={() => setPreview(null)}
+                    />
+                  ) : null}
+                  <Summary
+                    draft={shown}
+                    parsed={shownParsed}
+                    analysis={shownAnalysis}
+                    progress={progress}
+                    warnings={warnings}
+                    onGoTo={goTo}
+                  />
+                  <Tabs
+                    value={tab}
+                    onValueChange={(value) => chooseTab(value as Tab)}
+                    className="min-h-0 flex-1 gap-0"
+                  >
+                    <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
+                      <TabsContent value="setup" className="flex flex-col">
+                        <ReadOnly when={locked}>
+                          <SetupTab draft={draft} update={update} />
+                        </ReadOnly>
+                      </TabsContent>
+                      <TabsContent value="schedule" className="flex flex-col">
+                        <ScheduleTab draft={draft} update={update} locked={locked} />
+                        <DerivedCards
+                          tab="schedule"
+                          draft={draft}
+                          parsed={parsed}
+                          analysis={analysis}
+                          breakEvenId={breakEvenId}
+                          onChooseBreakEven={chooseBreakEven}
+                          preview={preview}
+                          onPreview={setPreview}
+                          locked={locked}
+                        />
+                      </TabsContent>
+                      <TabsContent value="finance" className="flex flex-col">
+                        <FinanceTab draft={draft} update={update} />
+                        <DerivedCards
+                          tab="finance"
+                          draft={draft}
+                          parsed={parsed}
+                          analysis={analysis}
+                          breakEvenId={breakEvenId}
+                          onChooseBreakEven={chooseBreakEven}
+                          preview={preview}
+                          onPreview={setPreview}
+                          locked={locked}
+                        />
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+                </aside>
+              )
+            ) : null}
           </div>
         </IssuesContext>
       </ViewRangeContext>
