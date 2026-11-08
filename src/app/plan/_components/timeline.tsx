@@ -900,7 +900,7 @@ export function Timeline({
 
   return (
     <section aria-label="Timeline" className="flex h-full flex-col bg-background">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-x-3 overflow-hidden border-b px-4">
+      <div className="flex h-10 shrink-0 items-center justify-between gap-x-3 overflow-hidden px-4">
         <span className="flex items-center gap-3">
           <h2 className="heading-card flex items-center gap-2 text-xl">
             Timeline
@@ -1354,7 +1354,7 @@ export function Timeline({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs text-muted-foreground">
           {usedStages.map((stage) => (
             <span key={stage} className="flex items-center gap-2">
               <span className={`size-2.5 rounded-sm ${STAGE_COLOURS[stage]}`} aria-hidden="true" />
