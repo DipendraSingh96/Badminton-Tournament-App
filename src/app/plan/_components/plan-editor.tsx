@@ -4,10 +4,10 @@ import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { SidebarSimpleIcon } from "@phosphor-icons/react";
+import { SidebarSimpleIcon, XIcon } from "@phosphor-icons/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
@@ -37,7 +37,8 @@ import { FIT_STATUS } from "./labels";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
-import { Summary } from "./summary";
+import { PanelMenu } from "./panel-menu";
+import { Summary, type ProgressPart } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
 import { NameRow, StageRow } from "./tournament-bar";
@@ -112,6 +113,20 @@ function tabFor(issue: PlanIssue): Tab | null {
     default:
       return null;
   }
+}
+
+/** The parts of the plan the workbench's progress bar shows, in order. */
+const PROGRESS_PARTS = ["Basics", "Venue", "Setup", "Schedule", "Finance"] as const;
+
+/** Which part of the plan a missing item belongs to. */
+function partOf(issue: PlanIssue): (typeof PROGRESS_PARTS)[number] {
+  if (issue.path[0] === "frame") {
+    if (issue.path[1] === "halls") return "Venue";
+    if (issue.path[1] === "bufferMinutes" || issue.path[1] === "bufferStart") return "Schedule";
+    return "Basics";
+  }
+  const tab = tabFor(issue);
+  return tab === "setup" ? "Setup" : tab === "schedule" ? "Schedule" : tab === "finance" ? "Finance" : "Basics";
 }
 
 // The tournament list, collapsed to a rail or not.
@@ -279,6 +294,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     return [...homeless, ...zoneWarnings(shown, zones)];
   }, [shown, zones, schedule]);
   const range = dayRange(shown);
+  // How complete the plan is, part by part, for the workbench's progress bar.
+  const progress = useMemo<ProgressPart[]>(() => {
+    const missing = new Map<string, number>(PROGRESS_PARTS.map((p) => [p, 0]));
+    for (const issue of shownParsed.ok ? [] : shownParsed.issues) {
+      const part = partOf(issue);
+      missing.set(part, missing.get(part)! + 1);
+    }
+    return PROGRESS_PARTS.map((name) => ({ name, missing: missing.get(name)! }));
+  }, [shownParsed]);
 
   // Esc discards a preview.
   useEffect(() => {
@@ -600,6 +624,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       </aside>
                     ) : (
                     <aside aria-label="Workbench" className="flex h-full flex-col">
+                      <div className="flex shrink-0 items-center justify-between gap-2 px-4 pt-2 pb-3">
+                        <PanelMenu value={tab} options={TABS} onChoose={chooseTab} />
+                        <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => fold(workbenchPanel, true)}>
+                          <XIcon />
+                        </IconButton>
+                      </div>
                       {draft.stage !== "plan" ? (
                         <StageBar
                           locked={locked}
@@ -621,7 +651,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         draft={shown}
                         parsed={shownParsed}
                         analysis={shownAnalysis}
-                        breakEvenId={breakEvenId}
+                        progress={progress}
                         warnings={warnings}
                         onGoTo={goTo}
                       />
@@ -630,18 +660,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         onValueChange={(value) => chooseTab(value as Tab)}
                         className="min-h-0 flex-1 gap-0"
                       >
-                        <div className="flex items-center border-b pr-2">
-                          <TabsList variant="line" className="flex-1 justify-start px-3">
-                            {TABS.map((t) => (
-                              <TabsTrigger key={t.value} value={t.value}>
-                                {t.label}
-                              </TabsTrigger>
-                            ))}
-                          </TabsList>
-                          <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => fold(workbenchPanel, true)}>
-                            <SidebarSimpleIcon className="-scale-x-100" />
-                          </IconButton>
-                        </div>
                         <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
                           <TabsContent value="setup" className="flex flex-col">
                             <ReadOnly when={locked}>

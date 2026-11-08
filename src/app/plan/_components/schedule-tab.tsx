@@ -412,7 +412,7 @@ function StageCard({
     update((d) => void (d.stageRules[stage][key] = value));
   const path = (key: keyof StageRulesDraft) => ["stageRules", stage, key];
   return (
-    <div className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
+    <div className="flex flex-col gap-3 pt-4 first:pt-0">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold">{STAGE_LABELS[stage]}</h3>
         {copyFrom && !rulesHidden ? (
