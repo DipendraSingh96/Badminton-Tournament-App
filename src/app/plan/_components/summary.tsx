@@ -1,6 +1,6 @@
 "use client";
 
-import { WarningCircleIcon } from "@phosphor-icons/react";
+import { ArrowDownIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import type { AnalysisResult } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
@@ -81,10 +81,11 @@ export function Summary({
           {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
           <button
             type="button"
-            className="rounded-sm font-semibold text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm font-semibold text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onGoTo(missing[0]!)}
           >
             {issueSection(draft, missing[0]!)}: {missing[0]!.message}
+            <ArrowDownIcon weight="bold" className="size-3.5 shrink-0" aria-hidden="true" />
           </button>
         </p>
       ) : result ? (
