@@ -14,7 +14,7 @@ import {
   type PlanDraft,
 } from "../draft";
 import { drawSizes, playersFor, rubbersOf } from "../entries";
-import { markDummy } from "./marks";
+import { markDummy, type SampleStage } from "./marks";
 import {
   DUMMY_BEST_OF_THREE_ALLOWANCE,
   DUMMY_BUFFER_MINUTES,
@@ -252,33 +252,21 @@ export function fillTeams(draft: PlanDraft, randomSeed: number): PlanDraft {
   });
 }
 
-/** Pages that take dummy data. The others show what these produce. */
-export type FillPage = "plan" | "entries" | "draw" | "teams";
-
+/** What a stage's fill does: the plan, or the Draw stage's entries and then its draws. */
 export type FillResult = { ok: true; draft: PlanDraft } | { ok: false; reason: string };
 
-/** Fills a page with dummy data and marks it, or says why there's nothing to fill. */
-export function fillPage(page: FillPage, draft: PlanDraft, options: { today: Date; randomSeed: number }): FillResult {
+const STAGE_NAMES: Record<SampleStage, string> = { plan: "Plan", draw: "Draw" };
+
+/** Fills a stage with sample data and marks it, or says why there's nothing to fill. */
+export function fillStage(stage: SampleStage, draft: PlanDraft, options: { today: Date; randomSeed: number }): FillResult {
   const locked = Object.values(draft.draw).some((d) => d.locked);
-  if (page === "plan" && locked) return { ok: false, reason: "The draw is locked: unlock it to fill the plan." };
-  if (page !== "plan" && draft.categories.length === 0) {
+  if (stage === "plan" && locked) return { ok: false, reason: "The draw is locked: unlock it to fill the plan." };
+  if (stage === "draw" && draft.categories.length === 0) {
     return { ok: false, reason: "Add categories on the Plan stage first, or fill it." };
   }
-  if (page === "teams" && draft.entries.length === 0) return { ok: false, reason: "Add entries first, or fill the Entries page." };
-
-  const filled =
-    page === "plan"
-      ? fillPlan(draft, options.today)
-      : page === "entries"
-        ? fillEntries(draft)
-        : page === "draw"
-          ? fillDraw(draft, options.randomSeed)
-          : fillTeams(draft, options.randomSeed);
+  const filled = stage === "plan" ? fillPlan(draft, options.today) : fillDraw(fillEntries(draft), options.randomSeed);
   if (JSON.stringify(filled) === JSON.stringify(draft)) {
-    return {
-      ok: false,
-      reason: page === "draw" && draft.entries.length === 0 ? "Add entries first, or fill the Entries page." : "Nothing left to fill on this page.",
-    };
+    return { ok: false, reason: `Nothing left to fill in ${STAGE_NAMES[stage]}.` };
   }
   return { ok: true, draft: markDummy(draft, filled) };
 }

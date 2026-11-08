@@ -6,7 +6,7 @@
 import type { EventType, TiebreakCriterion, WalkoverRule, WithdrawalRule } from "@/engine";
 import type { StageRulesDraft } from "../draft";
 
-export const DUMMY_TOURNAMENT_NAME = "Dummy tournament";
+export const DUMMY_TOURNAMENT_NAME = "Sample tournament";
 
 /** The venue, when it hasn't been touched. */
 export const DUMMY_HALL = { from: "09:00", to: "18:00", unitMinutes: 60, rate: 10, courts: 6, umpires: 1 };

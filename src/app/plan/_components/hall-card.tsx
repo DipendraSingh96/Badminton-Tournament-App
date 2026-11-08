@@ -1,10 +1,10 @@
 "use client";
 
 import {
+  BroomIcon,
   CaretDownIcon,
   CheckCircleIcon,
   CopySimpleIcon,
-  EraserIcon,
   PlusIcon,
   TrashIcon,
   WarningCircleIcon,
@@ -340,7 +340,7 @@ export function HallCard({
               setSettingsOpen(true);
             }}
           >
-            <EraserIcon />
+            <BroomIcon />
           </IconButton>
           {draft.frame.halls.length > 1 ? (
             <IconButton

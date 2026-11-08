@@ -5,15 +5,20 @@ import { emptyDraft, emptyEntry, type PlanDraft } from "../draft";
 import { completeDraft } from "../draft.test-helpers";
 import { drawSizes, lineUpComplete } from "../entries";
 import { parsePlan } from "../schema";
-import { fillPage, fillPlan } from "./fill";
-import { removeDummy } from "./marks";
+import { fillDraw, fillEntries, fillPlan, fillStage, fillTeams } from "./fill";
+import { markDummy, ownDataLeft, removeDummy } from "./marks";
 
 const options = { today: new Date(2026, 10, 4), randomSeed: 7 };
 
-function fill(page: Parameters<typeof fillPage>[0], draft: PlanDraft): PlanDraft {
-  const result = fillPage(page, draft, options);
-  if (!result.ok) throw new Error(result.reason);
-  return result.draft;
+/** A stage's fill, or one of the Draw stage's parts on its own (marked as a fill would). */
+function fill(part: "plan" | "draw" | "entries" | "drawOnly" | "teams", draft: PlanDraft): PlanDraft {
+  if (part === "plan" || part === "draw") {
+    const result = fillStage(part, draft, options);
+    if (!result.ok) throw new Error(result.reason);
+    return result.draft;
+  }
+  const filled = part === "entries" ? fillEntries(draft) : part === "drawOnly" ? fillDraw(draft, 7) : fillTeams(draft, 7);
+  return markDummy(draft, filled);
 }
 
 function validPlan(draft: PlanDraft) {
@@ -58,7 +63,7 @@ describe("fill the Plan stage", () => {
 
   it("has nothing to fill in a complete plan", () => {
     const complete = fillPlan(emptyDraft("Europe/London"), options.today);
-    expect(fillPage("plan", complete, options)).toEqual({ ok: false, reason: "Nothing left to fill on this page." });
+    expect(fillStage("plan", complete, options)).toEqual({ ok: false, reason: "Nothing left to fill in Plan." });
   });
 });
 
@@ -91,7 +96,7 @@ describe("fill the Draw stage", () => {
   it("makes the draw, then check-in, and removes both with the entries", () => {
     const plan = teamPlan();
     const entries = fill("entries", plan);
-    const drawn = fill("draw", entries);
+    const drawn = fill("drawOnly", entries);
     const category = plan.categories[0]!;
     expect(drawn.draw[category.id]).toMatchObject({ locked: false });
     expect(drawn.draw[category.id]!.groups.flat()).toHaveLength(category.expectedEntries!);
@@ -109,15 +114,46 @@ describe("fill the Draw stage", () => {
   });
 
   it("says why when there's nothing to fill", () => {
-    expect(fillPage("entries", emptyDraft("Europe/London"), options)).toMatchObject({ ok: false });
-    expect(fillPage("teams", teamPlan(), options)).toEqual({
-      ok: false,
-      reason: "Add entries first, or fill the Entries page.",
-    });
-    const locked = produce(fill("draw", fill("entries", teamPlan())), (d) => {
+    expect(fillStage("draw", emptyDraft("Europe/London"), options)).toMatchObject({ ok: false });
+    const locked = produce(fill("draw", teamPlan()), (d) => {
       for (const draw of Object.values(d.draw)) draw.locked = true;
     });
-    expect(fillPage("plan", locked, options)).toMatchObject({ ok: false });
-    expect(fillPage("entries", locked, options)).toEqual({ ok: false, reason: "Nothing left to fill on this page." });
+    expect(fillStage("plan", locked, options)).toMatchObject({ ok: false });
+    expect(fillStage("draw", locked, options)).toEqual({ ok: false, reason: "Nothing left to fill in Draw." });
+  });
+
+  it("fills the whole Draw stage at once: entries, then the draw", () => {
+    const filled = fill("draw", teamPlan());
+    const category = filled.categories[0]!;
+    expect(filled.entries).toHaveLength(category.expectedEntries!);
+    expect(filled.draw[category.id]).toMatchObject({ locked: false });
+    expect(filled.entries.flatMap((e) => e.players).every((p) => p.attendance === "notYet")).toBe(true);
+  });
+
+  it("removes one stage's sample data and keeps the other's", () => {
+    const both = fill("draw", fill("plan", { ...emptyDraft("Europe/London"), unit: "team", stage: "draw" }));
+    const drawGone = removeDummy(both, "draw");
+    expect(drawGone.entries).toEqual([]);
+    expect(drawGone.draw).toEqual({});
+    expect(drawGone.categories).toEqual(both.categories);
+    // The plan's sample data is still sample data, and goes when the plan's is removed.
+    expect(removeDummy(drawGone, "plan").categories).toEqual([]);
+
+    // Removing the plan's first: the categories hold sample entries, so they stay; the entries stay sample.
+    const planGone = removeDummy(both, "plan");
+    expect(planGone.entries).toEqual(both.entries);
+    expect(planGone.name).toBe("");
+    expect(removeDummy(planGone, "draw").entries).toEqual([]);
+  });
+
+  it("knows when a stage holds the organiser's own data", () => {
+    const sample = fill("draw", fill("plan", { ...emptyDraft("Europe/London"), stage: "draw" }));
+    expect(ownDataLeft(sample, "draw")).toBe(false);
+    expect(ownDataLeft(sample, "plan")).toBe(false);
+    const withOwn = produce(sample, (d) => {
+      d.entries.push({ ...emptyEntry(d.categories[0]!.id, 2), id: "own", name: "Our club" });
+    });
+    expect(ownDataLeft(withOwn, "draw")).toBe(true);
+    expect(ownDataLeft(produce(sample, (d) => void (d.unit = "team")), "plan")).toBe(true);
   });
 });

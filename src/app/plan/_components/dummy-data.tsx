@@ -5,23 +5,22 @@ import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
 
 /**
- * The top bar's dummy-data buttons: fill the page open with dummy data, or
- * remove all of it. Unavailable buttons stay focusable so their tooltip can
- * say why.
+ * The stage's sample-data buttons, at the right end of the stage row: fill
+ * the stage with sample data, or remove its sample data. Unavailable buttons
+ * stay focusable so their tooltip can say why.
  */
-export function DummyDataButtons({
+export function SampleDataButtons({
   fill,
   remove,
 }: {
-  /** The open page's fill: what it fills, or why it can't. */
+  /** What filling does on this stage, or why it can't (then `onFill` is null). */
   fill: { label: string; onFill: (() => void) | null };
-  /** The dummy data there is ("16 entries, 30 other values"), or null when there's none. */
-  remove: { summary: string | null; onRemove: () => void };
+  /** What removing does on this stage, or that there's nothing to remove (then `onRemove` is null). */
+  remove: { label: string; onRemove: (() => void) | null };
 }) {
   const off = "opacity-50 cursor-not-allowed hover:bg-transparent";
   return (
     <>
-      <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
       <IconButton
         label={fill.label}
         side="bottom"
@@ -33,14 +32,12 @@ export function DummyDataButtons({
         <MagicWandIcon />
       </IconButton>
       <IconButton
-        label={remove.summary ? `Remove dummy data: ${remove.summary}` : "No dummy data to remove"}
+        label={remove.label}
         side="bottom"
         variant="outline"
-        className={cn("rounded-full", !remove.summary && off)}
-        aria-disabled={!remove.summary}
-        onClick={() => {
-          if (remove.summary) remove.onRemove();
-        }}
+        className={cn("rounded-full", !remove.onRemove && off)}
+        aria-disabled={!remove.onRemove}
+        onClick={() => remove.onRemove?.()}
       >
         <EraserIcon />
       </IconButton>

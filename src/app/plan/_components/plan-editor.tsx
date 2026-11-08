@@ -12,8 +12,8 @@ import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine"
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
 import { courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
-import { fillPage, type FillPage } from "@/lib/tournament/dummy/fill";
-import { dummySummary, liveMarks, removeDummy } from "@/lib/tournament/dummy/marks";
+import { fillStage } from "@/lib/tournament/dummy/fill";
+import { dummySummary, liveMarks, ownDataLeft, removeDummy, type SampleStage } from "@/lib/tournament/dummy/marks";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import {
@@ -29,7 +29,7 @@ import { DerivedCards } from "./dashboard";
 import { CourtSelectionContext } from "./court-card";
 import { CourtPanel } from "./court-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
-import { DummyDataButtons } from "./dummy-data";
+import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
@@ -59,6 +59,7 @@ const TIMELINE_FOLDED = 50;
 const WORKBENCH_FOLDED = 48;
 
 const STAGE_ORDER: TournamentStage[] = ["plan", "draw", "live", "results"];
+const STAGE_NAMES: Record<TournamentStage, string> = { plan: "Plan", draw: "Draw", live: "Live", results: "Results" };
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "setup", label: "Tournament setup" },
@@ -366,36 +367,43 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const locked = Object.values(draft.draw).some((d) => d.locked);
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
 
-  // Dummy data: the page open can be filled (if it takes data); all of it can be removed.
-  const fillTarget: { page: FillPage; name: string } | null =
-    viewing === "plan"
-      ? { page: "plan", name: "the plan" }
-      : viewing === "draw" && drawView === "entries"
-        ? { page: "entries", name: "Entries" }
-        : viewing === "draw" && drawView === "draw"
-          ? { page: "draw", name: "the draw" }
-          : viewing === "draw" && drawView === "teams"
-            ? { page: "teams", name: "check-in" }
-            : null;
+  // Sample data: the stage being viewed can be filled where it's empty, and its sample data removed.
+  const sampleStage: SampleStage | null = viewing === "plan" ? "plan" : viewing === "draw" ? "draw" : null;
+  const stageName = STAGE_NAMES[viewing];
   const fillCheck = useMemo(
-    () => (fillTarget ? fillPage(fillTarget.page, draft, { today: new Date(), randomSeed: 0 }) : null),
-    [fillTarget?.page, draft], // eslint-disable-line react-hooks/exhaustive-deps
+    () => (sampleStage ? fillStage(sampleStage, draft, { today: new Date(), randomSeed: 0 }) : null),
+    [sampleStage, draft],
   );
-  const dummyFill = !fillTarget
-    ? { label: "Nothing to fill on this page: it shows what the plan and the draw produce.", onFill: null }
+  const sampleFill = !sampleStage
+    ? { label: `Nothing to fill in ${stageName}: it shows what the plan and the draw produce.`, onFill: null }
     : fillCheck && !fillCheck.ok
-      ? { label: `Fill ${fillTarget.name} with dummy data: ${fillCheck.reason}`, onFill: null }
+      ? { label: `Fill ${stageName} with sample data: ${fillCheck.reason}`, onFill: null }
       : {
-          label: `Fill ${fillTarget.name} with dummy data (only what's empty)`,
+          label: `Fill ${stageName} with sample data`,
           onFill: () => {
-            const result = fillPage(fillTarget.page, draftRef.current, {
+            const result = fillStage(sampleStage, draftRef.current, {
               today: new Date(),
               randomSeed: Math.floor(Math.random() * 2 ** 31),
             });
             if (result.ok) commit(result.draft, false);
           },
         };
-  const dummyLeft = useMemo(() => dummySummary(draft), [draft]);
+  const sampleLeft = useMemo(() => (sampleStage ? dummySummary(draft, sampleStage) : ""), [draft, sampleStage]);
+  const sampleRemove =
+    sampleStage && sampleLeft
+      ? {
+          label: `Remove sample data from ${stageName}: ${sampleLeft}`,
+          onRemove: () => {
+            // With the organiser's own data on this stage too, ask first.
+            if (
+              ownDataLeft(draftRef.current, sampleStage) &&
+              !window.confirm(`Remove the sample data from ${stageName}? Your own data stays as it is.`)
+            )
+              return;
+            commit(removeDummy(draftRef.current, sampleStage), false);
+          },
+        }
+      : { label: `No sample data in ${stageName}`, onRemove: null };
 
   /** Move the tournament on to a stage, after asking. */
   function advance(next: TournamentStage) {
@@ -486,13 +494,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       onView={setStageView}
       onAdvance={advance}
       actions={
-        <DummyDataButtons
-          fill={dummyFill}
-          remove={{
-            summary: dummyLeft || null,
-            onRemove: () => commit(removeDummy(draftRef.current), false),
-          }}
-        />
+        // Live runs on the day's real data: no sample data there.
+        viewing === "live" ? null : <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
       }
     />
   );

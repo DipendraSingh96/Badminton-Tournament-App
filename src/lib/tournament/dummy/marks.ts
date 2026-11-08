@@ -12,6 +12,20 @@ type Path = Segment[];
 const keyOf = (path: Path) => JSON.stringify(path);
 const pathOf = (key: string) => JSON.parse(key) as Path;
 
+/** The stages that take sample data: the plan, and the draw (entries and draws). */
+export type SampleStage = "plan" | "draw";
+
+/** Which stage a mark belongs to: entries and draws are the Draw stage's; everything else the plan's. */
+function stageOf(key: string): SampleStage {
+  const first = pathOf(key)[0];
+  return first === "entries" || first === "draw" ? "draw" : "plan";
+}
+
+/** Marks of one stage, or of all when no stage is given. */
+function ofStage<T>(marks: Record<string, T>, stage: SampleStage | undefined, keep = true): Record<string, T> {
+  return Object.fromEntries(Object.entries(marks).filter(([key]) => !stage || (stageOf(key) === stage) === keep));
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -96,16 +110,16 @@ export function markDummy(before: PlanDraft, after: PlanDraft): PlanDraft {
   return { ...after, dummy: { values, items: { ...before.dummy.items, ...found.items } } };
 }
 
-/** The marks that still match the draft: dummy data not since changed by the organiser. */
-export function liveMarks(draft: PlanDraft): DummyMarks {
+/** The marks that still match the draft (of one stage, or all): dummy data not since changed by the organiser. */
+export function liveMarks(draft: PlanDraft, stage?: SampleStage): DummyMarks {
   const values = Object.fromEntries(
-    Object.entries(draft.dummy.values).filter(([key, mark]) => {
+    Object.entries(ofStage(draft.dummy.values, stage)).filter(([key, mark]) => {
       const now = resolve(draft, pathOf(key));
       return now !== undefined && same(now, mark.value);
     }),
   );
   const items = Object.fromEntries(
-    Object.entries(draft.dummy.items).filter(([key, shot]) => {
+    Object.entries(ofStage(draft.dummy.items, stage)).filter(([key, shot]) => {
       const now = resolve(draft, pathOf(key));
       return now !== undefined && snapshot(now) === shot;
     }),
@@ -113,14 +127,14 @@ export function liveMarks(draft: PlanDraft): DummyMarks {
   return { values, items };
 }
 
-export function hasDummy(draft: PlanDraft): boolean {
-  const live = liveMarks(draft);
+export function hasDummy(draft: PlanDraft, stage?: SampleStage): boolean {
+  const live = liveMarks(draft, stage);
   return Object.keys(live.values).length + Object.keys(live.items).length > 0;
 }
 
 /** What dummy data there is, for the Remove button: "16 entries, 2 draws, 30 other values". */
-export function dummySummary(draft: PlanDraft): string {
-  const live = liveMarks(draft);
+export function dummySummary(draft: PlanDraft, stage?: SampleStage): string {
+  const live = liveMarks(draft, stage);
   let entries = 0;
   let draws = 0;
   let checkIns = 0;
@@ -147,13 +161,14 @@ export function dummySummary(draft: PlanDraft): string {
 }
 
 /**
- * Takes the dummy data out: dummy values go back to what they were, dummy
- * things are removed, and draws that held a removed entry are cleared (which
- * unlocks them). Anything changed since it was filled is kept, as the
- * organiser's; so is a dummy category that has the organiser's own entries.
+ * Takes the dummy data out, of one stage or all: dummy values go back to what
+ * they were, dummy things are removed, and draws that held a removed entry
+ * are cleared (which unlocks them). Anything changed since it was filled is
+ * kept, as the organiser's; so is a dummy category that has entries. The
+ * other stage's dummy data stays dummy.
  */
-export function removeDummy(draft: PlanDraft): PlanDraft {
-  const live = liveMarks(draft);
+export function removeDummy(draft: PlanDraft, stage?: SampleStage): PlanDraft {
+  const live = liveMarks(draft, stage);
   const next = structuredClone(draft);
 
   const items = Object.keys(live.items).map(pathOf);
@@ -186,6 +201,23 @@ export function removeDummy(draft: PlanDraft): PlanDraft {
   // With no entries left, the plan uses the expected numbers again.
   if (next.entries.length === 0 && next.stage === "draw") next.stage = "plan";
 
-  next.dummy = emptyDummyMarks();
+  next.dummy = stage
+    ? { values: ofStage(draft.dummy.values, stage, false), items: ofStage(draft.dummy.items, stage, false) }
+    : emptyDummyMarks();
   return next;
+}
+
+/** Whether a stage still holds the organiser's own data once its dummy data is removed. */
+export function ownDataLeft(draft: PlanDraft, stage: SampleStage): boolean {
+  // For the plan, all sample data goes: a sample category holding sample entries isn't the organiser's.
+  const after = removeDummy(draft, stage === "draw" ? "draw" : undefined);
+  if (stage === "draw") return after.entries.length > 0;
+  return (
+    after.name.trim() !== "" ||
+    after.frame.date !== "" ||
+    after.unit !== null ||
+    after.format !== null ||
+    after.categories.length > 0 ||
+    after.frame.halls.some((h) => h.from !== "" || h.to !== "" || h.courts.length > 1)
+  );
 }
