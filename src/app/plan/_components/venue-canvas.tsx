@@ -10,7 +10,7 @@ import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import type { CourtStatus } from "./timeline";
 
-/** The venue: halls holding courts. Add a hall below the last one. */
+/** The venue: halls holding courts, with Add hall under the last hall's courts. */
 export function VenueCanvas({
   draft,
   update,
@@ -50,15 +50,7 @@ export function VenueCanvas({
     }
   }
   return (
-    <section aria-labelledby="venue-heading" className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="venue-heading" className="heading-screen">
-          Venue
-        </h2>
-        <Button variant="outline" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
-          <PlusIcon /> Add hall
-        </Button>
-      </div>
+    <section aria-label="Venue" className="flex flex-col gap-4">
       <div className="flex flex-col gap-4">
         {draft.frame.halls.map((hall, i) => (
           <HallCard
@@ -72,6 +64,9 @@ export function VenueCanvas({
           />
         ))}
       </div>
+      <Button variant="outline" className="self-start" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
+        <PlusIcon /> Add hall
+      </Button>
     </section>
   );
 }
