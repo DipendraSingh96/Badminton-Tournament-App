@@ -9,10 +9,10 @@ const TIME_ZONES = Intl.supportedValuesOf("timeZone").map((tz) => ({
   label: tz.replaceAll("_", " "),
 }));
 
-/** Name, date and time zone across the top of the working area. */
+/** Name, date and time zone: the tournament's first row. */
 export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
-    <div className="grid grid-cols-2 items-start gap-4 border-b pb-4 *:first:col-span-2 @xl:grid-cols-[minmax(0,1fr)_10.5rem_14rem] @xl:*:first:col-span-1">
+    <div className="grid grid-cols-2 items-start gap-4 *:first:col-span-2 @xl:grid-cols-[minmax(0,1fr)_10.5rem_14rem] @xl:*:first:col-span-1">
         <TextField
           label="Tournament name"
           placeholder="Untitled tournament"

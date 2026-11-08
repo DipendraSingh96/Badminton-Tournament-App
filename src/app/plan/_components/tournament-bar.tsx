@@ -12,38 +12,28 @@ function modifier(): string {
 }
 
 /**
- * The open tournament's bar, over the main area: its stage switch in the
- * middle; undo, redo and any further tournament actions on the right. The
- * app's own controls (name, profile, settings) live in the sidebar.
+ * The tournament's first row, over everything about it: its name, date and
+ * time zone, with undo and redo at the right.
  */
-export function TopBar({
+export function NameRow({
+  fields,
   onUndo,
   onRedo,
   canUndo,
   canRedo,
-  stage,
-  view,
-  onView,
-  onAdvance,
-  actions,
 }: {
+  /** The name, date and time zone fields. */
+  fields: ReactNode;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  stage: TournamentStage;
-  view: TournamentStage;
-  onView: (stage: TournamentStage) => void;
-  onAdvance: (stage: TournamentStage) => void;
-  /** More of the tournament's actions, after undo and redo. */
-  actions?: ReactNode;
 }) {
   const mod = modifier();
   return (
-    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 bg-background px-6">
-      <span />
-      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
-      <div className="flex items-center justify-end gap-2">
+    <header className="@container flex shrink-0 items-center gap-4 px-(--pane-x) pt-4 pb-2">
+      <div className="min-w-0 flex-1">{fields}</div>
+      <div className="flex shrink-0 items-center gap-2">
         <IconButton label={`Undo (${mod}+Z)`} side="bottom" variant="outline" className="rounded-full" disabled={!canUndo} onClick={onUndo}>
           <ArrowArcLeftIcon />
         </IconButton>
@@ -57,8 +47,33 @@ export function TopBar({
         >
           <ArrowArcRightIcon />
         </IconButton>
-        {actions}
       </div>
     </header>
+  );
+}
+
+/**
+ * The tournament's stages (Plan · Draw · Live · Results) under its name, with
+ * the stage's own tools (sample data) at the right end.
+ */
+export function StageRow({
+  stage,
+  view,
+  onView,
+  onAdvance,
+  actions,
+}: {
+  stage: TournamentStage;
+  view: TournamentStage;
+  onView: (stage: TournamentStage) => void;
+  onAdvance: (stage: TournamentStage) => void;
+  /** The stage's tools, at the right end. */
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-4 px-(--pane-x) py-2">
+      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
+      <div className="flex items-center gap-2">{actions}</div>
+    </div>
   );
 }

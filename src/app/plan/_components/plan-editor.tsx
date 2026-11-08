@@ -40,7 +40,7 @@ import { SetupTab } from "./setup-tab";
 import { Summary } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
-import { TopBar } from "./top-bar";
+import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
 import { VenueCanvas } from "./venue-canvas";
@@ -445,7 +445,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       <ResizablePanel id="venue" minSize={160}>
         <div className="@container scroll-pane relative h-full overflow-y-auto">
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-(--pane-x) py-4">
-            <TournamentHeader draft={draft} update={update} />
             <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
           </div>
         </div>
@@ -479,6 +478,25 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </ResizablePanelGroup>
   );
 
+  // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
+  const stageRow = (
+    <StageRow
+      stage={draft.stage}
+      view={viewing}
+      onView={setStageView}
+      onAdvance={advance}
+      actions={
+        <DummyDataButtons
+          fill={dummyFill}
+          remove={{
+            summary: dummyLeft || null,
+            onRemove: () => commit(removeDummy(draftRef.current), false),
+          }}
+        />
+      }
+    />
+  );
+
   return (
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
@@ -496,25 +514,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onCollapsedChange={collapseSidebar}
             />
             <div className="flex min-w-0 flex-1 flex-col">
-              <TopBar
+              <NameRow
+                fields={<TournamentHeader draft={draft} update={update} />}
                 onUndo={() => step(true)}
                 onRedo={() => step(false)}
                 canUndo={steps.back > 0}
                 canRedo={steps.forward > 0}
-                stage={draft.stage}
-                view={viewing}
-                onView={setStageView}
-                onAdvance={advance}
-                actions={
-                  <DummyDataButtons
-                    fill={dummyFill}
-                    remove={{
-                      summary: dummyLeft || null,
-                      onRemove: () => commit(removeDummy(draftRef.current), false),
-                    }}
-                  />
-                }
               />
+              {viewing !== "plan" ? stageRow : null}
               <div className="flex min-h-0 flex-1">
               {viewing !== "plan" ? (
                 <DrawStage
@@ -547,11 +554,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   orientation="horizontal"
                   defaultLayout={layout.defaultLayout}
                   onLayoutChanged={layout.onLayoutChanged}
-                  className="px-2 pt-2 pb-2"
+                  className="px-2 pb-2"
                 >
                   <ResizablePanel id="working-area" minSize="40">
-                    <main className="h-full">
-                      {workingArea}
+                    <main className="flex h-full flex-col">
+                      {stageRow}
+                      <div className="min-h-0 flex-1">{workingArea}</div>
                     </main>
                   </ResizablePanel>
                   <ResizableHandle className={GUTTER} />
