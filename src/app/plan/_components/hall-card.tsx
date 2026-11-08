@@ -89,7 +89,7 @@ function HallSettings({
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
       <div>
-        <div className={`grid gap-3 ${hall.multipleRates ? "grid-cols-[1fr_1fr_8.5rem]" : "grid-cols-[1fr_1fr_8.5rem_8.5rem]"}`}>
+        <div className="grid grid-cols-[repeat(auto-fill,160px)] gap-x-6 gap-y-3">
           <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
           <TextField label="Closes" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
           <StepperField
@@ -154,7 +154,7 @@ function HallSettings({
           {hall.bands.map((band, i) => (
             <div
               key={band.id}
-              className={`grid grid-cols-[1.4fr_1fr_1fr_1fr_auto] items-end gap-2 rounded-lg p-1 transition-colors ${
+              className={`grid grid-cols-[120px_160px_160px_120px_auto] items-end gap-2 rounded-lg p-1 transition-colors ${
                 selectedBand === i ? "bg-background ring-1 ring-foreground/20" : ""
               }`}
             >
@@ -358,7 +358,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,200px)] gap-3">
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}

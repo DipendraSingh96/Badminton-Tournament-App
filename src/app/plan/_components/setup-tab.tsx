@@ -256,7 +256,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
             tie. Each player plays one rubber, so the line-up sets the squad.
           </InfoTip>
         </legend>
-        <div className="grid grid-cols-2 gap-3 @md:grid-cols-3">
+        <div className="grid grid-cols-[repeat(3,120px)] gap-x-5 gap-y-3">
           {EVENT_TYPES.map((event) => (
             <StepperField
               key={event}

@@ -69,7 +69,7 @@ export function Summary({
   const loss = result ? result.finance.profit < 0 : false;
 
   return (
-    <section aria-label="Summary" className="flex shrink-0 flex-col gap-2 px-4 pb-4">
+    <section aria-label="Summary" className="flex shrink-0 flex-col gap-2 px-5 pb-4">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <ProgressSegments parts={progress} />

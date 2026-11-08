@@ -76,7 +76,7 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
         No results yet: tables are in draw order at zero, and everyone is in contention. They fill in as scores arrive in
         Live mode.
       </p>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(24rem,1fr))] gap-4">
+      <div className="grid grid-cols-[repeat(auto-fill,440px)] gap-4">
         {draw.groups.map((group, g) => (
           <div key={g} className="flex flex-col gap-2 rounded-lg bg-inset p-3">
             <h3 className="text-sm font-semibold">Group {groupLetter(g)}</h3>

@@ -147,7 +147,7 @@ export function TeamsView({
   }
 
   return (
-    <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
+    <div className="grid min-h-0 grid-cols-[400px_minmax(0,1fr)] gap-6">
       <section aria-label={team ? "Teams" : "Entries"} className="flex min-w-0 flex-col gap-3">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">

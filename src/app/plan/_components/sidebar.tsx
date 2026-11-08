@@ -140,7 +140,7 @@ export function Sidebar({
       aria-label="Tournaments"
       className={cn(
         "relative flex h-full shrink-0 flex-col overflow-hidden bg-card transition-[width] duration-200 motion-reduce:transition-none",
-        collapsed ? "w-14" : "w-(--pane-left)",
+        collapsed ? "w-10" : "w-(--pane-left)",
       )}
     >
       <div

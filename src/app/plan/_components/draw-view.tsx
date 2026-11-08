@@ -158,7 +158,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
                 : "To swap two entries, choose one, then the other."}
             </p>
           ) : null}
-          <div className={cn("grid gap-3", knockout ? "grid-cols-1" : "grid-cols-[repeat(auto-fill,minmax(14rem,1fr))]")}>
+          <div className={cn("grid gap-3", knockout ? "grid-cols-1" : "grid-cols-[repeat(auto-fill,240px)]")}>
             {draw.groups.map((group, g) => (
               <div key={g} className="flex flex-col gap-2 rounded-lg bg-inset p-3">
                 <h3 className="text-sm font-semibold">{knockout ? "Seed order" : `Group ${groupLetter(g)}`}</h3>

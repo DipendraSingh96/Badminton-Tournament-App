@@ -133,7 +133,7 @@ function CategoryEntries({ draft, category, update }: { draft: PlanDraft; catego
             role="row"
             className={cn(
               "grid items-center gap-2 border-b px-2 pb-2 text-xs font-semibold text-muted-foreground",
-              team ? "grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_5rem_4.5rem_2rem]" : "grid-cols-[2rem_minmax(0,1fr)_minmax(0,2fr)_5rem_4.5rem_2rem]",
+              team ? "grid-cols-[40px_320px_minmax(0,1fr)_80px_80px_40px]" : "grid-cols-[40px_320px_minmax(0,1fr)_80px_80px_40px]",
             )}
           >
             <span role="columnheader">#</span>
@@ -255,7 +255,7 @@ function EntryRow({
       <div
         className={cn(
           "grid items-center gap-2 px-2",
-          team ? "grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_5rem_4.5rem_2rem]" : "grid-cols-[2rem_minmax(0,1fr)_minmax(0,2fr)_5rem_4.5rem_2rem]",
+          team ? "grid-cols-[40px_320px_minmax(0,1fr)_80px_80px_40px]" : "grid-cols-[40px_320px_minmax(0,1fr)_80px_80px_40px]",
         )}
       >
         <span role="cell" className="text-sm text-muted-foreground tabular-nums">

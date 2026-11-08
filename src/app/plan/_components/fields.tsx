@@ -124,9 +124,13 @@ function Field({
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
     <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
-      <div className="flex min-w-0 items-center gap-1">
-        <div className="min-w-0 flex-1">{children}</div>
-        {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
+      <div className="relative min-w-0">
+        {children}
+        {hint ? (
+          <span className="absolute top-1/2 left-full ml-1 flex -translate-y-1/2">
+            <InfoTip about={label}>{hint}</InfoTip>
+          </span>
+        ) : null}
       </div>
       {message ? (
         <p id={`${id}-message`} className="text-xs text-over-text">
