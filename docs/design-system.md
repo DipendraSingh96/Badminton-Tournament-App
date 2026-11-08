@@ -21,7 +21,7 @@ Visual reference: the "Variant 1 · Light surface, green accents" screen (saved 
 | Plan dark | Desktop planning screens, when the organiser picks dark (or the device is dark and they haven't chosen) | `.dark` on `<html>` (next-themes toggle in the top bar) |
 | Live | Court wall board, umpire phone, control desk | `data-theme="live"` on the layout root |
 
-**Plan dark** (added 26 Oct 2026) is derived from the Live palette so the two dark themes feel related, but keeps the Plan roles: background `#071F15`, card `#0D3022`, inset `#124030`, border `#2A6B4C`, input `#4F9A72` (3:1 on card), text `#F3F7F2`, muted `#8BAA97`. The primary is mint `#BDF2C9` with dark text `#07241A`, and headings are mint, so shuttle yellow stays the one accent. Court tiles `#124030` with border `#2A6B4C`. Timeline blocks use the Live values (group `#1F8A4C`, knockout `#BDF2C9`, outline `rgba(250,250,242,.5)`, now line `#F3F7F2`); bronze and final are unchanged. The summary card stays `#0A4A31`. Tokens live in the `.dark` block of `src/app/globals.css`.
+**Plan dark** (added 26 Oct 2026) is derived from the Live palette so the two dark themes feel related, but keeps the Plan roles: background `#071F15`, card `#0D3022`, inset `#124030`, border `#2A6B4C`, input `#4F9A72` (3:1 on card), text `#F3F7F2`, muted `#A4BDAD`. The primary is mint `#BDF2C9` with dark text `#07241A`, and headings are mint, so shuttle yellow stays the one accent. Court tiles `#124030` with border `#2A6B4C`. Timeline blocks use the Live values (group `#1F8A4C`, knockout `#BDF2C9`, outline `rgba(250,250,242,.5)`, now line `#F3F7F2`); bronze and final are unchanged. The summary card stays `#0A4A31`. Tokens live in the `.dark` block of `src/app/globals.css`.
 
 ## 3. Colour
 
@@ -34,7 +34,7 @@ Visual reference: the "Variant 1 · Light surface, green accents" screen (saved 
 | `border` | `#D5DFD7` | Hairlines around cards and panes |
 | `input` | `#7F9A89` | Control borders where one is still drawn (checkboxes, option cards); fields and secondary buttons are borderless soft boxes |
 | `foreground` | `#0A2A1B` | Body text |
-| `muted-foreground` | `#5A7264` | Secondary text: captions, placeholders (the dimmest that passes 4.5:1 on every surface) |
+| `muted-foreground` | `#4F685A` | Secondary text: captions, placeholders (the dimmest that passes 4.5:1 on every surface) |
 | `feature` | `#0A4A31` | The summary card only |
 
 ### Brand
@@ -61,7 +61,7 @@ Group `#7FD6A0` · Knockout `#0F6B45` · Bronze `#C97B2E` · Final `#F4C430` · 
 **Exception (26 Oct 2026, product owner's decision):** the worst-case line and its flag follow the fit status rather than always being red: neutral (foreground) when the plan fits, Tight when it fits only at typical length, Over when it doesn't fit or matches run past their court's hours. The flag always carries the words "Worst case" and the time.
 
 ### Live theme
-Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · muted `#8BAA97` · primary action shuttle yellow.
+Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · muted `#A4BDAD` · primary action shuttle yellow.
 
 ### Contrast rules
 - Body text on any surface: 4.5:1 minimum. Large text (24px and up): 3:1.
