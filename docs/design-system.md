@@ -21,7 +21,7 @@ Visual reference: the "Variant 1 · Light surface, green accents" screen (saved 
 | Plan dark | Desktop planning screens, when the organiser picks dark (or the device is dark and they haven't chosen) | `.dark` on `<html>` (next-themes toggle in the top bar) |
 | Live | Court wall board, umpire phone, control desk | `data-theme="live"` on the layout root |
 
-**Plan dark** (added 26 Oct 2026) is derived from the Live palette so the two dark themes feel related, but keeps the Plan roles: background `#071F15`, card `#0D3022`, inset `#124030`, border `#2A6B4C`, input `#4F9A72` (3:1 on card), text `#F3F7F2`, muted `#A9C9B5`. The primary is mint `#BDF2C9` with dark text `#07241A`, and headings are mint, so shuttle yellow stays the one accent. Court tiles `#124030` with border `#2A6B4C`. Timeline blocks use the Live values (group `#1F8A4C`, knockout `#BDF2C9`, outline `rgba(250,250,242,.5)`, now line `#F3F7F2`); bronze and final are unchanged. The summary card stays `#0A4A31`. Tokens live in the `.dark` block of `src/app/globals.css`.
+**Plan dark** (added 26 Oct 2026) is derived from the Live palette so the two dark themes feel related, but keeps the Plan roles: background `#071F15`, card `#0D3022`, inset `#124030`, border `#2A6B4C`, input `#4F9A72` (3:1 on card), text `#F3F7F2`, muted `#8BAA97`. The primary is mint `#BDF2C9` with dark text `#07241A`, and headings are mint, so shuttle yellow stays the one accent. Court tiles `#124030` with border `#2A6B4C`. Timeline blocks use the Live values (group `#1F8A4C`, knockout `#BDF2C9`, outline `rgba(250,250,242,.5)`, now line `#F3F7F2`); bronze and final are unchanged. The summary card stays `#0A4A31`. Tokens live in the `.dark` block of `src/app/globals.css`.
 
 ## 3. Colour
 
@@ -32,9 +32,9 @@ Visual reference: the "Variant 1 · Light surface, green accents" screen (saved 
 | `card` | `#FFFFFF` | Cards, side panes, inputs |
 | `inset` | `#EDF3EE` | Timeline tracks, segmented wells, nested panels |
 | `border` | `#D5DFD7` | Hairlines around cards and panes |
-| `input` | `#7F9A89` | Input and secondary button borders |
+| `input` | `#7F9A89` | Control borders where one is still drawn (checkboxes, option cards); fields and secondary buttons are borderless soft boxes |
 | `foreground` | `#0A2A1B` | Body text |
-| `muted-foreground` | `#4A6556` | Labels, captions |
+| `muted-foreground` | `#5A7264` | Secondary text: captions, placeholders (the dimmest that passes 4.5:1 on every surface) |
 | `feature` | `#0A4A31` | The summary card only |
 
 ### Brand
@@ -61,7 +61,7 @@ Group `#7FD6A0` · Knockout `#0F6B45` · Bronze `#C97B2E` · Final `#F4C430` · 
 **Exception (26 Oct 2026, product owner's decision):** the worst-case line and its flag follow the fit status rather than always being red: neutral (foreground) when the plan fits, Tight when it fits only at typical length, Over when it doesn't fit or matches run past their court's hours. The flag always carries the words "Worst case" and the time.
 
 ### Live theme
-Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · muted `#A9C9B5` · primary action shuttle yellow.
+Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · muted `#8BAA97` · primary action shuttle yellow.
 
 ### Contrast rules
 - Body text on any surface: 4.5:1 minimum. Large text (24px and up): 3:1.
@@ -101,15 +101,22 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
 - Controls are 32px high in Plan (dense, desktop): inputs and selects with 14px text, buttons 32px (small 28px), steppers 32px, segmented controls 32px with 24px segments. Live's touch screens use 44px or more.
-- **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Left list 280px, collapsible to a 56px rail, centre flexible (`min-width: 0`), right workbench 400–480px. The summary card is sticky at the top of the right pane, with tabs beneath it. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
+- **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Sidebar 280px, collapsible to a 40px rail; the main column flexible (`min-width: 0`) with the 960px central column; the workbench 440px, folding to a 40px rail. The progress bar sits at the top of the workbench, under its title menu. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
 - **Live layout:** the wall board is a grid of widgets. The phone is two full-width tap halves with Undo, Fault and End set below.
 
 ### Surfaces in the shell
 - The sidebar is the app's own space: `--card`, no borders (the change of colour is its edge; spacing separates its sections).
-- Everything about the open tournament sits on one surface, `--background`: the top bar and the main area, with no divider between them.
-- Panels that come into and out of attention (the workbench, the timeline, the court panel) are cards on that surface: `--background` fill, 1px `--border`, `rounded-xl`, 8px gutters, no shadow. Inside, flat sections with dividers, as everywhere. The workbench and the timeline fold away (to a strip, or to the title row).
+- Everything about the open tournament sits on one surface, `--background`, in a central column at most 960px wide, centred in the space the workbench leaves.
+- The workbench (full height, 440px) and the timeline (edge to edge between the sidebar and the workbench) sit on the same surface, separated by one soft `--border` line each; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
+
+### The 40px rule
+- Every set width is a multiple of 40px: fields (160, 200, 240, 320), court cards 200, the workbench 440 (400 of content), rails 40, table columns. Where content must fill a space, it fills the 40px column that holds it.
+- Icon buttons are exempt: they hug their icon (32px square).
 
 ## 6. Components
+
+- **Buttons.** Primary: filled turf (mint in Plan dark). Secondary (`outline`): a soft `inset` fill, no border, a step stronger on hover. Icon buttons (`ghost`): a square hugging the icon, no fill or border until hovered, never highlighted just for being expanded.
+- **Fields.** A soft box (`surface-inset`, a step from it inside inset blocks), no border, label inside as placeholder, focus ring on focus.
 
 Build these once in `src/components/ui` (extend shadcn where it exists) and reuse them.
 
@@ -136,7 +143,7 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 
 ## 7. Accessibility
 
-- Real `<button>`, `<a>`, `<input>` with `<label>`. Icon-only buttons need `aria-label`.
+- Real `<button>`, `<a>`, `<input>`. A field whose label is shown inside it carries the label as `aria-label` and `title`. Icon-only buttons need `aria-label`.
 - Visible focus ring (`ring`, 2px, 2px offset) on every interactive element.
 - Timeline blocks reachable by keyboard. Arrow keys move between matches.
 - Respect `prefers-reduced-motion`. No animation is required to understand state.
