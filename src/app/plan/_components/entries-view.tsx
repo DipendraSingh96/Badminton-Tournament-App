@@ -198,7 +198,8 @@ function ImportPanel({
         onChange={(e) => onChange(e.target.value)}
         rows={6}
         placeholder={"Name\tPlayer 1\tPlayer 2\nSmashers\tAnn Lee\tRaj Shah"}
-        className="w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring"
+        data-slot="field-box"
+        className="w-full rounded-md border px-3 py-2 font-mono text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring"
       />
       {problems.length > 0 ? (
         <ul className="flex flex-col gap-1 text-sm text-over-text">

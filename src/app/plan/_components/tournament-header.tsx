@@ -15,7 +15,6 @@ export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: 
     <div className="grid grid-cols-2 items-start gap-4 *:first:col-span-2 @xl:grid-cols-[minmax(0,1fr)_10.5rem_14rem] @xl:*:first:col-span-1">
         <TextField
           label="Tournament name"
-          placeholder="Untitled tournament"
           path={["name"]}
           value={draft.name}
           onChange={(v) => update((d) => void (d.name = v))}

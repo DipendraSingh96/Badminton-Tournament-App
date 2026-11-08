@@ -97,8 +97,10 @@ export function InfoTip({ about, children }: { about: string; children: ReactNod
 }
 
 /**
- * Wraps a control with its label and message. Missing values are listed on
- * the dashboard, so a field only shows its message once something is entered.
+ * Wraps a control with its help and message. The control shows its label
+ * inside (as placeholder, with the same text as its accessible name and
+ * tooltip), so there's no label above it. Missing values are listed on the
+ * dashboard, so a field only shows its message once something is entered.
  */
 function Field({
   id,
@@ -120,12 +122,9 @@ function Field({
   return (
     <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
       <div className="flex min-w-0 items-center gap-1">
-        <Label htmlFor={id} className="min-w-0 truncate" title={label}>
-          {label}
-        </Label>
+        <div className="min-w-0 flex-1">{children}</div>
         {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
       </div>
-      {children}
       {message ? (
         <p id={`${id}-message`} className="text-xs text-over-text">
           {message}
@@ -167,6 +166,9 @@ export function NumberField({
         step={step}
         min={0}
         value={value ?? ""}
+        placeholder={label}
+        aria-label={label}
+        title={label}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? `${id}-message` : undefined}
         onChange={(e) => {
@@ -201,7 +203,10 @@ export function StepperField({
   const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
-      <div className="flex h-(--control-h) items-stretch overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring">
+      <div
+        data-slot="field-box"
+        className="flex h-(--control-h) items-stretch overflow-hidden rounded-md border transition-colors focus-within:ring-2 focus-within:ring-ring"
+      >
         <button
           type="button"
           aria-label={`Decrease ${label.toLowerCase()}`}
@@ -218,9 +223,12 @@ export function StepperField({
           step={1}
           min={min}
           value={value ?? ""}
+          placeholder={label}
+          aria-label={label}
+          title={label}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
-          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
             const parsed = raw === "" ? null : Number(raw);
@@ -260,15 +268,40 @@ export function TextField({
   const invalid = useInvalid(path, filled);
   return (
     <Field id={id} label={label} path={path} filled={filled}>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? `${id}-message` : undefined}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {type === "time" ? (
+        // A time box always shows "--:--" and can't show a placeholder: its label sits inside, at the left.
+        <div
+          data-slot="field-box"
+          className="flex h-(--control-h) items-center gap-2 rounded-md border px-3 transition-colors focus-within:ring-2 focus-within:ring-ring"
+          title={label}
+        >
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" aria-hidden="true">
+            {label}
+          </span>
+          <input
+            id={id}
+            type="time"
+            value={value}
+            aria-label={label}
+            aria-invalid={invalid || undefined}
+            aria-describedby={invalid ? `${id}-message` : undefined}
+            className="w-[5.5rem] shrink-0 bg-transparent text-sm tabular-nums outline-none"
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      ) : (
+        <Input
+          id={id}
+          type={type}
+          value={value}
+          placeholder={placeholder ?? label}
+          aria-label={label}
+          title={label}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? `${id}-message` : undefined}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </Field>
   );
 }
@@ -294,6 +327,8 @@ export function SelectField<T extends string | number>({
       <NativeSelect
         id={id}
         className="w-full"
+        aria-label={label}
+        title={label}
         value={value === null ? "" : String(value)}
         onChange={(e) => {
           const option = options.find((o) => String(o.value) === e.target.value);
@@ -301,7 +336,7 @@ export function SelectField<T extends string | number>({
         }}
       >
         <NativeSelectOption value="" disabled>
-          Choose…
+          {label}
         </NativeSelectOption>
         {options.map((option) => (
           <NativeSelectOption key={String(option.value)} value={String(option.value)}>

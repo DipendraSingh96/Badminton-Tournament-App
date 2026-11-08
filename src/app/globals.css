@@ -268,3 +268,24 @@
 .numeral-fit {
   font-size: min(var(--fit-max, 30px), calc(100cqi / (var(--chars, 6) * 0.55)));
 }
+
+/* Fields: a subtle box with no visible border, its label shown inside as
+   placeholder. A step stronger on hover; the focus ring on focus. Inside an
+   inset block the box takes a step from it, as segmented wells do. */
+[data-slot="input"],
+[data-slot="native-select"],
+[data-slot="field-box"] {
+  --field: var(--surface-inset);
+  background-color: var(--field);
+  border-color: transparent;
+}
+.bg-inset :is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"]) {
+  --field: color-mix(in oklch, var(--surface-inset), var(--foreground) 7%);
+}
+:is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"]):hover:not(:disabled, :focus-visible, :focus-within) {
+  background-color: color-mix(in oklch, var(--field), var(--foreground) 6%);
+}
+:is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"])[aria-invalid="true"],
+[data-slot="field-box"]:has([aria-invalid="true"]) {
+  border-color: var(--destructive);
+}
