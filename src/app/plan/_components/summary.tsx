@@ -26,7 +26,7 @@ export function ProgressSegments({ parts, vertical = false }: { parts: ProgressP
     <div
       role="img"
       aria-label={`${done} of ${parts.length} parts complete`}
-      className={cn("flex gap-1", vertical ? "w-2 flex-col" : "h-2")}
+      className={cn("flex gap-1", vertical ? "h-full w-2 flex-col" : "h-2")}
     >
       {parts.map((p) => (
         <span

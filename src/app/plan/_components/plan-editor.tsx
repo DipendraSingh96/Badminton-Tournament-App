@@ -4,7 +4,7 @@ import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { SidebarSimpleIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -33,12 +33,11 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
-import { FIT_STATUS } from "./labels";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { PanelMenu } from "./panel-menu";
-import { Summary, type ProgressPart } from "./summary";
+import { ProgressSegments, Summary, type ProgressPart } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
 import { NameRow, StageRow } from "./tournament-bar";
@@ -55,6 +54,8 @@ type Tab = "setup" | "schedule" | "finance";
 const GUTTER =
   "bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring aria-[orientation=vertical]:w-2 aria-[orientation=vertical]:after:w-px aria-[orientation=horizontal]:h-2 aria-[orientation=horizontal]:after:h-px focus-visible:ring-0";
 const CARD = "h-full overflow-hidden rounded-xl border bg-background";
+/** A gutter that is also a soft divider: a faint line, stronger on hover. */
+const DIVIDER = GUTTER.replace("after:bg-transparent", "after:bg-border");
 /** The timeline folded to its title row, and the workbench to its strip (border included). */
 const TIMELINE_FOLDED = 50;
 const WORKBENCH_FOLDED = 48;
@@ -465,7 +466,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [timelineFolded, setTimelineFolded] = useState(false);
   const [workbenchFolded, setWorkbenchFolded] = useState(false);
   const fold = (panel: typeof timelinePanel, folded: boolean) => (folded ? panel.current?.collapse() : panel.current?.expand());
-  const fit = shownAnalysis?.ok ? FIT_STATUS[shownAnalysis.analysis.capacity.status] : null;
 
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
@@ -589,7 +589,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       <div className="min-h-0 flex-1">{workingArea}</div>
                     </main>
                   </ResizablePanel>
-                  <ResizableHandle className={GUTTER} />
+                  <ResizableHandle className={DIVIDER} />
                   <ResizablePanel
                     id="workbench"
                     defaultSize={440}
@@ -599,28 +599,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     collapsedSize={WORKBENCH_FOLDED}
                     panelRef={workbenchPanel}
                     onResize={(size) => setWorkbenchFolded(size.inPixels <= WORKBENCH_FOLDED + 1)}
-                    className={CARD}
+                    className="h-full"
                   >
                     {workbenchFolded ? (
                       <aside aria-label="Workbench (hidden)" className="flex h-full flex-col items-center gap-3 py-2">
                         <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => fold(workbenchPanel, false)}>
-                          <SidebarSimpleIcon className="-scale-x-100" />
+                          <CaretDoubleLeftIcon />
                         </IconButton>
-                        <span
-                          role="img"
-                          aria-label={`Summary: ${fit?.label ?? "Incomplete"}`}
-                          title={`Summary: ${fit?.label ?? "Incomplete"}`}
-                          className={cn(
-                            "size-3 rounded-full",
-                            fit?.variant === "fits"
-                              ? "bg-fits"
-                              : fit?.variant === "tight"
-                                ? "bg-tight"
-                                : fit?.variant === "over"
-                                  ? "bg-over-strong"
-                                  : "bg-muted-foreground",
-                          )}
-                        />
+                        <div className="h-48">
+                          <ProgressSegments parts={progress} vertical />
+                        </div>
                       </aside>
                     ) : (
                     <aside aria-label="Workbench" className="flex h-full flex-col">
