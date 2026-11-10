@@ -109,6 +109,18 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 - Everything about the open tournament sits on one surface, `--background`, in a central column at most 960px wide, centred in the space the workbench leaves.
 - The workbench (440px, from the stage row down) and the timeline (between the sidebar and the workbench) sit on the same surface, each behind one open, soft `--border` line; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
 
+### Text levels in Plan
+Plan is dense, so it uses four sizes only; weight and colour set the level within a size, not another size.
+
+| Level | Size | Use |
+|---|---|---|
+| Heading | 24px Barlow Condensed 700, uppercase, `turf` | A hall or page heading; the product name |
+| Section | 20px Barlow Condensed 700, uppercase, `turf` | A section of the workbench; the Timeline and Tournaments titles |
+| Text | 14px Barlow | 600 for sub-headings, tabs, buttons and option titles; 600 in `muted-foreground` for labels; 400 for values and body; 400 in `muted-foreground` for notes |
+| Caption | 12px Barlow | Hints and option descriptions, labels inside time fields, times on tracks, chips (700) |
+
+No 13, 15, 16 or 17px text in Plan. The numerals drawn on courts are part of the drawing and sit outside the scale.
+
 ### The 40px rule
 - Containers and the shell are multiples of 40px: sidebar 280, central column 960 at most, workbench 440, rails 40, court cards 200.
 - Fields, buttons and other small controls are not: they size to their content and share their row (auto layout).
@@ -137,7 +149,7 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Button.** Primary: `primary` fill, white text. Secondary: white fill, `input` border. Accent: shuttle fill, only for the single key action on a screen. Height 32px (small 28px), 14px text.
 - **Input.** White, 1px `input` border, 8px radius, 32px high, 14px text. Label above in 14px muted.
 - **Segmented control.** Inset well, selected segment `primary` fill with white text.
-- **Stepper.** Minus, numeral, plus. Minus is dimmed (opacity .4) at zero. 32px high, 32px-wide buttons, 15px numeral.
+- **Stepper.** Minus, numeral, plus. Minus is dimmed (opacity .4) at zero. 32px high, 32px-wide buttons, 14px numeral.
 - **Tabs.** Text tabs with a 3px `primary` underline on the active tab. Wrap or scroll on narrow widths.
 - **Chip.** Pill, status fill and text from the status table.
 - **Card.** White, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `turf`.
