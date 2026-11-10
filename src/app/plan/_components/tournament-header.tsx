@@ -15,6 +15,7 @@ export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: 
     <div className="flex items-start gap-2 *:shrink-0 *:first:w-40 @min-[720px]:*:first:w-[200px] @min-[840px]:*:first:w-80 *:nth-2:w-40 *:nth-3:w-60">
         <TextField
           label="Tournament name"
+          strong
           path={["name"]}
           value={draft.name}
           onChange={(v) => update((d) => void (d.name = v))}

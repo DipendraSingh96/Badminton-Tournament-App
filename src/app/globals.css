@@ -276,6 +276,12 @@
   background-color: var(--field);
   border-color: transparent;
 }
+/* One text style for every field: an empty field's prompt (a date's
+   "dd/mm/yyyy", a time's "--:--", an unchosen select) is secondary text; a
+   value is primary text (docs/design-system.md, "Field"). */
+:is(input, select)[data-empty] {
+  color: var(--muted-foreground);
+}
 .bg-inset :is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"]) {
   --field: color-mix(in oklch, var(--surface-inset), var(--foreground) 7%);
 }

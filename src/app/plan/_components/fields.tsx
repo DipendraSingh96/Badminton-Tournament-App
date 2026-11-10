@@ -234,7 +234,7 @@ export function StepperField({
           title={issue ? `${label}: ${issue}` : label}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
-          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm font-semibold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm tabular-nums outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
             const parsed = raw === "" ? null : Number(raw);
@@ -261,6 +261,7 @@ export function TextField({
   onChange,
   type = "text",
   placeholder,
+  strong = false,
 }: {
   label: string;
   path: Path;
@@ -268,6 +269,8 @@ export function TextField({
   onChange: (value: string) => void;
   type?: "text" | "date" | "time";
   placeholder?: string;
+  /** A title rather than a value (the tournament's name): semibold once filled. */
+  strong?: boolean;
 }) {
   const id = useId();
   const filled = value !== "";
@@ -282,7 +285,7 @@ export function TextField({
           className="flex h-(--control-h) items-center gap-2 rounded-md border px-3 transition-colors focus-within:ring-2 focus-within:ring-ring"
           title={issue ? `${label}: ${issue}` : label}
         >
-          <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+          <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
             {label}
           </span>
           <input
@@ -290,6 +293,7 @@ export function TextField({
             type="time"
             value={value}
             aria-label={label}
+            data-empty={!filled || undefined}
             aria-invalid={invalid || undefined}
             aria-describedby={invalid ? `${id}-message` : undefined}
             className="min-w-0 flex-1 bg-transparent text-sm tabular-nums outline-none"
@@ -302,6 +306,8 @@ export function TextField({
           type={type}
           value={value}
           placeholder={placeholder ?? label}
+          data-empty={!filled || undefined}
+          className={strong ? "font-semibold placeholder:font-normal" : undefined}
           aria-label={label}
           title={issue ? `${label}: ${issue}` : label}
           aria-invalid={invalid || undefined}
@@ -336,6 +342,7 @@ export function SelectField<T extends string | number>({
         className="w-full"
         aria-label={label}
         title={label}
+        data-empty={value === null || undefined}
         value={value === null ? "" : String(value)}
         onChange={(e) => {
           const option = options.find((o) => String(o.value) === e.target.value);
