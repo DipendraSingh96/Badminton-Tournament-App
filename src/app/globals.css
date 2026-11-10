@@ -73,6 +73,7 @@
 /* Dark: a cool court-green surface, cream text, a butter accent
    (docs/design-system.md, "Themes"). Live screens use it too. */
 .dark {
+  --glass-tint: 62%;
   --background: #071F15;
   --foreground: #EFE8D1;
   --card: #0D3022;

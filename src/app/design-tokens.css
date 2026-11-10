@@ -158,8 +158,13 @@
    the ground colour, so the two read as one space. The dot matrix carries on across it. `.glass-bar`
    is the denser glass of the timeline's own sticky bars (its ruler and labels), which its rows
    scroll under. Solid for anyone who asks for less transparency. */
+/* How much of the glass is the ground colour: as little as keeps secondary text at 4.5:1 with a
+   court behind it (Light 82%; Dark 62%, set in globals.css). */
+:root {
+  --glass-tint: 82%;
+}
 .glass {
-  background-color: color-mix(in srgb, var(--background) var(--glass-tint, 62%), transparent);
+  background-color: color-mix(in srgb, var(--background) var(--glass-tint), transparent);
   background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent calc(var(--dot-size) + 0.2px));
   background-size: var(--dot-gap) var(--dot-gap);
   background-attachment: fixed;
