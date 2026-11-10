@@ -30,7 +30,7 @@ export function PreviewBar({
       aria-live="polite"
       className="flex shrink-0 flex-col gap-2 border-b border-tight bg-[color-mix(in_srgb,var(--status-tight)_14%,var(--background))] px-4 py-3"
     >
-      <p className="flex items-start gap-2 text-[15px]">
+      <p className="flex items-start gap-2 text-sm">
         <EyeIcon weight="bold" className="mt-0.5 size-[18px] shrink-0 text-tight-text" aria-hidden="true" />
         <span>
           <span className="font-semibold">Previewing:</span> {leverLabel(change, inputs, draft)}

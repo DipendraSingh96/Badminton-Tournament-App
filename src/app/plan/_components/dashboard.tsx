@@ -99,7 +99,7 @@ function Row({
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-1 rounded-md bg-inset px-3 py-2 text-[13px] font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-1 rounded-md bg-inset px-3 py-2 text-xs font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
@@ -114,7 +114,7 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
     <dl className="grid grid-cols-3 gap-2">
       {items.map((item) => (
         <div key={item.label} className="@container flex min-w-0 flex-col gap-2 rounded-lg bg-inset px-3 py-2">
-          <dt className="truncate text-[13px] leading-tight font-semibold text-muted-foreground" title={item.label}>
+          <dt className="truncate text-xs leading-tight font-semibold text-muted-foreground" title={item.label}>
             {item.label}
           </dt>
           <dd
@@ -665,7 +665,7 @@ function LeversCard({
     items.map((lever, i) => (
       <div key={i} className="flex flex-col gap-1 rounded-lg border border-tight bg-card px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[15px] font-semibold">{leverLabel(lever.change, inputs, draft)}</span>
+          <span className="text-sm font-semibold">{leverLabel(lever.change, inputs, draft)}</span>
           <Badge variant={FIT_STATUS[lever.outcome.status].variant}>{FIT_STATUS[lever.outcome.status].label}</Badge>
         </div>
         <Row
@@ -709,13 +709,13 @@ function LeversCard({
         ) : null}
         {toFit.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h3 className="text-[15px] font-semibold text-muted-foreground">To fit</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground">To fit</h3>
             {list(toFit, "fit")}
           </div>
         ) : null}
         {toProfit.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h3 className="text-[15px] font-semibold text-muted-foreground">To improve profit</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground">To improve profit</h3>
             {list(toProfit, "profit")}
           </div>
         ) : null}

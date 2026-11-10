@@ -198,7 +198,7 @@ export function Sidebar({
                 const title = t.name.trim() || "Untitled tournament";
                 return t.id === currentId ? (
                   <li key={t.id} aria-current="true" className="rounded-lg border border-tile-border bg-tile px-4 py-3">
-                    <p className="truncate text-[17px] font-semibold text-turf" title={title}>
+                    <p className="truncate text-sm font-semibold text-turf" title={title}>
                       {title}
                     </p>
                     <p className="text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</p>
@@ -221,7 +221,7 @@ export function Sidebar({
                       onClick={() => onOpen(t.id)}
                       className="w-full rounded-lg border border-transparent px-4 py-3 text-left outline-none hover:bg-tile/60 focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <span className="block truncate text-[17px] font-semibold" title={title}>
+                      <span className="block truncate text-sm font-semibold" title={title}>
                         {title}
                       </span>
                       <span className="block text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</span>

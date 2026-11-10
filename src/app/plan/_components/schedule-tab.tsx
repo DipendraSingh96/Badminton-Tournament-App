@@ -127,7 +127,7 @@ function teamCountHint(category: CategoryDraft): string {
 function CategoryHeading({ draft, category }: { draft: PlanDraft; category: CategoryDraft }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h3 className="text-sm font-medium">{categoryName(draft, category.id)}</h3>
+      <h3 className="text-sm font-semibold">{categoryName(draft, category.id)}</h3>
       {draft.unit ? <Badge variant="outline">{entryTag(draft.unit, category)}</Badge> : null}
     </div>
   );
@@ -358,7 +358,7 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
         if (!inPlay.includes(stage)) {
           return (
             <div key={stage} className="flex items-baseline justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
-              <h3 className="text-sm font-medium text-muted-foreground">{STAGE_LABELS[stage]}</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">{STAGE_LABELS[stage]}</h3>
               <span className="text-xs text-muted-foreground">{notPlayedReason(draft)}</span>
             </div>
           );
@@ -414,7 +414,7 @@ function StageCard({
   return (
     <div className="flex flex-col gap-3 pt-4 first:pt-0">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-base font-semibold">{STAGE_LABELS[stage]}</h3>
+        <h3 className="text-sm font-semibold">{STAGE_LABELS[stage]}</h3>
         {copyFrom && !rulesHidden ? (
           <Button
             variant="ghost"

@@ -234,7 +234,7 @@ export function StepperField({
           title={issue ? `${label}: ${issue}` : label}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
-          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm font-semibold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
             const parsed = raw === "" ? null : Number(raw);
@@ -498,13 +498,13 @@ export function OptionCards<T extends string>({
                   selected ? "border-primary bg-accent ring-1 ring-primary" : "border-input bg-card hover:bg-inset",
                 )}
               >
-                <span className={cn("flex min-w-0 items-center gap-2 text-[15px] font-semibold", selected && "text-primary")}>
+                <span className={cn("flex min-w-0 items-center gap-2 text-sm font-semibold", selected && "text-primary")}>
                   <Icon weight={selected ? "fill" : "regular"} className="size-[18px] shrink-0" />
                   <span id={`${id}-${i}`} className="truncate" title={option.label}>
                     {option.label}
                   </span>
                 </span>
-                <span id={`${id}-${i}-description`} className="text-[13px] text-muted-foreground">
+                <span id={`${id}-${i}-description`} className="text-xs text-muted-foreground">
                   {option.description}
                 </span>
               </button>

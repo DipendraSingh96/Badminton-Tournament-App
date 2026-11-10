@@ -78,7 +78,7 @@ function CourtTime({
         aria-label={own ? `${label} (own hours)` : label}
         aria-valuetext={value || "Not set"}
         onKeyDown={onKeyDown}
-        className={`rounded px-1 text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-white ${
+        className={`rounded px-1 text-xs tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-white ${
           own ? "font-bold" : "font-medium"
         }`}
       >
@@ -197,7 +197,7 @@ function Half({ code, players }: { code: string | null; players: string[] }) {
   return (
     <div className="relative z-10 grid min-h-14 flex-1 place-items-center px-3 text-center">
       {players.length > 0 ? (
-        <span className="flex max-w-full flex-col gap-1 text-[13px] leading-tight font-semibold">
+        <span className="flex max-w-full flex-col gap-1 text-xs leading-tight font-semibold">
           {players.map((name) => (
             <span key={name} className="truncate" title={name}>
               {name}
@@ -370,7 +370,7 @@ export function CourtCard({
         </div>
         {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
         <div className="relative z-10 flex flex-col border-y border-white/50">
-          <p className="flex h-7 items-center justify-center px-2 text-[13px] font-semibold">
+          <p className="flex h-7 items-center justify-center px-2 text-xs font-semibold">
             <span className="truncate">{face?.net ?? idle ?? "No estimate yet"}</span>
           </p>
           <span aria-hidden="true" className="h-[3px] bg-white" />
@@ -415,7 +415,7 @@ export function CourtCard({
           path={path("from")}
           onChange={(v) => edit((c) => setCourtTime(hall, c, "from", v))}
         />
-        <span aria-hidden="true" className="text-[13px]">
+        <span aria-hidden="true" className="text-xs">
           –
         </span>
         <CourtTime

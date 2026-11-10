@@ -74,7 +74,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
           return (
             <div key={category.id} className="flex flex-col gap-3 rounded-lg bg-inset p-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-medium">{categoryName(draft, category.id)}</h3>
+                <h3 className="text-sm font-semibold">{categoryName(draft, category.id)}</h3>
                 <Badge variant="outline">{entryTag(draft, category)}</Badge>
               </div>
               <SegmentedField

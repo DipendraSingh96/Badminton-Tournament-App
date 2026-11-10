@@ -502,7 +502,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     >
       <ResizablePanel id="venue" minSize={160}>
         <div className="@container scroll-pane relative h-full overflow-y-auto px-(--pane-x)">
-          <div className={cn(COLUMN, "flex flex-col gap-4 py-4")}>
+          <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
             <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
           </div>
         </div>
@@ -554,7 +554,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
-          <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background">
+          <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background text-sm">
             <Sidebar
               draft={draft}
               currentId={id}
@@ -568,7 +568,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             />
             <main className="flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
-                <div className={COLUMN}>
+                <div className={cn(COLUMN, "pb-4")}>
                   <NameRow
                     fields={<TournamentHeader draft={draft} update={update} />}
                     onUndo={() => step(true)}

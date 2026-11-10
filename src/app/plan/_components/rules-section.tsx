@@ -35,7 +35,7 @@ const HANDICAPS: { key: keyof Omit<RulesDraft["handicap"], "enabled">; label: st
 
 function Heading({ title, description }: { title: string; description: string }) {
   return (
-    <h3 className="flex items-center gap-1 text-sm font-medium">
+    <h3 className="flex items-center gap-1 text-sm font-semibold">
       {title}
       <InfoTip about={title}>{description}</InfoTip>
     </h3>
@@ -246,7 +246,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
       {draft.categories.length > 0 ? (
         <>
           <div className="flex flex-col gap-2">
-            <span className="flex items-center gap-1 text-sm font-medium">
+            <span className="flex items-center gap-1 text-sm font-semibold">
               Can&apos;t be entered together
               <InfoTip about="categories that can't be entered together">
                 Pairs of categories one person can&apos;t both enter, e.g. two draws on at the same time.
@@ -305,7 +305,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
           </div>
 
           <div className="flex flex-col gap-2" data-path="rules.eligibility.membersOnly">
-            <span className="flex items-center gap-1 text-sm font-medium">
+            <span className="flex items-center gap-1 text-sm font-semibold">
               Members only
               <InfoTip about="members-only categories">
                 Categories only members may enter. The rest are open to external players too.

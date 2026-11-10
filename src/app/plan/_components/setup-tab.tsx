@@ -249,7 +249,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
         <RemoveButton draft={draft} index={index} update={update} />
       </div>
       <fieldset className="flex flex-col gap-2" data-path={`categories.${index}.lineUp`}>
-        <legend className="flex items-center gap-1 text-sm font-medium">
+        <legend className="flex items-center gap-1 text-sm font-semibold">
           Line-up of a tie
           <InfoTip about="the line-up">
             Rubbers of each event in every tie. All rubbers are played; the team that wins the most rubbers wins the
