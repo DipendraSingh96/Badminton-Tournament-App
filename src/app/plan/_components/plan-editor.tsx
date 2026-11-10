@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
+import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -209,6 +210,7 @@ interface TournamentActions {
 
 function Editor({ id, tournaments }: { id: string; tournaments: TournamentActions }) {
   const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id) ?? emptyDraft(browserTimeZone()));
+  const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
   const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
@@ -442,11 +444,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     sampleStage && sampleLeft
       ? {
           label: `Remove sample data from ${stageName}: ${sampleLeft}`,
-          onRemove: () => {
+          onRemove: async () => {
             // With the organiser's own data on this stage too, ask first.
             if (
               ownDataLeft(draftRef.current, sampleStage) &&
-              !window.confirm(`Remove the sample data from ${stageName}? Your own data stays as it is.`)
+              !(await confirm({
+                title: `Remove the sample data from ${stageName}?`,
+                body: "Your own data stays as it is.",
+                action: "Remove sample data",
+                destructive: true,
+              }))
             )
               return;
             commit(removeDummy(draftRef.current, sampleStage), false);
@@ -455,12 +462,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       : { label: `No sample data in ${stageName}`, onRemove: null };
 
   /** Move the tournament on to a stage, after asking. */
-  function advance(next: TournamentStage) {
+  async function advance(next: TournamentStage) {
     if (next === "draw") {
       if (
-        !window.confirm(
-          "Move on to the draw? From here the plan uses the entries you enter instead of the expected numbers. You can go back to the expected numbers.",
-        )
+        !(await confirm({
+          title: "Move on to the draw?",
+          body: "From here the plan uses the entries you enter instead of the expected numbers. You can go back to the expected numbers.",
+          action: "Move on to the draw",
+        }))
       )
         return;
     }
@@ -468,14 +477,28 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     setStageView(next);
   }
 
-  function reopenEntries() {
-    if (!window.confirm("Use the expected numbers again? The entries are kept; the plan uses them again when you move on to the draw.")) return;
+  async function reopenEntries() {
+    if (
+      !(await confirm({
+        title: "Use the expected numbers again?",
+        body: "The entries are kept; the plan uses them again when you move on to the draw.",
+        action: "Use expected numbers",
+      }))
+    )
+      return;
     commit(produce(draftRef.current, (d) => void (d.stage = "plan")), false);
     setStageView("plan");
   }
 
-  function unlockDraw() {
-    if (!window.confirm("Unlock the draw? Categories, groups, rules and entries become editable; the draw is kept.")) return;
+  async function unlockDraw() {
+    if (
+      !(await confirm({
+        title: "Unlock the draw?",
+        body: "Categories, groups, rules and entries become editable; the draw is kept.",
+        action: "Unlock draw",
+      }))
+    )
+      return;
     commit(
       produce(draftRef.current, (d) => {
         for (const id of Object.keys(d.draw)) d.draw[id]!.locked = false;
@@ -725,6 +748,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
  * the editor, so its undo history, preview and selections start afresh.
  */
 function Workspace() {
+  const confirm = useConfirm();
   const [index, setIndex] = useState<TournamentIndex>(() => {
     const saved = loadIndex();
     if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) return saved;
@@ -751,9 +775,10 @@ function Workspace() {
       const copy = duplicateDraft(draft);
       change(createTournament(indexRef.current, { ...copy, dummy: liveMarks(copy) }).index);
     },
-    onDelete: (id) => {
+    onDelete: async (id) => {
       const name = indexRef.current.items.find((t) => t.id === id)?.name.trim() || "Untitled tournament";
-      if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return;
+      if (!(await confirm({ title: `Delete “${name}”?`, body: "This can’t be undone.", action: "Delete tournament", destructive: true })))
+        return;
       const next = deleteTournament(indexRef.current, id);
       // The last one gone: start a new one.
       change(next.currentId ? next : createTournament(next, emptyDraft(browserTimeZone())).index);
@@ -775,5 +800,9 @@ export function PlanEditor() {
   if (!isClient) {
     return <p className="p-6 text-sm text-muted-foreground">Loading your plan…</p>;
   }
-  return <Workspace />;
+  return (
+    <ConfirmProvider>
+      <Workspace />
+    </ConfirmProvider>
+  );
 }

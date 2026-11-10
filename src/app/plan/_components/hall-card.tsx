@@ -12,6 +12,7 @@ import {
 import { useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useConfirm } from "@/components/ui/confirm";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -76,6 +77,7 @@ function HallSettings({
   update: Update;
 }) {
   const [selectedBand, setSelectedBand] = useState<number | null>(null);
+  const confirm = useConfirm();
   const problems = bandProblems(hall);
   const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
   const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
@@ -126,12 +128,21 @@ function HallSettings({
         <Checkbox
           id={`${hall.id}-rates`}
           checked={hall.multipleRates}
-          onCheckedChange={(on) => {
+          onCheckedChange={async (on) => {
             if (on) {
               editHall(splitRates);
               return;
             }
-            if (hall.bands.length > 1 && !window.confirm("Use one rate all day? The other bands will be removed.")) return;
+            if (
+              hall.bands.length > 1 &&
+              !(await confirm({
+                title: "Use one rate all day?",
+                body: "The other bands will be removed.",
+                action: "Remove bands",
+                destructive: true,
+              }))
+            )
+              return;
             editHall(keepOneRate);
           }}
         />
@@ -275,6 +286,7 @@ export function HallCard({
   const hall = draft.frame.halls[hallIndex]!;
   const [settingsOpen, setSettingsOpen] = useState(!hall.from || !hall.to);
   const [copyOpen, setCopyOpen] = useState(false);
+  const confirm = useConfirm();
   const summary = [
     hall.from && hall.to ? `${hall.from}–${hall.to}` : "Hours not set",
     hall.unitMinutes ? `charged per ${hall.unitMinutes === 60 ? "hour" : `${hall.unitMinutes} min`}` : "unit not set",
@@ -291,11 +303,19 @@ export function HallCard({
     .map((h, i) => ({ hall: h, index: i }))
     .filter(({ index }) => index !== hallIndex);
 
-  function copyFrom(index: number) {
+  async function copyFrom(index: number) {
     const source = draft.frame.halls[index];
     if (!source) return;
-    if (!window.confirm(`Replace ${name}'s hours, rates and courts with ${hallName(source, index)}'s?`)) return;
     setCopyOpen(false);
+    if (
+      !(await confirm({
+        title: `Copy ${hallName(source, index)} into ${name}?`,
+        body: `${name}'s hours, rates and courts are replaced with ${hallName(source, index)}'s.`,
+        action: "Replace",
+        destructive: true,
+      }))
+    )
+      return;
     update((d) => {
       const h = d.frame.halls[hallIndex]!;
       h.from = source.from;
@@ -360,8 +380,16 @@ export function HallCard({
         <div className="flex shrink-0 items-center gap-1">
           <IconButton
             label={`Clear ${name}`}
-            onClick={() => {
-              if (!window.confirm(`Clear ${name}'s hours, rates and courts? Its name is kept.`)) return;
+            onClick={async () => {
+              if (
+                !(await confirm({
+                  title: `Clear ${name}?`,
+                  body: "Its hours, rates and courts are removed. Its name is kept.",
+                  action: "Clear hall",
+                  destructive: true,
+                }))
+              )
+                return;
               update((d) => clearHall(d.frame.halls[hallIndex]!));
               setSettingsOpen(true);
             }}
@@ -371,8 +399,9 @@ export function HallCard({
           {draft.frame.halls.length > 1 ? (
             <IconButton
               label={`Delete ${name}`}
-              onClick={() => {
-                if (!window.confirm(`Delete ${name} and its courts?`)) return;
+              onClick={async () => {
+                if (!(await confirm({ title: `Delete ${name}?`, body: "Its courts go with it.", action: "Delete hall", destructive: true })))
+                  return;
                 update((d) => void d.frame.halls.splice(hallIndex, 1));
               }}
             >

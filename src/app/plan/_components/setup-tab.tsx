@@ -3,6 +3,7 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { EVENT_TYPES, playersPerEntry, type EventType, type FormatType, type Unit } from "@/engine";
 import {
@@ -47,14 +48,20 @@ const CHIP_GROUPS: { label: string; events: EventType[] }[] = [
 
 /** Tournament type, categories, format and rules: set once for the tournament. */
 export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }) {
-  function chooseUnit(next: Unit) {
+  const confirm = useConfirm();
+  async function chooseUnit(next: Unit) {
     if (next === draft.unit) return;
     if (draft.unit !== null && draft.categories.length > 0) {
-      const message =
-        next === "team"
-          ? "Switching to Team replaces your categories with a team competition. Continue?"
-          : "Switching to individual and pair events removes your team competitions. Continue?";
-      if (!window.confirm(message)) return;
+      const team = next === "team";
+      if (
+        !(await confirm({
+          title: team ? "Switch to Team?" : "Switch to individuals and pairs?",
+          body: team ? "Your categories are replaced with a team competition." : "Your team competitions are removed.",
+          action: "Switch",
+          destructive: true,
+        }))
+      )
+        return;
     }
     update((d) => {
       for (const category of [...d.categories]) removeCategory(d, category.id);
