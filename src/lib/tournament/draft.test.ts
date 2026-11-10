@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  clearHall,
   costPerShuttle,
   defaultCategoryName,
   drawBand,
@@ -199,19 +198,6 @@ describe("umpire spots", () => {
     toggleUmpire(court, "topLeft");
     toggleUmpire(court, "netRight");
     expect(court).toMatchObject({ umpires: 0, umpireSpots: [] });
-  });
-});
-
-describe("clearHall", () => {
-  it("keeps the name and empties everything else", () => {
-    const h = emptyHall();
-    Object.assign(h, { name: "Main", from: "09:00", to: "12:00", unitMinutes: 60, multipleRates: true });
-    h.courts.push({ id: "c2", from: null, to: null, umpires: 2 });
-    const id = h.id;
-    clearHall(h);
-    expect(h).toMatchObject({ id, name: "Main", from: "", to: "", unitMinutes: null, multipleRates: false });
-    expect(h.courts).toHaveLength(1);
-    expect(h.bands).toHaveLength(1);
   });
 });
 

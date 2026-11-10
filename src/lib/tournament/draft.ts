@@ -59,6 +59,11 @@ export interface HallDraft {
   multipleRates: boolean;
   bands: RateBandDraft[];
   courts: CourtDraft[];
+  /**
+   * Drawn right to left (4, 3, 2, 1), to match how the real hall is laid out.
+   * Only the drawing order: numbers, groups, hours and the timeline don't change.
+   */
+  flipped?: boolean;
 }
 
 export interface FrameDraft {
@@ -419,12 +424,6 @@ export function emptyHall(): HallDraft {
     bands: [emptyBand()],
     courts: [emptyCourt()],
   };
-}
-
-/** Empties a hall but keeps its name: hours, unit, rates and courts start again. */
-export function clearHall(hall: HallDraft): void {
-  const { id, name } = hall;
-  Object.assign(hall, emptyHall(), { id, name });
 }
 
 /** The spots a court's umpires stand at; courts saved before positions fill them in order. */

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BroomIcon,
+  FlipHorizontalIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   CaretDownIcon,
@@ -20,7 +20,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bandCoverage, type CourtGroups, type Span } from "@/engine";
 import {
-  clearHall,
   courtNumber,
   emptyBand,
   emptyCourt,
@@ -452,22 +451,11 @@ export function HallCard({
             </Popover>
           ) : null}
           <IconButton
-            label={`Clear ${name}`}
-            onClick={async () => {
-              if (
-                !(await confirm({
-                  title: `Clear ${name}?`,
-                  body: "Its hours, rates and courts are removed. Its name is kept.",
-                  action: "Clear hall",
-                  destructive: true,
-                }))
-              )
-                return;
-              update((d) => clearHall(d.frame.halls[hallIndex]!));
-              setSettingsOpen(false);
-            }}
+            label={hall.flipped ? `${name} is drawn right to left. Flip back` : `Flip ${name}: draw its courts right to left`}
+            aria-pressed={Boolean(hall.flipped)}
+            onClick={() => update((d) => void (d.frame.halls[hallIndex]!.flipped = !d.frame.halls[hallIndex]!.flipped))}
           >
-            <BroomIcon />
+            <FlipHorizontalIcon weight={hall.flipped ? "fill" : "regular"} />
           </IconButton>
           {draft.frame.halls.length > 1 ? (
             <IconButton
@@ -486,7 +474,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]}>
+      <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]} reversed={Boolean(hall.flipped)}>
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}
