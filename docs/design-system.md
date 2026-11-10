@@ -113,13 +113,23 @@ Each block has a 1px outline `rgba(0,0,0,.25)`. The now line is the primary text
 - Over as a fill behind text (chips, the loss tile, badges) uses `#C6372A` (`--status-over-strong`): white on `#D8402F` is 4.47:1, just under AA for small text. `#D8402F` stays for lines, markers and outlines.
 
 ### Dot matrix (working-area background)
-The centre working area, which holds the halls, courts and timeline, has a dot-matrix background, like a planning pad.
+The working area, which holds the venue (halls and courts), the timeline and the workbench, has a dot-matrix background, like a planning pad.
 
-- Apply the `.workspace-dots` class to the working-area container (and to the timeline's own bars, which must stay opaque as rows scroll under them).
+- Apply the `.workspace-dots` class to the one container that holds the main column and the workbench. The timeline's glass carries the same dots (see "Glass").
 - It uses `--dot-color`, `--dot-size` (1px) and `--dot-gap` (22px). Do not hard-code them. Light dots are `rgba(15,42,31,.16)`, Dark `rgba(239,232,209,.09)`: the primary text colour at low opacity.
-- Not on the sidebar, the workbench, cards, fields, popovers or the Live board.
+- Not on the sidebar, cards, fields, popovers, dialogs or the Live board.
+- The workbench has no fill of its own: the dots run behind it.
 - Cards and fields are opaque and sit on top of the dots. The dots must never show through them.
 - It is static: fixed to the window, so it doesn't move as panes scroll, with no animation.
+
+### Glass (the timeline)
+The timeline is frosted glass over the venue, so the two read as one space: halls and courts scroll under it and show through, blurred.
+
+- `.glass` on the timeline: the ground colour at `--glass-tint`, a 14px backdrop blur, and the dot matrix.
+- `--glass-tint` is as low as keeps secondary text at 4.5:1 with a court behind it: 82% in Light, 62% in Dark. Check before lowering it.
+- `.glass-bar` on the timeline's own sticky bars (ruler, labels): the ground colour at 90% with the same blur, so its rows don't show through.
+- Under `prefers-reduced-transparency` both are solid `background`.
+- Glass is for the timeline only. Do not use it on cards, fields, popovers or dialogs.
 
 ### Lines and borders
 - Dividers, card outlines and dashed "add" boxes that only separate use `border`: a warm grey in Light, a cream hairline in Dark.
@@ -164,7 +174,7 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 ### Surfaces in the shell
 - The sidebar is the app's own space: `--card`, no borders (the change of colour is its edge; spacing separates its sections).
 - Everything about the open tournament sits on one surface, `--background`, in a central column at most 960px wide, centred in the space the workbench leaves.
-- The workbench (440px, from the stage row down) and the timeline (between the sidebar and the workbench) sit on the same surface, each behind one open, soft `--border` line; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
+- The workbench (440px, from 16px below the shell's top, level with the name row) and the timeline (between the sidebar and the workbench) sit on the same surface, each behind one open, soft `--border` line; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
 
 ### Text levels in Plan
 Plan is dense, so it uses four sizes only; weight and colour set the level within a size, not another size.
@@ -199,7 +209,10 @@ A wrong value gets a red outline, with the reason in the tooltip and the accessi
 ## 6. Components
 
 - **Buttons.** Primary: `primary` fill with `primary-foreground` text (green in Light, butter in Dark); one per screen. Secondary (`outline`): a soft `inset` fill, no border, a step stronger on hover. Icon buttons (`ghost`): a square hugging the icon, no fill or border until hovered, never highlighted just for being expanded.
-- **Fields.** A soft box (`surface-inset`, a step from it inside inset blocks), no border, label inside as placeholder, focus ring on focus.
+- **Fields.** A soft box (`surface-inset`, a step from it inside inset blocks), no border, label inside as placeholder, focus ring on focus. One text style for every field: 14px regular. An empty field's prompt is `muted-foreground`, including a date's "dd/mm/yyyy", a time's "--:--" and an unchosen select (`data-empty` on the control); a value is `foreground`. A label that stays beside a value (Opens, Closes) is 14px `muted-foreground`. The one exception is the tournament name, whose value is semibold because it is a title.
+- **Inline fields.** Fields set in a line of text (a hall's heading row: Opens, Closes, Time unit, Rate). Label in `muted-foreground`, value after it, no box; a soft `inset` fill on hover and the focus ring on focus; a wrong value gets a 2px `destructive` underline and its reason in the tooltip. Times can be typed, or stepped by the hall's time unit with the small chevrons (Alt+Up and Alt+Down).
+- **Confirmation dialog.** Every "are you sure" uses the product's dialog (`useConfirm` in `src/components/ui/confirm.tsx`), never the browser's. `card` fill, 1px `border`, 16px padding, 400px wide, over a dimmed backdrop. Title: the question, 14px semibold. Body: what happens, 14px `muted-foreground`. Buttons at the right: Cancel (secondary), then the action named by its verb ("Clear hall", not "OK"). An action that removes data uses the destructive button and Cancel has the focus. Esc cancels; focus returns to what opened it.
+- **Court row.** A hall's courts sit in one row of 200px cards that never wraps, with "Add court" at its end. Courts past the column's edge are clipped, with a 24px fade at an edge that has more. The row slides when dragged (5px before a press counts as a drag), with a trackpad or Shift+wheel, and when a court gets keyboard focus. Adding a court slides to the end.
 
 Build these once in `src/components/ui` (extend shadcn where it exists) and reuse them.
 
