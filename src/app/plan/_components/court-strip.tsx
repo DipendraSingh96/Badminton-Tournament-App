@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
 /** How far the pointer moves before a press becomes a drag of the row, in pixels. */
 const DRAG_START = 5;
@@ -13,7 +13,16 @@ const FADE = 24;
  * or by tabbing to a court). An edge fades when there are more courts that
  * way. When a court is added, the row slides to its end.
  */
-export function CourtStrip({ count, children }: { count: number; children: ReactNode }) {
+export function CourtStrip({
+  count,
+  width,
+  children,
+}: {
+  count: number;
+  /** How wide each court's card is, in pixels. */
+  width: number;
+  children: ReactNode;
+}) {
   const row = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
   const [more, setMore] = useState({ left: false, right: false });
@@ -98,9 +107,9 @@ export function CourtStrip({ count, children }: { count: number; children: React
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
-      style={{ maskImage: mask, WebkitMaskImage: mask }}
+      style={{ maskImage: mask, WebkitMaskImage: mask, "--court-w": `${width}px` } as CSSProperties}
       // The 4px of padding leaves room for focus and selection rings, which the clip would cut.
-      className={`-m-1 flex gap-3 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:none] *:w-[200px] *:shrink-0 [&::-webkit-scrollbar]:hidden ${
+      className={`-m-1 flex gap-3 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:none] *:w-(--court-w) *:shrink-0 [&::-webkit-scrollbar]:hidden ${
         dragging ? "cursor-grabbing select-none" : ""
       }`}
     >

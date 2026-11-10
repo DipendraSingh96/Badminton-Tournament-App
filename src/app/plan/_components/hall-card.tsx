@@ -2,6 +2,8 @@
 
 import {
   BroomIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
   CaretDownIcon,
   CheckCircleIcon,
   CopySimpleIcon,
@@ -36,7 +38,7 @@ import {
 } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { BandTrack } from "./hall-track";
-import { CourtCard, type GroupOption } from "./court-card";
+import { COURT_SIZES, COURT_WIDTH, CourtCard, CourtSizeContext, type GroupOption } from "./court-card";
 import { CourtStrip } from "./court-strip";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
@@ -290,6 +292,9 @@ export function HallCard({
   const [settingsOpen, setSettingsOpen] = useState(hall.multipleRates);
   const [copyOpen, setCopyOpen] = useState(false);
   const confirm = useConfirm();
+  // The courts' size is one setting for the whole venue; every hall's line can change it.
+  const { size, setSize } = useContext(CourtSizeContext);
+  const sizeStep = COURT_SIZES.indexOf(size);
   const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
   const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
   const setHours = (key: "from" | "to") => (value: string) =>
@@ -401,6 +406,22 @@ export function HallCard({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+            <span className="flex items-center">
+              <IconButton
+                label="Smaller courts, to see more halls"
+                disabled={sizeStep === 0}
+                onClick={() => setSize(COURT_SIZES[sizeStep - 1]!)}
+              >
+                <MagnifyingGlassMinusIcon />
+              </IconButton>
+              <IconButton
+                label="Larger courts, with more detail"
+                disabled={sizeStep === COURT_SIZES.length - 1}
+                onClick={() => setSize(COURT_SIZES[sizeStep + 1]!)}
+              >
+                <MagnifyingGlassPlusIcon />
+              </IconButton>
+            </span>
           {others.length > 0 ? (
             <Popover open={copyOpen} onOpenChange={setCopyOpen}>
               <Tooltip>
@@ -465,7 +486,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <CourtStrip count={hall.courts.length}>
+      <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]}>
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}
@@ -482,7 +503,9 @@ export function HallCard({
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/30 bg-background text-sm font-semibold text-foreground transition-colors outline-none hover:border-foreground/60 hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+          className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${
+            size === "large" ? "min-h-80" : size === "medium" ? "min-h-56" : "min-h-28"
+          } border-foreground/30 bg-background text-sm font-semibold text-foreground transition-colors outline-none hover:border-foreground/60 hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring`}
         >
           <PlusIcon className="size-5" /> Add court
         </button>

@@ -110,6 +110,33 @@ function CourtTime({
   );
 }
 
+/**
+ * How large the venue's courts are drawn: large shows everything; medium drops
+ * the name bands and the lighter lines; small is the court's box, its sides
+ * and its group, for seeing many halls at once (a click opens the whole court).
+ */
+export type CourtSize = "large" | "medium" | "small";
+/** From the most zoomed out to the most zoomed in. */
+export const COURT_SIZES: CourtSize[] = ["small", "medium", "large"];
+/** A court card's width at each size, in pixels. */
+export const COURT_WIDTH: Record<CourtSize, number> = { large: 200, medium: 160, small: 120 };
+/** The size of every court in the venue, and how to change it (a view setting, kept in this browser). */
+export const CourtSizeContext = createContext<{ size: CourtSize; setSize: (size: CourtSize) => void }>({
+  size: "large",
+  setSize: () => {},
+});
+
+/** "Group A", "Groups A, C" or "No group". */
+function groupText(groups: CourtGroups): string {
+  const names = groups.groups.map((g) => g.group).join(", ");
+  return groups.groups.length === 0 ? "No group" : `${groups.groups.length > 1 ? "Groups" : "Group"} ${names}`;
+}
+
+/** The line along the net, shortened for smaller courts: "Wave 1 · R1/2" becomes "W1". */
+function shortNet(text: string): string {
+  return text.split(" · ")[0]!.replace(/^Wave /, "W");
+}
+
 /** Picking a court to show in a side panel (the Draw and Live stages); absent while planning. */
 export const CourtSelectionContext = createContext<{ selected: string | null; onSelect: (courtId: string) => void } | null>(
   null,
@@ -141,8 +168,7 @@ function GroupMenu({
   onChoose: (key: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const names = groups.groups.map((g) => g.group).join(", ");
-  const text = groups.groups.length === 0 ? "No group" : `${groups.groups.length > 1 ? "Groups" : "Group"} ${names}`;
+  const text = groupText(groups);
   const choose = (key: string | null) => {
     setOpen(false);
     onChoose(key);
@@ -193,9 +219,14 @@ function GroupMenu({
 }
 
 /** A side in its half of the court: who plays once known, otherwise its draw slot, large. */
-function Half({ code, players }: { code: string | null; players: string[] }) {
+function Half({ code, players, size = "large" }: { code: string | null; players: string[]; size?: CourtSize }) {
+  const slot = size === "large" ? (code && code.length > 4 ? "text-lg" : "text-[28px]") : size === "medium" ? "text-xl" : "text-sm";
   return (
-    <div className="relative z-10 grid min-h-14 flex-1 place-items-center px-3 text-center">
+    <div
+      className={`relative z-10 grid flex-1 place-items-center text-center ${
+        size === "large" ? "min-h-14 px-3" : size === "medium" ? "min-h-10 px-2" : "min-h-6 px-1"
+      }`}
+    >
       {players.length > 0 ? (
         <span className="flex max-w-full flex-col gap-1 text-xs leading-tight font-semibold">
           {players.map((name) => (
@@ -206,7 +237,7 @@ function Half({ code, players }: { code: string | null; players: string[] }) {
         </span>
       ) : code ? (
         <span
-          className={`font-display leading-none font-bold text-balance uppercase ${code.length > 4 ? "text-lg" : "text-[28px]"}`}
+          className={`max-w-full truncate font-display leading-none font-bold text-balance uppercase ${slot}`}
         >
           {code}
         </span>
@@ -248,7 +279,10 @@ export function CourtCard({
   groups,
   allGroups,
   update,
+  size: sizeProp,
 }: {
+  /** The size to draw it at; the venue's size when not given. */
+  size?: CourtSize;
   hall: HallDraft;
   hallIndex: number;
   courtIndex: number;
@@ -272,6 +306,83 @@ export function CourtCard({
   const descriptionId = `court-${court.id}-about`;
   const selection = useContext(CourtSelectionContext);
   const selected = selection?.selected === court.id;
+  const venueSize = useContext(CourtSizeContext).size;
+  const size = sizeProp ?? venueSize;
+  const medium = size === "medium";
+  const [popupOpen, setPopupOpen] = useState(false);
+
+  // Small: the court's box, its two sides and its group. A click opens the whole court to change it.
+  if (size === "small") {
+    const card = (
+      <>
+        <span className="h-5 truncate text-center text-xs leading-5 font-semibold">{groups ? groupText(groups) : null}</span>
+        <span className="relative flex min-h-20 flex-col border-2 border-white/90">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[56px] leading-none font-bold text-black/18 mix-blend-multiply select-none"
+          >
+            {number}
+          </span>
+          <Half size="small" code={face?.home ?? null} players={face?.homePlayers ?? []} />
+          <span aria-hidden="true" className="relative z-10 h-0.5 bg-white" />
+          <Half size="small" code={face?.away ?? null} players={face?.awayPlayers ?? []} />
+          {spots.map((spot) => (
+            <span
+              key={spot}
+              aria-hidden="true"
+              className={`absolute z-20 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-umpire ${SPOTS[spot].className}`}
+            />
+          ))}
+        </span>
+      </>
+    );
+    const about = [
+      `Court ${number}`,
+      groups ? groupText(groups) : null,
+      hours.from && hours.to ? `${hours.from} to ${hours.to}` : "hours not set",
+      umpireText(court.umpires),
+      status?.kind === "playing" ? status.label : idle,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    const shell = `flex flex-col gap-1 rounded-lg bg-court px-2 pt-1 pb-2 text-left text-white outline-none transition-[opacity,box-shadow] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+      status?.kind === "notBooked" ? "opacity-60" : ""
+    }`;
+    // Where a click picks the court for a side panel (the Draw stage), it still does.
+    if (selection) {
+      return (
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-label={`${about}. Show in the panel`}
+          onClick={() => selection.onSelect(court.id)}
+          className={`${shell} cursor-pointer ${selected ? "ring-2 ring-shuttle ring-offset-2 ring-offset-background" : ""}`}
+        >
+          {card}
+        </button>
+      );
+    }
+    return (
+      <Popover open={popupOpen} onOpenChange={setPopupOpen}>
+        <PopoverTrigger render={<button type="button" aria-label={`${about}. Open to change`} className={`${shell} cursor-pointer`} />}>
+          {card}
+        </PopoverTrigger>
+        <PopoverContent side="right" align="start" className="w-[200px] gap-0 bg-transparent p-0 shadow-lg ring-0">
+          <CourtCard
+            size="large"
+            hall={hall}
+            hallIndex={hallIndex}
+            courtIndex={courtIndex}
+            number={number}
+            status={status}
+            groups={groups}
+            allGroups={allGroups}
+            update={update}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   return (
     <div
@@ -353,33 +464,43 @@ export function CourtCard({
       </div>
 
       {/* The court: outer lines, tramlines, the net band in the middle. */}
-      <div className="relative mx-1 flex min-h-64 flex-col border-2 border-white/90" data-path={pathKey(path("umpires"))}>
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[10px] w-px bg-white/50" />
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-[10px] w-px bg-white/50" />
+      {/* Medium keeps the outer box and the net only, and drops the name bands. */}
+      <div
+        className={`relative mx-1 flex flex-col border-2 border-white/90 ${medium ? "min-h-40" : "min-h-64"}`}
+        data-path={pathKey(path("umpires"))}
+      >
+        {medium ? null : (
+          <>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[10px] w-px bg-white/50" />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-[10px] w-px bg-white/50" />
+          </>
+        )}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[132px] leading-none font-bold text-black/18 mix-blend-multiply select-none"
+          className={`pointer-events-none absolute inset-0 z-0 grid place-items-center font-display leading-none font-bold text-black/18 mix-blend-multiply select-none ${
+            medium ? "text-[96px]" : "text-[132px]"
+          }`}
         >
           {number}
         </span>
 
         <div className="relative flex flex-1 flex-col">
-          <CentreLine />
-          <NameBand edge="top" text={face?.homeLabel ?? null} />
-          <Half code={face?.home ?? null} players={face?.homePlayers ?? []} />
+          {medium ? null : <CentreLine />}
+          {medium ? null : <NameBand edge="top" text={face?.homeLabel ?? null} />}
+          <Half size={size} code={face?.home ?? null} players={face?.homePlayers ?? []} />
         </div>
         {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
-        <div className="relative z-10 flex flex-col border-y border-white/50">
-          <p className="flex h-7 items-center justify-center px-2 text-xs font-semibold">
-            <span className="truncate">{face?.net ?? idle ?? "No estimate yet"}</span>
+        <div className={`relative z-10 flex flex-col ${medium ? "" : "border-y border-white/50"}`}>
+          <p className={`flex items-center justify-center px-2 text-xs font-semibold ${medium ? "h-5" : "h-7"}`}>
+            <span className="truncate">{face ? (medium ? shortNet(face.net) : face.net) : (idle ?? (medium ? "No estimate" : "No estimate yet"))}</span>
           </p>
           <span aria-hidden="true" className="h-[3px] bg-white" />
-          <span aria-hidden="true" className="h-7" />
+          <span aria-hidden="true" className={medium ? "h-5" : "h-7"} />
         </div>
         <div className="relative flex flex-1 flex-col">
-          <CentreLine />
-          <Half code={face?.away ?? null} players={face?.awayPlayers ?? []} />
-          <NameBand edge="bottom" text={face?.awayLabel ?? null} />
+          {medium ? null : <CentreLine />}
+          <Half size={size} code={face?.away ?? null} players={face?.awayPlayers ?? []} />
+          {medium ? null : <NameBand edge="bottom" text={face?.awayLabel ?? null} />}
         </div>
 
         {UMPIRE_SPOTS.map((spot) => {
@@ -392,11 +513,11 @@ export function CourtCard({
               aria-label={`Umpire at the ${SPOTS[spot].name}`}
               title={on ? "Remove umpire" : "Add umpire"}
               onClick={() => edit((c) => toggleUmpire(c, spot))}
-              // The button is the circle with 4px around it: hovering or clicking anywhere in it counts.
-              className={`group/spot absolute z-20 grid size-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white ${SPOTS[spot].className}`}
+              // The button is a square around the circle, 4px larger all round and not drawn: hovering or clicking anywhere in it counts.
+              className={`group/spot absolute z-20 grid size-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center outline-none ${SPOTS[spot].className}`}
             >
               <span
-                className={`size-3 rounded-full ring-2 transition-colors ${
+                className={`size-3 rounded-full ring-2 outline-offset-4 outline-white transition-colors group-focus-visible/spot:outline-2 ${
                   on ? "bg-umpire ring-umpire" : "bg-court ring-white/70 group-hover/spot:ring-umpire"
                 }`}
               />

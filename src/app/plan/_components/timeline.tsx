@@ -385,6 +385,7 @@ export function Timeline({
   onPlayingChange,
   collapsed = false,
   onCollapsedChange,
+  onFitHeight,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -401,6 +402,8 @@ export function Timeline({
   /** Folded to its title row, so the venue has the room. */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  /** Thin rows: the height the timeline needs to show them all, for its panel to shrink to; null when the rows are full again. */
+  onFitHeight?: (height: number | null) => void;
 }) {
   // The strips show the view range; the playhead runs over the day itself.
   const { range, setDragging } = useContext(ViewRangeContext);
@@ -490,6 +493,30 @@ export function Timeline({
   // Zoom: the tracks are this many times the visible width, scrolled sideways.
   const labels = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
+  // One step out from the whole day: every row a thin bar, so the timeline takes little height
+  // and the whole day stays in view over more of the venue.
+  const [thin, setThin] = useState(false);
+  const lane = thin ? "h-1.5" : "h-5";
+  const hallRow = thin ? "h-1.5" : "h-6";
+  const hallGroup = thin ? "flex flex-col gap-1 pt-2" : "flex flex-col gap-1 pt-3";
+  const section = useRef<HTMLElement>(null);
+  const rowCount = draft.frame.halls.reduce((n, hall) => n + hall.courts.length + 1, 0);
+  const estimated = schedule !== null;
+  useLayoutEffect(() => {
+    if (!onFitHeight) return;
+    const element = section.current;
+    if (!thin || collapsed || !element) {
+      onFitHeight(null);
+      return;
+    }
+    // Everything in the timeline at its own height; the rows by their content, not the room they have now.
+    let height = 0;
+    for (const child of element.children) {
+      const part = child === scroller.current ? child.firstElementChild : child;
+      height += (part as HTMLElement | null)?.offsetHeight ?? 0;
+    }
+    onFitHeight(Math.ceil(height));
+  }, [thin, collapsed, rowCount, estimated, onFitHeight]);
   const [viewWidth, setViewWidth] = useState(0);
   useEffect(() => {
     const element = scroller.current;
@@ -923,7 +950,7 @@ export function Timeline({
   }
 
   return (
-    <section aria-label="Timeline" className="glass flex h-full flex-col">
+    <section ref={section} aria-label="Timeline" className="glass flex h-full flex-col">
       <div className="flex h-10 shrink-0 items-center justify-between gap-x-3 overflow-hidden px-4">
         <span className="flex items-center gap-3">
           <h2 className="heading-card flex items-center gap-2 text-xl">
@@ -959,10 +986,10 @@ export function Timeline({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Zoom out"
-              title="Zoom out"
-              disabled={zoom <= 1}
-              onClick={() => zoomTo(zoom / ZOOM_STEP)}
+              aria-label={zoom <= 1 ? "Zoom out to thin rows" : "Zoom out"}
+              title={zoom <= 1 ? "Zoom out to thin rows" : "Zoom out"}
+              disabled={thin}
+              onClick={() => (zoom <= 1 ? setThin(true) : zoomTo(zoom / ZOOM_STEP))}
             >
               <MagnifyingGlassMinusIcon />
             </Button>
@@ -971,15 +998,25 @@ export function Timeline({
               size="icon"
               aria-label="Zoom in"
               title="Zoom in"
-              disabled={!hasHours || zoom >= maxZoom}
-              onClick={() => zoomTo(zoom * ZOOM_STEP)}
+              disabled={!thin && (!hasHours || zoom >= maxZoom)}
+              onClick={() => (thin ? setThin(false) : zoomTo(zoom * ZOOM_STEP))}
             >
               <MagnifyingGlassPlusIcon />
             </Button>
-            <Button variant="ghost" size="sm" disabled={segments.length === 0} onClick={fitPlay}>
+            <Button variant="ghost" size="sm" disabled={segments.length === 0}
+              onClick={() => {
+                setThin(false);
+                fitPlay();
+              }}
+            >
               <ArrowsInLineHorizontalIcon /> Fit play
             </Button>
-            <Button variant="ghost" size="sm" disabled={zoom === 1} onClick={wholeDay}>
+            <Button variant="ghost" size="sm" disabled={zoom === 1 && !thin}
+              onClick={() => {
+                setThin(false);
+                wholeDay();
+              }}
+            >
               <ArrowsOutLineHorizontalIcon /> Whole day
             </Button>
           </span>
@@ -1009,7 +1046,7 @@ export function Timeline({
       </p>
 
       <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
-        <div className="flex w-max min-w-full pr-4 pb-3">
+        <div className={`flex w-max min-w-full pr-4 ${thin ? "pb-4" : "pb-3"}`}>
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
           <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col pr-3 pl-4"
             // Level with the axis (28px) the labels fade out, as their rows do.
@@ -1018,7 +1055,18 @@ export function Timeline({
           >
             <div className="sticky top-0 z-10 h-7" />
             {draft.frame.halls.map((hall, h) => (
-              <div key={hall.id} className="flex flex-col gap-1 pt-3">
+              <div key={hall.id} className={hallGroup}>
+                {thin ? (
+                  // Thin rows have no room for a label each: the hall's name alone, over its rows.
+                  <>
+                    <div className="h-1.5 text-xs leading-none font-medium whitespace-nowrap">{hallName(hall, h)}</div>
+                    {schedule ? <div className="h-1.5" /> : null}
+                    {hall.courts.map((court) => (
+                      <div key={court.id} className="h-1.5" />
+                    ))}
+                  </>
+                ) : (
+                  <>
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
                 {schedule ? <div className="h-5 text-xs leading-5 font-medium">Stages</div> : null}
                 {hall.courts.map((court, c) => (
@@ -1027,9 +1075,11 @@ export function Timeline({
                     {groupsOn(court.id) ? <span className="font-semibold text-foreground"> · {groupsOn(court.id)}</span> : null}
                   </div>
                 ))}
+                  </>
+                )}
               </div>
             ))}
-            <div className="mt-3 h-5 text-xs leading-5 font-medium">Buffer</div>
+            <div className={thin ? "mt-2 h-1.5 text-xs leading-none font-medium" : "mt-3 h-5 text-xs leading-5 font-medium"}>Buffer</div>
           </div>
 
           <div
@@ -1080,7 +1130,7 @@ export function Timeline({
             </div>
 
             {/* The rows; they fade out as they scroll up under the axis. */}
-            <div style={fade("to bottom", "--sy")}>
+            <div style={fade("to bottom", "--sy")} data-thin-rows={thin || undefined}>
             {draft.frame.halls.map((hall, h) => {
               const open = minutesOfDay(hall.from);
               const close = minutesOfDay(hall.to);
@@ -1088,15 +1138,15 @@ export function Timeline({
               const hallZones = zones.filter((z) => z.hallId === hall.id);
               const dropHere = zoneDrag && zoneDrag.targetHall === hall.id && zoneDrag.row.hallId !== hall.id;
               return (
-                <div key={hall.id} role="group" aria-label={hallName(hall, h)} className="flex flex-col gap-1 pt-3">
-                  <HallTrack draft={draft} hallIndex={h} update={update} className="h-6" />
+                <div key={hall.id} role="group" aria-label={hallName(hall, h)} className={hallGroup}>
+                  <HallTrack draft={draft} hallIndex={h} update={update} className={hallRow} />
 
                   {schedule ? (
                     <div
                       data-hall-stages={hall.id}
                       role="group"
                       aria-label={`${hallName(hall, h)} stages`}
-                      className={`relative h-5 rounded-sm ${dropHere ? "bg-foreground/10 ring-1 ring-foreground/40" : ""}`}
+                      className={`relative ${lane} rounded-sm ${dropHere ? "bg-foreground/10 ring-1 ring-foreground/40" : ""}`}
                     >
                       {hallZones.map((z) => {
                         const dragging = zoneDrag?.row.key === z.key ? zoneDrag : null;
@@ -1203,7 +1253,7 @@ export function Timeline({
                           unit={hall.unitMinutes}
                           origin={open}
                           bounds={hallBounds ?? undefined}
-                          className="h-5"
+                          className={lane}
                           windowClassName={narrowed ? "bg-accent" : "bg-inset"}
                           onChange={setCourt}
                           onReset={
@@ -1251,7 +1301,7 @@ export function Timeline({
                                     }
                                     role="button"
                                     aria-label={pillLabel(s, courtLabel, i, own.length)}
-                                    className={`pointer-events-auto absolute inset-y-0.5 cursor-grab touch-none rounded-[3px] border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
+                                    className={`pointer-events-auto absolute ${thin ? "inset-y-0" : "inset-y-0.5"} cursor-grab touch-none rounded-[3px] border-r border-card outline-none ring-inset select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${STAGE_COLOURS[s.stage]} ${
                                       s.late ? "ring-2 ring-tl-worst" : "ring-1 ring-tl-outline"
                                     } ${
                                       pillDrag?.segment.id === s.id ? "opacity-30" : ""
@@ -1317,14 +1367,14 @@ export function Timeline({
               );
             })}
 
-            <div className="mt-3">
+            <div className={thin ? "mt-2" : "mt-3"}>
               <TimeWindowTrack
                 name="Buffer"
                 mode="buffer"
                 window={bufferWindow}
                 unit={bufferUnit}
                 bounds={hasHours ? { min: start, max: end } : undefined}
-                className="h-5"
+                className={lane}
                 windowClassName={`hatch ${pinnedAt !== null ? "bg-muted" : ""}`}
                 emptyHint="Drag to add a buffer"
                 onDraw={
@@ -1357,7 +1407,7 @@ export function Timeline({
             {bufferWindow ? (
               <span
                 aria-hidden="true"
-                className="hatch pointer-events-none absolute top-7 bottom-6 opacity-60"
+                className={`hatch pointer-events-none absolute top-7 opacity-60 ${thin ? "bottom-5" : "bottom-6"}`}
                 style={{ left: pct(bufferWindow.from), width: width(bufferWindow.from, bufferWindow.to) }}
               />
             ) : null}
@@ -1426,7 +1476,7 @@ export function Timeline({
             </span>
           ) : null}
           {segments.length > 0 ? (
-            <span className="basis-full">
+            <span className={thin ? "hidden" : "basis-full"}>
               Drag a match or zone to move it · Arrow keys go between matches · Alt and the arrows move the focused one
               · H or double-click puts it back · Ctrl or Cmd and scroll to zoom
             </span>

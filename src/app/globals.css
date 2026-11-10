@@ -332,3 +332,9 @@
 [data-slot="field-box"]:has([aria-invalid="true"]) {
   border-color: var(--destructive);
 }
+
+/* The timeline's thin rows are bars only: there's no room for text in them
+   (the hover card says what each is). */
+[data-thin-rows] * {
+  font-size: 0 !important;
+}

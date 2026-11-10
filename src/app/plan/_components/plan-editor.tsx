@@ -28,7 +28,7 @@ import {
   type TournamentIndex,
 } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
-import { CourtSelectionContext } from "./court-card";
+import { COURT_SIZES, CourtSelectionContext, CourtSizeContext, type CourtSize } from "./court-card";
 import { CourtPanel } from "./court-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
 import { SampleDataButtons } from "./dummy-data";
@@ -157,6 +157,26 @@ function saveWorkbenchFolded(folded: boolean) {
   }
 }
 
+// How large the venue's courts are drawn.
+const COURT_SIZE_KEY = "badminton:court-size";
+
+function loadCourtSize(): CourtSize {
+  try {
+    const saved = window.localStorage.getItem(COURT_SIZE_KEY);
+    return COURT_SIZES.includes(saved as CourtSize) ? (saved as CourtSize) : "large";
+  } catch {
+    return "large";
+  }
+}
+
+function saveCourtSize(size: CourtSize) {
+  try {
+    window.localStorage.setItem(COURT_SIZE_KEY, size);
+  } catch {
+    // Not remembered; courts are large next time.
+  }
+}
+
 // The tournament list, collapsed to a rail or not.
 const SIDEBAR_KEY = "badminton:plan-sidebar";
 
@@ -215,6 +235,17 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [tab, setTab] = useState<Tab>(loadTab);
   const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [courtSize, setCourtSize] = useState<CourtSize>(loadCourtSize);
+  const courtSizing = useMemo(
+    () => ({
+      size: courtSize,
+      setSize: (size: CourtSize) => {
+        setCourtSize(size);
+        saveCourtSize(size);
+      },
+    }),
+    [courtSize],
+  );
   // The timeline's playhead, in minutes since midnight; not saved.
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -536,6 +567,24 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [timelineFolded, setTimelineFolded] = useState(false);
   // The timeline's height: the venue scrolls under it, and stops clear of it.
   const [timelineHeight, setTimelineHeight] = useState(0);
+  // Thin rows: the timeline's panel shrinks to fit them, and goes back to its earlier height after.
+  const [thinHeight, setThinHeight] = useState<number | null>(null);
+  const beforeThin = useRef<number | null>(null);
+  useEffect(() => {
+    const panel = timelinePanel.current;
+    if (!panel) return;
+    // A frame on, so the panel has its new smallest size before it's resized.
+    const frame = requestAnimationFrame(() => {
+      if (thinHeight !== null) {
+        beforeThin.current ??= panel.getSize().inPixels;
+        panel.resize(thinHeight);
+      } else if (beforeThin.current !== null) {
+        panel.resize(beforeThin.current);
+        beforeThin.current = null;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [thinHeight, timelinePanel]);
   const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
   const [workbenchFolded, setWorkbenchFolded] = useState(loadWorkbenchFolded);
   function foldWorkbench(folded: boolean) {
@@ -564,7 +613,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       <ResizablePanel
         id="timeline"
         defaultSize="45"
-        minSize={220}
+        minSize={thinHeight !== null ? Math.min(220, thinHeight) : 220}
         collapsible
         collapsedSize={TIMELINE_FOLDED}
         panelRef={timelinePanel}
@@ -588,6 +637,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onPlayingChange={setPlaying}
           collapsed={timelineFolded}
           onCollapsedChange={foldTimeline}
+          onFitHeight={setThinHeight}
         />
         </div>
       </ResizablePanel>
@@ -614,6 +664,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
+        <CourtSizeContext value={courtSizing}>
           <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background text-sm">
             <Sidebar
               draft={draft}
@@ -773,6 +824,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             ) : null}
             </div>
           </div>
+        </CourtSizeContext>
         </IssuesContext>
       </ViewRangeContext>
     </TooltipProvider>
