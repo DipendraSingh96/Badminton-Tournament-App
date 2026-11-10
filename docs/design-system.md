@@ -40,7 +40,10 @@ The theme menu (Settings, in the sidebar) offers Light, Dark and System. There i
 | `primary` | `#0F6B45` | Accent: main button, selection |
 | `primary-foreground` | `#FFFFFF` | Text on the accent |
 | `accent` | `#E9E5DC` | Hover wash only. Not the brand accent |
-| `card-system` | `--tile` (`#E3F6E8`) | The selected tournament card |
+| `card-system` | `#EADFCB` | Cards and raised blocks: tournament cards, the hall settings panel, cards in the workbench |
+| `field-raised` | `#E1D6C1` (hover `#DFD4BE`) | A field, well or secondary button on a card: one shade darker than the card |
+| `field-on-inset` | `#DFDACE` (hover `#DBD6C9`) | The same on an inset block |
+| `surface-inset-hover` | `#E2DDD1` | A field on the ground, hovered |
 | `card-selected` | `#DCE7E4` | The selected format option |
 
 ### Dark
@@ -55,14 +58,17 @@ The theme menu (Settings, in the sidebar) offers Light, Dark and System. There i
 | `muted-foreground` | `#ABB4AF` | Secondary text. Neutral grey |
 | `primary` | `#F8D15E` | Accent: main button, selection. Butter |
 | `primary-foreground` | `#1A1400` | Text on the accent |
-| `card-system` | `#124030` | The selected tournament card |
+| `card-system` | `#124030` | Cards and raised blocks: tournament cards, the hall settings panel, cards in the workbench |
+| `field-raised` | `#1C4838` (hover `#1F4D3C`) | A field, well or secondary button on a card: one shade lighter than the card |
+| `field-on-inset` | `#124030` (hover `#1A4636`) | The same on an inset block |
+| `surface-inset-hover` | `#1F4D3C` | A field on the ground, hovered |
 | `card-selected` | `#0F4A43` | The selected format option |
 
 ### Other tokens (unchanged by the two themes above)
 | Token | Value | Use |
 |---|---|---|
 | `tile`, `tile-border` | `#E3F6E8`, `#A9D9B8` (dark `#124030`, `#2A6B4C`) | Court tiles |
-| `court`, `umpire` | `#0F6B45`, `#7CC4FF` | The court face and its umpire spots; the same in both themes |
+| `court`, `umpire` | `#0F6B45`, `#8FB0FF` | The court face and its umpire spots; the same in both themes. The blue is the lightest that reads as bright blue and keeps 3:1 on the court |
 | `shuttle` | `#F4C430`, text on it `#1A1400` | Live match, profit tile, final, chosen court (principle 8) |
 | `feature` | `#0A4A31` | The deep-green block, kept for the results page |
 | `turf`, `turf-2`, `mint` | `#0F6B45`, `#14804F`, `#BDF2C9` | Kept as tokens; no longer used for headings, buttons or selection |
@@ -132,6 +138,12 @@ The timeline is frosted glass over the venue, so the two read as one space: hall
 - Under `prefers-reduced-transparency` both are solid `background`.
 - Glass is for the timeline only. Do not use it on cards, fields, popovers or dialogs.
 
+### Surfaces: warm in Light, cool in Dark
+- In Light every surface is warm and light: the ground, cards, fields, wells, hover fills. In Dark every surface is cool. The exceptions are the accent, the two text colours, and the specialised colours (the court and its lines, status colours, timeline blocks, the umpire blue).
+- A step from a surface (a field on a card, a hover fill) is a token of its own. Never make one by mixing the text colour into the surface: the text colour is cool in Light and warm in Dark, so the mix breaks the rule.
+- A field on the ground is `surface-inset`. On a card it is `field-raised`; on an inset block `field-on-inset`. Components read `--field` and `--field-hover`, which the surface sets, so a field needs no class of its own.
+- Every step keeps secondary text at 4.5:1 (the Light hover on a card is 4.46:1, held only while hovering).
+
 ### Lines and borders
 - Dividers, card outlines and dashed "add" boxes that only separate use `border`: a warm grey in Light, a cream hairline in Dark.
 - Fields have no border. They are filled with `inset`.
@@ -165,7 +177,7 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 - **Spacing is a 4px grid.** Every padding and gap is one of 4, 8, 12, 16 or 24px (Tailwind 1, 2, 3, 4, 6); no 2, 6, 10, 14, 18 or 20px one-offs. Typical uses: 4px around small edit and hover boxes (with 8px either side of text), 8px inside chips, tiles and menus, 12px inside inset blocks, 16px around sections and panes, 24px between major regions. Control sizes (32px controls and stepper buttons) are set by the controls, not the grid.
 - **No cards inside cards.** Panels (the workbench tabs, figure panels) are flat sections divided by a 1px `border` rule, not framed cards. Inside a section, at most one level of `inset` blocks (one per category or line); nothing framed inside those. Halls sit flat on the venue, divided by a rule.
-- **Scrollbars:** never take room in the layout and are not shown at rest. The browser's own scrollbars are hidden everywhere. While a pane is being scrolled, a 4px rounded thumb (`foreground` at 40%) lies over its edge, 2px in, and fades 0.7s after scrolling stops (`ScrollHints` in `src/components/ui/scroll-hints.tsx`). Panes use the full 16px side padding on both sides.
+- **Scrollbars:** never take room in the layout and are not shown at rest. The browser's own scrollbars are hidden everywhere. While a pane is being scrolled, a 4px rounded thumb (`foreground` at 40%) lies over its edge, 2px in. It can be dragged to scroll: its grab area is 12px across, and it thickens to 6px while held. It fades 3 seconds after the last scroll or touch of it (`ScrollHints` in `src/components/ui/scroll-hints.tsx`). Panes use the full 16px side padding on both sides.
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
 - Controls are 32px high in Plan (dense, desktop): inputs and selects with 14px text, buttons 32px (small 28px), steppers 32px, segmented controls 32px with 24px segments. Live's touch screens use 44px or more.
@@ -225,7 +237,11 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Chip.** Pill. Status chips use the status fill and label from the status table. Neutral chips use `inset` and `foreground`.
 - **Radio option card.** `card` fill with a 1px `border` outline. Selected: `card-selected` fill, a 2px `primary` outline and a `primary` radio dot; its title stays `foreground`.
 - **Health bar.** In the workbench, with one chip beside it. One small bar per hour of court time booked (2px gaps), filled for the court time the matches need in the typical case; a part hour is a part-filled bar. Up to 48 bars: with more hours booked, each bar stands for 2 hours, then 3, and so on, and the tooltip says what one bar is worth. Filled bars and the chip use the current status token (Fits, Tight, Over, by the worst-case rule); unfilled bars use `border`. Until the plan is complete the bar is empty and grey; with no court time booked it is one empty track.
-- **System card.** `card-system` fill, 1px `border` outline. Used for the selected tournament card in the sidebar.
+- **System card.** `card-system` fill. Tournament cards in the sidebar add a 1px `border` outline; cards in the workbench and the hall settings panel are flat.
+- **Groups of fields in the workbench.** One or two rows of fields sit under a 14px semibold heading with no card (entry fees, expected entries, group settings). A card (`card-system`) is for nested settings or more than three rows (a cost line, a team competition).
+- **Umpire spots.** A 12px circle with a 2px ring on the court. Its target is an undrawn square 4px larger all round. At rest: court-green fill, white ring. Hover: the ring turns `umpire` blue. On: fill and ring are both `umpire` blue. Focus: a white outline outside the circle.
+- **Court sizes.** One setting for the whole venue, changed with the zoom icons on any hall's line and kept in the browser. Large (200px): everything. Medium (160px): outer box and net only, no name bands, the slot or player names in each half, the net line shortened ("W1"), hours and umpire circles kept. Small (120px): the box halved, slot or names, the group's name above, small blue dots for umpires, no hours or buttons; a click opens the whole court at Large in a popover (outside click or Esc closes it). The court number stays a faint watermark at every size.
+- **Thin timeline.** One zoom step out from Whole day: every row is a 6px bar with 4px between, only hall names are labelled, bars carry no text, and the timeline's panel shrinks to fit. Zoom in, Fit play or Whole day restores the rows and the earlier height. Hover, drag, the playhead and the worst-case line work as before.
 - **Card.** `card` fill, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `foreground`.
 - **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines (only the outer box, 2px at 90%, and the net, 3px, are heavy; the singles sidelines 10px in, the service lines and the centre lines are 1px at 50%), compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, one centred line above the net ("Wave 1 · R1/2", or the knockout match), the court number as a faint watermark (black at 18%, multiplied). With own courts per group, the top surround carries the court's group as a menu (every group of the tournament, with the courts it has, plus No group and Automatic split). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
 - **Court panel.** The right pane in the Draw and Live stages (`pane-right-min` wide): the court's name as the card heading, then Now, Up next and Later today, each match an inset block (time and court, readiness chip, where it sits, both sides with their players and check-in chips). A chosen court is outlined with a 2px shuttle ring.
