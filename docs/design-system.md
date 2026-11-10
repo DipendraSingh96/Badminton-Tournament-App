@@ -107,11 +107,25 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 ### Surfaces in the shell
 - The sidebar is the app's own space: `--card`, no borders (the change of colour is its edge; spacing separates its sections).
 - Everything about the open tournament sits on one surface, `--background`, in a central column at most 960px wide, centred in the space the workbench leaves.
-- The workbench (full height, 440px) and the timeline (edge to edge between the sidebar and the workbench) sit on the same surface, separated by one soft `--border` line each; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
+- The workbench (440px, from the stage row down) and the timeline (between the sidebar and the workbench) sit on the same surface, each behind one open, soft `--border` line; no cards, no lines across the timeline. Both fold away (to a 40px rail, or a 40px bar).
 
 ### The 40px rule
-- Every set width is a multiple of 40px: fields (160, 200, 240, 320), court cards 200, the workbench 440 (400 of content), rails 40, table columns. Where content must fill a space, it fills the 40px column that holds it.
-- Icon buttons are exempt: they hug their icon (32px square).
+- Containers and the shell are multiples of 40px: sidebar 280, central column 960 at most, workbench 440, rails 40, court cards 200.
+- Fields, buttons and other small controls are not: they size to their content and share their row (auto layout).
+
+### Spacing scale
+| Gap | Use |
+|---|---|
+| 4px | Icon to its text; a label to its value; a field to its help |
+| 8px | Controls side by side in a row |
+| 12px | Rows inside one group |
+| 16px | Padding inside a panel or pane; the shell's edge to content |
+| 24px | Between sections |
+
+Everything in a panel shares one left edge; a row never carries padding of its own (a highlight is drawn with an offset outline). Dividers between panes are open: they stop 16px short of the shell's edges.
+
+### Errors
+A wrong value gets a red outline, with the reason in the tooltip and the accessible description. No message is printed under a field. A panel's summary line carries the visible message.
 
 ## 6. Components
 
