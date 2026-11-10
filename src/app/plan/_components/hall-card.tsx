@@ -36,6 +36,7 @@ import {
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { BandTrack } from "./hall-track";
 import { CourtCard, type GroupOption } from "./court-card";
+import { CourtStrip } from "./court-strip";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
 import { formatMoney } from "./labels";
@@ -413,7 +414,7 @@ export function HallCard({
 
       {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
-      <div className="grid grid-cols-[repeat(auto-fill,200px)] gap-3">
+      <CourtStrip count={hall.courts.length}>
         {hall.courts.map((court, i) => (
           <CourtCard
             key={court.id}
@@ -434,7 +435,7 @@ export function HallCard({
         >
           <PlusIcon className="size-5" /> Add court
         </button>
-      </div>
+      </CourtStrip>
     </section>
   );
 }
