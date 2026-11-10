@@ -39,7 +39,7 @@ The shell (sidebar, main column, workbench) never scrolls as a page; only the pa
 
 ## Middle: venue canvas
 - **Halls** hold **courts**. Add hall, add court. Scalable to any hall and court structure.
-- **Hall header**, on one line: the editable hall name, a chevron that opens the hall settings in place, then the hall's settings set in line as plain text: **Opens**, **Closes** (typed, or stepped by the time unit with small chevrons), **Time unit** (minutes) and **Rate** (£ per court per unit; with rate bands on it reads "N rate bands" and opens the settings), then the number of courts. The line and the settings panel hold the same values. On the right, **Copy from another hall**, **Clear hall** (keeps the name; empties hours, rates and courts) and **Delete hall** (only when there is more than one hall). The settings panel starts closed; it is where rate bands are set.
+- **Hall header**, on one line: the editable hall name, a chevron that opens the hall settings in place, then the hall's settings set in line as plain text: **Opens**, **Closes** (typed, or stepped by the time unit with small chevrons), **Time unit** (minutes) and **Rate** (£ per court per unit; with rate bands on it reads "N rate bands" and opens the settings), then the number of courts. The line and the settings panel hold the same values. On the right, the court zoom icons, **Copy from another hall**, **Flip hall** (draws the courts right to left, 4, 3, 2, 1, to match the real hall; numbers, groups, hours and the timeline do not change; saved with the hall) and **Delete hall** (only when there is more than one hall). The settings panel starts closed; it is where rate bands are set.
 - **Courts** sit in one row per hall that never wraps: drag the row sideways to see courts past the edge; adding a court slides to the end, where **Add court** is.
 - **Hall settings** (rates are per hall):
   - Hall hours: from, until
@@ -114,3 +114,12 @@ The app suggests levers the organiser can change to improve profit or fit. These
 - Dependent fields: tournament type decides the category form; format decides which format fields appear; any best-of-3 stage reveals the best-of-3 allowance; categories feed the prize list.
 - Editing the venue or setup flags the tuned values it affects and never changes them silently.
 - A stage left blank is fine if no category plays it.
+
+## Workbench rules (added 10 Nov 2026)
+- **Field names:** every field in the workbench and in a hall's settings panel has a 12px caption above it that stays when the field is filled. The tournament's first row (name, date, time zone) and a hall's line keep their names inside or beside the value.
+- **Help:** there is no ⓘ beside a field. Hovering or focusing a field shows its help, and what is wrong with its value. ⓘ stays beside headings and sub-headings.
+- **No redundant text:** no label that repeats the heading right above it, and no "nothing yet" line where an Add button already says it.
+- **Setup tab, Rules:** three groups under the Rules heading. **Tiebreak order** (plain list). **Who can enter** (a card: most categories per person, categories that can't be entered together, members-only categories, whether a member may pair with an external player). **Withdrawals and walkovers** (plain). Open doubles handicap sits after the tiebreak order when Open doubles is played.
+- **Setup tab, Categories:** each chosen category is a row of its event and an optional category name, under the column captions "Event" and "Category name (optional)".
+- **Schedule tab, Stages:** one sub-heading per stage (Group stage, Knockout rounds, Bronze match, Final). Under Group stage, "Group courts" first, as it is for every category. Then, in every stage, one card per category holding that category's settings for the stage: in the group stage its groups and qualifiers; in the bronze match its "Play a bronze match" switch; and always its points per game, games per match, deuce, minutes per game and organising time. Each card has "Same as group stage" (from the second stage on) and "Copy to all categories".
+- **Schedule tab, Entries:** "Expected entries" and "External entries" per category.
