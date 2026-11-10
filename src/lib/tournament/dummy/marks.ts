@@ -132,6 +132,40 @@ export function hasDummy(draft: PlanDraft, stage?: SampleStage): boolean {
   return Object.keys(live.values).length + Object.keys(live.items).length > 0;
 }
 
+/** A mark's path as keys and list positions, the way fields are addressed; null when it no longer leads anywhere. */
+function positions(root: unknown, path: Path): PropertyKey[] | null {
+  const out: PropertyKey[] = [];
+  let at = root;
+  for (const segment of path) {
+    if (typeof segment === "string") {
+      out.push(segment);
+    } else {
+      const index = Array.isArray(at) ? at.findIndex((v) => isPlainObject(v) && v.id === segment.id) : -1;
+      if (index === -1) return null;
+      out.push(index);
+    }
+    at = step(at, segment);
+    if (at === undefined) return null;
+  }
+  return out;
+}
+
+/**
+ * How much sample data a stage holds, and where the first of it is (a filled
+ * field before an added thing), as a field path to jump to.
+ */
+export function sampleFields(draft: PlanDraft, stage?: SampleStage): { count: number; first: PropertyKey[] | null } {
+  const live = liveMarks(draft, stage);
+  // The tournament's stage isn't a field the organiser fills in.
+  const keys = [...Object.keys(live.values), ...Object.keys(live.items)].filter((key) => pathOf(key)[0] !== "stage");
+  let first: PropertyKey[] | null = null;
+  for (const key of keys) {
+    first = positions(draft, pathOf(key));
+    if (first) break;
+  }
+  return { count: keys.length, first };
+}
+
 /** What dummy data there is, for the Remove button: "16 entries, 2 draws, 30 other values". */
 export function dummySummary(draft: PlanDraft, stage?: SampleStage): string {
   const live = liveMarks(draft, stage);

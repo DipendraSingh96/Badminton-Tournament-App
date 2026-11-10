@@ -53,12 +53,33 @@ const BEST_OF = [
 ] as const;
 
 /** Entries, structure, stages and buffer: tuned until demand fits the day. */
-export function ScheduleTab({ draft, update, locked }: { draft: PlanDraft; update: Update; locked: boolean }) {
+export function ScheduleTab({
+  draft,
+  update,
+  locked,
+  onReopen,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  locked: boolean;
+  /** Go back to the expected numbers, once the plan uses the real entries. */
+  onReopen: () => void;
+}) {
   const ready = draft.unit !== null && draft.categories.length > 0;
   return (
     <>
       <ReadOnly when={locked}>
-        <Section title="Entries" description="How many you expect in each category, and how many of them are external.">
+        <Section
+          title="Entries"
+          description="How many you expect in each category, and how many of them are external."
+          action={
+            draft.stage !== "plan" ? (
+              <Button variant="outline" size="sm" onClick={onReopen}>
+                Use expected numbers
+              </Button>
+            ) : null
+          }
+        >
           {ready ? (
             draft.categories.map((category, i) => (
               <EntriesCard key={category.id} draft={draft} index={i} update={update} />

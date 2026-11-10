@@ -2,7 +2,7 @@ import { produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { emptyDraft, emptyEntry, type PlanDraft } from "../draft";
 import { completeDraft } from "../draft.test-helpers";
-import { dummySummary, hasDummy, liveMarks, markDummy, removeDummy } from "./marks";
+import { dummySummary, hasDummy, liveMarks, markDummy, removeDummy, sampleFields } from "./marks";
 
 /** A stand-in fill: a fee, a court, two entries and a draw. */
 function fakeFill(draft: PlanDraft): PlanDraft {
@@ -34,6 +34,15 @@ describe("dummy data marks", () => {
     expect(Object.keys(live.values)).toHaveLength(2); // the fee and the stage
     expect(hasDummy(after)).toBe(true);
     expect(dummySummary(after)).toBe("2 entries, 1 draw, 3 other values");
+  });
+
+  it("counts a stage's sample data and finds the first field of it", () => {
+    const before = withOwnEntry();
+    const after = markDummy(before, fakeFill(before));
+    // The plan's: the fee and the court; the stage itself isn't counted.
+    expect(sampleFields(after, "plan")).toEqual({ count: 2, first: ["categories", 0, "externalFeeAmount"] });
+    expect(sampleFields(after, "draw").count).toBe(3);
+    expect(sampleFields(before, "plan")).toEqual({ count: 0, first: null });
   });
 
   it("removes it all, leaving the organiser's own data as it was", () => {

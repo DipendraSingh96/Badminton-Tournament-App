@@ -14,7 +14,7 @@ import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tour
 import { applyLever } from "@/lib/tournament/levers";
 import { courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
 import { fillStage } from "@/lib/tournament/dummy/fill";
-import { dummySummary, liveMarks, ownDataLeft, removeDummy, type SampleStage } from "@/lib/tournament/dummy/marks";
+import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type SampleStage } from "@/lib/tournament/dummy/marks";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
 import {
@@ -61,9 +61,9 @@ const COLUMN = "mx-auto w-full max-w-[960px]";
 const DIVIDER =
   GUTTER.replace("after:bg-transparent", "after:bg-border") +
   " aria-[orientation=horizontal]:after:left-4 aria-[orientation=horizontal]:after:w-[calc(100%-2rem)]";
-/** The workbench, level with the stage row, with an open divider at its left: a line that stops short of the shell's edges. */
+/** The workbench, from the top of the shell, with an open divider at its left: a line that stops 16px short of the shell's edges. */
 const WORKBENCH =
-  "relative mt-16 flex shrink-0 flex-col before:absolute before:top-0 before:bottom-4 before:left-0 before:w-px before:bg-border";
+  "relative flex shrink-0 flex-col pt-4 before:absolute before:top-4 before:bottom-4 before:left-0 before:w-px before:bg-border";
 /** The timeline folded to its bar. */
 const TIMELINE_FOLDED = 40;
 
@@ -330,6 +330,18 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     }
     return PROGRESS_PARTS.map((name) => ({ name, missing: missing.get(name)! }));
   }, [shownParsed]);
+
+  // Items left in each workbench tab, shown beside its name.
+  const tabMissing: Record<Tab, number> = {
+    setup: progress.find((p) => p.name === "Setup")!.missing,
+    schedule: progress.find((p) => p.name === "Schedule")!.missing,
+    finance: progress.find((p) => p.name === "Budget")!.missing,
+  };
+  // The plan's sample data, for the workbench's line about it.
+  const sample = useMemo(() => {
+    const { count, first } = sampleFields(shown, "plan");
+    return { count, first: first ? { path: first, message: "" } : null };
+  }, [shown]);
 
   // Esc discards a preview.
   useEffect(() => {
@@ -653,13 +665,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </aside>
               ) : (
                 <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
-                  {draft.stage !== "plan" ? (
-                    <StageBar
-                      locked={locked}
-                      entries={draft.entries.length}
-                      onReopen={reopenEntries}
-                      onUnlock={unlockDraw}
-                    />
+                  {locked ? (
+                    <div className="px-4 pb-3">
+                      <StageBar onUnlock={unlockDraw} />
+                    </div>
                   ) : null}
                   {preview && parsed.ok ? (
                     <PreviewBar
@@ -670,20 +679,21 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       onDiscard={() => setPreview(null)}
                     />
                   ) : null}
-                  <div className="flex shrink-0 items-start gap-2 px-4 pb-3">
-                    <div className="min-w-0 flex-1">
-                      <Summary
-                        draft={shown}
-                        parsed={shownParsed}
-                        analysis={shownAnalysis}
-                        progress={progress}
-                        warnings={warnings}
-                        onGoTo={goTo}
-                      />
-                    </div>
-                    <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
-                      <XIcon />
-                    </IconButton>
+                  <div className="shrink-0 px-4 pb-3">
+                    <Summary
+                      draft={shown}
+                      parsed={shownParsed}
+                      analysis={shownAnalysis}
+                      progress={progress}
+                      warnings={warnings}
+                      sample={sample}
+                      onGoTo={goTo}
+                      action={
+                        <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
+                          <XIcon />
+                        </IconButton>
+                      }
+                    />
                   </div>
                   <Tabs
                     value={tab}
@@ -694,6 +704,11 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       {TABS.map((t) => (
                         <TabsTrigger key={t.value} value={t.value}>
                           {t.label}
+                          {tabMissing[t.value] > 0 ? (
+                            <span className="font-normal tabular-nums" aria-label={`${tabMissing[t.value]} to fill in`}>
+                              ({tabMissing[t.value]})
+                            </span>
+                          ) : null}
                         </TabsTrigger>
                       ))}
                     </TabsList>
@@ -704,7 +719,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         </ReadOnly>
                       </TabsContent>
                       <TabsContent value="schedule" className="flex flex-col">
-                        <ScheduleTab draft={draft} update={update} locked={locked} />
+                        <ScheduleTab draft={draft} update={update} locked={locked} onReopen={reopenEntries} />
                         <DerivedCards
                           tab="schedule"
                           draft={draft}

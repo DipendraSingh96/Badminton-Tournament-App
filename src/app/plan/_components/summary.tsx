@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { AnalysisResult } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
@@ -49,11 +50,24 @@ export function ProgressSegments({
   );
 }
 
+/** The status in the heading's own words: "Your plan fits", "is tight", "overflows". */
+const HEADING_STATUS: Record<"fits" | "tight" | "over", { words: string; className: string }> = {
+  fits: { words: "fits", className: "text-fits-text" },
+  tight: { words: "is tight", className: "text-tight-text" },
+  over: { words: "overflows", className: "text-over-text" },
+};
+
+const LINK =
+  "inline-flex items-center gap-1 rounded-sm font-semibold text-foreground decoration-primary decoration-[3px] underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring";
+
 /**
- * The top of the workbench: how complete the plan is, then what to fill in
- * next. Once the plan is complete, its fit and one line of results (court
- * time, matches, profit); the full figures are in the Schedule and
- * Budget tabs. Recalculates with every change.
+ * The top of the workbench. A heading that says what to do here ("Set up
+ * your tournament"), or the plan's status once it's complete. While items
+ * are missing, how many and a link to the next one; with sample data in the
+ * plan, how much and a link to the first of it. Then the progress bar and
+ * chip, and under them one line of results (court time, matches, profit);
+ * the full figures are in the Schedule and Budget tabs. Recalculates with
+ * every change.
  */
 export function Summary({
   draft,
@@ -61,8 +75,14 @@ export function Summary({
   analysis,
   progress,
   warnings,
+  sample,
+  action,
   onGoTo,
 }: {
+  /** The sample data in the plan: how many items, and the first of them to jump to. */
+  sample: { count: number; first: PlanIssue | null };
+  /** At the right of the heading: the workbench's hide button. */
+  action?: ReactNode;
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
@@ -80,25 +100,45 @@ export function Summary({
 
   return (
     <section aria-label="Summary" className="flex flex-col gap-2">
+      <div className="flex min-h-8 items-center gap-2">
+        <h2 className="heading-card min-w-0 flex-1">
+          {missing.length > 0 || !status ? (
+            missing.length > 0 ? "Set up your tournament" : "Your plan"
+          ) : (
+            <>
+              Your plan <span className={HEADING_STATUS[status.variant].className}>{HEADING_STATUS[status.variant].words}</span>
+            </>
+          )}
+        </h2>
+        {action}
+      </div>
+      {missing.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
+          <button type="button" className={LINK} onClick={() => onGoTo(missing[0]!)}>
+            {issueSection(draft, missing[0]!)}: {missing[0]!.message}
+            <ArrowDownIcon weight="bold" className="size-3.5 shrink-0" aria-hidden="true" />
+          </button>
+        </p>
+      ) : null}
+      {sample.count > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {sample.count} {sample.count === 1 ? "item" : "items"} using sample data.{" "}
+          {sample.first ? (
+            <button type="button" className={LINK} onClick={() => onGoTo(sample.first!)}>
+              {issueSection(draft, sample.first)}
+              <ArrowDownIcon weight="bold" className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+          ) : null}
+        </p>
+      ) : null}
       <div className="flex min-h-8 items-center gap-3">
         <div className="min-w-0 flex-1">
           <ProgressSegments parts={progress} status={status?.variant ?? null} />
         </div>
         {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
       </div>
-      {missing.length > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-sm font-semibold text-foreground decoration-primary decoration-[3px] underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => onGoTo(missing[0]!)}
-          >
-            {issueSection(draft, missing[0]!)}: {missing[0]!.message}
-            <ArrowDownIcon weight="bold" className="size-3.5 shrink-0" aria-hidden="true" />
-          </button>
-        </p>
-      ) : result ? (
+      {missing.length === 0 && result ? (
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tabular-nums">
           <span>
             {formatMinutesShort(result.capacity.needed.typical)} of {formatMinutesShort(result.capacity.available.courtMinutes)}
