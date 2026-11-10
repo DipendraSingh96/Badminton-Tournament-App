@@ -6,6 +6,7 @@ import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
+import { ScrollHints } from "@/components/ui/scroll-hints";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -60,7 +61,8 @@ const COLUMN = "mx-auto w-full max-w-[960px]";
 /** A gutter that is also a soft divider: a faint line, stronger on hover. */
 const DIVIDER =
   GUTTER.replace("after:bg-transparent", "after:bg-border") +
-  " aria-[orientation=horizontal]:after:left-4 aria-[orientation=horizontal]:after:w-[calc(100%-2rem)]";
+  // The line sits at the gutter's lower edge, flush with the timeline's glass.
+  " aria-[orientation=horizontal]:after:left-4 aria-[orientation=horizontal]:after:w-[calc(100%-2rem)] aria-[orientation=horizontal]:after:top-auto aria-[orientation=horizontal]:after:bottom-0 aria-[orientation=horizontal]:after:translate-y-0";
 /** The workbench, from the top of the shell, with an open divider at its left: a line that stops 16px short of the shell's edges. */
 const WORKBENCH =
   "relative flex shrink-0 flex-col pt-4 before:absolute before:top-4 before:bottom-4 before:left-0 before:w-px before:bg-border";
@@ -842,6 +844,7 @@ export function PlanEditor() {
   }
   return (
     <ConfirmProvider>
+      <ScrollHints />
       <Workspace />
     </ConfirmProvider>
   );

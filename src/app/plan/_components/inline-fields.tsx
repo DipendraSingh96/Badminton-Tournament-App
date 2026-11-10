@@ -62,7 +62,7 @@ export function InlineTime({
         aria-invalid={issue !== undefined || undefined}
         onKeyDown={onKeyDown}
         onChange={(e) => onChange(e.target.value)}
-        className={`${VALUE} [&::-webkit-calendar-picker-indicator]:hidden`}
+        className={`${VALUE} w-[calc(5ch+0.5rem)] text-center [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit]:p-0`}
       />
       <span className="flex flex-col">
         <button type="button" tabIndex={-1} aria-label={`${label} later`} disabled={!later} onClick={() => later && onChange(later)} className={STEP}>
@@ -128,7 +128,7 @@ export function InlineNumber({
             const parsed = raw === "" ? null : Number(raw);
             onChange(parsed === null || Number.isNaN(parsed) ? null : parsed);
           }}
-          className={`${VALUE} field-sizing-content min-w-[3ch] [appearance:textfield] placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+          className={`${VALUE} field-sizing-content min-w-[1ch] text-center [appearance:textfield] placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
         />
         {after ? <span className={value === null ? "text-muted-foreground" : undefined}>{after}</span> : null}
       </span>

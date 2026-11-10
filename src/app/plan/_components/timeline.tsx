@@ -20,6 +20,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type CSSProperties,
 } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -361,6 +362,15 @@ interface ZoneDrag {
   targetHall: string;
 }
 
+/** How far a row fades before it's gone under the timeline's labels or axis, in pixels. */
+const FADE_PX = 8;
+
+/** Hides what has scrolled past an edge (by the scroller's --sx or --sy), fading over the last few pixels. */
+function fade(direction: "to right" | "to bottom", scrolled: "--sx" | "--sy", from = 0): CSSProperties {
+  const mask = `linear-gradient(${direction}, transparent calc(var(${scrolled}, 0px) + ${from}px), black calc(var(${scrolled}, 0px) + ${from + FADE_PX}px))`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
 export function Timeline({
   draft,
   update,
@@ -462,6 +472,19 @@ export function Timeline({
   }, [range.start, range.end, axisWidth]);
 
   const span = Math.max(1, range.end - range.start);
+
+  // How far the rows are scrolled, for the fades under the labels and the axis.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const note = () => {
+      element.style.setProperty("--sx", `${element.scrollLeft}px`);
+      element.style.setProperty("--sy", `${element.scrollTop}px`);
+    };
+    note();
+    element.addEventListener("scroll", note, { passive: true });
+    return () => element.removeEventListener("scroll", note);
+  }, [collapsed]);
 
   // Zoom: the tracks are this many times the visible width, scrolled sideways.
   const labels = useRef<HTMLDivElement>(null);
@@ -987,7 +1010,11 @@ export function Timeline({
       <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className="flex w-max min-w-full pr-4 pb-3">
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
-          <div ref={labels} className="glass-bar sticky left-0 z-40 flex w-29 shrink-0 flex-col pr-3 pl-4" aria-hidden="true">
+          <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col pr-3 pl-4"
+            // Level with the axis (28px) the labels fade out, as their rows do.
+            style={fade("to bottom", "--sy", 28)}
+            aria-hidden="true"
+          >
             <div className="sticky top-0 z-10 h-7" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
@@ -1006,7 +1033,8 @@ export function Timeline({
 
           <div
             className={`relative ${tracksWidth ? "shrink-0" : "min-w-0 flex-1"}`}
-            style={tracksWidth ? { width: tracksWidth } : undefined}
+            // The labels have no fill (the timeline is one sheet of glass): what scrolls under them fades out.
+            style={{ ...(tracksWidth ? { width: tracksWidth } : null), ...fade("to right", "--sx") }}
           >
             {/* The axis is also the seek bar; it stays in view while the rows scroll. */}
             <div
@@ -1027,7 +1055,7 @@ export function Timeline({
               onPointerMove={(e) => {
                 if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFrom(e);
               }}
-              className="glass-bar sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ticks.map((m) => (
                 <span
@@ -1050,6 +1078,8 @@ export function Timeline({
               ) : null}
             </div>
 
+            {/* The rows; they fade out as they scroll up under the axis. */}
+            <div style={fade("to bottom", "--sy")}>
             {draft.frame.halls.map((hall, h) => {
               const open = minutesOfDay(hall.from);
               const close = minutesOfDay(hall.to);
@@ -1319,6 +1349,7 @@ export function Timeline({
                 }
                 onReset={pinnedAt !== null ? () => update((d) => void (d.frame.bufferStart = null)) : undefined}
               />
+            </div>
             </div>
 
             {/* The buffer zone, the worst-case line and the playhead over every lane. */}
