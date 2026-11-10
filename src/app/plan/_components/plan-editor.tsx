@@ -292,6 +292,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     [parsed],
   );
 
+  // How much the plan itself still needs, on its expected numbers: past the Plan stage the
+  // plan is worked out from the real entries, which says nothing about whether planning was finished.
+  const planMissing = useMemo(() => {
+    const asPlanned = draft.stage === "plan" ? parsed : parsePlan({ ...draft, stage: "plan" });
+    return asPlanned.ok ? 0 : asPlanned.issues.length;
+  }, [draft, parsed]);
+
   // What the summary, timeline and venue show: the plan, or the plan with the previewed lever.
   const shown = useMemo(() => (preview ? applyLever(draft, preview) : draft), [draft, preview]);
   const shownParsed = useMemo(() => (preview ? parsePlan(shown) : parsed), [preview, shown, parsed]);
@@ -596,7 +603,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       view={viewing}
       onView={setStageView}
       onAdvance={advance}
-      planMissing={parsed.ok ? 0 : parsed.issues.length}
+      planMissing={planMissing}
       actions={
         // Live runs on the day's real data: no sample data there.
         viewing === "live" ? null : <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
