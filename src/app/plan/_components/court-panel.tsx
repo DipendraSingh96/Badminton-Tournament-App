@@ -67,7 +67,7 @@ function MatchItem({ draft, segment, showCourt }: { draft: PlanDraft; segment: L
   );
   const waiting = notReady(players);
   return (
-    <li className="flex flex-col gap-2 rounded-lg bg-inset p-3">
+    <li className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
       <div className="flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground tabular-nums">
         <span className="truncate">
           {clock(segment.from)}–{clock(segment.to)}

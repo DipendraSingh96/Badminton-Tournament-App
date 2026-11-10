@@ -136,7 +136,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
       </div>
 
       {stale && draw ? (
-        <p className="flex items-start gap-2 rounded-lg bg-inset p-3 text-sm">
+        <p className="flex items-start gap-2 rounded-lg bg-card-system p-3 text-sm">
           <WarningCircleIcon weight="fill" className="mt-0.5 size-4 shrink-0 text-tight-text" aria-hidden="true" />
           The entries or group sizes changed since this draw was made. Make the draw again before locking it.
         </p>
@@ -160,7 +160,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
           ) : null}
           <div className={cn("grid gap-3", knockout ? "grid-cols-1" : "grid-cols-[repeat(auto-fill,240px)]")}>
             {draw.groups.map((group, g) => (
-              <div key={g} className="flex flex-col gap-2 rounded-lg bg-inset p-3">
+              <div key={g} className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
                 <h3 className="text-sm font-semibold">{knockout ? "Seed order" : `Group ${groupLetter(g)}`}</h3>
                 <ol className={cn("flex flex-col gap-1", knockout && "sm:grid sm:grid-cols-2 sm:gap-x-3")}>
                   {group.map((id, p) => {
@@ -203,7 +203,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
           </div>
         </>
       ) : !draw && sizes.ok ? (
-        <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">
+        <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">
           No draw yet. Seeds go first, one per group (top seeds kept apart); everyone else is drawn at random. You can
           swap any two entries afterwards, then lock the draw.
         </p>

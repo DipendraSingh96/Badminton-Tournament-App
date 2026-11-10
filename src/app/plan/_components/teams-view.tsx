@@ -143,7 +143,7 @@ export function TeamsView({
   const at = moment ?? -Infinity;
 
   if (draft.entries.length === 0) {
-    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">No entries yet: add them on the Entries page.</p>;
+    return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">No entries yet: add them on the Entries page.</p>;
   }
 
   return (

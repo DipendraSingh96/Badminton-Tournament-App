@@ -42,11 +42,11 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
   const tiebreaks = draft.rules.tiebreaks;
 
   if (draft.format === "knockout") {
-    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">This category is knockout only: see KO stage.</p>;
+    return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">This category is knockout only: see KO stage.</p>;
   }
   if (!draw) {
     return (
-      <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">
+      <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">
         {format.ok ? "No draw yet: make it on the Draw page." : format.message}
       </p>
     );
@@ -71,14 +71,14 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
           If it ended now
         </label>
       </div>
-      <p className="flex items-start gap-2 rounded-lg bg-inset p-3 text-sm">
+      <p className="flex items-start gap-2 rounded-lg bg-card-system p-3 text-sm">
         <InfoIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         No results yet: tables are in draw order at zero, and everyone is in contention. They fill in as scores arrive in
         Live mode.
       </p>
       <div className="grid grid-cols-[repeat(auto-fill,440px)] gap-4">
         {draw.groups.map((group, g) => (
-          <div key={g} className="flex flex-col gap-2 rounded-lg bg-inset p-3">
+          <div key={g} className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
             <h3 className="text-sm font-semibold">Group {groupLetter(g)}</h3>
             <table className="w-full text-sm tabular-nums">
               <caption className="sr-only">

@@ -93,6 +93,12 @@
   --ring: #F8D15E;
   --surface-inset: #1C4838;
   --card-system: #124030;
+  /* Steps from a surface are their own cool tokens, never the surface mixed with the (warm) text colour. */
+  --surface-inset-hover: #1F4D3C;
+  --field-raised: #1C4838;
+  --field-raised-hover: #1F4D3C;
+  --field-on-inset: #124030;
+  --field-on-inset-hover: #1A4636;
   --card-selected: #0F4A43;
   --dot-color: rgba(239, 232, 209, 0.09);
   --tile: #124030;
@@ -252,10 +258,28 @@
   }
 }
 
-/* A segmented control inside an inset block: its well would match the block,
-   so it takes a step from it (darker in light, lighter in dark). */
+/* What a field, a well or a secondary button is filled with depends on the
+   surface it sits on: the inset colour on the ground, and a step from the
+   surface on a card or an inset block (docs/design-system.md, "Surfaces:
+   warm in Light, cool in Dark"). The steps are tokens of their own. */
+:root {
+  --field: var(--surface-inset);
+  --field-hover: var(--surface-inset-hover);
+}
+.bg-card-system {
+  --field: var(--field-raised);
+  --field-hover: var(--field-raised-hover);
+}
+.bg-inset {
+  --field: var(--field-on-inset);
+  --field-hover: var(--field-on-inset-hover);
+}
+/* A segmented control's well is itself inset: on a card or an inset block it takes that surface's step. */
+.bg-card-system [data-slot="segmented"] {
+  background-color: var(--field-raised);
+}
 .bg-inset [data-slot="segmented"] {
-  background-color: color-mix(in oklch, var(--surface-inset), var(--foreground) 7%);
+  background-color: var(--field-on-inset);
 }
 
 /* A figure that fits its tile: full size when short, smaller when long.
@@ -265,12 +289,11 @@
 }
 
 /* Fields: a subtle box with no visible border, its label shown inside as
-   placeholder. A step stronger on hover; the focus ring on focus. Inside an
-   inset block the box takes a step from it, as segmented wells do. */
+   placeholder. A step stronger on hover; the focus ring on focus. On a card
+   or an inset block the box takes a step from it, as segmented wells do. */
 [data-slot="input"],
 [data-slot="native-select"],
 [data-slot="field-box"] {
-  --field: var(--surface-inset);
   background-color: var(--field);
   border-color: transparent;
 }
@@ -280,11 +303,8 @@
 :is(input, select)[data-empty] {
   color: var(--muted-foreground);
 }
-.bg-inset :is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"]) {
-  --field: color-mix(in oklch, var(--surface-inset), var(--foreground) 7%);
-}
 :is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"]):hover:not(:disabled, :focus-visible, :focus-within) {
-  background-color: color-mix(in oklch, var(--field), var(--foreground) 6%);
+  background-color: var(--field-hover);
 }
 :is([data-slot="input"], [data-slot="native-select"], [data-slot="field-box"])[aria-invalid="true"],
 [data-slot="field-box"]:has([aria-invalid="true"]) {

@@ -162,7 +162,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
   const set = (key: "expectedEntries" | "expectedExternal") => (value: number | null) =>
     update((d) => void (d.categories[index]![key] = value));
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-inset p-3">
+    <div className="flex flex-col gap-3">
       <CategoryHeading draft={draft} category={category} />
       <div className="grid grid-cols-2 gap-x-2 gap-y-3">
         <StepperField
@@ -258,7 +258,7 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
   const path = (key: keyof CategoryDraft) => ["categories", index, key];
   const notice = unusedNotice(category, format);
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-inset p-3">
+    <div className="flex flex-col gap-3">
       <CategoryHeading draft={draft} category={category} />
       <SegmentedField
         label="Groups set by"
@@ -311,7 +311,7 @@ function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
   const category = draft.categories[index]!;
   const notice = unusedNotice(category, draft.format!);
   return (
-    <div className="flex flex-col gap-1 rounded-lg bg-inset px-3 py-2">
+    <div className="flex flex-col gap-1">
       <CategoryHeading draft={draft} category={category} />
       <FormatPreview category={category} unit={draft.unit!} format={draft.format!} />
       {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
@@ -322,7 +322,7 @@ function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
 /** A bronze match switch for each category, inside the bronze card. */
 function BronzeSwitches({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg bg-inset p-3">
+    <div className="flex flex-col gap-2">
       {draft.categories.map((category, i) => (
         <SwitchField
           key={category.id}

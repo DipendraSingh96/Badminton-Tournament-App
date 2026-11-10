@@ -124,7 +124,7 @@ function CategoryEntries({ draft, category, update }: { draft: PlanDraft; catego
       ) : null}
 
       {entries.length === 0 ? (
-        <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">
+        <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">
           No {nouns} yet. Add them one by one, paste rows from a spreadsheet, or import a CSV file.
         </p>
       ) : (
@@ -186,7 +186,7 @@ function ImportPanel({
   const { entries, problems } = entriesFromRows(rows, draft.categories.length === 1 ? [categories[0]!] : categories);
   const noun = entryNoun(draft.unit, category.event, entries.length !== 1);
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-inset p-3">
+    <div className="flex flex-col gap-3 rounded-lg bg-card-system p-3">
       <p className="text-sm">
         {pending.source === "paste" ? "Paste rows from a spreadsheet" : "Rows from the CSV file"}: a heading row with{" "}
         <span className="font-semibold">Category, Name, Player 1, Player 2…, External, Seed</span> (any order, any
@@ -353,7 +353,7 @@ function TeamDetails({
 }) {
   const rubbers = rubbersOf(category);
   return (
-    <div className="mt-2 ml-10 grid grid-cols-1 gap-4 rounded-lg bg-inset p-3 md:grid-cols-2">
+    <div className="mt-2 ml-10 grid grid-cols-1 gap-4 rounded-lg bg-card-system p-3 md:grid-cols-2">
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground">Squad</h3>
         {entry.players.map((player, p) => (

@@ -96,9 +96,9 @@ export function BracketView({ draft, segments }: { draft: PlanDraft; segments: L
 function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segments: LocalSegment[]; category: CategoryDraft }) {
   const format = categoryFormatOf(draft, category);
   if (draft.format === "groups") {
-    return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">Groups only: there&apos;s no knockout. See Group stage.</p>;
+    return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">Groups only: there&apos;s no knockout. See Group stage.</p>;
   }
-  if (!format.ok) return <p className="rounded-lg bg-inset p-4 text-sm text-muted-foreground">{format.message}</p>;
+  if (!format.ok) return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">{format.message}</p>;
   const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
   const final = bracket.rounds.at(-1);
   const earlier = bracket.rounds.slice(0, -1);

@@ -97,7 +97,7 @@ function HallSettings({
   const editBandTime = (i: number, key: "from" | "to") => (value: string) => editHall((h) => setBandTime(h, i, key, value));
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
+    <div className="flex flex-col gap-4 rounded-lg bg-card-system p-4">
       <div>
         <div className="grid grid-cols-[9rem_9rem_minmax(0,13rem)_minmax(0,12rem)] gap-x-2 gap-y-3">
           <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />

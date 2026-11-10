@@ -99,7 +99,7 @@ function Row({
         </span>
         <span className="tabular-nums">{value}</span>
       </summary>
-      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-1 rounded-md bg-inset px-3 py-2 text-xs font-normal tabular-nums">
+      <ul className="mt-1 mb-2 ml-5 flex flex-col gap-1 rounded-md bg-card-system px-3 py-2 text-xs font-normal tabular-nums">
         {working.map((line, i) => (
           <li key={i}>{line}</li>
         ))}
@@ -113,7 +113,7 @@ function Stats({ items }: { items: { label: string; value: string }[] }) {
   return (
     <dl className="grid grid-cols-3 gap-2">
       {items.map((item) => (
-        <div key={item.label} className="@container flex min-w-0 flex-col gap-2 rounded-lg bg-inset px-3 py-2">
+        <div key={item.label} className="@container flex min-w-0 flex-col gap-2 rounded-lg bg-card-system px-3 py-2">
           <dt className="truncate text-xs leading-tight font-semibold text-muted-foreground" title={item.label}>
             {item.label}
           </dt>

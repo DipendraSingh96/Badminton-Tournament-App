@@ -11,10 +11,10 @@ const buttonVariants = cva(
         // secondary button, a soft fill with no border; ghost has no fill until hovered;
         // accent shuttle for the single key action on a screen.
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        outline: "bg-inset text-foreground hover:bg-[color-mix(in_oklch,var(--surface-inset),var(--foreground)_8%)]",
-        secondary: "bg-inset text-secondary-foreground hover:bg-accent aria-expanded:bg-accent",
+        outline: "bg-(--field) text-foreground hover:bg-(--field-hover)",
+        secondary: "bg-(--field) text-secondary-foreground hover:bg-(--field-hover) aria-expanded:bg-(--field-hover)",
         accent: "bg-shuttle text-shuttle-foreground hover:brightness-95",
-        ghost: "text-foreground hover:bg-inset",
+        ghost: "text-foreground hover:bg-(--field)",
         destructive: "bg-over-strong text-destructive-foreground hover:brightness-95 focus-visible:ring-destructive",
         link: "text-primary underline-offset-4 hover:underline",
       },

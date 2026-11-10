@@ -34,7 +34,14 @@
 
   /* Extra surfaces */
   --surface-inset: #E9E5DC;        /* fields, tracks, segmented control wells, nested panels */
-  --card-system: var(--tile);      /* the selected tournament card. Reuses the court tile token */
+  --card-system: #EADFCB;          /* cards and raised blocks: tournament cards, the hall settings panel, workbench blocks */
+  /* Steps from a surface are their own warm tokens, never the surface mixed with the (cool) text colour.
+     Each keeps secondary text at 4.5:1. */
+  --surface-inset-hover: #E2DDD1;  /* a field on the ground, hovered */
+  --field-raised: #E1D6C1;         /* a field or well on a card: one shade darker than the card */
+  --field-raised-hover: #DFD4BE;
+  --field-on-inset: #DFDACE;       /* a field or well on an inset block */
+  --field-on-inset-hover: #DBD6C9;
   --card-selected: #DCE7E4;        /* the selected format option */
   --surface-feature: #0A4A31;      /* the one deep-green block: the summary card */
   --surface-feature-inner: #07241A;
