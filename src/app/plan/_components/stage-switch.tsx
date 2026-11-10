@@ -27,7 +27,10 @@ export function StageSwitch({
   view,
   onView,
   onAdvance,
+  planMissing,
 }: {
+  /** How many items the plan still needs; none means it's complete. */
+  planMissing: number;
   /** The furthest stage reached. */
   stage: TournamentStage;
   /** The stage being looked at. */
@@ -40,10 +43,19 @@ export function StageSwitch({
   return (
     <nav aria-label="Stages" className="flex gap-1 rounded-md bg-inset p-1">
       {STAGES.map((s, i) => {
-        const done = i < reached;
+        // Plan is done once it's complete and the tournament has moved past it.
+        const done = i < reached && (s.value !== "plan" || planMissing === 0);
         const next = i === reached + 1;
-        const blocked = (i > reached && !next) || (next && NOT_YET[s.value] !== undefined);
-        const title = blocked ? (NOT_YET[s.value] ?? `Reach ${STAGES[i - 1]!.label} first.`) : next ? `Move on to ${s.label}` : undefined;
+        // The draw needs a complete plan.
+        const unfinished = next && s.value === "draw" && planMissing > 0;
+        const blocked = (i > reached && !next) || (next && NOT_YET[s.value] !== undefined) || unfinished;
+        const title = unfinished
+          ? `Finish the plan first: ${planMissing} ${planMissing === 1 ? "item" : "items"} to fill in.`
+          : blocked
+            ? (NOT_YET[s.value] ?? `Reach ${STAGES[i - 1]!.label} first.`)
+            : next
+              ? `Move on to ${s.label}`
+              : undefined;
         return (
           <button
             key={s.value}

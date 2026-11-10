@@ -59,8 +59,11 @@ export function StageRow({
   view,
   onView,
   onAdvance,
+  planMissing,
   actions,
 }: {
+  /** How many items the plan still needs. */
+  planMissing: number;
   stage: TournamentStage;
   view: TournamentStage;
   onView: (stage: TournamentStage) => void;
@@ -70,7 +73,7 @@ export function StageRow({
 }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-4">
-      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} />
+      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} planMissing={planMissing} />
       <div className="flex items-center gap-1">{actions}</div>
     </div>
   );

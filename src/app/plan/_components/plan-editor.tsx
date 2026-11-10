@@ -546,6 +546,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       view={viewing}
       onView={setStageView}
       onAdvance={advance}
+      planMissing={parsed.ok ? 0 : parsed.issues.length}
       actions={
         // Live runs on the day's real data: no sample data there.
         viewing === "live" ? null : <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
