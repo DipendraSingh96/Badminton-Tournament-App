@@ -1,10 +1,11 @@
 "use client";
 
 import { PlusIcon } from "@phosphor-icons/react";
+import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import type { CourtGroups } from "@/engine";
 import { courtNumber, emptyHall, type PlanDraft } from "@/lib/tournament/draft";
-import type { GroupOption } from "./court-card";
+import { VenueFixedContext, type GroupOption } from "./court-card";
 import { HallCard } from "./hall-card";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
@@ -24,6 +25,7 @@ export function VenueCanvas({
   /** Each court's groups when groups keep their own courts; null when courts are shared or there's no estimate. */
   courtGroups: Map<string, CourtGroups> | null;
 }) {
+  const fixed = useContext(VenueFixedContext);
   // Every group, with the courts it plays on now, for the courts' group menus.
   const allGroups: GroupOption[] = [];
   if (courtGroups) {
@@ -64,9 +66,11 @@ export function VenueCanvas({
           />
         ))}
       </div>
-      <Button variant="outline" className="self-start" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
-        <PlusIcon /> Add hall
-      </Button>
+      {fixed ? null : (
+        <Button variant="outline" className="self-start" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
+          <PlusIcon /> Add hall
+        </Button>
+      )}
     </section>
   );
 }

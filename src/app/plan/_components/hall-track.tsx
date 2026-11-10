@@ -23,7 +23,10 @@ export function HallTrack({
   detailed = false,
   onSelectBand,
   hoverGuide = false,
+  locked = false,
 }: {
+  /** Shown, not changed. */
+  locked?: boolean;
   draft: PlanDraft;
   hallIndex: number;
   update: Update;
@@ -79,6 +82,7 @@ export function HallTrack({
 
   return (
     <TimeWindowTrack
+      locked={locked}
       name={`${name} hours`}
       window={window}
       unit={unit}

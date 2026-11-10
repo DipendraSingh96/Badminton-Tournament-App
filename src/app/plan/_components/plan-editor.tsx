@@ -28,8 +28,8 @@ import {
   type TournamentIndex,
 } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
-import { COURT_SIZES, CourtSelectionContext, CourtSizeContext, type CourtSize } from "./court-card";
-import { CourtPanel } from "./court-panel";
+import { COURT_SIZES, CourtSelectionContext, CourtSizeContext, VenueFixedContext, type CourtSize } from "./court-card";
+import { DrawPanel, TeamOpenContext, type DrawFocus } from "./draw-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
 import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
@@ -54,7 +54,6 @@ type Tab = "setup" | "schedule" | "finance";
 // them and the venue, a gutter that drags to resize and shows a line on hover.
 const GUTTER =
   "bg-transparent after:bg-transparent hover:after:bg-border focus-visible:after:bg-ring aria-[orientation=vertical]:w-2 aria-[orientation=vertical]:after:w-px aria-[orientation=horizontal]:h-2 aria-[orientation=horizontal]:after:h-px focus-visible:ring-0";
-const CARD = "h-full overflow-hidden rounded-xl border bg-background";
 /** The central column the tournament sits in: at most 960px, centred in the space the workbench leaves. */
 const COLUMN = "mx-auto w-full max-w-[960px]";
 /** A gutter that is also a soft divider: a faint line, stronger on hover. */
@@ -464,8 +463,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // The Draw stage's open page.
   const [drawView, setDrawView] = useState<DrawStageView>("entries");
 
-  // The court shown in the Draw stage's court panel; none shows the call-up list.
-  const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
+  // What the Draw stage's side panel shows: every team, one team, or one court's games.
+  const [drawFocus, setDrawFocus] = useState<DrawFocus>({ kind: "teams" });
 
   // The stage being looked at: any stage reached so far; it opens on the furthest.
   const [stageView, setStageView] = useState<TournamentStage>(draft.stage);
@@ -591,6 +590,11 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     setWorkbenchFolded(folded);
     saveWorkbenchFolded(folded);
   }
+  /** Shows a team or a court in the Draw stage's side panel, opening the panel if it's folded. */
+  function openInPanel(focus: DrawFocus) {
+    setDrawFocus(focus);
+    foldWorkbench(false);
+  }
 
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
@@ -638,6 +642,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           collapsed={timelineFolded}
           onCollapsedChange={foldTimeline}
           onFitHeight={setThinHeight}
+          // After the draw the day is as planned: only games move.
+          fixed={viewing !== "plan"}
         />
         </div>
       </ResizablePanel>
@@ -678,6 +684,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onCollapsedChange={collapseSidebar}
             />
             {/* The working area: the dot matrix runs behind the venue, the timeline and the workbench. */}
+            <TeamOpenContext value={viewing === "plan" ? null : (id) => openInPanel({ kind: "team", id })}>
             <div className="workspace-dots flex min-w-0 flex-1">
             <main className="flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
@@ -699,24 +706,17 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     update={update}
                     locked={locked}
                     segments={segments}
-                    moment={moment}
                     view={drawView}
                     onViewChange={setDrawView}
                     courts={
-                      <CourtSelectionContext value={{ selected: selectedCourt, onSelect: setSelectedCourt }}>
-                        <div className="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
+                      // After the draw the venue is as planned: it's looked at here, not rebuilt.
+                      <VenueFixedContext value>
+                        <CourtSelectionContext
+                          value={{ selected: drawFocus.kind === "court" ? drawFocus.id : null, onSelect: (id) => openInPanel({ kind: "court", id }) }}
+                        >
                           <div className="min-w-0 flex-1">{workingArea}</div>
-                          <div className={cn(CARD, "w-(--pane-right-min) shrink-0")}>
-                            <CourtPanel
-                              draft={shown}
-                              segments={segments}
-                              moment={moment}
-                              courtId={selectedCourt}
-                              onClose={() => setSelectedCourt(null)}
-                            />
-                          </div>
-                        </div>
-                      </CourtSelectionContext>
+                        </CourtSelectionContext>
+                      </VenueFixedContext>
                     }
                   />
                 ) : (
@@ -724,8 +724,31 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 )}
               </div>
             </main>
-            {viewing === "plan" ? (
+            {viewing !== "plan" ? (
+              // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
               workbenchFolded ? (
+                <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
+                  <IconButton label="Show panel" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
+                    <CaretLeftIcon />
+                  </IconButton>
+                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">
+                    {draft.unit === "team" ? "Teams" : "Entries"}
+                  </p>
+                </aside>
+              ) : (
+                <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
+                  <DrawPanel
+                    draft={shown}
+                    update={update}
+                    segments={segments}
+                    moment={moment}
+                    focus={drawFocus}
+                    onFocus={setDrawFocus}
+                    onFold={() => foldWorkbench(true)}
+                  />
+                </aside>
+              )
+            ) : workbenchFolded ? (
                 <aside
                   aria-label="Workbench (hidden)"
                   className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}
@@ -820,9 +843,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     </div>
                   </Tabs>
                 </aside>
-              )
-            ) : null}
+              )}
             </div>
+            </TeamOpenContext>
           </div>
         </CourtSizeContext>
         </IssuesContext>

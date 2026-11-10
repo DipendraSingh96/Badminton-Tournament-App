@@ -6,19 +6,18 @@ import { cn } from "@/lib/utils";
 import { BracketView } from "./bracket-view";
 import { DrawView } from "./draw-view";
 import { EntriesView } from "./entries-view";
-import { GroupsView } from "./groups-view";
 import type { Update } from "./plan-editor";
-import { TeamsView } from "./teams-view";
 import type { LocalSegment } from "./timeline";
 
-export type DrawStageView = "entries" | "draw" | "courts" | "teams" | "groups" | "bracket";
+export type DrawStageView = "entries" | "draw" | "courts" | "bracket";
 
-/** The Draw stage's pages, in order; those not built yet say when they arrive. */
+/**
+ * The Draw stage's pages, in order. Teams are in the side panel; the group
+ * tables (standings) wait for Live, where scores fill them.
+ */
 export const DRAW_VIEWS: { value: DrawStageView; label: string; comingIn?: string }[] = [
   { value: "entries", label: "Entries" },
   { value: "draw", label: "Draw" },
-  { value: "teams", label: "Teams" },
-  { value: "groups", label: "Group stage" },
   { value: "bracket", label: "KO stage" },
   { value: "courts", label: "Schedule" },
 ];
@@ -30,16 +29,14 @@ export function DrawStage({
   locked,
   courts,
   segments,
-  moment,
   view,
   onViewChange,
 }: {
   draft: PlanDraft;
   update: Update;
   locked: boolean;
-  /** The schedule's matches and the timeline's playhead, for the Teams view. */
+  /** The schedule's matches, for the bracket's times and courts. */
   segments: LocalSegment[];
-  moment: number | null;
   /** The Schedule page: the venue and timeline with names, and the court panel. */
   courts: ReactNode;
   /** The page open; kept by the editor so the top bar knows it. */
@@ -49,7 +46,7 @@ export function DrawStage({
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-(--pane-x)">
-      <nav aria-label="Draw views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b bg-background">
+      <nav aria-label="Draw views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b">
         {DRAW_VIEWS.map((v) => (
           <button
             key={v.value}
@@ -82,8 +79,6 @@ export function DrawStage({
           <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pb-4 pt-4">
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
-            {view === "teams" ? <TeamsView draft={draft} update={update} segments={segments} moment={moment} /> : null}
-            {view === "groups" ? <GroupsView draft={draft} /> : null}
             {view === "bracket" ? <BracketView draft={draft} segments={segments} /> : null}
           </div>
         </div>

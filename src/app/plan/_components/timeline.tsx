@@ -46,7 +46,7 @@ import {
   shiftZone,
   type PlanDraft,
 } from "@/lib/tournament/draft";
-import { sideName, sidePlayers } from "@/lib/tournament/entries";
+import { entryForSlot, sideName, sidePlayers } from "@/lib/tournament/entries";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { GRID_MINUTES } from "@/lib/tournament/snap";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
@@ -216,6 +216,9 @@ export interface CourtFace {
   /** Who plays at each end once the draw and line-ups say: shown in the halves instead of the slot. */
   homePlayers: string[];
   awayPlayers: string[];
+  /** The entry at each end once the draw places one there, to open it from its name. */
+  homeEntryId: string | null;
+  awayEntryId: string | null;
 }
 
 export type CourtStatus =
@@ -261,6 +264,8 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
             awayLabel: sideName(draft, m.categoryId, m.away) ?? (group ? `${noun} ${m.away}` : noun),
             homePlayers: playerNames(draft, m.categoryId, m.home, m.rubber?.number),
             awayPlayers: playerNames(draft, m.categoryId, m.away, m.rubber?.number),
+            homeEntryId: entryForSlot(draft, m.categoryId, m.home)?.id ?? null,
+            awayEntryId: entryForSlot(draft, m.categoryId, m.away)?.id ?? null,
           },
         });
       } else {
@@ -355,6 +360,9 @@ interface PillDrag {
   y: number;
   target: { courtId: string; before: string | null } | null;
   refusal: string | null;
+  /** The game's size on screen, for its ghost and the gap that opens for it. */
+  width: number;
+  height: number;
 }
 
 /** A zone being dragged: along its hall's timeline, or onto another hall. */
@@ -389,6 +397,7 @@ export function Timeline({
   collapsed = false,
   onCollapsedChange,
   onFitHeight,
+  fixed = false,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -405,6 +414,11 @@ export function Timeline({
   /** Folded to its title row, so the venue has the room. */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  /**
+   * The day is as planned (the Draw stage): hall hours, rate bands, stage zones, court hours and
+   * the buffer are shown but can't be changed. Games can still be dragged to another place.
+   */
+  fixed?: boolean;
   /** Thin rows: the height the timeline needs to show them all, for its panel to shrink to; null when the rows are full again. */
   onFitHeight?: (height: number | null) => void;
 }) {
@@ -495,6 +509,8 @@ export function Timeline({
 
   // Zoom: the tracks are this many times the visible width, scrolled sideways.
   const labels = useRef<HTMLDivElement>(null);
+  /** Changes to the day's structure; none where it's fixed. */
+  const edit: Update = fixed ? () => {} : update;
   const [zoom, setZoom] = useState(1);
   // One step out from the whole day: every row a thin bar, so the timeline takes little height
   // and the whole day stays in view over more of the venue.
@@ -897,7 +913,7 @@ export function Timeline({
 
   const playButton = (
     <Button
-      variant="outline"
+      variant="ghost"
       size="sm"
       aria-pressed={playing}
       disabled={!hasHours}
@@ -923,7 +939,7 @@ export function Timeline({
       <section aria-label="Timeline" className="glass flex h-full items-center gap-3 px-4">
         <h2 className="heading-card text-xl">Timeline</h2>
         {playButton}
-        <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
+        <span className="font-display text-xl leading-none font-bold tabular-nums">{clock(Math.round(now))}</span>
         <div className="relative flex min-w-0 flex-1 items-center">
           <input
             type="range"
@@ -970,7 +986,7 @@ export function Timeline({
             </InfoTip>
           </h2>
           {playButton}
-          <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
+          <span className="font-display text-xl leading-none font-bold tabular-nums">{clock(Math.round(now))}</span>
         </span>
         <span className="flex items-center gap-2">
           {anyMoves ? (
@@ -1144,7 +1160,7 @@ export function Timeline({
               const dropHere = zoneDrag && zoneDrag.targetHall === hall.id && zoneDrag.row.hallId !== hall.id;
               return (
                 <div key={hall.id} role="group" aria-label={hallName(hall, h)} className={hallGroup}>
-                  <HallTrack draft={draft} hallIndex={h} update={update} className={hallRow} />
+                  <HallTrack draft={draft} hallIndex={h} update={edit} locked={fixed} className={hallRow} />
 
                   {schedule ? (
                     <div
@@ -1161,10 +1177,11 @@ export function Timeline({
                         return (
                           <span
                             key={z.key}
-                            role="button"
-                            tabIndex={0}
+                            role={fixed ? undefined : "button"}
+                            tabIndex={fixed ? -1 : 0}
+                            data-fixed={fixed || undefined}
                             aria-label={`${z.label}, ${clock(z.window.from)}–${clock(z.window.to)}${z.moved ? ", moved" : ""}. Drag along the timeline to leave free time, or onto another hall.`}
-                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-2 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${ZONE_SHADING[z.zone]} ${
+                            className={`absolute inset-y-0 flex cursor-grab items-center gap-1 truncate rounded-sm px-2 text-xs font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing data-fixed:pointer-events-none ${ZONE_SHADING[z.zone]} ${
                               z.earliest !== null || z.late > 0 ? "text-over-text ring-1 ring-destructive" : ""
                             } ${dragging && dragging.targetHall !== hall.id ? "opacity-40" : ""}`}
                             style={{ left: pct(from), width: width(from, to) }}
@@ -1236,11 +1253,16 @@ export function Timeline({
                     const narrowed = court.from !== null || court.to !== null;
                     const courtLabel = `Court ${courtNumber(draft.frame.halls, h, c)}`;
                     const target = pillDrag?.target?.courtId === court.id;
+                    // Where the gap for a dragged game opens on this court: the start of the game it lands before.
+                    const gapFrom =
+                      target && pillDrag!.target!.before
+                        ? ((byCourt.get(court.id) ?? []).find((x) => x.id === pillDrag!.target!.before)?.from ?? null)
+                        : null;
                     const allowed =
                       pillDrag &&
                       (pillDrag.segment.stage === "group" ? hall.id === pillDrag.hallId : Boolean(zoneFor(hall.id, pillDrag.segment.stage)));
                     const setCourt = (w: { from: number; to: number }) =>
-                      update((d) => {
+                      edit((d) => {
                         const courtDraft = d.frame.halls[h]!.courts[c]!;
                         const follows = w.from === open && w.to === close;
                         courtDraft.from = follows ? null : clock(w.from);
@@ -1253,6 +1275,7 @@ export function Timeline({
                         className={`rounded-sm transition-opacity ${pillDrag && !allowed ? "opacity-40" : ""} ${target ? "ring-1 ring-foreground/60" : ""}`}
                       >
                         <TimeWindowTrack
+                          locked={fixed}
                           name={courtLabel}
                           window={hallBounds && from !== null && to !== null && to > from ? { from, to } : null}
                           unit={hall.unitMinutes}
@@ -1264,7 +1287,7 @@ export function Timeline({
                           onReset={
                             narrowed
                               ? () =>
-                                  update((d) => {
+                                  edit((d) => {
                                     const courtDraft = d.frame.halls[h]!.courts[c]!;
                                     courtDraft.from = null;
                                     courtDraft.to = null;
@@ -1295,6 +1318,21 @@ export function Timeline({
                                   style={{ left: pct(z.window.from), width: width(z.window.from, z.window.to) }}
                                 />
                               ))}
+                              {/* Where a dragged game would land: its ghost, in the gap the games after it open. */}
+                              {target && pillDrag
+                                ? (() => {
+                                    const own = (byCourt.get(court.id) ?? []).filter((x) => x.id !== pillDrag.segment.id);
+                                    const before = own.find((x) => x.id === pillDrag.target!.before);
+                                    const at = before ? before.from : Math.max(...own.map((x) => x.to), zoneFor(hall.id, pillDrag.segment.stage)?.window.from ?? range.start);
+                                    return (
+                                      <span
+                                        aria-hidden="true"
+                                        className={`pointer-events-none absolute ${thin ? "inset-y-0" : "inset-y-0.5"} rounded-[3px] border-2 border-dashed border-primary bg-primary/20`}
+                                        style={{ left: pct(at), width: pillDrag.width }}
+                                      />
+                                    );
+                                  })()
+                                : null}
                               {(byCourt.get(court.id) ?? []).map((s, i, own) => (
                                   <span
                                     key={s.id}
@@ -1310,8 +1348,16 @@ export function Timeline({
                                       s.late ? "ring-2 ring-tl-worst" : "ring-1 ring-tl-outline"
                                     } ${
                                       pillDrag?.segment.id === s.id ? "opacity-30" : ""
-                                    }`}
-                                    style={{ left: pct(s.from), width: width(s.from, s.to) }}
+                                    } transition-transform duration-150 motion-reduce:transition-none`}
+                                    style={{
+                                      left: pct(s.from),
+                                      width: width(s.from, s.to),
+                                      // The games from the drop point on slide along to open the gap.
+                                      transform:
+                                        target && pillDrag && s.id !== pillDrag.segment.id && gapFrom !== null && s.from >= gapFrom
+                                          ? `translateX(${pillDrag.width}px)`
+                                          : undefined,
+                                    }}
                                     onPointerDown={(e) => {
                                       if (e.button !== 0) return;
                                       e.currentTarget.setPointerCapture(e.pointerId);
@@ -1323,6 +1369,8 @@ export function Timeline({
                                         startY: e.clientY,
                                         x: e.clientX,
                                         y: e.clientY,
+                                        width: e.currentTarget.getBoundingClientRect().width,
+                                        height: e.currentTarget.getBoundingClientRect().height,
                                         target: null,
                                         refusal: null,
                                       });
@@ -1374,6 +1422,7 @@ export function Timeline({
 
             <div className={thin ? "mt-2" : "mt-3"}>
               <TimeWindowTrack
+                locked={fixed}
                 name="Buffer"
                 mode="buffer"
                 window={bufferWindow}
@@ -1392,18 +1441,18 @@ export function Timeline({
                     : undefined
                 }
                 onChange={(w) =>
-                  update((d) => {
+                  edit((d) => {
                     d.frame.bufferStart = clock(w.from);
                     d.frame.bufferMinutes = w.to - w.from;
                   })
                 }
                 onDelete={() =>
-                  update((d) => {
+                  edit((d) => {
                     d.frame.bufferStart = null;
                     d.frame.bufferMinutes = 0;
                   })
                 }
-                onReset={pinnedAt !== null ? () => update((d) => void (d.frame.bufferStart = null)) : undefined}
+                onReset={pinnedAt !== null ? () => edit((d) => void (d.frame.bufferStart = null)) : undefined}
               />
             </div>
             </div>
@@ -1482,7 +1531,7 @@ export function Timeline({
           ) : null}
           {segments.length > 0 ? (
             <span className={thin ? "hidden" : "basis-full"}>
-              Drag a match or zone to move it · Arrow keys go between matches · Alt and the arrows move the focused one
+              {fixed ? "Drag a game to move it" : "Drag a match or zone to move it"} · Arrow keys go between matches · Alt and the arrows move the focused one
               · H or double-click puts it back · Ctrl or Cmd and scroll to zoom
             </span>
           ) : null}
@@ -1494,10 +1543,11 @@ export function Timeline({
         {pillDrag ? (
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed z-50 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-sm ring-2 ${
-              pillDrag.target ? "ring-foreground" : "ring-destructive"
+            // The game in hand, at its own size, outlined in the accent (red where it can't be dropped).
+            className={`pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 rounded-[3px] ring-2 ${
+              pillDrag.target || !pillDrag.refusal ? "ring-primary" : "ring-destructive"
             } ${STAGE_COLOURS[pillDrag.segment.stage]}`}
-            style={{ left: pillDrag.x, top: pillDrag.y }}
+            style={{ left: pillDrag.x, top: pillDrag.y, width: pillDrag.width, height: pillDrag.height }}
           />
         ) : null}
         {pillDrag?.refusal ? (

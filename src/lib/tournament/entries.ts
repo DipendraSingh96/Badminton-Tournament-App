@@ -169,3 +169,18 @@ export function drawStale(draft: PlanDraft, category: CategoryDraft): boolean {
     ids.some((id) => !placed.includes(id))
   );
 }
+
+/** Swaps two entries' places in their category's draw (in place); nothing happens if either isn't drawn or the draw is locked. */
+export function swapDrawn(draft: PlanDraft, categoryId: string, first: string, second: string): void {
+  const draw = draft.draw[categoryId];
+  if (!draw || draw.locked || first === second) return;
+  const at = (id: string) => {
+    const g = draw.groups.findIndex((list) => list.includes(id));
+    return g === -1 ? null : ([g, draw.groups[g]!.indexOf(id)] as const);
+  };
+  const a = at(first);
+  const b = at(second);
+  if (!a || !b) return;
+  draw.groups[a[0]]![a[1]] = second;
+  draw.groups[b[0]]![b[1]] = first;
+}

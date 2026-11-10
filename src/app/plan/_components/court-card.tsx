@@ -17,6 +17,7 @@ import {
   type UmpireSpot,
 } from "@/lib/tournament/draft";
 import { pathKey } from "./fields";
+import { TeamName } from "./draw-panel";
 import type { Update } from "./plan-editor";
 import type { CourtStatus } from "./timeline";
 
@@ -51,7 +52,10 @@ function CourtTime({
   path,
   onChange,
   className = "",
+  fixed = false,
 }: {
+  /** Shown, not changed. */
+  fixed?: boolean;
   hall: HallDraft;
   court: CourtDraft;
   which: "from" | "to";
@@ -70,6 +74,7 @@ function CourtTime({
     event.preventDefault();
     if (next) onChange(next);
   }
+  if (fixed) return <span className={`px-1 text-xs font-medium tabular-nums ${className}`}>{value || "--:--"}</span>;
   return (
     <span className={`flex items-center gap-1 ${className}`} data-path={pathKey(path)}>
       <span
@@ -136,6 +141,13 @@ function groupText(groups: CourtGroups): string {
 function shortNet(text: string): string {
   return text.split(" · ")[0]!.replace(/^Wave /, "W");
 }
+
+/**
+ * The venue as planned, to look at rather than rebuild (the Draw stage's
+ * Schedule page): halls, hours, courts and umpires can't be changed, added or
+ * removed. A court's groups still can.
+ */
+export const VenueFixedContext = createContext(false);
 
 /** Picking a court to show in a side panel (the Draw and Live stages); absent while planning. */
 export const CourtSelectionContext = createContext<{ selected: string | null; onSelect: (courtId: string) => void } | null>(
@@ -219,7 +231,18 @@ function GroupMenu({
 }
 
 /** A side in its half of the court: who plays once known, otherwise its draw slot, large. */
-function Half({ code, players, size = "large" }: { code: string | null; players: string[]; size?: CourtSize }) {
+function Half({
+  code,
+  players,
+  entryId = null,
+  size = "large",
+}: {
+  code: string | null;
+  players: string[];
+  /** The entry playing here, opened from its names where there's a side panel. */
+  entryId?: string | null;
+  size?: CourtSize;
+}) {
   const slot = size === "large" ? (code && code.length > 4 ? "text-lg" : "text-[28px]") : size === "medium" ? "text-xl" : "text-sm";
   return (
     <div
@@ -228,13 +251,13 @@ function Half({ code, players, size = "large" }: { code: string | null; players:
       }`}
     >
       {players.length > 0 ? (
-        <span className="flex max-w-full flex-col gap-1 text-xs leading-tight font-semibold">
+        <TeamName entryId={entryId} className="flex max-w-full flex-col gap-1 text-center text-xs leading-tight font-semibold">
           {players.map((name) => (
-            <span key={name} className="truncate" title={name}>
+            <span key={name} className="block max-w-full truncate" title={name}>
               {name}
             </span>
           ))}
-        </span>
+        </TeamName>
       ) : code ? (
         <span
           className={`max-w-full truncate font-display leading-none font-bold text-balance uppercase ${slot}`}
@@ -306,6 +329,7 @@ export function CourtCard({
   const descriptionId = `court-${court.id}-about`;
   const selection = useContext(CourtSelectionContext);
   const selected = selection?.selected === court.id;
+  const fixed = useContext(VenueFixedContext);
   const venueSize = useContext(CourtSizeContext).size;
   const size = sizeProp ?? venueSize;
   const medium = size === "medium";
@@ -419,6 +443,7 @@ export function CourtCard({
 
       {/* Surround, top: copy and delete, with the court's groups (or a missing count) between. */}
       <div className="mx-1 flex h-8 items-center justify-between gap-1">
+        {fixed ? <span className="size-6 shrink-0" aria-hidden="true" /> : (
         <button
           type="button"
           aria-label={`Copy court ${courtIndex} into court ${number}`}
@@ -439,6 +464,7 @@ export function CourtCard({
         >
           <CopyIcon />
         </button>
+        )}
         {groups ? (
           <GroupMenu
             number={number}
@@ -451,6 +477,7 @@ export function CourtCard({
             {court.umpires === null ? "Umpires not set" : null}
           </span>
         )}
+        {fixed ? <span className="size-6 shrink-0" aria-hidden="true" /> : (
         <button
           type="button"
           aria-label={`Delete court ${number}`}
@@ -461,6 +488,7 @@ export function CourtCard({
         >
           <TrashIcon />
         </button>
+        )}
       </div>
 
       {/* The court: outer lines, tramlines, the net band in the middle. */}
@@ -487,7 +515,7 @@ export function CourtCard({
         <div className="relative flex flex-1 flex-col">
           {medium ? null : <CentreLine />}
           {medium ? null : <NameBand edge="top" text={face?.homeLabel ?? null} />}
-          <Half size={size} code={face?.home ?? null} players={face?.homePlayers ?? []} />
+          <Half size={size} code={face?.home ?? null} players={face?.homePlayers ?? []} entryId={face?.homeEntryId} />
         </div>
         {/* The net band: one line above the net, an equal space below, so the net stays mid-court. */}
         <div className={`relative z-10 flex flex-col ${medium ? "" : "border-y border-white/50"}`}>
@@ -499,12 +527,22 @@ export function CourtCard({
         </div>
         <div className="relative flex flex-1 flex-col">
           {medium ? null : <CentreLine />}
-          <Half size={size} code={face?.away ?? null} players={face?.awayPlayers ?? []} />
+          <Half size={size} code={face?.away ?? null} players={face?.awayPlayers ?? []} entryId={face?.awayEntryId} />
           {medium ? null : <NameBand edge="bottom" text={face?.awayLabel ?? null} />}
         </div>
 
         {UMPIRE_SPOTS.map((spot) => {
           const on = spots.includes(spot);
+          if (fixed) {
+            // Shown where they stand; the venue isn't changed here.
+            return on ? (
+              <span
+                key={spot}
+                aria-hidden="true"
+                className={`absolute z-20 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-umpire ring-2 ring-umpire ${SPOTS[spot].className}`}
+              />
+            ) : null;
+          }
           return (
             <button
               key={spot}
@@ -534,6 +572,7 @@ export function CourtCard({
           which="from"
           label={`Court ${number} starts`}
           className="-ml-1"
+          fixed={fixed}
           path={path("from")}
           onChange={(v) => edit((c) => setCourtTime(hall, c, "from", v))}
         />
@@ -546,6 +585,7 @@ export function CourtCard({
           which="to"
           label={`Court ${number} ends`}
           className="-mr-1"
+          fixed={fixed}
           path={path("to")}
           onChange={(v) => edit((c) => setCourtTime(hall, c, "to", v))}
         />

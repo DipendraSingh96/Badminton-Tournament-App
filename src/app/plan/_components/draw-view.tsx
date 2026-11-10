@@ -1,14 +1,15 @@
 "use client";
 
 import { ArrowsLeftRightIcon, LockSimpleIcon, LockSimpleOpenIcon, ShuffleIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { groupLetter, makeDraw } from "@/engine";
 import { entryName, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
-import { drawSizes, drawStale, lineUpComplete } from "@/lib/tournament/entries";
+import { drawSizes, drawStale, lineUpComplete, swapDrawn } from "@/lib/tournament/entries";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
+import { TeamOpenContext } from "./draw-panel";
 import { categoryName, entryNoun } from "./labels";
 import type { Update } from "./plan-editor";
 
@@ -19,8 +20,9 @@ function newRandomSeed(): number {
 
 /**
  * The Draw stage's Draw view: make each category's draw (seeds spread across
- * the groups, the rest at random), swap any two entries by hand, redraw, and
- * lock it when it's final.
+ * the groups, the rest at random), swap any two entries by dragging one onto
+ * the other, redraw, and lock it when it's final. A click on an entry opens
+ * it in the side panel (where it can also be swapped, without a pointer).
  */
 export function DrawView({ draft, update }: { draft: PlanDraft; update: Update }) {
   const [categoryId, setCategoryId] = useState<string | null>(draft.categories[0]?.id ?? null);
@@ -47,14 +49,10 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
   const entries = draft.entries.filter((e) => e.categoryId === category.id);
   const byId = new Map(entries.map((e) => [e.id, e]));
   const incomplete = entries.filter((e) => !lineUpComplete(draft, e, category)).length;
-  // The first entry picked for a swap; picking a second swaps them.
-  const [picked, setPicked] = useState<string | null>(null);
-  useEffect(() => {
-    if (!picked) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setPicked(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [picked]);
+  // Dragging an entry onto another swaps the two: the one held, and the one it's over.
+  const [held, setHeld] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const openTeam = useContext(TeamOpenContext);
 
   function makeIt(seed: number) {
     if (!sizes.ok) return;
@@ -64,26 +62,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
       seed,
     );
     if (!result.ok) return;
-    setPicked(null);
     update((d) => void (d.draw[category.id] = { groups: result.groups, randomSeed: seed, locked: false }));
-  }
-
-  function pick(id: string) {
-    if (!picked) return setPicked(id);
-    if (picked === id) return setPicked(null);
-    const first = picked;
-    setPicked(null);
-    update((d) => {
-      const groups = d.draw[category.id]!.groups;
-      const at = (target: string) => {
-        const g = groups.findIndex((list) => list.includes(target));
-        return [g, groups[g]!.indexOf(target)] as const;
-      };
-      const [g1, p1] = at(first);
-      const [g2, p2] = at(id);
-      groups[g1]![p1] = id;
-      groups[g2]![p2] = first;
-    });
   }
 
   const status = draw?.locked ? (
@@ -153,12 +132,10 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
           {!draw.locked ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <ArrowsLeftRightIcon className="size-4 shrink-0" aria-hidden="true" />
-              {picked
-                ? `Now choose who to swap ${entryName(byId.get(picked)!) ?? "this entry"} with (Esc to cancel).`
-                : "To swap two entries, choose one, then the other."}
+              Drag an entry onto another to swap them.
             </p>
           ) : null}
-          <div className={cn("grid gap-3", knockout ? "grid-cols-1" : "grid-cols-[repeat(auto-fill,240px)]")}>
+          <div className={cn("grid gap-3", knockout ? "grid-cols-1" : "grid-cols-[repeat(auto-fit,minmax(160px,1fr))]")}>
             {draw.groups.map((group, g) => (
               <div key={g} className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
                 <h3 className="text-sm font-semibold">{knockout ? "Seed order" : `Group ${groupLetter(g)}`}</h3>
@@ -169,31 +146,59 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
                     const name = (entry && entryName(entry)) ?? "Unnamed entry";
                     return (
                       <li key={id}>
-                        <button
-                          type="button"
-                          disabled={draw.locked}
-                          aria-pressed={picked === id}
-                          aria-label={`${slot}: ${name}${entry?.seed ? `, seed ${entry.seed}` : ""}${draw.locked ? "" : picked ? ". Swap here" : ". Choose to swap"}`}
-                          onClick={() => pick(id)}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          draggable={!draw.locked}
+                          title={`${slot} · ${name}${entry?.seed ? ` · seed ${entry.seed}` : ""}${entry?.external ? " · external" : ""}`}
+                          aria-label={`${slot}: ${name}${entry?.seed ? `, seed ${entry.seed}` : ""}. Open${draw.locked ? "" : "; drag onto another entry to swap"}`}
+                          onClick={() => openTeam?.(id)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            openTeam?.(id);
+                          }}
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", id);
+                            setHeld(id);
+                          }}
+                          onDragEnd={() => {
+                            setHeld(null);
+                            setOver(null);
+                          }}
+                          onDragOver={(event) => {
+                            if (!held || held === id) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            if (over !== id) setOver(id);
+                          }}
+                          onDragLeave={() => over === id && setOver(null)}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            const from = held;
+                            setHeld(null);
+                            setOver(null);
+                            if (from && from !== id) update((d) => swapDrawn(d, category.id, from, id));
+                          }}
                           className={cn(
-                            "flex h-8 w-full items-center gap-2 rounded-md border bg-card px-2 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-                            picked === id ? "border-primary ring-1 ring-primary" : "border-transparent hover:border-border",
+                            "flex h-8 w-full items-center gap-2 rounded-md border bg-card px-2 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            draw.locked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
+                            held === id
+                              ? "border-primary ring-1 ring-primary"
+                              : over === id
+                                ? "border-dashed border-primary bg-card-selected"
+                                : "border-transparent hover:border-border",
                           )}
                         >
-                          <span className="w-8 shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{slot}</span>
+                          <span className="w-6 shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{slot}</span>
                           <span className="min-w-0 flex-1 truncate">{name}</span>
                           {/* Seeds as draw sheets show them: the number in brackets after the name. */}
                           {entry?.seed ? (
-                            <span title={`Seed ${entry.seed}`} className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">
-                              ({entry.seed})
-                            </span>
+                            <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">({entry.seed})</span>
                           ) : null}
-                          {entry?.external ? (
-                            <Badge variant="outline" title="External entry">
-                              Ext
-                            </Badge>
-                          ) : null}
-                        </button>
+                          {entry?.external ? <Badge variant="outline">Ext</Badge> : null}
+                        </div>
                       </li>
                     );
                   })}

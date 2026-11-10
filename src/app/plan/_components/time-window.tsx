@@ -75,7 +75,10 @@ export function TimeWindowTrack({
   windowClassName,
   hoverGuide = false,
   passThrough = false,
+  locked = false,
 }: {
+  /** Shown, not changed: the track takes no pointer (what's drawn over it still can). */
+  locked?: boolean;
   /** e.g. "Main hall hours", "Court 3", "Buffer"; used in labels. */
   name: string;
   window: Window | null;
@@ -207,7 +210,7 @@ export function TimeWindowTrack({
   return (
     <div
       ref={track}
-      className={cn("group/track relative touch-none select-none", passThrough && "pointer-events-none", className)}
+      className={cn("group/track relative touch-none select-none", (passThrough || locked) && "pointer-events-none", className)}
       onPointerDown={!window && onDraw ? (e) => begin(e, "draw") : undefined}
       onPointerMove={(e) => {
         if (hoverGuide && !window && !drag.current) setHover(snapToGrid(minuteAt(e.clientX)));

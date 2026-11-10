@@ -4,10 +4,11 @@ import { TrophyIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { knockoutBracket, type KnockoutMatch } from "@/engine";
 import { courtNumber, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
-import { categoryFormatOf, sideName } from "@/lib/tournament/entries";
+import { categoryFormatOf, entryForSlot, sideName } from "@/lib/tournament/entries";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
+import { TeamName } from "./draw-panel";
 import { categoryName } from "./labels";
 import type { LocalSegment } from "./timeline";
 
@@ -68,7 +69,7 @@ function MatchBox({
       </div>
       {[match.home, match.away].map((slot, i) => (
         <div key={i} className={cn("truncate px-3 py-2", i === 0 && "border-b border-border/60")} title={side(slot)}>
-          {side(slot)}
+          <TeamName entryId={entryForSlot(draft, category.id, slot)?.id}>{side(slot)}</TeamName>
         </div>
       ))}
     </div>

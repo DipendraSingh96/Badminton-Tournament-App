@@ -15,6 +15,7 @@ import {
   rubbersOf,
   sideName,
   sidePlayers,
+  swapDrawn,
 } from "./entries";
 import { parsePlan } from "./schema";
 import { normaliseDraft } from "./storage";
@@ -224,5 +225,33 @@ describe("the draw's places", () => {
     const draft = drawn();
     draft.entries = draft.entries.slice(0, 1);
     expect(drawSizes(draft, draft.categories[0]!)).toEqual({ ok: false, message: "Add at least 2 entries first." });
+  });
+});
+
+describe("swapDrawn", () => {
+  function drawn(): PlanDraft {
+    const draft = completeDraft();
+    const id = draft.categories[0]!.id;
+    draft.draw[id] = { groups: [["a", "b"], ["c", "d"]], randomSeed: 1, locked: false };
+    return draft;
+  }
+
+  it("swaps two entries, within a group or across groups", () => {
+    const draft = drawn();
+    const id = draft.categories[0]!.id;
+    swapDrawn(draft, id, "a", "d");
+    expect(draft.draw[id]!.groups).toEqual([["d", "b"], ["c", "a"]]);
+    swapDrawn(draft, id, "d", "b");
+    expect(draft.draw[id]!.groups).toEqual([["b", "d"], ["c", "a"]]);
+  });
+
+  it("leaves a locked draw, and entries that aren't drawn, alone", () => {
+    const draft = drawn();
+    const id = draft.categories[0]!.id;
+    swapDrawn(draft, id, "a", "nobody");
+    expect(draft.draw[id]!.groups).toEqual([["a", "b"], ["c", "d"]]);
+    draft.draw[id]!.locked = true;
+    swapDrawn(draft, id, "a", "d");
+    expect(draft.draw[id]!.groups).toEqual([["a", "b"], ["c", "d"]]);
   });
 });

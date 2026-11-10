@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  FlipHorizontalIcon,
+  ArrowsLeftRightIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   CaretDownIcon,
@@ -37,7 +37,7 @@ import {
 } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { BandTrack } from "./hall-track";
-import { COURT_SIZES, COURT_WIDTH, CourtCard, CourtSizeContext, type GroupOption } from "./court-card";
+import { COURT_SIZES, COURT_WIDTH, CourtCard, CourtSizeContext, VenueFixedContext, type GroupOption } from "./court-card";
 import { CourtStrip } from "./court-strip";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
@@ -294,6 +294,7 @@ export function HallCard({
   // The courts' size is one setting for the whole venue; every hall's line can change it.
   const { size, setSize } = useContext(CourtSizeContext);
   const sizeStep = COURT_SIZES.indexOf(size);
+  const fixed = useContext(VenueFixedContext);
   const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
   const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
   const setHours = (key: "from" | "to") => (value: string) =>
@@ -328,8 +329,52 @@ export function HallCard({
     });
   }
 
+  const zoom = (
+            <span className="flex items-center">
+              <IconButton
+                label="Smaller courts, to see more halls"
+                disabled={sizeStep === 0}
+                onClick={() => setSize(COURT_SIZES[sizeStep - 1]!)}
+              >
+                <MagnifyingGlassMinusIcon />
+              </IconButton>
+              <IconButton
+                label="Larger courts, with more detail"
+                disabled={sizeStep === COURT_SIZES.length - 1}
+                onClick={() => setSize(COURT_SIZES[sizeStep + 1]!)}
+              >
+                <MagnifyingGlassPlusIcon />
+              </IconButton>
+            </span>
+  );
+  const rate = hall.bands[0]?.rate;
+  // What the hall's line says where the venue is fixed: the same values, as text.
+  const facts: [string, string][] = [
+    ["Opens", hall.from || "--:--"],
+    ["Closes", hall.to || "--:--"],
+    ["Time unit", hall.unitMinutes ? `${hall.unitMinutes} min` : "–"],
+    ["Rate", hall.multipleRates ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}` : rate != null ? `£ ${rate}` : "–"],
+  ];
+
   return (
     <section className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
+      {fixed ? (
+        <header className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+            <h3 className="heading-card py-1">{name}</h3>
+            {facts.map(([label, value]) => (
+              <span key={label} className="flex items-center gap-1 text-sm tabular-nums">
+                <span className="text-muted-foreground">{label}</span>
+                {value}
+              </span>
+            ))}
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {hall.courts.length} {hall.courts.length === 1 ? "court" : "courts"}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">{zoom}</div>
+        </header>
+      ) : (
       <header className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1">
           <input
@@ -405,22 +450,7 @@ export function HallCard({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-            <span className="flex items-center">
-              <IconButton
-                label="Smaller courts, to see more halls"
-                disabled={sizeStep === 0}
-                onClick={() => setSize(COURT_SIZES[sizeStep - 1]!)}
-              >
-                <MagnifyingGlassMinusIcon />
-              </IconButton>
-              <IconButton
-                label="Larger courts, with more detail"
-                disabled={sizeStep === COURT_SIZES.length - 1}
-                onClick={() => setSize(COURT_SIZES[sizeStep + 1]!)}
-              >
-                <MagnifyingGlassPlusIcon />
-              </IconButton>
-            </span>
+            {zoom}
           {others.length > 0 ? (
             <Popover open={copyOpen} onOpenChange={setCopyOpen}>
               <Tooltip>
@@ -455,7 +485,7 @@ export function HallCard({
             aria-pressed={Boolean(hall.flipped)}
             onClick={() => update((d) => void (d.frame.halls[hallIndex]!.flipped = !d.frame.halls[hallIndex]!.flipped))}
           >
-            <FlipHorizontalIcon weight={hall.flipped ? "fill" : "regular"} />
+            <ArrowsLeftRightIcon weight={hall.flipped ? "bold" : "regular"} />
           </IconButton>
           {draft.frame.halls.length > 1 ? (
             <IconButton
@@ -471,8 +501,9 @@ export function HallCard({
           ) : null}
         </div>
       </header>
+      )}
 
-      {settingsOpen ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
+      {settingsOpen && !fixed ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
       <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]} reversed={Boolean(hall.flipped)}>
         {hall.courts.map((court, i) => (
@@ -488,6 +519,7 @@ export function HallCard({
             update={update}
           />
         ))}
+        {fixed ? null : (
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
@@ -497,6 +529,7 @@ export function HallCard({
         >
           <PlusIcon className="size-5" /> Add court
         </button>
+        )}
       </CourtStrip>
     </section>
   );
