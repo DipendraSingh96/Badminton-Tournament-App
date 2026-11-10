@@ -67,7 +67,7 @@
   /* The court face on the venue (docs/design-system.md, "Court face"): white lines
      and text on court green; umpire spots in blue, 3:1 on the court. */
   --court: #0F6B45;
-  --umpire: #7CC4FF;
+  --umpire: #8FB0FF;
 }
 
 /* Dark: a cool court-green surface, cream text, a butter accent
@@ -239,18 +239,40 @@
 ::-webkit-scrollbar {
   display: none;
 }
+/* The thumb's box is its grab area (12px across the pane's edge); the bar
+   drawn in it is 4px, 2px in from the edge, and 6px while it's held. */
 .scroll-hint {
   position: fixed;
   z-index: 60;
   display: none;
+  box-sizing: border-box;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--foreground) 40%, transparent);
+  background-clip: content-box;
   opacity: 0;
   pointer-events: none;
+  cursor: default;
+  touch-action: none;
   transition: opacity 200ms;
+}
+.scroll-hint[data-axis="y"] {
+  padding: 2px 2px 2px 6px;
+}
+.scroll-hint[data-axis="x"] {
+  padding: 6px 2px 2px 2px;
 }
 .scroll-hint[data-shown] {
   opacity: 1;
+  pointer-events: auto;
+}
+.scroll-hint:is(:hover, [data-dragging]) {
+  background-color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+.scroll-hint[data-axis="y"]:is(:hover, [data-dragging]) {
+  padding-left: 4px;
+}
+.scroll-hint[data-axis="x"]:is(:hover, [data-dragging]) {
+  padding-top: 4px;
 }
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint {

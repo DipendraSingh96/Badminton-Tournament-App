@@ -4,7 +4,7 @@ import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, XIcon } from "@phosphor-icons/react";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 import { ScrollHints } from "@/components/ui/scroll-hints";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,11 +38,9 @@ import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
-import { HealthBar, Summary } from "./summary";
-import { bookedCourtMinutes } from "@/lib/tournament/health-bar";
+import { RailSummary, Summary } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
-import { FIT_STATUS } from "./labels";
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
@@ -597,8 +595,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </div>
   );
 
-  const fitStatus = shownAnalysis?.ok ? FIT_STATUS[shownAnalysis.analysis.capacity.status].variant : null;
-
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
     <StageRow
@@ -681,23 +677,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               workbenchFolded ? (
                 <aside
                   aria-label="Workbench (hidden)"
-                  className={cn(WORKBENCH, "w-10 items-center gap-3")}
+                  className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}
                 >
                   <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
-                    <CaretDoubleLeftIcon />
+                    <CaretLeftIcon />
                   </IconButton>
-                  <div className="h-48">
-                    <HealthBar
-                      booked={
-                        shownAnalysis?.ok
-                          ? shownAnalysis.analysis.capacity.available.courtMinutes
-                          : bookedCourtMinutes(shown.frame.halls)
-                      }
-                      needed={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.needed.typical : null}
-                      status={fitStatus}
-                      vertical
-                    />
-                  </div>
+                  <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} />
                 </aside>
               ) : (
                 <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>

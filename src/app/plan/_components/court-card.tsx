@@ -392,11 +392,12 @@ export function CourtCard({
               aria-label={`Umpire at the ${SPOTS[spot].name}`}
               title={on ? "Remove umpire" : "Add umpire"}
               onClick={() => edit((c) => toggleUmpire(c, spot))}
-              className={`absolute z-20 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white ${SPOTS[spot].className}`}
+              // The button is the circle with 4px around it: hovering or clicking anywhere in it counts.
+              className={`group/spot absolute z-20 grid size-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white ${SPOTS[spot].className}`}
             >
               <span
                 className={`size-3 rounded-full ring-2 transition-colors ${
-                  on ? "bg-umpire ring-white" : "bg-court ring-white/70 hover:ring-white"
+                  on ? "bg-umpire ring-umpire" : "bg-court ring-white/70 group-hover/spot:ring-umpire"
                 }`}
               />
             </button>

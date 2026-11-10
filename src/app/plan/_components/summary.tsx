@@ -66,6 +66,62 @@ const HEADING_STATUS: Record<"fits" | "tight" | "over", { words: string; classNa
   over: { words: "overflows", className: "text-over-text" },
 };
 
+/** The workbench's heading: what to do here, or the plan's status in words once it's complete. */
+function PlanHeading({ missing, status }: { missing: number; status: "fits" | "tight" | "over" | null }) {
+  if (missing > 0) return <>Set up your tournament</>;
+  if (!status) return <>Your plan</>;
+  return (
+    <>
+      Your plan <span className={HEADING_STATUS[status].className}>{HEADING_STATUS[status].words}</span>
+    </>
+  );
+}
+
+/**
+ * The summary down the folded workbench's rail, its text running top to
+ * bottom: the heading, the health bar, then the profit or loss (or how many
+ * items are still to fill in).
+ */
+export function RailSummary({
+  draft,
+  parsed,
+  analysis,
+}: {
+  draft: PlanDraft;
+  parsed: ParseResult;
+  analysis: AnalysisResult | null;
+}) {
+  const result = analysis?.ok ? analysis.analysis : null;
+  const status = result ? FIT_STATUS[result.capacity.status].variant : null;
+  const missing = !parsed.ok ? parsed.issues.length : 0;
+  const loss = result ? result.finance.profit < 0 : false;
+  const sideways = "text-sm whitespace-nowrap [writing-mode:vertical-rl]";
+  return (
+    <>
+      <p className={cn(sideways, "font-semibold")}>
+        <PlanHeading missing={missing} status={status} />
+      </p>
+      <div className="h-48 shrink-0">
+        <HealthBar
+          booked={result ? result.capacity.available.courtMinutes : bookedCourtMinutes(draft.frame.halls)}
+          needed={result ? result.capacity.needed.typical : null}
+          status={status}
+          vertical
+        />
+      </div>
+      {missing > 0 ? (
+        <p className={cn(sideways, "text-muted-foreground")}>
+          {missing} {missing === 1 ? "item" : "items"} to fill in
+        </p>
+      ) : result ? (
+        <p className={cn(sideways, "font-semibold tabular-nums", loss ? "text-over-text" : "text-fits-text")}>
+          {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 const LINK =
   "inline-flex items-center gap-1 rounded-sm font-semibold text-foreground decoration-primary decoration-[3px] underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -109,13 +165,7 @@ export function Summary({
     <section aria-label="Summary" className="flex flex-col gap-2">
       <div className="flex min-h-8 items-center gap-2">
         <h2 className="heading-card min-w-0 flex-1">
-          {missing.length > 0 || !status ? (
-            missing.length > 0 ? "Set up your tournament" : "Your plan"
-          ) : (
-            <>
-              Your plan <span className={HEADING_STATUS[status.variant].className}>{HEADING_STATUS[status.variant].words}</span>
-            </>
-          )}
+          <PlanHeading missing={missing.length} status={status?.variant ?? null} />
         </h2>
         {action}
       </div>

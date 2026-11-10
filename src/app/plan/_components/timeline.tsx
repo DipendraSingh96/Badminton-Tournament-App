@@ -22,6 +22,7 @@ import {
   type PointerEvent,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   playersPerEntry,
@@ -1432,6 +1433,9 @@ export function Timeline({
           ) : null}
         </div>
 
+        {/* On the page itself: inside the glass they'd be placed against it, not the window. */}
+        {createPortal(
+          <>
         {pillDrag ? (
           <div
             aria-hidden="true"
@@ -1468,6 +1472,9 @@ export function Timeline({
             ))}
           </div>
         ) : null}
+          </>,
+          document.body,
+        )}
     </section>
   );
 }
