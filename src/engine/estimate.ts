@@ -56,6 +56,8 @@ export interface Segment {
     match: MatchInfo;
     id: string;
     moved: boolean;
+    /** A group match played on a court that isn't its group's own, once that court had nothing of its own left. */
+    borrowed?: boolean;
     wait?: Wait;
     /** Runs past its court's hours. */
     late: boolean;
@@ -153,6 +155,7 @@ interface Timed {
   from: number;
   to: number;
   moved: boolean;
+  borrowed: boolean;
   wait?: Wait;
   late: boolean;
 }
@@ -373,39 +376,76 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   // 1. Assignment: play order onto the first court that can start each match.
   // Closing times play no part, so changing a hall's or court's hours never
   // moves matches between courts; a match that runs past closing is flagged.
-  const freeAt = courts.map((c) => c.start);
-  const queues: Planned[][] = courts.map(() => []);
-  const ready = new Map<string, number>();
-  let unplaced = 0;
-  for (const step of steps) {
-    const ends = new Map<string, number>();
-    for (const match of step) {
-      const minutes = slot.get(match.info.stage);
-      if (minutes === undefined) continue;
-      const release = Math.max(match.release, ready.get(gate(match.info)) ?? -Infinity);
-      let best = -1;
-      let bestStart = Infinity;
-      courts.forEach((court, i) => {
-        if (!match.halls.has(court.hallId)) return;
-        if (match.courts && !match.courts.has(court.courtId)) return;
-        const start = Math.max(freeAt[i]!, release, court.start, zoneStart(i, match.info.stage));
-        if (start < bestStart) {
-          best = i;
-          bestStart = start;
+  //
+  // Groups on their own courts are placed twice. First on their own courts only, which says
+  // when each court's own groups have finished there. Then again, now free to borrow a court
+  // of their hall from that time on, so the group stage ends level instead of leaving courts
+  // empty while others queue. A court set to no group is never lent.
+  const closed = new Set(courtGroups.filter((c) => c.pinned && c.groups.length === 0).map((c) => c.courtId));
+  const assign = (lendFrom: number[] | null) => {
+    const freeAt = courts.map((c) => c.start);
+    // A lent court's borrowed matches run after its own, on a clock of their own.
+    const lentFreeAt = lendFrom ? [...lendFrom] : [];
+    const placed: { match: Planned; start: number; order: number }[][] = courts.map(() => []);
+    const ownEnd = courts.map((c) => c.start);
+    const ready = new Map<string, number>();
+    const borrowed = new Set<string>();
+    let unplaced = 0;
+    let order = 0;
+    for (const step of steps) {
+      const ends = new Map<string, number>();
+      for (const match of step) {
+        const minutes = slot.get(match.info.stage);
+        if (minutes === undefined) continue;
+        const release = Math.max(match.release, ready.get(gate(match.info)) ?? -Infinity);
+        let best = -1;
+        let bestStart = Infinity;
+        let bestOwn = false;
+        courts.forEach((court, i) => {
+          if (!match.halls.has(court.hallId)) return;
+          const own = !match.courts || match.courts.has(court.courtId);
+          if (!own && (!lendFrom || closed.has(court.courtId))) return;
+          // A group match on its own court keeps to the court's own clock; a borrowed one to the lent
+          // clock; anything else (the knockout) waits for both.
+          const free = !own ? lentFreeAt[i]! : match.courts || !lendFrom ? freeAt[i]! : Math.max(freeAt[i]!, lentFreeAt[i]!);
+          const start = Math.max(free, release, court.start, zoneStart(i, match.info.stage));
+          // Its own court wins a tie with a borrowed one.
+          if (start < bestStart || (start === bestStart && own && !bestOwn)) {
+            best = i;
+            bestStart = start;
+            bestOwn = own;
+          }
+        });
+        if (best === -1) {
+          unplaced += 1;
+          continue;
         }
-      });
-      if (best === -1) {
-        unplaced += 1;
-        continue;
+        const end = bestStart + minutes;
+        if (bestOwn) {
+          freeAt[best] = end;
+          // When the court's own groups have finished there: only their matches count.
+          if (match.courts) ownEnd[best] = Math.max(ownEnd[best]!, end);
+          // What it lends starts after its own, however the two were placed.
+          if (lendFrom) lentFreeAt[best] = Math.max(lentFreeAt[best]!, end);
+        } else {
+          lentFreeAt[best] = end;
+          borrowed.add(match.id);
+        }
+        placed[best]!.push({ match, start: bestStart, order: order++ });
+        const id = gate(match.info);
+        ends.set(id, Math.max(ends.get(id) ?? -Infinity, end));
       }
-      freeAt[best] = bestStart + minutes;
-      queues[best]!.push(match);
-      const id = gate(match.info);
-      ends.set(id, Math.max(ends.get(id) ?? -Infinity, bestStart + minutes));
+      // A category's next step waits for this one.
+      for (const [id, end] of ends) ready.set(id, Math.max(ready.get(id) ?? -Infinity, end));
     }
-    // A category's next step waits for this one.
-    for (const [id, end] of ends) ready.set(id, Math.max(ready.get(id) ?? -Infinity, end));
-  }
+    // Each court in the order its matches start.
+    const queues = placed.map((list) => list.sort((a, b) => a.start - b.start || a.order - b.order).map((p) => p.match));
+    return { queues, unplaced, borrowed, ownEnd };
+  };
+  let assigned = assign(null);
+  if (own && steps.some((step) => step.some((m) => m.courts))) assigned = assign(assigned.ownEnd);
+  const { queues, borrowed } = assigned;
+  let unplaced = assigned.unplaced;
 
   // Moves by hand: onto a court of a hall the match may use, before a match there (or last).
   const moved = new Set<string>();
@@ -422,6 +462,12 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     else queues[to]!.splice(at, 0, match);
     moved.add(match.id);
   }
+  // Wherever matches were moved, a court plays its group-stage matches before its knockout
+  // matches. (A move is kept as "before that match"; when that match is no longer on the court,
+  // the moved one goes last, which must not mean after the knockout.)
+  queues.forEach((queue, i) => {
+    queues[i] = [...queue.filter((m) => zoneOf(m.info.stage) === "group"), ...queue.filter((m) => zoneOf(m.info.stage) !== "group")];
+  });
 
   // 2. Timing: every court in its order; each match at the earliest time allowed.
   const ends = new Map<string, number>();
@@ -505,6 +551,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
       from: best.start,
       to: best.start + minutes,
       moved: moved.has(match.id),
+      borrowed: borrowed.has(match.id) && !moved.has(match.id),
       wait: best.wait,
       // Runs past its court's hours (or the playing time): still shown, flagged.
       late: best.start + minutes > courts[i]!.end,
@@ -541,6 +588,7 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
           id: t.planned.id,
           moved: t.moved,
           late: t.late,
+          ...(t.borrowed ? { borrowed: true } : {}),
           ...(t.wait ? { wait: t.wait } : {}),
         },
       ],

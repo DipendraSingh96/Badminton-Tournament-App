@@ -153,6 +153,8 @@ export interface LocalSegment {
   label: string;
   match: MatchInfo;
   moved: boolean;
+  /** A group match on a court that isn't its group's own, free once its own groups had finished. */
+  borrowed: boolean;
   wait?: Wait;
   /** Runs past its court's hours. */
   late: boolean;
@@ -182,6 +184,7 @@ export function localSegments(draft: PlanDraft, schedule: EstimatedSchedule | nu
         label: parts.join(" · "),
         match: detail.match,
         moved: detail.moved,
+        borrowed: detail.borrowed ?? false,
         wait: detail.wait,
         late: detail.late,
         details: [{ from, to, match: detail.match }],
@@ -706,6 +709,7 @@ export function Timeline({
       `${courtLabelOf(s.courtId)} · ${clock(s.from)}–${clock(s.to)}`,
       ...(wait ? [wait] : []),
       ...(s.late ? [`Runs past ${courtLabelOf(s.courtId)}'s hours`] : []),
+      ...(s.borrowed ? [`On a free court: ${courtLabelOf(s.courtId)}'s own groups have finished`] : []),
       ...(s.moved ? ["Moved by hand · double-click to put it back"] : []),
     ];
   }
@@ -721,6 +725,7 @@ export function Timeline({
       rubber,
       wait,
       s.late ? `runs past ${courtLabel}'s hours` : null,
+      s.borrowed ? "on a free court, not its group's own" : null,
       s.moved ? "moved by hand" : null,
       `match ${index + 1} of ${count} on this court`,
     ]

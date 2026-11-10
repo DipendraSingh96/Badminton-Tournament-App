@@ -303,6 +303,24 @@ describe("estimateSchedule", () => {
     expect(inHall2.some((s) => s.details[0]!.id === match.id)).toBe(false);
   });
 
+  it("keeps a moved group match in the group stage when the match it was put before has left the court", () => {
+    const base = estimate(tournament()).schedule;
+    const groupOn = (s: typeof base, court: number) => s.courts[court]!.segments.filter((x) => x.stage === "group");
+    const knockoutOn = (s: typeof base, court: number) => s.courts[court]!.segments.filter((x) => x.stage !== "group");
+    const mover = groupOn(base, 1).at(-1)!.details[0]!;
+    // Put before a knockout match that plays on another court: on court 1 that place doesn't exist.
+    const elsewhere = knockoutOn(base, 2)[0]!.details[0]!;
+    const plan = tournament();
+    plan.matchMoves = [{ matchId: mover.id, courtId: "h1-c1", before: elsewhere.id }];
+    const { schedule } = estimate(plan);
+    const onCourt = schedule.courts[0]!.segments;
+    const place = onCourt.findIndex((x) => x.details[0]!.id === mover.id);
+    expect(place).not.toBe(-1);
+    // Every knockout match on the court comes after it, and it follows the court's group matches directly.
+    expect(onCourt.slice(0, place).every((x) => x.stage === "group")).toBe(true);
+    expect(onCourt[place]!.from).toBe(onCourt[place - 1]!.to);
+  });
+
   it("keeps knockout order: a semi-final moved first still waits for its quarter-finals", () => {
     const all = (schedule: ReturnType<typeof estimateSchedule>) => schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
     const base = all(estimate(tournament()).schedule);
@@ -424,7 +442,11 @@ describe("estimateSchedule with groups on their own courts", () => {
     const plan = own();
     plan.courtGroups = [{ courtId: "h1-c4", group: { categoryId: "md", groupIndex: 0 } }];
     const { schedule } = estimate(plan);
-    const onC4 = groupMatches(schedule).find((c) => c.courtId === "h1-c4")!.matches;
+    // Its own matches there are group A's; once A has finished, another group may borrow the court.
+    const onC4 = schedule.courts
+      .find((c) => c.courtId === "h1-c4")!
+      .segments.filter((s) => s.stage === "group" && !s.details[0]!.borrowed)
+      .map((s) => s.details[0]!.match);
     expect(onC4.length).toBeGreaterThan(0);
     expect(onC4.every((m) => m.group === "A")).toBe(true);
     expect(schedule.courtGroups.find((c) => c.courtId === "h1-c4")).toMatchObject({ pinned: true });
@@ -443,7 +465,10 @@ describe("estimateSchedule with groups on their own courts", () => {
     const fromH2 = groupOn(before, "h2-c1");
     plan.courtGroups = [{ courtId: "h1-c3", group: { categoryId: fromH2.categoryId, groupIndex: fromH2.groupIndex } }];
     const { schedule } = estimate(plan);
-    const onC3 = groupMatches(schedule).find((c) => c.courtId === "h1-c3")!.matches;
+    const onC3 = schedule.courts
+      .find((c) => c.courtId === "h1-c3")!
+      .segments.filter((s) => s.stage === "group" && !s.details[0]!.borrowed)
+      .map((s) => s.details[0]!.match);
     expect(onC3.length).toBeGreaterThan(0);
     expect(onC3.every((m) => m.group === fromH2.group)).toBe(true);
     expect(schedule.unplaced).toBe(0);
@@ -456,6 +481,36 @@ describe("estimateSchedule with groups on their own courts", () => {
     expect(groupMatches(schedule).find((c) => c.courtId === "h1-c2")!.matches).toEqual([]);
     expect(schedule.courtGroups.find((c) => c.courtId === "h1-c2")).toMatchObject({ groups: [], pinned: true });
     expect(schedule.unplaced).toBe(0);
+  });
+
+  it("lets a group borrow a court whose own groups have finished, so the stage ends level", () => {
+    // Two categories of four groups on six courts: two courts carry two groups each.
+    const plan = own();
+    plan.frame.halls = [hall("h1", "09:00", "20:00", { courtCount: 6 })];
+    plan.categories.push({ ...plan.categories[0]!, id: "xd", name: "Mixed doubles", entry: { type: "individual", event: "XD" } });
+    const { schedule } = estimate(plan);
+    const groupEnds = schedule.courts.map((c) =>
+      Math.max(...c.segments.filter((s) => s.stage === "group").map((s) => Date.parse(s.to))),
+    );
+    // Every court plays to within one match (15 minutes) of the last.
+    expect(Math.max(...groupEnds) - Math.min(...groupEnds)).toBeLessThanOrEqual(15 * 60_000);
+    const borrowed = segments(schedule).filter((s) => s.details[0]!.borrowed);
+    expect(borrowed.length).toBeGreaterThan(0);
+    // A court lends only once its own groups have nothing left to play there.
+    for (const court of schedule.courts) {
+      const group = court.segments.filter((s) => s.stage === "group");
+      const firstBorrowed = group.findIndex((s) => s.details[0]!.borrowed);
+      if (firstBorrowed !== -1) expect(group.slice(firstBorrowed).every((s) => s.details[0]!.borrowed)).toBe(true);
+    }
+    expect(schedule.unplaced).toBe(0);
+  });
+
+  it("never lends a court set to no group", () => {
+    const plan = own();
+    plan.frame.halls = [hall("h1", "09:00", "20:00", { courtCount: 3 })];
+    plan.courtGroups = [{ courtId: "h1-c2", group: null }];
+    const { schedule } = estimate(plan);
+    expect(schedule.courts.find((c) => c.courtId === "h1-c2")!.segments.filter((s) => s.stage === "group")).toEqual([]);
   });
 
   it("still plays every match and never has a side in two matches at once", () => {
