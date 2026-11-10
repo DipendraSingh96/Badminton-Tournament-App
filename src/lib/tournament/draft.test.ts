@@ -3,6 +3,10 @@ import {
   clearHall,
   costPerShuttle,
   defaultCategoryName,
+  drawBand,
+  removeBand,
+  setBandTime,
+  splitRates,
   emptyCategory,
   emptyDraft,
   emptyHall,
@@ -255,6 +259,54 @@ describe("keepOneRate", () => {
     keepOneRate(hall);
     expect(hall.bands).toEqual([{ id: "b1", name: "Off-peak", from: "09:00", to: "18:00", rate: 8 }]);
     expect(hall.multipleRates).toBe(false);
+  });
+});
+
+describe("bands set the hall's hours", () => {
+  function hall() {
+    const h = emptyHall();
+    h.multipleRates = true;
+    return h;
+  }
+
+  it("draws the first band into the empty one, then adds more, and the hours span them", () => {
+    const h = hall();
+    const first = drawBand(h, "09:00", "13:00");
+    expect(h.bands).toHaveLength(1);
+    expect(h.bands[0]!.id).toBe(first);
+    expect([h.from, h.to]).toEqual(["09:00", "13:00"]);
+    drawBand(h, "13:00", "19:00");
+    expect(h.bands).toHaveLength(2);
+    expect([h.from, h.to]).toEqual(["09:00", "19:00"]);
+  });
+
+  it("follows a band's edited time, and waits while one is half typed", () => {
+    const h = hall();
+    drawBand(h, "09:00", "19:00");
+    setBandTime(h, 0, "to", "13:00");
+    expect([h.from, h.to]).toEqual(["09:00", "13:00"]);
+    setBandTime(h, 0, "to", "");
+    expect([h.from, h.to]).toEqual(["09:00", "13:00"]);
+  });
+
+  it("shrinks when a band is removed, and has no hours once the last is emptied", () => {
+    const h = hall();
+    drawBand(h, "09:00", "13:00");
+    drawBand(h, "13:00", "19:00");
+    removeBand(h, 1);
+    expect([h.from, h.to]).toEqual(["09:00", "13:00"]);
+    removeBand(h, 0);
+    expect(h.bands).toHaveLength(1);
+    expect([h.from, h.to, h.bands[0]!.from]).toEqual(["", "", ""]);
+  });
+
+  it("starts from the hall's hours when rates begin to change", () => {
+    const h = emptyHall();
+    h.from = "09:00";
+    h.to = "19:00";
+    splitRates(h);
+    expect(h.multipleRates).toBe(true);
+    expect(h.bands[0]).toMatchObject({ from: "09:00", to: "19:00" });
   });
 });
 

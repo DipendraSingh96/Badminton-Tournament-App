@@ -9,7 +9,7 @@ import {
   TrashIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { useContext, useMemo, useState } from "react";
+import { useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -24,13 +24,16 @@ import {
   hallName,
   keepOneRate,
   newId,
+  removeBand,
+  setBandTime,
   setHallWindow,
+  splitRates,
   type HallDraft,
   type PlanDraft,
   type RateBandDraft,
 } from "@/lib/tournament/draft";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
-import { HallTrack } from "./hall-track";
+import { BandTrack } from "./hall-track";
 import { CourtCard, type GroupOption } from "./court-card";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
@@ -86,11 +89,8 @@ function HallSettings({
     editHall((h) => setHallWindow(h, key === "from" ? value : h.from, key === "to" ? value : h.to));
   }
 
-  // The rate bands sit on a fixed track of the day, 06:00 to midnight (earlier if the hall opens earlier),
-  // so it doesn't shift as the hours change.
-  const opens = minutesOfDay(hall.from);
-  const trackStart = Math.min(DAY_TRACK_START, opens === null ? DAY_TRACK_START : Math.floor(opens / 60) * 60);
-  const dayTrack = useMemo(() => ({ range: { start: trackStart, end: 24 * 60 }, setDragging: () => {} }), [trackStart]);
+  /** A band's time; the hall's hours follow its bands. */
+  const editBandTime = (i: number, key: "from" | "to") => (value: string) => editHall((h) => setBandTime(h, i, key, value));
 
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
@@ -128,7 +128,7 @@ function HallSettings({
           checked={hall.multipleRates}
           onCheckedChange={(on) => {
             if (on) {
-              editHall((h) => void (h.multipleRates = true));
+              editHall(splitRates);
               return;
             }
             if (hall.bands.length > 1 && !window.confirm("Use one rate all day? The other bands will be removed.")) return;
@@ -137,21 +137,20 @@ function HallSettings({
         />
         <Label htmlFor={`${hall.id}-rates`}>Rate changes during the day</Label>
         <InfoTip about="rates during the day">
-          For halls with different rates at different times, e.g. off-peak and peak. Set each band on the strip or below.
+          For halls with different rates at different times, e.g. off-peak and peak. Drag on the day to set each band, or type its times below; together the bands set the hall&apos;s hours.
         </InfoTip>
       </div>
 
       {hall.multipleRates ? (
         <>
-        <ViewRangeContext value={dayTrack}>
+        <ViewRangeContext value={DAY_TRACK}>
         <div className="flex flex-col gap-2">
-          <HallTrack
+          <BandTrack
             draft={draft}
             hallIndex={hallIndex}
             update={update}
-            detailed
             className="h-8 rounded-md bg-muted/40"
-            hoverGuide
+            selected={selectedBand}
             onSelectBand={setSelectedBand}
           />
           <HallTicks hall={hall} />
@@ -167,8 +166,8 @@ function HallSettings({
               }`}
             >
               <TextField label="Band name" placeholder={`Band ${i + 1}`} path={path("bands", i, "name")} value={band.name} onChange={editBand(i, "name")} />
-              <TextField label="From" type="time" path={path("bands", i, "from")} value={band.from} onChange={editBand(i, "from")} />
-              <TextField label="Until" type="time" path={path("bands", i, "to")} value={band.to} onChange={editBand(i, "to")} />
+              <TextField label="From" type="time" path={path("bands", i, "from")} value={band.from} onChange={editBandTime(i, "from")} />
+              <TextField label="Until" type="time" path={path("bands", i, "to")} value={band.to} onChange={editBandTime(i, "to")} />
               <NumberField
                 label={rateLabel(hall.unitMinutes)}
                 path={path("bands", i, "rate")}
@@ -179,8 +178,11 @@ function HallSettings({
                 variant="ghost"
                 size="icon"
                 aria-label={`Remove ${band.name || `band ${i + 1}`}`}
-                disabled={hall.bands.length === 1}
-                onClick={() => editHall((h) => void h.bands.splice(i, 1))}
+                disabled={hall.bands.length === 1 && band.from === "" && band.to === ""}
+                onClick={() => {
+                  setSelectedBand(null);
+                  editHall((h) => removeBand(h, i));
+                }}
               >
                 <TrashIcon />
               </Button>
@@ -212,8 +214,8 @@ function HallSettings({
   );
 }
 
-/** Where the rate-band track of the day starts: 06:00, in minutes. */
-const DAY_TRACK_START = 6 * 60;
+/** The rate-band track: always 06:00 to midnight, so it never shifts (a view of the day, not a tournament value). */
+const DAY_TRACK = { range: { start: 6 * 60, end: 24 * 60 }, setDragging: () => {} };
 
 /**
  * Times under the rate-band track: the hall's hours and band edges, and the
@@ -399,7 +401,7 @@ export function HallCard({
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input text-[15px] font-semibold text-primary transition-colors outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input text-sm font-semibold text-primary transition-colors outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring"
         >
           <PlusIcon className="size-5" /> Add court
         </button>

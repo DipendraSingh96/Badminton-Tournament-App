@@ -582,6 +582,68 @@ export function hasMoves(draft: PlanDraft): boolean {
   return Object.keys(draft.matchMoves).length > 0 || Object.values(draft.zoneMoves).some((m) => m.start || m.hallId);
 }
 
+/** A band's times in minutes, once both are set and in order. */
+function bandSpan(band: RateBandDraft): { from: number; to: number } | null {
+  const from = minutesOfDay(band.from);
+  const to = minutesOfDay(band.to);
+  return from !== null && to !== null && to > from ? { from, to } : null;
+}
+
+/**
+ * With rates that change during the day, the bands set the hall's hours: it
+ * opens when the earliest band starts and closes when the latest ends. With no
+ * band timed yet, the hall has no hours.
+ */
+export function hoursFromBands(hall: HallDraft): void {
+  const spans = hall.bands.map(bandSpan).filter((s) => s !== null);
+  hall.from = spans.length > 0 ? clock(Math.min(...spans.map((s) => s.from))) : "";
+  hall.to = spans.length > 0 ? clock(Math.max(...spans.map((s) => s.to))) : "";
+}
+
+/** Rates start changing during the day: the one band takes the hall's hours, to be split from there. */
+export function splitRates(hall: HallDraft): void {
+  hall.multipleRates = true;
+  if (hall.bands.length === 0) hall.bands.push(emptyBand());
+  if (hall.bands.length === 1) {
+    const band = hall.bands[0]!;
+    if (band.from === "") band.from = hall.from;
+    if (band.to === "") band.to = hall.to;
+  }
+}
+
+/** Sets one of a band's times ("HH:mm", or "" to clear it); the hall's hours follow its bands. */
+export function setBandTime(hall: HallDraft, index: number, key: "from" | "to", value: string): void {
+  const band = hall.bands[index];
+  if (!band) return;
+  band[key] = value;
+  // A time half typed leaves the hours alone until the bands say something.
+  if (hall.bands.some((b) => bandSpan(b) !== null)) hoursFromBands(hall);
+}
+
+/**
+ * A band drawn on the day: the band with that id while it's being drawn,
+ * otherwise the first band with no times yet, otherwise a new one (taking the
+ * id). Returns the band's id.
+ */
+export function drawBand(hall: HallDraft, from: string, to: string, id?: string): string {
+  let band = hall.bands.find((b) => b.id === id) ?? hall.bands.find((b) => b.from === "" && b.to === "");
+  if (!band) {
+    band = { ...emptyBand(), ...(id ? { id } : {}) };
+    hall.bands.push(band);
+  }
+  band.from = from;
+  band.to = to;
+  hoursFromBands(hall);
+  return band.id;
+}
+
+/** Removes a band (the last one is emptied instead); the hall's hours follow what's left. */
+export function removeBand(hall: HallDraft, index: number): void {
+  if (hall.bands.length > 1) hall.bands.splice(index, 1);
+  else if (hall.bands[index]) Object.assign(hall.bands[index], { from: "", to: "" });
+  hoursFromBands(hall);
+}
+
 /** One rate all day: the first band stays, covering the hall's hours; the others go. */
 export function keepOneRate(hall: HallDraft): void {
   const first = hall.bands[0] ?? emptyBand();
