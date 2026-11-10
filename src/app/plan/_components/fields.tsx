@@ -216,7 +216,7 @@ export function StepperField({
         <button
           type="button"
           aria-label={`Decrease ${label.toLowerCase()}`}
-          className="grid w-8 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset disabled:opacity-40 [&_svg]:size-4"
+          className="grid w-8 shrink-0 place-items-center text-foreground transition-colors outline-none hover:bg-inset focus-visible:bg-inset disabled:opacity-40 [&_svg]:size-4"
           disabled={value === null || value <= min}
           onClick={() => step(-1)}
         >
@@ -244,7 +244,7 @@ export function StepperField({
         <button
           type="button"
           aria-label={`Increase ${label.toLowerCase()}`}
-          className="grid w-8 shrink-0 place-items-center text-primary transition-colors outline-none hover:bg-inset focus-visible:bg-inset [&_svg]:size-4"
+          className="grid w-8 shrink-0 place-items-center text-foreground transition-colors outline-none hover:bg-inset focus-visible:bg-inset [&_svg]:size-4"
           onClick={() => step(1)}
         >
           <PlusIcon />
@@ -495,11 +495,11 @@ export function OptionCards<T extends string>({
                 onClick={() => onChange(option.value)}
                 className={cn(
                   "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  selected ? "border-primary bg-accent ring-1 ring-primary" : "border-input bg-card hover:bg-inset",
+                  selected ? "border-primary bg-card-selected ring-1 ring-primary" : "border-border bg-card hover:bg-inset",
                 )}
               >
-                <span className={cn("flex min-w-0 items-center gap-2 text-sm font-semibold", selected && "text-primary")}>
-                  <Icon weight={selected ? "fill" : "regular"} className="size-[18px] shrink-0" />
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                  <Icon weight={selected ? "fill" : "regular"} className={cn("size-[18px] shrink-0", selected && "text-primary")} />
                   <span id={`${id}-${i}`} className="truncate" title={option.label}>
                     {option.label}
                   </span>

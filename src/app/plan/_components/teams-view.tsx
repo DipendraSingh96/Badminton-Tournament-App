@@ -193,7 +193,7 @@ export function TeamsView({
                   onClick={() => setSelectedId(entry.id)}
                   className={cn(
                     "grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    entry.id === selectedId ? "border-primary bg-accent" : "border-transparent bg-inset hover:border-input",
+                    entry.id === selectedId ? "border-primary bg-accent" : "border-transparent bg-inset hover:border-border",
                   )}
                 >
                   <span className="text-xs font-semibold text-muted-foreground tabular-nums">{place ?? "–"}</span>

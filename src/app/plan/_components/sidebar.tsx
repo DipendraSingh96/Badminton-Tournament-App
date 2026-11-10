@@ -150,7 +150,7 @@ export function Sidebar({
         )}
       >
         {collapsed ? null : (
-          <span className="truncate font-display text-2xl leading-none font-bold text-turf uppercase">{PRODUCT_NAME}</span>
+          <span className="truncate font-display text-2xl leading-none font-bold text-foreground uppercase">{PRODUCT_NAME}</span>
         )}
         <IconButton
           label={collapsed ? "Show sidebar" : "Hide sidebar"}
@@ -175,7 +175,7 @@ export function Sidebar({
                   aria-current="true"
                   aria-label={`Current tournament: ${name}`}
                   tabIndex={0}
-                  className="mt-1 grid size-9 place-items-center rounded-md border border-tile-border bg-tile font-display text-lg font-bold text-turf uppercase outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="mt-1 grid size-9 place-items-center rounded-md border border-tile-border bg-tile font-display text-lg font-bold text-foreground uppercase outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               }
             >
@@ -197,8 +197,8 @@ export function Sidebar({
               {listed.map((t) => {
                 const title = t.name.trim() || "Untitled tournament";
                 return t.id === currentId ? (
-                  <li key={t.id} aria-current="true" className="rounded-lg border border-tile-border bg-tile px-4 py-3">
-                    <p className="truncate text-sm font-semibold text-turf" title={title}>
+                  <li key={t.id} aria-current="true" className="rounded-lg border border-border bg-card-system px-4 py-3">
+                    <p className="truncate text-sm font-semibold" title={title}>
                       {title}
                     </p>
                     <p className="text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</p>
@@ -219,7 +219,7 @@ export function Sidebar({
                     <button
                       type="button"
                       onClick={() => onOpen(t.id)}
-                      className="w-full rounded-lg border border-transparent px-4 py-3 text-left outline-none hover:bg-tile/60 focus-visible:ring-2 focus-visible:ring-ring"
+                      className="w-full rounded-lg border border-transparent px-4 py-3 text-left outline-none hover:bg-card-system/60 focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="block truncate text-sm font-semibold" title={title}>
                         {title}

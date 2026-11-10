@@ -177,7 +177,7 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
                           onClick={() => pick(id)}
                           className={cn(
                             "flex h-8 w-full items-center gap-2 rounded-md border bg-card px-2 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-                            picked === id ? "border-primary ring-1 ring-primary" : "border-transparent hover:border-input",
+                            picked === id ? "border-primary ring-1 ring-primary" : "border-transparent hover:border-border",
                           )}
                         >
                           <span className="w-8 shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{slot}</span>

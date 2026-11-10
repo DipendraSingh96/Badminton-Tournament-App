@@ -148,7 +148,7 @@ function EventChips({ draft, update }: { draft: PlanDraft; update: Update }) {
                   aria-label={`Add a category: ${EVENT_LABELS[event]}${n > 0 ? ` (${n} added)` : ""}`}
                   onClick={() => update((d) => void d.categories.push({ ...emptyCategory(), event }))}
                   className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring ${
-                    n > 0 ? "border-foreground font-medium" : "border-input text-muted-foreground"
+                    n > 0 ? "border-foreground font-medium" : "border-border text-muted-foreground"
                   }`}
                 >
                   <PlusIcon className="size-3.5" />

@@ -39,6 +39,7 @@ import { SetupTab } from "./setup-tab";
 import { ProgressSegments, Summary, type ProgressPart } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
+import { FIT_STATUS } from "./labels";
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
@@ -536,6 +537,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </ResizablePanelGroup>
   );
 
+  const fitStatus = shownAnalysis?.ok ? FIT_STATUS[shownAnalysis.analysis.capacity.status].variant : null;
+
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
     <StageRow
@@ -566,7 +569,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
             />
-            <main className="flex min-w-0 flex-1 flex-col">
+            <main className="workspace-dots flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
                 <div className={cn(COLUMN, "pb-4")}>
                   <NameRow
@@ -621,7 +624,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     <CaretDoubleLeftIcon />
                   </IconButton>
                   <div className="h-48">
-                    <ProgressSegments parts={progress} vertical />
+                    <ProgressSegments parts={progress} status={fitStatus} vertical />
                   </div>
                 </aside>
               ) : (

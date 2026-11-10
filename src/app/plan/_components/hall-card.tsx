@@ -316,7 +316,7 @@ export function HallCard({
             value={hall.name}
             placeholder={name}
             onChange={(e) => update((d) => void (d.frame.halls[hallIndex]!.name = e.target.value))}
-            className="heading-card -mx-2 field-sizing-content max-w-full min-w-[4ch] rounded-md bg-transparent px-2 py-1 outline-none placeholder:text-turf hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+            className="heading-card -mx-2 field-sizing-content max-w-full min-w-[4ch] rounded-md bg-transparent px-2 py-1 outline-none placeholder:text-foreground hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
           />
           <IconButton
             label={settingsOpen ? `Hide ${name} settings` : `${name} settings`}
@@ -401,7 +401,7 @@ export function HallCard({
         <button
           type="button"
           onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input text-sm font-semibold text-primary transition-colors outline-none hover:border-primary hover:bg-tile focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-80 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/30 bg-background text-sm font-semibold text-foreground transition-colors outline-none hover:border-foreground/60 hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
         >
           <PlusIcon className="size-5" /> Add court
         </button>

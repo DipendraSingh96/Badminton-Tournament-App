@@ -20,7 +20,17 @@ export interface ProgressPart {
  * Schedule, Finance), filled when that part has nothing missing. Across the
  * top of the workbench, or down its rail when it's folded away.
  */
-export function ProgressSegments({ parts, vertical = false }: { parts: ProgressPart[]; vertical?: boolean }) {
+export function ProgressSegments({
+  parts,
+  status = null,
+  vertical = false,
+}: {
+  parts: ProgressPart[];
+  /** The plan's fit once it's worked out; filled parts take its colour, as the chip beside them does. */
+  status?: "fits" | "tight" | "over" | null;
+  vertical?: boolean;
+}) {
+  const filled = status === "fits" ? "bg-fits" : status === "tight" ? "bg-tight" : status === "over" ? "bg-over" : "bg-muted-foreground";
   const done = parts.filter((p) => p.missing === 0).length;
   return (
     <div
@@ -32,7 +42,7 @@ export function ProgressSegments({ parts, vertical = false }: { parts: ProgressP
         <span
           key={p.name}
           title={p.missing === 0 ? `${p.name}: complete` : `${p.name}: ${p.missing} to fill in`}
-          className={cn("flex-1 rounded-full", p.missing === 0 ? "bg-turf" : "bg-border")}
+          className={cn("flex-1 rounded-full", p.missing === 0 ? filled : "bg-border")}
         />
       ))}
     </div>
@@ -72,7 +82,7 @@ export function Summary({
     <section aria-label="Summary" className="flex flex-col gap-2">
       <div className="flex min-h-8 items-center gap-3">
         <div className="min-w-0 flex-1">
-          <ProgressSegments parts={progress} />
+          <ProgressSegments parts={progress} status={status?.variant ?? null} />
         </div>
         {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
       </div>
@@ -81,7 +91,7 @@ export function Summary({
           {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-sm font-semibold text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm font-semibold text-foreground decoration-primary decoration-[3px] underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onGoTo(missing[0]!)}
           >
             {issueSection(draft, missing[0]!)}: {missing[0]!.message}
