@@ -1,50 +1,86 @@
-# Design system: Court green
+# Design system
 
 The visual language for the badminton tournament planner. Read this before building or changing any UI. Tokens live in `src/app/design-tokens.css`; this file explains how to use them.
 
-Visual reference: the "Variant 1 · Light surface, green accents" screen (saved as `docs/design/plan-venue-light.png`). Where this document and the picture disagree, the picture wins and this file should be corrected.
+There are two themes, **Light** and **Dark**. Both follow the same rules; only the values change. Where this document and the reference screens disagree, the screens win and this file should be corrected.
 
 ## 1. Principles
 
-1. **Green is a signal, not a wallpaper.** Page and panel backgrounds stay near-white. Green appears on headings, primary actions, selected items, courts and timeline blocks. (Plan no longer uses a deep-green summary card; the summary sits on the workbench surface.)
-2. **Time is the main object.** The timeline, fit gauge and worst-case marker are the most important visuals. Everything else supports them.
-3. **Calm at the desk, loud on court.** Plan mode (desktop) is dense and quiet. Live mode (phone, wall board) uses the dark theme, huge numerals and big tap targets.
-4. **State is never colour alone.** Every status has a word ("Fits", "Tight", "Over", "Live").
-5. **One accent.** Shuttle yellow marks the single most important thing on a screen: live match, profit tile, final. It is always a fill with dark text.
-6. **No tournament values in components.** All names, times, fees and counts come from data. Sample values belong in tests and stories only.
+1. **Neutral ground, specific cards, one accent.** Most of the screen is a near-neutral surface. Cards carry a few specific tints. One accent colour (`primary`) marks the main action and selection.
+2. **The surface sets the mood, the text provides contrast.** Light has a warm surface with cool text. Dark has a cool surface with warm text. Secondary text is a neutral between them.
+3. **One text family per theme.** Hierarchy comes from size, weight and the primary/secondary step. Never from a different hue: headings are not green.
+4. **Accent means selected or primary. Status colour means status.** They are separate tokens and never swap roles.
+5. **Time is the main object.** The timeline, the fit status and the worst-case marker are the most important visuals. Everything else supports them.
+6. **Calm at the desk, loud on court.** Plan mode (desktop) is dense and quiet. Live mode (phone, wall board) uses the Dark theme, huge numerals and big tap targets.
+7. **State is never colour alone.** Every status has a word ("Fits", "Tight", "Over", "Live").
+8. **Shuttle yellow is its own token, apart from the accent.** `shuttle` marks a live match, the profit tile, the final and a chosen court. It is always a fill or an outline with dark text, never the selection colour.
+9. **No tournament values in components.** All names, times, fees and counts come from data. Sample values belong in tests and stories only.
 
 ## 2. Themes
 
 | Theme | Where | How to apply |
 |---|---|---|
-| Plan (default) | Desktop planning screens, results page | Nothing. It is the `:root` default |
-| Plan dark | Desktop planning screens, when the organiser picks dark (or the device is dark and they haven't chosen) | `.dark` on `<html>` (next-themes toggle in the top bar) |
-| Live | Court wall board, umpire phone, control desk | `data-theme="live"` on the layout root |
+| Light (default) | Desktop planning screens, results page | Nothing. It is the `:root` default, in `src/app/design-tokens.css` |
+| Dark | Planning screens when the organiser picks dark (or the device is dark and they haven't chosen); every Live screen (wall board, umpire phone, control desk) | `class="dark"` on `<html>` (next-themes, `attribute="class"`). Its values are in the `.dark` block of `src/app/globals.css` |
 
-**Plan dark** (added 26 Oct 2026) is derived from the Live palette so the two dark themes feel related, but keeps the Plan roles: background `#071F15`, card `#0D3022`, inset `#124030`, border `#2A6B4C`, input `#4F9A72` (3:1 on card), text `#F3F7F2`, muted `#A4BDAD`. The primary is mint `#BDF2C9` with dark text `#07241A`, and headings are mint, so shuttle yellow stays the one accent. Court tiles `#124030` with border `#2A6B4C`. Timeline blocks use the Live values (group `#1F8A4C`, knockout `#BDF2C9`, outline `rgba(250,250,242,.5)`, now line `#F3F7F2`); bronze and final are unchanged. The summary card stays `#0A4A31`. Tokens live in the `.dark` block of `src/app/globals.css`.
+The theme menu (Settings, in the sidebar) offers Light, Dark and System. There is no separate Live theme any more: Live screens use Dark.
 
 ## 3. Colour
 
-### Surfaces and text (Plan)
-| Token | Hex | Use |
+### Light
+| Token | Value | Use |
 |---|---|---|
-| `background` | `#F4F7F3` | Page ground |
-| `card` | `#FFFFFF` | Cards, side panes, inputs |
-| `inset` | `#EDF3EE` | Timeline tracks, segmented wells, nested panels |
-| `border` | `#D5DFD7` | Hairlines around cards and panes |
-| `input` | `#7F9A89` | Control borders where one is still drawn (checkboxes, option cards); fields and secondary buttons are borderless soft boxes |
-| `foreground` | `#0A2A1B` | Body text |
-| `muted-foreground` | `#4F685A` | Secondary text: captions, placeholders (the dimmest that passes 4.5:1 on every surface) |
-| `feature` | `#0A4A31` | The summary card only |
+| `background` | `#F2EFE9` | Ground of the working area (with the dot matrix); the workbench shares it |
+| `card` | `#FAF8F4` | Sidebar, popovers, unselected option cards |
+| `inset` | `#E9E5DC` | Fields, timeline tracks, segmented wells, nested panels |
+| `border` | `#DDD8CC` | Dividers and card outlines |
+| `input` | `#E9E5DC` | The field fill. Fields have no border, so this is no longer a border colour |
+| `foreground` | `#0F2A1F` | Primary text and headings. A very dark cool green-black |
+| `muted-foreground` | `#615D56` | Secondary text. A warm neutral grey |
+| `primary` | `#0F6B45` | Accent: main button, selection |
+| `primary-foreground` | `#FFFFFF` | Text on the accent |
+| `accent` | `#E9E5DC` | Hover wash only. Not the brand accent |
+| `card-system` | `--tile` (`#E3F6E8`) | The selected tournament card |
+| `card-selected` | `#DCE7E4` | The selected format option |
 
-### Brand
-| Token | Hex | Use |
+### Dark
+| Token | Value | Use |
 |---|---|---|
-| `primary` / `turf` | `#0F6B45` | Primary buttons, headings, selected tournament, active tab, knockout blocks |
-| `turf-2` | `#14804F` | Hover and pressed states |
-| `mint` | `#BDF2C9` | Text on deep green, tints |
-| `accent` | `#E3F6E8` | Court tiles, soft highlights |
-| `shuttle` | `#F4C430` | Accent fill. Text on it is `#1A1400` |
+| `background` | `#071F15` | Ground of the working area (with the dot matrix); the workbench shares it |
+| `card` | `#0D3022` | Sidebar, popovers, unselected option cards |
+| `inset` | `#1C4838` | Fields, timeline tracks, segmented wells, nested panels |
+| `border` | `rgba(239,232,209,.22)` | Dividers and card outlines. A cream hairline |
+| `input` | `#1C4838` | The field fill |
+| `foreground` | `#EFE8D1` | Primary text and headings. Warm cream |
+| `muted-foreground` | `#ABB4AF` | Secondary text. Neutral grey |
+| `primary` | `#F8D15E` | Accent: main button, selection. Butter |
+| `primary-foreground` | `#1A1400` | Text on the accent |
+| `card-system` | `#124030` | The selected tournament card |
+| `card-selected` | `#0F4A43` | The selected format option |
+
+### Other tokens (unchanged by the two themes above)
+| Token | Value | Use |
+|---|---|---|
+| `tile`, `tile-border` | `#E3F6E8`, `#A9D9B8` (dark `#124030`, `#2A6B4C`) | Court tiles |
+| `court`, `umpire` | `#0F6B45`, `#7CC4FF` | The court face and its umpire spots; the same in both themes |
+| `shuttle` | `#F4C430`, text on it `#1A1400` | Live match, profit tile, final, chosen court (principle 8) |
+| `feature` | `#0A4A31` | The deep-green block, kept for the results page |
+| `turf`, `turf-2`, `mint` | `#0F6B45`, `#14804F`, `#BDF2C9` | Kept as tokens; no longer used for headings, buttons or selection |
+
+### Where the accent is used
+Use `primary` for:
+- the main button (New tournament)
+- the selected radio dot and the selected format card's outline
+- the active tab underline (the label stays primary text)
+- the selected segment in a segmented control (accent fill, `primary-foreground` label)
+- the 3px underline under the "next step" link in the workbench's status line, on hover and focus
+
+Do not use the accent for: body text, headings, status, large fills, or more than one main button per screen.
+
+### Text rules
+- Primary text (`foreground`) is for body text, headings, field values and active labels.
+- Secondary text (`muted-foreground`) is for captions, placeholders, times, descriptions and inactive tabs.
+- Headings use `foreground`. They are not green.
 
 ### Status
 | State | Fill | Text | Used for |
@@ -55,27 +91,48 @@ Visual reference: the "Variant 1 · Light surface, green accents" screen (saved 
 | Live | `#F4C430` | `#1A1400` | Match in progress |
 | Off | `#E4E7E5` | `#2B343C` | Not booked, finished |
 
+Status colours are the same in both themes and are used only for status: the workbench's progress bar and chip, the worst-case flag and line. They are never used for selection, and the accent is never used for status. The progress bar's filled segments and its chip always use the same status token; before the plan is complete (no status yet) the filled segments are `muted-foreground` and the chip reads "Incomplete".
+
 ### Timeline blocks
-Group `#7FD6A0` · Knockout `#0F6B45` · Bronze `#C97B2E` · Final `#F4C430` · every block has a 1px outline `rgba(10,42,27,.35)` · now line `#0A2A1B` · worst-case line and label `#D8402F`.
+| Block | Light | Dark |
+|---|---|---|
+| Group | `#A9C3A0` | `#62B584` |
+| Knockout | `#3F5D4B` | `#D3EEDB` |
+| Bronze | `#C97B2E` | `#C97B2E` |
+| Final | `#E9B949` | `#E9B949` |
+
+Each block has a 1px outline `rgba(0,0,0,.25)`. The now line is the primary text colour. The worst-case line and label are `#D8402F` (dark `#FF7A6E`).
 
 **Exception (26 Oct 2026, product owner's decision):** the worst-case line and its flag follow the fit status rather than always being red: neutral (foreground) when the plan fits, Tight when it fits only at typical length, Over when it doesn't fit or matches run past their court's hours. The flag always carries the words "Worst case" and the time.
 
-### Live theme
-Background `#071F15` · card `#0D3022` · border `#2A6B4C` · text `#F3F7F2` · muted `#A4BDAD` · primary action shuttle yellow.
-
 ### Contrast rules
-- Body text on any surface: 4.5:1 minimum. Large text (24px and up): 3:1.
-- Yellow is never text on white. Green text on white is only `#0F6B45` or darker.
-- Do not use `border` for anything that carries meaning; use `input` (3:1) for controls.
-- Status as text (messages, figures, labels) uses the darker text shades, never the fill colours, which are too light (Fits, Tight) or too low-contrast (Over, 4.0:1) for small text on white: Fits text `#1A7343`, Tight text `#8A5200`, Over text `#B42B1C` (Plan dark: `#58C27D`, `#FFB020`, `#FF7A6E`). Tokens `--status-*-text` in `globals.css`; utilities `text-fits-text`, `text-tight-text`, `text-over-text`. (Added 26 Oct 2026.)
+- Primary text: 7:1 or better everywhere. Secondary text: 4.5:1 or better on every surface it sits on; check a new surface before putting secondary text on it. Large text (24px and up): 3:1.
+- Yellow is never text on a light surface. Green text on a light surface is only `#0F6B45` or darker.
+- `border` is for dividers and outlines that carry no meaning. A control's edge that must be seen (a checkbox, a dashed "add" box) uses `foreground` at 30–40%. `input` is a fill, not a border.
+- Status as text (messages, figures, labels) uses the darker text shades, never the fill colours, which are too light (Fits, Tight) or too low-contrast (Over, 4.0:1) for small text on white: Fits text `#1A7343`, Tight text `#8A5200`, Over text `#B42B1C` (Dark: `#58C27D`, `#FFB020`, `#FF7A6E`). Tokens `--status-*-text` in `globals.css`; utilities `text-fits-text`, `text-tight-text`, `text-over-text`. (Added 26 Oct 2026.)
 - Over as a fill behind text (chips, the loss tile, badges) uses `#C6372A` (`--status-over-strong`): white on `#D8402F` is 4.47:1, just under AA for small text. `#D8402F` stays for lines, markers and outlines.
+
+### Dot matrix (working-area background)
+The centre working area, which holds the halls, courts and timeline, has a dot-matrix background, like a planning pad.
+
+- Apply the `.workspace-dots` class to the working-area container (and to the timeline's own bars, which must stay opaque as rows scroll under them).
+- It uses `--dot-color`, `--dot-size` (1px) and `--dot-gap` (22px). Do not hard-code them. Light dots are `rgba(15,42,31,.16)`, Dark `rgba(239,232,209,.09)`: the primary text colour at low opacity.
+- Not on the sidebar, the workbench, cards, fields, popovers or the Live board.
+- Cards and fields are opaque and sit on top of the dots. The dots must never show through them.
+- It is static: fixed to the window, so it doesn't move as panes scroll, with no animation.
+
+### Lines and borders
+- Dividers, card outlines and dashed "add" boxes that only separate use `border`: a warm grey in Light, a cream hairline in Dark.
+- Fields have no border. They are filled with `inset`.
+- Active and selected states use `primary`, not `border`.
+- The shell keeps its own rules (see "Surfaces in the shell"): the sidebar has no borders, and the workbench and timeline sit behind open dividers.
 
 ## 4. Typography
 
 | Role | Font | Weight | Size | Notes |
 |---|---|---|---|---|
-| Screen heading | Barlow Condensed | 700 | 30px | Uppercase, `turf` colour |
-| Card heading | Barlow Condensed | 700 | 24–28px | Uppercase, `turf` colour |
+| Screen heading | Barlow Condensed | 700 | 30px | Uppercase, `foreground` |
+| Card heading | Barlow Condensed | 700 | 24–28px | Uppercase, `foreground` |
 | Numeral XL | Barlow Condensed | 600 | 46px | Summary hero figure |
 | Numeral L | Barlow Condensed | 600–700 | 30px | Stat tiles |
 | Live score | Barlow Condensed | 700 | 56–150px | Wall board and phone |
@@ -114,8 +171,8 @@ Plan is dense, so it uses four sizes only; weight and colour set the level withi
 
 | Level | Size | Use |
 |---|---|---|
-| Heading | 24px Barlow Condensed 700, uppercase, `turf` | A hall or page heading; the product name |
-| Section | 20px Barlow Condensed 700, uppercase, `turf` | A section of the workbench; the Timeline and Tournaments titles |
+| Heading | 24px Barlow Condensed 700, uppercase, `foreground` | A hall or page heading; the product name |
+| Section | 20px Barlow Condensed 700, uppercase, `foreground` | A section of the workbench; the Timeline and Tournaments titles |
 | Text | 14px Barlow | 600 for sub-headings, tabs, buttons and option titles; 600 in `muted-foreground` for labels; 400 for values and body; 400 in `muted-foreground` for notes |
 | Caption | 12px Barlow | Hints and option descriptions, labels inside time fields, times on tracks, chips (700) |
 
@@ -141,24 +198,27 @@ A wrong value gets a red outline, with the reason in the tooltip and the accessi
 
 ## 6. Components
 
-- **Buttons.** Primary: filled turf (mint in Plan dark). Secondary (`outline`): a soft `inset` fill, no border, a step stronger on hover. Icon buttons (`ghost`): a square hugging the icon, no fill or border until hovered, never highlighted just for being expanded.
+- **Buttons.** Primary: `primary` fill with `primary-foreground` text (green in Light, butter in Dark); one per screen. Secondary (`outline`): a soft `inset` fill, no border, a step stronger on hover. Icon buttons (`ghost`): a square hugging the icon, no fill or border until hovered, never highlighted just for being expanded.
 - **Fields.** A soft box (`surface-inset`, a step from it inside inset blocks), no border, label inside as placeholder, focus ring on focus.
 
 Build these once in `src/components/ui` (extend shadcn where it exists) and reuse them.
 
-- **Button.** Primary: `primary` fill, white text. Secondary: white fill, `input` border. Accent: shuttle fill, only for the single key action on a screen. Height 32px (small 28px), 14px text.
-- **Input.** White, 1px `input` border, 8px radius, 32px high, 14px text. Label above in 14px muted.
-- **Segmented control.** Inset well, selected segment `primary` fill with white text.
+- **Button.** Primary: `primary` fill, `primary-foreground` text. Secondary: `inset` fill, `foreground` text, no border. Height 32px (small 28px), 14px text.
+- **Input.** `inset` fill, no border, 8px radius, 32px high, 14px text. Placeholder (the label) in `muted-foreground`; the value in `foreground`.
+- **Segmented control.** `inset` well. Selected segment: `primary` fill with `primary-foreground` label. Unselected: `muted-foreground`.
 - **Stepper.** Minus, numeral, plus. Minus is dimmed (opacity .4) at zero. 32px high, 32px-wide buttons, 14px numeral.
-- **Tabs.** Text tabs with a 3px `primary` underline on the active tab. Wrap or scroll on narrow widths.
-- **Chip.** Pill, status fill and text from the status table.
-- **Card.** White, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `turf`.
+- **Tabs.** Text tabs. Active: `foreground` label with a 3px `primary` underline. Inactive: `muted-foreground`. Wrap or scroll on narrow widths.
+- **Chip.** Pill. Status chips use the status fill and label from the status table. Neutral chips use `inset` and `foreground`.
+- **Radio option card.** `card` fill with a 1px `border` outline. Selected: `card-selected` fill, a 2px `primary` outline and a `primary` radio dot; its title stays `foreground`.
+- **Status bar.** The workbench's progress bar: one segment per part of the plan, with one chip. Filled segments and the chip use the current status token; unfilled segments use `border`.
+- **System card.** `card-system` fill, 1px `border` outline. Used for the selected tournament card in the sidebar.
+- **Card.** `card` fill, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `foreground`.
 - **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines (only the outer box, 2px at 90%, and the net, 3px, are heavy; the singles sidelines 10px in, the service lines and the centre lines are 1px at 50%), compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, one centred line above the net ("Wave 1 · R1/2", or the knockout match), the court number as a faint watermark (black at 18%, multiplied). With own courts per group, the top surround carries the court's group as a menu (every group of the tournament, with the courts it has, plus No group and Automatic split). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
 - **Court panel.** The right pane in the Draw and Live stages (`pane-right-min` wide): the court's name as the card heading, then Now, Up next and Later today, each match an inset block (time and court, readiness chip, where it sits, both sides with their players and check-in chips). A chosen court is outlined with a 2px shuttle ring.
-- **Group table.** In an inset block: compact rows (14px, tabular figures), status chip at the end, the qualifying cut as a 2px dashed `turf` line under the last place through.
+- **Group table.** In an inset block: compact rows (14px, tabular figures), status chip at the end, the qualifying cut as a 2px dashed `foreground` line under the last place through.
 - **Bracket.** Rounds as columns, matches as 224px cards (code and time above, one row per side); the final outlined in shuttle; rounds spaced so each match sits between the two that feed it.
 - **Stage switch.** In the top bar's centre: an inset well with one segment per stage (24px segments, 14px semibold); the viewed stage in `primary`; reached stages carry a tick; unavailable stages dimmed with a reason on hover.
-- **Summary.** On the workbench surface like any section (no card): "SUMMARY" heading, status chip and a collapse chevron. Court time needed as numeral XL in `turf` with "of" available time; 40-segment fit gauge in `turf` on a `border` track, the worst case as one `status-over-strong` segment; matches, revenue, cost and break-even as `inset` tiles; profit a shuttle-fill tile, loss a `status-over-strong` tile, always with the word. Collapsed, one line, profit in the fits text colour and loss in the over text colour.
+- **Summary.** On the workbench surface like any section (no card): "SUMMARY" heading, status chip and a collapse chevron. Court time needed as numeral XL in `foreground` with "of" available time; 40-segment fit gauge in the status colour on a `border` track, the worst case as one `status-over-strong` segment; matches, revenue, cost and break-even as `inset` tiles; profit a shuttle-fill tile, loss a `status-over-strong` tile, always with the word. Collapsed, one line, profit in the fits text colour and loss in the over text colour.
 - **Fit gauge.** 40 segments, `gauge-on` filled, one `gauge-warn` segment at the worst-case position, the rest `gauge-off`. The segment count is fixed, the fill is computed.
 - **Timeline.** Time axis with hourly ticks, one row per hall band, a stages row, one lane per court. Blocks use the timeline colours and a 1px outline. Now line is solid, worst-case line is dashed red with a labelled flag. A buffer zone is hatched.
 - **Stat tile.** Label above, numeral L below. Profit is a shuttle-fill tile.
@@ -179,19 +239,26 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 
 **Do**
 - Use tokens, never raw hex, in components.
-- Keep green off large background areas in Plan mode.
-- Show a word with every status colour.
+- Keep surfaces near-neutral; let cards carry the tints.
+- Use `primary` for selection and the one main action.
+- Use the status tokens, with a word, for status only.
+- Switch theme by changing the class, not by changing token values in components.
 - Let numbers come from the calculation engine, formatted with `tabular-nums`.
 
 **Do not**
-- Fill a whole page, pane or card with green in the Plan theme.
+- Fill a whole page, pane or card with a saturated colour.
+- Use a different hue for headings than for body text.
+- Use the accent for status, or a status colour for selection.
+- Apply the dot matrix to anything except the working area.
 - Use shuttle yellow as text on a light surface.
 - Hard-code tournament values, court counts or times in components.
 - Add a new colour without adding a token and updating this file.
 
 ## 9. Using this in Claude Code
 
-1. Add `design-tokens.css` to `src/app/` and `@import "./design-tokens.css";` at the top of `globals.css`.
+1. `design-tokens.css` is in `src/app/` and imported at the top of `globals.css`; Dark's values are in the `.dark` block there.
 2. Set up the two fonts (section 4) and add the variable classes to `<body>`.
-3. Start with the primitives in section 6, then the Plan layout, then the summary card and timeline.
-4. Compare each screen against `docs/design/plan-venue-light.png` before calling it done.
+3. The theme switch sets the `dark` class on `<html>`.
+4. `workspace-dots` goes on the working-area container.
+5. Use tokens for every colour, one component at a time. Run lint, type check and build after each.
+6. Compare each screen in both themes against the reference screens before calling it done.
