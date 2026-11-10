@@ -140,9 +140,9 @@
 }
 
 /* ---------- Dot matrix: working-area background ---------- */
-/* On the centre working area only (halls, courts and timeline). Not on the sidebar, cards, fields,
-   popovers or the Live board. Fixed to the window, so it stays still as panes scroll and lines up
-   across the panes and sticky bars that carry it. */
+/* Behind the whole working area: the venue, the timeline and the workbench. Not on the sidebar,
+   cards, fields, popovers or the Live board. Fixed to the window, so it stays still as panes scroll
+   and lines up with the glass that carries it too. */
 .workspace-dots {
   background-color: var(--background);
   background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent calc(var(--dot-size) + 0.2px));
@@ -152,3 +152,30 @@
 
 /* Numerals never jitter as scores, times and money change */
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Glass: the timeline, over the venue ---------- */
+/* Frosted glass: the venue scrolls under the timeline and shows through it, blurred and tinted with
+   the ground colour, so the two read as one space. The dot matrix carries on across it. `.glass-bar`
+   is the denser glass of the timeline's own sticky bars (its ruler and labels), which its rows
+   scroll under. Solid for anyone who asks for less transparency. */
+.glass {
+  background-color: color-mix(in oklch, var(--background) var(--glass-tint, 62%), transparent);
+  background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent calc(var(--dot-size) + 0.2px));
+  background-size: var(--dot-gap) var(--dot-gap);
+  background-attachment: fixed;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.glass-bar {
+  background-color: color-mix(in oklch, var(--background) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-bar {
+    background-color: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

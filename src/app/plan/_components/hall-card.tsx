@@ -98,11 +98,11 @@ function HallSettings({
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
       <div>
-        <div className="grid grid-cols-[repeat(4,minmax(0,12rem))] gap-x-2 gap-y-3">
+        <div className="grid grid-cols-[9rem_9rem_minmax(0,13rem)_minmax(0,12rem)] gap-x-2 gap-y-3">
           <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
           <TextField label="Closes" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
           <StepperField
-            label="Charged per (min)"
+            label="Time unit (min)"
             hint="The time the hall charges by, e.g. 60, 40 or 30 minutes. Hall hours, band edges and court hours must fall on these steps from opening."
             min={1}
             path={path("unitMinutes")}

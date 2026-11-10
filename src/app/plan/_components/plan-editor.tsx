@@ -1,7 +1,7 @@
 "use client";
 
 import { produce } from "immer";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
@@ -522,6 +522,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // The timeline folds to a bar (its panel remembers its size); the workbench to a rail (remembered here).
   const timelinePanel = usePanelRef();
   const [timelineFolded, setTimelineFolded] = useState(false);
+  // The timeline's height: the venue scrolls under it, and stops clear of it.
+  const [timelineHeight, setTimelineHeight] = useState(0);
   const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
   const [workbenchFolded, setWorkbenchFolded] = useState(loadWorkbenchFolded);
   function foldWorkbench(folded: boolean) {
@@ -531,19 +533,22 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
 
   // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = (
+    // The venue fills the area and scrolls under the timeline, which is glass over its lower part.
+    // The panels above it only size the two: the venue's own panel is empty and lets the pointer through.
+    <div className="relative h-full" style={{ "--under": `${timelineHeight + 8}px` } as CSSProperties}>
+      <div className="@container scroll-pane absolute inset-0 isolate overflow-y-auto px-(--pane-x) pb-(--under) [scroll-padding-bottom:var(--under)]">
+        <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
+          <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
+        </div>
+      </div>
     <ResizablePanelGroup
       orientation="vertical"
       defaultLayout={dock.defaultLayout}
       onLayoutChanged={dock.onLayoutChanged}
+      className="pointer-events-none relative z-10"
     >
-      <ResizablePanel id="venue" minSize={160}>
-        <div className="@container scroll-pane relative h-full overflow-y-auto px-(--pane-x)">
-          <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
-            <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
-          </div>
-        </div>
-      </ResizablePanel>
-      <ResizableHandle className={DIVIDER} />
+      <ResizablePanel id="venue" minSize={160} />
+      <ResizableHandle className={cn(DIVIDER, "pointer-events-auto")} />
       <ResizablePanel
         id="timeline"
         defaultSize="45"
@@ -551,9 +556,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         collapsible
         collapsedSize={TIMELINE_FOLDED}
         panelRef={timelinePanel}
-        onResize={(size) => setTimelineFolded(size.inPixels <= TIMELINE_FOLDED + 1)}
+        onResize={(size) => {
+          setTimelineFolded(size.inPixels <= TIMELINE_FOLDED + 1);
+          setTimelineHeight(Math.round(size.inPixels));
+        }}
         className="h-full"
       >
+        <div className="pointer-events-auto h-full">
         <Timeline
           draft={shown}
           update={update}
@@ -568,8 +577,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           collapsed={timelineFolded}
           onCollapsedChange={foldTimeline}
         />
+        </div>
       </ResizablePanel>
     </ResizablePanelGroup>
+    </div>
   );
 
   const fitStatus = shownAnalysis?.ok ? FIT_STATUS[shownAnalysis.analysis.capacity.status].variant : null;
@@ -605,7 +616,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
             />
-            <main className="workspace-dots flex min-w-0 flex-1 flex-col">
+            {/* The working area: the dot matrix runs behind the venue, the timeline and the workbench. */}
+            <div className="workspace-dots flex min-w-0 flex-1">
+            <main className="flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
                 <div className={cn(COLUMN, "pb-4")}>
                   <NameRow
@@ -751,6 +764,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </aside>
               )
             ) : null}
+            </div>
           </div>
         </IssuesContext>
       </ViewRangeContext>

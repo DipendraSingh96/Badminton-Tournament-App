@@ -864,7 +864,7 @@ export function Timeline({
       })
       .filter((m): m is { stage: "group" | "knockout" | "final"; at: number } => m !== null);
     return (
-      <section aria-label="Timeline" className="flex h-full items-center gap-3 workspace-dots px-4">
+      <section aria-label="Timeline" className="glass flex h-full items-center gap-3 px-4">
         <h2 className="heading-card text-xl">Timeline</h2>
         {playButton}
         <span className="font-display text-sm tabular-nums">{clock(Math.round(now))}</span>
@@ -899,7 +899,7 @@ export function Timeline({
   }
 
   return (
-    <section aria-label="Timeline" className="flex h-full flex-col workspace-dots">
+    <section aria-label="Timeline" className="glass flex h-full flex-col">
       <div className="flex h-10 shrink-0 items-center justify-between gap-x-3 overflow-hidden px-4">
         <span className="flex items-center gap-3">
           <h2 className="heading-card flex items-center gap-2 text-xl">
@@ -987,8 +987,8 @@ export function Timeline({
       <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className="flex w-max min-w-full pr-4 pb-3">
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
-          <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col workspace-dots pr-3 pl-4" aria-hidden="true">
-            <div className="sticky top-0 z-10 h-7 workspace-dots" />
+          <div ref={labels} className="glass-bar sticky left-0 z-40 flex w-29 shrink-0 flex-col pr-3 pl-4" aria-hidden="true">
+            <div className="sticky top-0 z-10 h-7" />
             {draft.frame.halls.map((hall, h) => (
               <div key={hall.id} className="flex flex-col gap-1 pt-3">
                 <div className="h-6 truncate text-sm leading-6 font-medium">{hallName(hall, h)}</div>
@@ -1027,7 +1027,7 @@ export function Timeline({
               onPointerMove={(e) => {
                 if (e.currentTarget.hasPointerCapture(e.pointerId)) seekFrom(e);
               }}
-              className="sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b workspace-dots outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="glass-bar sticky top-0 z-[35] h-7 cursor-ew-resize touch-none border-b outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ticks.map((m) => (
                 <span
