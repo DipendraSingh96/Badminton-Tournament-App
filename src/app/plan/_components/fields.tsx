@@ -99,13 +99,41 @@ export function InfoTip({ about, children }: { about: string; children: ReactNod
   );
 }
 
+/** A field's name above it: a 12px caption that stays when the field is filled. */
+const CAPTION = "block truncate text-xs leading-4 text-muted-foreground";
+
 /**
- * Wraps a control with its help. The control shows its label inside (as
- * placeholder, with the same text as its accessible name and tooltip), so
- * there's no label above it. A value that's wrong outlines the control in
- * red and puts the reason in its tooltip (and, for screen readers, its
- * description); nothing is printed under it, so rows keep their shape.
- * Missing values are listed on the workbench.
+ * Help for a control, shown when it is hovered or focused: what's wrong with
+ * its value first, then what it is for. Nothing sits beside the control, so
+ * rows of fields keep their shape; screen readers get the same text as the
+ * control's description.
+ */
+function WithHelp({ id, message, hint, children }: { id: string; message?: string; hint?: ReactNode; children: ReactNode }) {
+  if (!message && !hint) return <>{children}</>;
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger render={<div className="min-w-0" />}>{children}</TooltipTrigger>
+        <TooltipContent className="block max-w-64 text-left leading-snug font-normal">
+          {message ? <span className="block font-semibold">{message}</span> : null}
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+      <span id={`${id}-help`} className="sr-only">
+        {message ? `${message}. ` : null}
+        {hint}
+      </span>
+    </>
+  );
+}
+
+/**
+ * Wraps a control with its name and its help. The name is a caption above
+ * the control, always there, so a filled field still says what it is. (The
+ * tournament's first row shows names inside the boxes instead: `caption`
+ * off.) Help and what's wrong with a value show on hover and focus; a wrong
+ * value also outlines the control in red. Missing values are listed on the
+ * workbench.
  */
 function Field({
   id,
@@ -113,6 +141,7 @@ function Field({
   path,
   filled,
   hint,
+  caption = true,
   children,
 }: {
   id: string;
@@ -120,19 +149,21 @@ function Field({
   path: Path;
   filled: boolean;
   hint?: string;
+  caption?: boolean;
   children: ReactNode;
 }) {
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 items-center gap-1" data-path={pathKey(path)}>
-      <div className="min-w-0 flex-1">{children}</div>
-      {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
-      {message ? (
-        <p id={`${id}-message`} className="sr-only">
-          {message}
-        </p>
+    <div className="flex min-w-0 flex-col gap-1" data-path={pathKey(path)}>
+      {caption ? (
+        <label htmlFor={id} title={label} className={CAPTION}>
+          {label}
+        </label>
       ) : null}
+      <WithHelp id={id} message={message} hint={hint}>
+        {children}
+      </WithHelp>
     </div>
   );
 }
@@ -171,11 +202,9 @@ export function NumberField({
         step={step}
         min={0}
         value={value ?? ""}
-        placeholder={label}
-        aria-label={label}
-        title={issue ? `${label}: ${issue}` : label}
+        placeholder="–"
         aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? `${id}-message` : undefined}
+        aria-describedby={invalid || hint ? `${id}-help` : undefined}
         onChange={(e) => {
           const raw = e.target.value;
           const parsed = raw === "" ? null : Number(raw);
@@ -229,11 +258,9 @@ export function StepperField({
           step={1}
           min={min}
           value={value ?? ""}
-          placeholder={label}
-          aria-label={label}
-          title={issue ? `${label}: ${issue}` : label}
+          placeholder="–"
           aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${id}-message` : undefined}
+          aria-describedby={invalid || hint ? `${id}-help` : undefined}
           className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-sm tabular-nums outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           onChange={(e) => {
             const raw = e.target.value;
@@ -262,7 +289,10 @@ export function TextField({
   type = "text",
   placeholder,
   strong = false,
+  caption = true,
 }: {
+  /** Off for the tournament's first row, where the name shows inside the box. */
+  caption?: boolean;
   label: string;
   path: Path;
   value: string;
@@ -277,25 +307,20 @@ export function TextField({
   const issue = useIssue(path, filled);
   const invalid = issue !== undefined;
   return (
-    <Field id={id} label={label} path={path} filled={filled}>
+    <Field id={id} label={label} path={path} filled={filled} caption={caption}>
       {type === "time" ? (
-        // A time box always shows "--:--" and can't show a placeholder: its label sits inside, at the left.
         <div
           data-slot="field-box"
           className="flex h-(--control-h) items-center gap-2 rounded-md border px-3 transition-colors focus-within:ring-2 focus-within:ring-ring"
-          title={issue ? `${label}: ${issue}` : label}
         >
-          <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
-            {label}
-          </span>
           <input
             id={id}
             type="time"
             value={value}
-            aria-label={label}
+            aria-label={caption ? undefined : label}
             data-empty={!filled || undefined}
             aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? `${id}-message` : undefined}
+            aria-describedby={invalid ? `${id}-help` : undefined}
             className="min-w-0 flex-1 bg-transparent text-sm tabular-nums outline-none"
             onChange={(e) => onChange(e.target.value)}
           />
@@ -305,13 +330,12 @@ export function TextField({
           id={id}
           type={type}
           value={value}
-          placeholder={placeholder ?? label}
+          placeholder={placeholder ?? (caption ? "–" : label)}
           data-empty={!filled || undefined}
           className={strong ? "font-semibold placeholder:font-normal" : undefined}
-          aria-label={label}
-          title={issue ? `${label}: ${issue}` : label}
+          aria-label={caption ? undefined : label}
           aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${id}-message` : undefined}
+          aria-describedby={invalid ? `${id}-help` : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
@@ -326,6 +350,7 @@ export function SelectField<T extends string | number>({
   options,
   onChange,
   hint,
+  caption = true,
 }: {
   label: string;
   path: Path;
@@ -333,15 +358,16 @@ export function SelectField<T extends string | number>({
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
   hint?: string;
+  /** Off for the tournament's first row, where the name shows inside the box. */
+  caption?: boolean;
 }) {
   const id = useId();
   return (
-    <Field id={id} label={label} path={path} filled={value !== null} hint={hint}>
+    <Field id={id} label={label} path={path} filled={value !== null} hint={hint} caption={caption}>
       <NativeSelect
         id={id}
         className="w-full"
-        aria-label={label}
-        title={label}
+        aria-label={caption ? undefined : label}
         data-empty={value === null || undefined}
         value={value === null ? "" : String(value)}
         onChange={(e) => {
@@ -350,7 +376,7 @@ export function SelectField<T extends string | number>({
         }}
       >
         <NativeSelectOption value="" disabled>
-          {label}
+          {caption ? "Choose" : label}
         </NativeSelectOption>
         {options.map((option) => (
           <NativeSelectOption key={String(option.value)} value={String(option.value)}>
@@ -363,34 +389,37 @@ export function SelectField<T extends string | number>({
 }
 
 /**
- * A choice between a few options, with its label and message. Missing
- * choices are listed on the summary, so the message only shows once chosen.
+ * A choice between a few options, named by a caption above it like any field
+ * (or named for screen readers only, where a heading right above already says
+ * it). Its help shows on hover and focus. Missing choices are listed on the
+ * summary, so the message only shows once chosen.
  */
 function ChoiceGroup({
   label,
   path,
   filled,
   hint,
+  hideLabel = false,
   children,
 }: {
   label: string;
   path: Path;
   filled: boolean;
   hint?: ReactNode;
+  hideLabel?: boolean;
   children: (labelId: string) => ReactNode;
 }) {
   const id = useId();
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
-      <div className="flex min-w-0 items-center gap-1">
-        <span id={id} title={label} className="min-w-0 truncate text-sm leading-none font-semibold text-muted-foreground">
-          {label}
-        </span>
-        {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
-      </div>
-      {children(id)}
+    <div className="flex min-w-0 flex-col gap-1" data-path={pathKey(path)}>
+      <span id={id} title={label} className={hideLabel ? "sr-only" : CAPTION}>
+        {label}
+      </span>
+      <WithHelp id={id} hint={hint}>
+        {children(id)}
+      </WithHelp>
       {message ? <p className="text-xs text-over-text">{message}</p> : null}
     </div>
   );
@@ -418,6 +447,7 @@ export function SegmentedField<T extends string | number>({
   options,
   onChange,
   hint,
+  hideLabel,
 }: {
   label: string;
   path: Path;
@@ -425,9 +455,11 @@ export function SegmentedField<T extends string | number>({
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
   hint?: ReactNode;
+  /** The label is only for screen readers: a heading right above already says it. */
+  hideLabel?: boolean;
 }) {
   return (
-    <ChoiceGroup label={label} path={path} filled={value !== null} hint={hint}>
+    <ChoiceGroup label={label} path={path} filled={value !== null} hint={hint} hideLabel={hideLabel}>
       {(labelId) => (
         <div
           role="radiogroup"
@@ -470,16 +502,19 @@ export function OptionCards<T extends string>({
   value,
   options,
   onChange,
+  hideLabel,
 }: {
   label: string;
   path: Path;
   value: T | null;
   options: readonly { value: T; label: string; description: string }[];
   onChange: (value: T) => void;
+  /** The label is only for screen readers: a heading right above already says it. */
+  hideLabel?: boolean;
 }) {
   const id = useId();
   return (
-    <ChoiceGroup label={label} path={path} filled={value !== null}>
+    <ChoiceGroup label={label} path={path} filled={value !== null} hideLabel={hideLabel}>
       {(labelId) => (
         <div
           role="radiogroup"

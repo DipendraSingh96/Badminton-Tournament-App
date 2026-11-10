@@ -16,12 +16,14 @@ export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: 
         <TextField
           label="Tournament name"
           strong
+          caption={false}
           path={["name"]}
           value={draft.name}
           onChange={(v) => update((d) => void (d.name = v))}
         />
         <TextField
           label="Date"
+          caption={false}
           type="date"
           path={["frame", "date"]}
           value={draft.frame.date}
@@ -29,6 +31,7 @@ export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: 
         />
         <SelectField
           label="Time zone"
+          caption={false}
           path={["frame", "timeZone"]}
           value={draft.frame.timeZone || null}
           options={TIME_ZONES}

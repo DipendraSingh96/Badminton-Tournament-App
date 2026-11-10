@@ -175,7 +175,7 @@ function HallSettings({
           {hall.bands.map((band, i) => (
             <div
               key={band.id}
-              className={`grid grid-cols-[repeat(4,minmax(0,12rem))_auto] items-center gap-2 rounded-lg ${
+              className={`grid grid-cols-[repeat(4,minmax(0,12rem))_auto] items-end gap-2 rounded-lg ${
                 selectedBand === i ? "outline-1 outline-offset-4 outline-foreground/30" : ""
               }`}
             >

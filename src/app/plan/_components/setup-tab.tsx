@@ -76,6 +76,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
       <Section title="Tournament type" description="Set once for the tournament.">
         <SegmentedField
           label="Who enters"
+          hideLabel
           path={["unit"]}
           value={draft.unit}
           options={UNITS}
@@ -106,11 +107,17 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
         >
           {draft.unit === "individual" ? <EventChips draft={draft} update={update} /> : null}
           {draft.categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground" data-path="categories">
-              {draft.unit === "team" ? "Add a competition to start." : "Choose the events you're running."}
-            </p>
+            // Nothing to say that the chips or the Add button don't: only somewhere for "to fill in" to point.
+            <span data-path="categories" />
           ) : (
             <ul className="flex flex-col gap-2" data-path="categories">
+              {draft.unit === "individual" ? (
+                // What the two columns of each row are.
+                <li className="flex gap-2 text-xs leading-4 text-muted-foreground" aria-hidden="true">
+                  <span className="w-28">Event</span>
+                  <span>Category name (optional)</span>
+                </li>
+              ) : null}
               {draft.categories.map((category, i) =>
                 draft.unit === "team" ? (
                   <CompetitionCard key={category.id} draft={draft} index={i} update={update} />
@@ -126,6 +133,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
       <Section title="Competition format" description="Applies to every category.">
         <OptionCards
           label="How categories are played"
+          hideLabel
           path={["format"]}
           value={draft.format}
           options={FORMATS}
@@ -218,7 +226,7 @@ function CategoryRow({ draft, index, update }: { draft: PlanDraft; index: number
         {EVENT_LABELS[category.event]}
       </Badge>
       <Input
-        aria-label={`Name of the ${EVENT_LABELS[category.event].toLowerCase()} category`}
+        aria-label={`Category name for ${EVENT_LABELS[category.event].toLowerCase()} (optional)`}
         className="min-w-0 flex-1"
         placeholder={defaultCategoryName(draft, index)}
         value={category.name}

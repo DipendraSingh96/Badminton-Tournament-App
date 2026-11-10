@@ -173,7 +173,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
           onChange={set("expectedEntries")}
         />
         <StepperField
-          label="Of which external"
+          label="External entries"
           hint={`External ${nouns}. Optional.`}
           path={["categories", index, "expectedExternal"]}
           value={category.expectedExternal}

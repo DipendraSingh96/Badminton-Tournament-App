@@ -59,7 +59,7 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
       <Tiebreaks draft={draft} update={update} />
 
       {openDoublesInUse(draft) ? (
-        <>
+        <div className="flex flex-col gap-2">
           <Heading
             title="Open doubles handicap"
             description="A points head start in every game when different pair types meet, given to the weaker pair type. The same in every stage, and in Open doubles rubbers of team ties. Pairs of the same type get none."
@@ -83,11 +83,12 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
               ))}
             </div>
           ) : null}
-        </>
+        </div>
       ) : null}
 
       <Eligibility draft={draft} update={update} />
 
+      <div className="flex flex-col gap-2">
       <Heading
         title="Withdrawals and walkovers"
         description="Before the draw, a withdrawn entry's place becomes a bye."
@@ -120,6 +121,7 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
         }
         onChange={(v) => update((d) => void (d.rules.walkover = v))}
       />
+      </div>
     </Section>
   );
 }
@@ -156,9 +158,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
         title="Tiebreak order"
         description="How entries level on the first criterion are separated in a group, in this order."
       />
-      {tiebreaks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No tiebreaks yet. Add the first one.</p>
-      ) : (
+      {tiebreaks.length === 0 ? null : (
         <ol className="flex flex-col gap-1">
           {tiebreaks.map((criterion, i) => {
             const fixedLast = criterion === "drawOfLots";
@@ -230,12 +230,14 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
   const { eligibility } = draft.rules;
   const options = draft.categories.map((c) => ({ value: c.id, label: categoryName(draft, c.id) }));
   return (
-    <div className="flex flex-col gap-4">
-      <Heading title="Eligibility" description="Who may enter what. Checked when entries are taken." />
+    <div className="flex flex-col gap-2">
+      <Heading title="Who can enter" description="Who may enter what. Checked when entries are taken." />
+      {/* Several settings about the same thing: together in a card. */}
+      <div className="flex flex-col gap-4 rounded-lg bg-card-system p-3">
       <div className="w-[calc(50%-0.25rem)]">
         <StepperField
-          label="Most categories one person may enter"
-          hint="Leave empty for no limit."
+          label="Most categories per person"
+          hint="The most categories one person may enter. Leave empty for no limit."
           min={1}
           path={["rules", "eligibility", "maxCategoriesPerPerson"]}
           value={eligibility.maxCategoriesPerPerson}
@@ -252,10 +254,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
                 Pairs of categories one person can&apos;t both enter, e.g. two draws on at the same time.
               </InfoTip>
             </span>
-            {eligibility.exclusivePairs.length === 0 ? (
-              <p className="text-xs text-muted-foreground">None yet.</p>
-            ) : (
-              eligibility.exclusivePairs.map((pair, i) => (
+            {eligibility.exclusivePairs.map((pair, i) => (
                 <div
                   key={pair.id}
                   className="flex flex-col gap-1"
@@ -291,8 +290,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
                     <IssueMessage path={["rules", "eligibility", "exclusivePairs", i]} />
                   ) : null}
                 </div>
-              ))
-            )}
+            ))}
             <Button
               variant="outline"
               size="sm"
@@ -337,6 +335,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
           onChange={(on) => update((d) => void (d.rules.eligibility.allowMixedMemberExternalPairs = on))}
         />
       ) : null}
+      </div>
     </div>
   );
 }
