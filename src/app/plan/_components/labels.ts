@@ -151,10 +151,10 @@ export function formatErrorMessage(error: FormatError): string {
 
 export function analysisErrorMessages(draft: PlanDraft, error: AnalysisError): string[] {
   if (error.code === "missingStageRules") {
-    return [`Enter scoring for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
+    return [`${categoryName(draft, error.categoryId)}: enter scoring for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
   }
   if (error.code === "missingStageTiming") {
-    return [`Enter timing for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
+    return [`${categoryName(draft, error.categoryId)}: enter timing for the ${STAGE_LABELS[error.stage].toLowerCase()}`];
   }
   return error.errors.map(
     (e) => `${categoryName(draft, error.categoryId)}: ${formatErrorMessage(e)}`,

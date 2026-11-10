@@ -8,6 +8,8 @@ import {
   emptyPrize,
   newId,
   openDoublesInUse,
+  newCategory,
+  ownRules,
   stagesInPlay,
   usesBestOfThree,
   type EntryDraft,
@@ -78,9 +80,9 @@ export function fillPlan(draft: PlanDraft, today: Date): PlanDraft {
 
     if (d.categories.length === 0) {
       if (d.unit === "team") {
-        d.categories.push({ ...emptyCategory(), lineUp: { ...emptyCategory().lineUp, ...DUMMY_TEAM_LINE_UP } });
+        d.categories.push({ ...newCategory(d), lineUp: { ...emptyCategory().lineUp, ...DUMMY_TEAM_LINE_UP } });
       } else {
-        for (const event of DUMMY_INDIVIDUAL_EVENTS) d.categories.push({ ...emptyCategory(), event });
+        for (const event of DUMMY_INDIVIDUAL_EVENTS) d.categories.push({ ...newCategory(d), event });
       }
     }
     d.categories.forEach((c, i) => {
@@ -103,16 +105,19 @@ export function fillPlan(draft: PlanDraft, today: Date): PlanDraft {
     });
 
     const stages = stagesInPlay(d);
-    for (const stage of stages) {
-      const rules = d.stageRules[stage];
-      rules.pointsPerGame ??= DUMMY_STAGE_RULES.pointsPerGame;
-      rules.deuce ??= DUMMY_STAGE_RULES.deuce;
-      if (rules.deuce !== "none") rules.deuceLimit ??= DUMMY_STAGE_RULES.deuceLimit;
-      // The final is best of 3; everything else best of 1.
-      rules.bestOf ??= stage === "final" ? 3 : 1;
-      rules.minutesPerGame ??= DUMMY_STAGE_RULES.minutesPerGame;
-      rules.changeoverMinutes ??= DUMMY_STAGE_RULES.changeoverMinutes;
-    }
+    d.categories.forEach((_, i) => {
+      const own = ownRules(d, i);
+      for (const stage of stages) {
+        const rules = own[stage];
+        rules.pointsPerGame ??= DUMMY_STAGE_RULES.pointsPerGame;
+        rules.deuce ??= DUMMY_STAGE_RULES.deuce;
+        if (rules.deuce !== "none") rules.deuceLimit ??= DUMMY_STAGE_RULES.deuceLimit;
+        // The final is best of 3; everything else best of 1.
+        rules.bestOf ??= stage === "final" ? 3 : 1;
+        rules.minutesPerGame ??= DUMMY_STAGE_RULES.minutesPerGame;
+        rules.changeoverMinutes ??= DUMMY_STAGE_RULES.changeoverMinutes;
+      }
+    });
     if (usesBestOfThree(d)) d.bestOfThreeAllowance ??= DUMMY_BEST_OF_THREE_ALLOWANCE;
 
     const finance = d.finance;

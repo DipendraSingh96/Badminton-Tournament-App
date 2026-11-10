@@ -71,7 +71,7 @@ describe("analyseTournament", () => {
     if (!result.ok) throw new Error(JSON.stringify(result.errors));
     const { demand, capacity, games } = result.analysis;
     expect(demand.map((d) => d.stage)).toEqual(["group", "knockout", "final"]);
-    expect(demand[0]).toEqual({ stage: "group", event: "MD", matches: 18, games: 18, typical: 270, worst: 270 });
+    expect(demand[0]).toEqual({ categoryId: "c1", stage: "group", event: "MD", matches: 18, games: 18, typical: 270, worst: 270 });
     expect(demand.reduce((s, d) => s + d.typical, 0)).toBe(capacity.needed.typical);
     expect(demand.reduce((s, d) => s + d.worst, 0)).toBe(capacity.needed.worst);
     expect(demand.reduce((s, d) => s + d.games, 0)).toBe(games);
@@ -114,10 +114,44 @@ describe("analyseTournament", () => {
     const group = result.analysis.demand.filter((d) => d.stage === "group");
     // Each category: 3 groups of 4 = 18 group matches, all at 15 min.
     expect(group).toEqual([
-      { stage: "group", event: "MS", matches: 18, games: 18, typical: 18 * 15, worst: 18 * 15 },
-      { stage: "group", event: "MD", matches: 18, games: 18, typical: 18 * 15, worst: 18 * 15 },
+      { categoryId: "ms", stage: "group", event: "MS", matches: 18, games: 18, typical: 18 * 15, worst: 18 * 15 },
+      { categoryId: "md", stage: "group", event: "MD", matches: 18, games: 18, typical: 18 * 15, worst: 18 * 15 },
     ]);
-    expect(result.analysis.slots.map((s) => s.stage)).toEqual(["group", "knockout", "final"]);
+    // A slot for each category in each stage.
+    expect(result.analysis.slots.map((s) => `${s.stage}:${s.categoryId}`)).toEqual([
+      "group:ms",
+      "group:md",
+      "knockout:ms",
+      "knockout:md",
+      "final:ms",
+      "final:md",
+    ]);
+  });
+
+  it("times a category with its own rules and timing, where it has them", () => {
+    const mixed = tournament();
+    mixed.categories = [
+      { ...mixed.categories[0]!, id: "ms", entry: { type: "individual", event: "MS" } },
+      {
+        ...mixed.categories[0]!,
+        id: "md",
+        entry: { type: "individual", event: "MD" },
+        // Best of 3 to 15, slower games: 2 × 20 + 5 = 45 minutes typical, 3 × 20 + 5 worst.
+        stageRules: { group: { pointsPerGame: 15, deuce: { type: "none" }, bestOf: 3 } },
+        stageTiming: { group: { minutesPerGame: 20, changeoverMinutes: 5 } },
+      },
+    ];
+    const result = analyseTournament(mixed);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const slot = (categoryId: string, stage: string) =>
+      result.analysis.slots.find((s) => s.categoryId === categoryId && s.stage === stage)!.minutes;
+    expect(slot("ms", "group").typical).toBe(15);
+    expect(slot("md", "group")).toMatchObject({ typical: 45, worst: 65 });
+    // Where it sets nothing of its own, the tournament's.
+    expect(slot("md", "knockout").typical).toBe(15);
+    const group = result.analysis.demand.filter((d) => d.stage === "group");
+    expect(group.map((d) => d.typical)).toEqual([18 * 15, 18 * 45]);
+    expect(group.map((d) => d.games)).toEqual([18, 36]);
   });
 
   it("times each stage with its own timing", () => {
@@ -150,8 +184,8 @@ describe("analyseTournament", () => {
     expect(analyseTournament(untimed)).toEqual({
       ok: false,
       errors: [
-        { code: "missingStageTiming", stage: "knockout" },
-        { code: "missingStageTiming", stage: "final" },
+        { code: "missingStageTiming", stage: "knockout", categoryId: "c1" },
+        { code: "missingStageTiming", stage: "final", categoryId: "c1" },
       ],
     });
   });
@@ -207,8 +241,8 @@ describe("analyseTournament", () => {
     expect(analyseTournament(missing)).toEqual({
       ok: false,
       errors: [
-        { code: "missingStageRules", stage: "bronze" },
-        { code: "missingStageTiming", stage: "bronze" },
+        { code: "missingStageRules", stage: "bronze", categoryId: "c1" },
+        { code: "missingStageTiming", stage: "bronze", categoryId: "c1" },
       ],
     });
   });

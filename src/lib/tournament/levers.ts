@@ -1,6 +1,6 @@
 import { produce } from "immer";
 import type { LeverChange } from "@/engine";
-import { newId, type PlanDraft } from "./draft";
+import { newId, ownRules, type PlanDraft } from "./draft";
 
 // Suggested levers (src/engine/levers.ts) describe one change to the plan's
 // inputs. This makes the same change to the draft, so a lever can be
@@ -21,11 +21,12 @@ export function applyLever(draft: PlanDraft, change: LeverChange): PlanDraft {
         if (hall && last) hall.courts.push({ ...last, id: newId(), from: null, to: null });
         return;
       }
+      // A stage's change is made to every category's rules for it.
       case "bestOfOne":
-        d.stageRules[change.stage].bestOf = 1;
+        d.categories.forEach((_, i) => void (ownRules(d, i)[change.stage].bestOf = 1));
         return;
       case "noDeuce":
-        d.stageRules[change.stage].deuce = "none";
+        d.categories.forEach((_, i) => void (ownRules(d, i)[change.stage].deuce = "none"));
         return;
       case "groupCount": {
         const category = d.categories.find((c) => c.id === change.categoryId);

@@ -15,11 +15,11 @@ import {
   type CourtGroupPin,
   type MatchMove,
   type WindowKey,
-  type StageRules,
   type TournamentInputs,
   type Unit,
 } from "@/engine";
 import {
+  categoryRules,
   defaultCategoryName,
   effectiveCategory,
   openDoublesInUse,
@@ -438,26 +438,30 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     issues.push({ path: ["categories"], message: "Add at least one category" });
   }
 
-  const stageRules: TournamentInputs["stageRules"] = {};
-  const stageTiming: TournamentInputs["stageTiming"] = {};
-  for (const stage of stagesInPlay(draft)) {
-    const raw = draft.stageRules[stage];
-    if (isEmptyStage(raw)) continue;
-    const parsed = collect(stageRulesSchema, raw, ["stageRules", stage]);
-    if (!parsed) continue;
-    const rules: StageRules = {
-      pointsPerGame: parsed.pointsPerGame,
-      deuce:
-        parsed.deuce === "none"
-          ? { type: "none" }
-          : parsed.deuce === "cap"
-            ? { type: "cap", cap: parsed.deuceLimit! }
-            : { type: "standard", max: parsed.deuceLimit! },
-      bestOf: parsed.bestOf,
-    };
-    stageRules[stage] = rules;
-    stageTiming[stage] = { minutesPerGame: parsed.minutesPerGame, changeoverMinutes: parsed.changeoverMinutes };
-  }
+  // Scoring and timing are each category's own, per stage in play.
+  const categoryStageRules = draft.categories.map((category, c) => {
+    const rules: NonNullable<Category["stageRules"]> = {};
+    const timing: NonNullable<Category["stageTiming"]> = {};
+    for (const stage of stagesInPlay(draft)) {
+      if (stage === "bronze" && !category.bronze) continue;
+      const raw = categoryRules(draft, category)[stage];
+      if (isEmptyStage(raw)) continue;
+      const parsed = collect(stageRulesSchema, raw, ["categories", c, "stageRules", stage]);
+      if (!parsed) continue;
+      rules[stage] = {
+        pointsPerGame: parsed.pointsPerGame,
+        deuce:
+          parsed.deuce === "none"
+            ? { type: "none" }
+            : parsed.deuce === "cap"
+              ? { type: "cap", cap: parsed.deuceLimit! }
+              : { type: "standard", max: parsed.deuceLimit! },
+        bestOf: parsed.bestOf,
+      };
+      timing[stage] = { minutesPerGame: parsed.minutesPerGame, changeoverMinutes: parsed.changeoverMinutes };
+    }
+    return { rules, timing };
+  });
 
   let bestOfThreeAllowance = 0;
   if (usesBestOfThree(draft)) {
@@ -566,6 +570,8 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         externalAmount: category.externalFeeAmount ?? undefined,
         expectedExternal: category.expectedExternal ?? 0,
       },
+      stageRules: categoryStageRules[i]!.rules,
+      stageTiming: categoryStageRules[i]!.timing,
     };
   });
 
@@ -607,8 +613,9 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         bufferStart: frame.bufferStart ? utc(frame.bufferStart) : undefined,
       },
       categories: engineCategories,
-      stageRules,
-      stageTiming,
+      // Every category carries its own.
+      stageRules: {},
+      stageTiming: {},
       bestOfThreeAllowance,
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,

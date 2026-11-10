@@ -42,9 +42,9 @@ export function formatClock(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
-/** The slot length for a stage the analysis reported demand for. */
-export function slotFor(analysis: Analysis, stage: Stage): MatchMinutes {
-  return analysis.slots.find((s) => s.stage === stage)!.minutes;
+/** A category's slot length for a stage the analysis reported demand for. */
+export function slotFor(analysis: Analysis, stage: Stage, categoryId: string): MatchMinutes {
+  return analysis.slots.find((s) => s.stage === stage && s.categoryId === categoryId)!.minutes;
 }
 
 /** "Hall 1, Court 3" for every court, numbered across the venue. */
@@ -96,7 +96,7 @@ export function courtTimeWorking(analysis: Analysis, inputs: TournamentInputs): 
 
 export function neededWorking(analysis: Analysis, length: "typical" | "worst"): string[] {
   const lines = analysis.demand.map((d) => {
-    const slot = slotFor(analysis, d.stage);
+    const slot = slotFor(analysis, d.stage, d.categoryId);
     return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${formatNumber(slot[length])} min (${slotSummary(slot, length)}) = ${exact(d[length])}`;
   });
   lines.push(`Total = ${exact(analysis.capacity.needed[length])}`);
@@ -308,7 +308,7 @@ export function leverWorking(lever: Lever, before: Analysis): string[] {
 export function shuttleWorking(analysis: Analysis): string[] {
   const { finance } = analysis;
   const lines = analysis.demand.map((d) => {
-    const perMatch = slotFor(analysis, d.stage).typicalGames;
+    const perMatch = slotFor(analysis, d.stage, d.categoryId).typicalGames;
     return `${STAGE_LABELS[d.stage]}, ${EVENT_LABELS[d.event].toLowerCase()}: ${plural(d.matches, "match", "matches")} × ${plural(perMatch, "game")} = ${plural(d.games, "game")}`;
   });
   lines.push(

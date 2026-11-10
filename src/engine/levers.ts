@@ -1,7 +1,7 @@
 import { analyseTournament, type Analysis } from "./analyse";
 import type { CapacityStatus } from "./capacity";
 import { categoryRevenueWorking } from "./finance";
-import { STAGES, type DeuceRule, type Stage, type TournamentInputs } from "./types";
+import { STAGES, rulesFor, type DeuceRule, type Stage, type StageRules, type TournamentInputs } from "./types";
 
 // What-if suggestions: each re-runs the plan with one input changed. Only
 // natural steps are used, so no step size is invented: a change that needs
@@ -77,20 +77,25 @@ function candidates(inputs: TournamentInputs, base: Analysis): { change: LeverCh
     });
   }
 
+  // One change per stage, made to every category's rules for it.
   for (const stage of STAGES) {
-    const rules = inputs.stageRules[stage];
-    if (!rules || base.matches[stage] === 0) continue;
-    if (rules.bestOf === 3) {
-      out.push({
-        change: { kind: "bestOfOne", stage },
-        inputs: { ...inputs, stageRules: { ...inputs.stageRules, [stage]: { ...rules, bestOf: 1 } } },
-      });
+    if (base.matches[stage] === 0) continue;
+    const inStage = inputs.categories.map((c) => rulesFor(inputs, c, stage)).filter((r): r is StageRules => r !== undefined);
+    const withRules = (patch: Partial<StageRules>): TournamentInputs => ({
+      ...inputs,
+      stageRules: inputs.stageRules[stage]
+        ? { ...inputs.stageRules, [stage]: { ...inputs.stageRules[stage], ...patch } }
+        : inputs.stageRules,
+      categories: inputs.categories.map((c) =>
+        c.stageRules?.[stage] ? { ...c, stageRules: { ...c.stageRules, [stage]: { ...c.stageRules[stage], ...patch } } } : c,
+      ),
+    });
+    if (inStage.some((r) => r.bestOf === 3)) {
+      out.push({ change: { kind: "bestOfOne", stage }, inputs: withRules({ bestOf: 1 }) });
     }
-    if (rules.deuce.type !== "none") {
-      out.push({
-        change: { kind: "noDeuce", stage, from: rules.deuce.type },
-        inputs: { ...inputs, stageRules: { ...inputs.stageRules, [stage]: { ...rules, deuce: { type: "none" } } } },
-      });
+    const deuce = inStage.find((r) => r.deuce.type !== "none");
+    if (deuce && deuce.deuce.type !== "none") {
+      out.push({ change: { kind: "noDeuce", stage, from: deuce.deuce.type }, inputs: withRules({ deuce: { type: "none" } }) });
     }
   }
 

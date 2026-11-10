@@ -13,14 +13,14 @@ export type DeuceRule =
   | { type: "cap"; cap: number }
   | { type: "standard"; max: number };
 
-/** Scoring for a stage; applies to every event played in it. */
+/** Scoring for one stage of a category. */
 export interface StageRules {
   pointsPerGame: number;
   deuce: DeuceRule;
   bestOf: 1 | 3;
 }
 
-/** Timing for a stage; applies to every event played in it. */
+/** Timing for one stage of a category. */
 export interface Timing {
   /** Typical playing time for one game. */
   minutesPerGame: number;
@@ -129,6 +129,22 @@ export interface Category {
   qualifiersPerGroup?: number;
   bronze: boolean;
   fee: EntryFee;
+  /**
+   * The category's own scoring and timing, per stage. A stage it doesn't set
+   * uses the tournament's (TournamentInputs.stageRules and stageTiming).
+   */
+  stageRules?: Partial<Record<Stage, StageRules>>;
+  stageTiming?: Partial<Record<Stage, Timing>>;
+}
+
+/** A category's scoring for a stage: its own, or the tournament's. */
+export function rulesFor(inputs: Pick<TournamentInputs, "stageRules">, category: Category, stage: Stage): StageRules | undefined {
+  return category.stageRules?.[stage] ?? inputs.stageRules[stage];
+}
+
+/** A category's timing for a stage: its own, or the tournament's. */
+export function timingFor(inputs: Pick<TournamentInputs, "stageTiming">, category: Category, stage: Stage): Timing | undefined {
+  return category.stageTiming?.[stage] ?? inputs.stageTiming[stage];
 }
 
 export interface Prize {
@@ -274,9 +290,9 @@ export interface TournamentInputs {
   format: FormatType;
   frame: Frame;
   categories: Category[];
-  /** Only stages that have matches need rules. */
+  /** Scoring for the categories that don't set their own. Only stages with matches need rules. */
   stageRules: Partial<Record<Stage, StageRules>>;
-  /** Only stages that have matches need timing. */
+  /** Timing for the categories that don't set their own. Only stages with matches need timing. */
   stageTiming: Partial<Record<Stage, Timing>>;
   /**
    * Extra on the typical length of every best-of-3 match, as a fraction

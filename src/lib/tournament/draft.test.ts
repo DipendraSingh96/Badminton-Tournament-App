@@ -6,6 +6,9 @@ import {
   removeBand,
   setBandTime,
   splitRates,
+  newCategory,
+  withOwnRules,
+  categoryRules,
   steppedHallTime,
   emptyCategory,
   emptyDraft,
@@ -294,6 +297,31 @@ describe("bands set the hall's hours", () => {
     splitRates(h);
     expect(h.multipleRates).toBe(true);
     expect(h.bands[0]).toMatchObject({ from: "09:00", to: "19:00" });
+  });
+});
+
+describe("rules per category", () => {
+  const scored = { pointsPerGame: 21, deuce: "none" as const, deuceLimit: null, bestOf: 1 as const, minutesPerGame: 12, changeoverMinutes: 3 };
+
+  it("starts a new category with a copy of the first category's rules", () => {
+    const draft = draftWith(["MD"]);
+    draft.categories[0]!.stageRules = { group: scored, knockout: scored, bronze: scored, final: { ...scored, bestOf: 3 } };
+    const added = newCategory(draft);
+    expect(added.stageRules).toEqual(draft.categories[0]!.stageRules);
+    // A copy: changing one leaves the other.
+    added.stageRules!.group.pointsPerGame = 15;
+    expect(draft.categories[0]!.stageRules!.group.pointsPerGame).toBe(21);
+  });
+
+  it("gives a plan saved with one set of rules a copy for each category", () => {
+    const saved = draftWith(["MD", "XD"]);
+    saved.stageRules.group = scored;
+    expect(categoryRules(saved, saved.categories[0]!).group).toEqual(scored);
+    const opened = withOwnRules(saved);
+    expect(opened.categories.map((c) => c.stageRules!.group)).toEqual([scored, scored]);
+    expect(opened.categories[0]!.stageRules!.group).not.toBe(opened.categories[1]!.stageRules!.group);
+    // Already its own: left as it is.
+    expect(withOwnRules(opened)).toBe(opened);
   });
 });
 

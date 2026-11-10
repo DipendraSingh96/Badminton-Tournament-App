@@ -1,4 +1,4 @@
-import { emptyDummyMarks, newId, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
+import { emptyDummyMarks, newId, withOwnRules, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
 import { migrateV3, migrateV4 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase: a list
@@ -78,10 +78,11 @@ export function normaliseDraft(
   };
   const { costPerShuttle, ...finance } = draft.finance;
   if (finance.shuttlePrice !== undefined) {
-    return { ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft };
+    // Saved before rules were set per category: each category gets a copy of the plan's.
+    return withOwnRules({ ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft });
   }
   const price = costPerShuttle ?? null;
-  return {
+  return withOwnRules({
     ...draft,
     finance: {
       ...finance,
@@ -90,7 +91,7 @@ export function normaliseDraft(
       shuttlesPerTube: null,
       otherIncome: finance.otherIncome ?? [],
     },
-  };
+  });
 }
 
 /** Storage as the store uses it; tests pass a fake. */

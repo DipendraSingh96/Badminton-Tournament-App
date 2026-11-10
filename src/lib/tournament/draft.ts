@@ -1,5 +1,6 @@
 import {
   EVENT_TYPES,
+  STAGES,
   type EventType,
   type FormatType,
   type GroupCourts,
@@ -97,9 +98,15 @@ export interface CategoryDraft {
   feeAmount: N;
   externalFeeAmount: N;
   expectedExternal: N;
+  /**
+   * The category's own scoring and timing, per stage. Plans saved before
+   * rules were set per category have none here until opened (storage gives
+   * each category a copy of the plan's); see `categoryRules`.
+   */
+  stageRules?: Record<Stage, StageRulesDraft>;
 }
 
-/** A stage's scoring and timing; applies to every event played in it. */
+/** One stage's scoring and timing for a category; applies to every event and rubber it plays there. */
 export interface StageRulesDraft {
   pointsPerGame: N;
   deuce: "none" | "cap" | "standard" | null;
@@ -186,7 +193,11 @@ export interface PlanDraft {
   format: FormatType | null;
   frame: FrameDraft;
   categories: CategoryDraft[];
-  /** Scoring and timing per stage. */
+  /**
+   * Scoring and timing per stage for a category that has none of its own: what
+   * plans held before rules were set per category. Categories carry their own
+   * (`CategoryDraft.stageRules`); nothing edits this any more.
+   */
   stageRules: Record<Stage, StageRulesDraft>;
   /** Percentage added to typical best-of-3 matches; needed when any stage is best of 3. */
   bestOfThreeAllowance: N;
@@ -350,9 +361,39 @@ export function stagesInPlay(draft: PlanDraft): Stage[] {
   return stages;
 }
 
-/** True when any stage is set to best of 3. */
+/** A category's scoring and timing per stage: its own, or the plan's when it has none yet. */
+export function categoryRules(draft: PlanDraft, category: CategoryDraft): Record<Stage, StageRulesDraft> {
+  return category.stageRules ?? draft.stageRules;
+}
+
+function copyRules(rules: Record<Stage, StageRulesDraft>): Record<Stage, StageRulesDraft> {
+  return Object.fromEntries(STAGES.map((stage) => [stage, { ...rules[stage] }])) as Record<Stage, StageRulesDraft>;
+}
+
+/** A category's own rules, to change: made from the plan's the first time. */
+export function ownRules(draft: PlanDraft, index: number): Record<Stage, StageRulesDraft> {
+  const category = draft.categories[index]!;
+  category.stageRules ??= copyRules(draft.stageRules);
+  return category.stageRules;
+}
+
+/** A new category: its rules start as a copy of the first category's, so a plan is set up once. */
+export function newCategory(draft: PlanDraft): CategoryDraft {
+  const first = draft.categories[0];
+  return { ...emptyCategory(), stageRules: copyRules(first ? categoryRules(draft, first) : draft.stageRules) };
+}
+
+/** Gives every category its own rules (a copy of the plan's): for plans saved before rules were per category. */
+export function withOwnRules(draft: PlanDraft): PlanDraft {
+  if (draft.categories.every((c) => c.stageRules)) return draft;
+  return { ...draft, categories: draft.categories.map((c) => (c.stageRules ? c : { ...c, stageRules: copyRules(draft.stageRules) })) };
+}
+
+/** True when any category plays any stage as best of 3. */
 export function usesBestOfThree(draft: PlanDraft): boolean {
-  return stagesInPlay(draft).some((stage) => draft.stageRules[stage].bestOf === 3);
+  const stages = stagesInPlay(draft);
+  if (draft.categories.length === 0) return stages.some((stage) => draft.stageRules[stage].bestOf === 3);
+  return draft.categories.some((c) => stages.some((stage) => categoryRules(draft, c)[stage].bestOf === 3));
 }
 
 /**

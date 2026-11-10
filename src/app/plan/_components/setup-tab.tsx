@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { EVENT_TYPES, playersPerEntry, type EventType, type FormatType, type Unit } from "@/engine";
 import {
   defaultCategoryName,
-  emptyCategory,
+  newCategory,
   removeCategory,
   type CategoryDraft,
   type PlanDraft,
@@ -66,7 +66,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
     update((d) => {
       for (const category of [...d.categories]) removeCategory(d, category.id);
       d.unit = next;
-      if (next === "team") d.categories.push(emptyCategory());
+      if (next === "team") d.categories.push(newCategory(d));
       else d.rules.tiebreaks = d.rules.tiebreaks.filter((t) => t !== "rubbersWon");
     });
   }
@@ -99,7 +99,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
           }
           action={
             draft.unit === "team" ? (
-              <Button variant="outline" size="sm" onClick={() => update((d) => void d.categories.push(emptyCategory()))}>
+              <Button variant="outline" size="sm" onClick={() => update((d) => void d.categories.push(newCategory(d)))}>
                 <PlusIcon /> Add competition
               </Button>
             ) : null
@@ -161,7 +161,7 @@ function EventChips({ draft, update }: { draft: PlanDraft; update: Update }) {
                   key={event}
                   type="button"
                   aria-label={`Add a category: ${EVENT_LABELS[event]}${n > 0 ? ` (${n} added)` : ""}`}
-                  onClick={() => update((d) => void d.categories.push({ ...emptyCategory(), event }))}
+                  onClick={() => update((d) => void d.categories.push({ ...newCategory(d), event }))}
                   className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring ${
                     n > 0 ? "border-foreground font-medium" : "border-border text-muted-foreground"
                   }`}

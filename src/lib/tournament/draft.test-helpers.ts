@@ -47,18 +47,22 @@ export function completeDraft(): PlanDraft {
       expectedExternal: 4,
     },
   ];
-  draft.stageRules.group = {
+  // Scoring and timing are the category's own, per stage.
+  const group = {
     pointsPerGame: 21,
-    deuce: "standard",
+    deuce: "standard" as const,
     deuceLimit: 30,
-    bestOf: 1,
+    bestOf: 1 as const,
     minutesPerGame: 12,
     changeoverMinutes: 3,
   };
   draft.bestOfThreeAllowance = 33;
-  draft.stageRules.knockout = { ...draft.stageRules.group };
-  draft.stageRules.bronze = { ...draft.stageRules.group };
-  draft.stageRules.final = { ...draft.stageRules.group, bestOf: 3 };
+  draft.categories[0]!.stageRules = {
+    group,
+    knockout: { ...group },
+    bronze: { ...group },
+    final: { ...group, bestOf: 3 },
+  };
   draft.finance = {
     shuttlesPerGame: 1,
     shuttlePriceBasis: "shuttle",

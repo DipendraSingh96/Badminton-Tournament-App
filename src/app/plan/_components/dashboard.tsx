@@ -319,11 +319,16 @@ function MatchesCard({
           ))}
         </div>
         <div>
-          {analysis.slots.map(({ stage, minutes }) => {
+          {analysis.slots.map(({ categoryId, stage, minutes }) => {
             return (
               <Row
-                key={stage}
-                label={`${STAGE_LABELS[stage]} slot`}
+                key={`${categoryId}:${stage}`}
+                // Each category has its own slot lengths; with one category its name adds nothing.
+                label={
+                  analysis.categories.length > 1
+                    ? `${STAGE_LABELS[stage]} slot · ${categoryName(draft, categoryId)}`
+                    : `${STAGE_LABELS[stage]} slot`
+                }
                 value={
                   minutes.typical === minutes.worst
                     ? formatMinutes(minutes.typical)

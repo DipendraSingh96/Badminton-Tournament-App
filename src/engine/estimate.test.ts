@@ -106,6 +106,29 @@ describe("estimateSchedule", () => {
     expect(court1.every((s) => s.matches === 1)).toBe(true);
   });
 
+  it("gives each category's matches its own length", () => {
+    const plan = tournament();
+    plan.categories.push({
+      ...plan.categories[0]!,
+      id: "xd",
+      name: "Mixed doubles",
+      entry: { type: "individual", event: "XD" },
+      // 27 + 3: half-hour slots, against the tournament's 15 minutes.
+      stageTiming: { group: { minutesPerGame: 27, changeoverMinutes: 3 } },
+    });
+    plan.frame.halls = [hall("h1", "09:00", "23:00", { courtCount: 4 })];
+    const { schedule } = estimate(plan);
+    const minutes = (categoryId: string) => [
+      ...new Set(
+        segments(schedule)
+          .filter((s) => s.stage === "group" && s.categoryId === categoryId)
+          .map((s) => (Date.parse(s.to) - Date.parse(s.from)) / 60_000),
+      ),
+    ];
+    expect(minutes("md")).toEqual([15]);
+    expect(minutes("xd")).toEqual([30]);
+  });
+
   it("keeps every match within its court's hours", () => {
     const plan = tournament();
     plan.frame.halls = [

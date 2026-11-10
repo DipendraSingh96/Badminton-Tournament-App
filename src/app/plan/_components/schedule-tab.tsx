@@ -1,7 +1,6 @@
 "use client";
 
-import { CopyIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { CopyIcon, CopySimpleIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +14,8 @@ import {
   type Unit,
 } from "@/engine";
 import {
+  categoryRules,
+  ownRules,
   stagesInPlay,
   usesBestOfThree,
   type CategoryDraft,
@@ -248,7 +249,7 @@ function FormatPreview({ category, unit, format }: { category: CategoryDraft; un
   );
 }
 
-/** A category's groups and qualifiers, inside the group stage card. */
+/** A category's groups and qualifiers, inside its group stage card. */
 function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number; update: Update }) {
   const category = draft.categories[index]!;
   const format = draft.format!;
@@ -259,7 +260,6 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
   const notice = unusedNotice(category, format);
   return (
     <div className="flex flex-col gap-3">
-      <CategoryHeading draft={draft} category={category} />
       <SegmentedField
         label="Groups set by"
         path={path("groupMode")}
@@ -306,31 +306,14 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
   );
 }
 
-/** Knockout only: each category's bracket, inside the knockout card. */
+/** Knockout only: the category's bracket, inside its knockout card. */
 function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
   const category = draft.categories[index]!;
   const notice = unusedNotice(category, draft.format!);
   return (
     <div className="flex flex-col gap-1">
-      <CategoryHeading draft={draft} category={category} />
       <FormatPreview category={category} unit={draft.unit!} format={draft.format!} />
       {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
-    </div>
-  );
-}
-
-/** A bronze match switch for each category, inside the bronze card. */
-function BronzeSwitches({ draft, update }: { draft: PlanDraft; update: Update }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {draft.categories.map((category, i) => (
-        <SwitchField
-          key={category.id}
-          label={categoryName(draft, category.id)}
-          checked={category.bronze}
-          onChange={(on) => update((d) => void (d.categories[i]!.bronze = on))}
-        />
-      ))}
     </div>
   );
 }
@@ -344,10 +327,11 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
   const inPlay = stagesInPlay(draft);
   const source = inPlay[0];
   const hasKnockout = draft.format === "groupsKnockout" || draft.format === "knockout";
+  const hasCategories = draft.unit !== null && draft.categories.length > 0;
   return (
     <Section
       title="Stages"
-      description="In play order. Groups and qualifiers are set per category in the group stage, and the bronze match per category before the final. Scoring and timing apply to every event and rubber in the stage."
+      description="In play order. Each category sets its own groups, scoring and timing for each stage; they apply to every event and rubber it plays there."
     >
       {usesBestOfThree(draft) ? (
         <div className="w-[calc(50%-0.25rem)]">
@@ -361,22 +345,9 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
         </div>
       ) : null}
       {STAGES.map((stage) => {
-        const copyFrom = source !== undefined && source !== stage ? source : null;
-        const hasCategories = draft.unit !== null && draft.categories.length > 0;
-        if (stage === "bronze" && hasKnockout) {
-          return (
-            <StageCard
-              key={stage}
-              draft={draft}
-              stage={stage}
-              copyFrom={copyFrom}
-              update={update}
-              lead={hasCategories ? <BronzeSwitches draft={draft} update={update} /> : null}
-              rulesHidden={inPlay.includes("bronze") ? null : "No category has a bronze match."}
-            />
-          );
-        }
-        if (!inPlay.includes(stage)) {
+        // The bronze match is each category's choice, so its stage shows whenever there's a knockout.
+        const played = inPlay.includes(stage) || (stage === "bronze" && hasKnockout);
+        if (!played) {
           return (
             <div key={stage} className="flex items-baseline justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
               <h3 className="text-sm font-semibold text-muted-foreground">{STAGE_LABELS[stage]}</h3>
@@ -384,72 +355,80 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
             </div>
           );
         }
-        const lead =
-          !hasCategories
-            ? null
-            : stage === "group"
-              ? [
+        return (
+          <div key={stage} className="flex flex-col gap-3 pt-4 first:pt-0">
+            <h3 className="text-sm font-semibold">{STAGE_LABELS[stage]}</h3>
+            {!hasCategories ? (
+              <p className="text-sm text-muted-foreground">Add categories on the Setup tab first.</p>
+            ) : (
+              <>
+                {stage === "group" ? (
                   <SegmentedField
-                    key="group-courts"
                     label="Group courts"
                     path={["groupCourts"]}
                     value={draft.groupCourts}
                     options={GROUP_COURTS}
-                    hint="Own: each group keeps its courts and plays its waves in order there; give a court to another group on the venue. Shared: each match goes to the first free court in the hall, which can finish sooner but mixes groups across courts."
+                    hint="Own: each group keeps its courts and plays its waves in order there, borrowing a court of its hall once that court's own groups have finished; give a court to another group on the venue. Shared: each match goes to the first free court in the hall, which mixes groups across courts."
                     onChange={(v) => update((d) => void (d.groupCourts = v))}
-                  />,
-                  ...draft.categories.map((c, i) => <GroupBlock key={c.id} draft={draft} index={i} update={update} />),
-                ]
-              : stage === "knockout" && draft.format === "knockout"
-                ? draft.categories.map((c, i) => <BracketLine key={c.id} draft={draft} index={i} />)
-                : null;
-        return (
-          <StageCard key={stage} draft={draft} stage={stage} copyFrom={copyFrom} update={update} lead={lead} rulesHidden={null} />
+                  />
+                ) : null}
+                {draft.categories.map((c, i) => (
+                  <CategoryStageCard
+                    key={c.id}
+                    draft={draft}
+                    index={i}
+                    stage={stage}
+                    copyFrom={source !== undefined && source !== stage ? source : null}
+                    update={update}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         );
       })}
     </Section>
   );
 }
 
-function StageCard({
+/**
+ * One category in one stage: its structure there (groups and qualifiers, its
+ * bracket, or whether it plays a bronze match), then its own scoring and
+ * timing. Several rows of settings about one thing, so a card.
+ */
+function CategoryStageCard({
   draft,
+  index,
   stage,
   copyFrom,
   update,
-  lead,
-  rulesHidden,
 }: {
   draft: PlanDraft;
+  index: number;
   stage: Stage;
+  /** The first stage in play, to copy this category's rules from; null for that stage itself. */
   copyFrom: Stage | null;
   update: Update;
-  /** Per-category structure shown before the stage's scoring and timing. */
-  lead: ReactNode;
-  /** When set, the stage isn't played: this note replaces scoring and timing. */
-  rulesHidden: string | null;
 }) {
-  const rules = draft.stageRules[stage];
+  const category = draft.categories[index]!;
+  const rules = categoryRules(draft, category)[stage];
   const set = <K extends keyof StageRulesDraft>(key: K) => (value: StageRulesDraft[K]) =>
-    update((d) => void (d.stageRules[stage][key] = value));
-  const path = (key: keyof StageRulesDraft) => ["stageRules", stage, key];
+    update((d) => void (ownRules(d, index)[stage][key] = value));
+  const path = (key: keyof StageRulesDraft) => ["categories", index, "stageRules", stage, key];
+  const noBronze = stage === "bronze" && !category.bronze;
   return (
-    <div className="flex flex-col gap-3 pt-4 first:pt-0">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">{STAGE_LABELS[stage]}</h3>
-        {copyFrom && !rulesHidden ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => update((d) => void (d.stageRules[stage] = { ...d.stageRules[copyFrom] }))}
-          >
-            <CopyIcon /> Same as {STAGE_LABELS[copyFrom].toLowerCase()}
-          </Button>
-        ) : null}
-      </div>
-      {lead}
-      {rulesHidden ? (
-        <p className="text-sm text-muted-foreground">{rulesHidden}</p>
-      ) : (
+    <div className="flex flex-col gap-3 rounded-lg bg-card-system p-3">
+      <CategoryHeading draft={draft} category={category} />
+      {stage === "group" ? <GroupBlock draft={draft} index={index} update={update} /> : null}
+      {stage === "knockout" && draft.format === "knockout" ? <BracketLine draft={draft} index={index} /> : null}
+      {stage === "bronze" ? (
+        <SwitchField
+          label="Play a bronze match"
+          checked={category.bronze}
+          onChange={(on) => update((d) => void (d.categories[index]!.bronze = on))}
+        />
+      ) : null}
+      {noBronze ? null : (
         <>
           <div className="grid grid-cols-2 gap-x-2 gap-y-3">
             <StepperField
@@ -503,6 +482,33 @@ function StageCard({
               onChange={set("changeoverMinutes")}
             />
           </div>
+          {copyFrom || draft.categories.length > 1 ? (
+            <div className="flex flex-wrap gap-2">
+              {copyFrom ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => update((d) => void (ownRules(d, index)[stage] = { ...ownRules(d, index)[copyFrom] }))}
+                >
+                  <CopyIcon /> Same as {STAGE_LABELS[copyFrom].toLowerCase()}
+                </Button>
+              ) : null}
+              {draft.categories.length > 1 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    update((d) => {
+                      const from = { ...ownRules(d, index)[stage] };
+                      d.categories.forEach((_, i) => void (ownRules(d, i)[stage] = { ...from }));
+                    })
+                  }
+                >
+                  <CopySimpleIcon /> Copy to all categories
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </>
       )}
     </div>

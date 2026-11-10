@@ -362,7 +362,9 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     end: Date.parse(c.to),
   }));
   const dayStart = Date.parse(available(inputs.frame).start);
-  const slot = new Map(analysis.slots.map((s) => [s.stage, s.minutes[length] * MS_PER_MINUTE]));
+  // Each category's own slot length in each stage.
+  const slots = new Map(analysis.slots.map((s) => [`${s.categoryId}:${s.stage}`, s.minutes[length] * MS_PER_MINUTE]));
+  const slot = { get: (info: MatchInfo) => slots.get(`${info.categoryId}:${info.stage}`) };
   const zoneStarts = new Map(
     (inputs.zoneMoves ?? []).filter((m) => m.start).map((m) => [m.key, Date.parse(m.start!)]),
   );
@@ -395,7 +397,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     for (const step of steps) {
       const ends = new Map<string, number>();
       for (const match of step) {
-        const minutes = slot.get(match.info.stage);
+        const minutes = slot.get(match.info);
         if (minutes === undefined) continue;
         const release = Math.max(match.release, ready.get(gate(match.info)) ?? -Infinity);
         let best = -1;
@@ -491,7 +493,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
         blocked.push(i);
         continue;
       }
-      const minutes = slot.get(match.info.stage)!;
+      const minutes = slot.get(match.info)!;
       let start = Math.max(courtFree[i]!, courts[i]!.start, dayStart);
       let wait: Wait | undefined;
       const zone = zoneStart(i, match.info.stage);
@@ -539,7 +541,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     const i = best.court;
     const match = queues[i]![head[i]!]!;
     head[i]! += 1;
-    const minutes = slot.get(match.info.stage)!;
+    const minutes = slot.get(match.info)!;
     courtFree[i] = best.start + minutes;
     ends.set(match.id, best.start + minutes);
     for (const side of match.sides) {

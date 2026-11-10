@@ -9,6 +9,8 @@ import { groupStageWaves, type GroupStageWaves } from "./waves";
 import {
   EVENT_TYPES,
   STAGES,
+  rulesFor,
+  timingFor,
   type EventType,
   type Stage,
   type StageCounts,
@@ -17,17 +19,19 @@ import {
 
 export type AnalysisError =
   | { code: "format"; categoryId: string; errors: FormatError[] }
-  | { code: "missingStageRules"; stage: Stage }
-  | { code: "missingStageTiming"; stage: Stage };
+  | { code: "missingStageRules"; stage: Stage; categoryId: string }
+  | { code: "missingStageTiming"; stage: Stage; categoryId: string };
 
-/** Slot length for one match in a stage, whatever the event. */
+/** Slot length for one match of a category in a stage, whatever the event. */
 export interface Slot {
+  categoryId: string;
   stage: Stage;
   minutes: MatchMinutes;
 }
 
-/** Court time needed by one event in one stage: matches × slot length. */
+/** Court time needed by one event of a category in one stage: matches × slot length. */
 export interface StageDemand {
+  categoryId: string;
   stage: Stage;
   event: EventType;
   matches: number;
@@ -54,9 +58,9 @@ export interface Analysis {
   matches: StageCounts;
   totalMatches: number;
   games: number;
-  /** Slot lengths for every stage and event that has matches. */
+  /** Slot lengths for every category and stage that has matches. */
   slots: Slot[];
-  /** Stage and event pairs with matches, in play order. */
+  /** Category, stage and event with matches, in play order. */
   demand: StageDemand[];
   /** Group-stage waves across categories played side by side: the most of any category. */
   waves: number;
@@ -75,9 +79,9 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   const errors: AnalysisError[] = [];
   const categories: Analysis["categories"] = [];
   const matches: StageCounts = { group: 0, knockout: 0, bronze: 0, final: 0 };
-  /** Matches by stage and event. */
+  /** Matches by category, stage and event. */
   const byEvent = new Map<string, number>();
-  const key = (stage: Stage, event: EventType) => `${stage}:${event}`;
+  const key = (categoryId: string, stage: Stage, event: EventType) => `${categoryId}:${stage}:${event}`;
 
   for (const category of inputs.categories) {
     const result = categoryFormat(category, inputs.format);
@@ -93,7 +97,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       matches[stage] += categoryMatches[stage];
       for (const { event, count } of eventsPerFixture(category)) {
         if (fixtures * count === 0) continue;
-        byEvent.set(key(stage, event), (byEvent.get(key(stage, event)) ?? 0) + fixtures * count);
+        byEvent.set(key(category.id, stage, event), (byEvent.get(key(category.id, stage, event)) ?? 0) + fixtures * count);
       }
     }
     categories.push({
@@ -106,12 +110,13 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
     });
   }
 
+  const analysed = new Map(categories.map((c) => [c.categoryId, c]));
+  const playing = inputs.categories.filter((c) => analysed.has(c.id));
   for (const stage of STAGES) {
-    if (matches[stage] > 0 && !inputs.stageRules[stage]) {
-      errors.push({ code: "missingStageRules", stage });
-    }
-    if (matches[stage] > 0 && !inputs.stageTiming[stage]) {
-      errors.push({ code: "missingStageTiming", stage });
+    for (const category of playing) {
+      if (analysed.get(category.id)!.matches[stage] === 0) continue;
+      if (!rulesFor(inputs, category, stage)) errors.push({ code: "missingStageRules", stage, categoryId: category.id });
+      if (!timingFor(inputs, category, stage)) errors.push({ code: "missingStageTiming", stage, categoryId: category.id });
     }
   }
 
@@ -120,22 +125,25 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
   const slots: Slot[] = [];
   const demand: StageDemand[] = [];
   for (const stage of STAGES) {
-    const rules = inputs.stageRules[stage];
-    const timing = inputs.stageTiming[stage];
-    if (!rules || !timing || matches[stage] === 0) continue;
-    const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
-    slots.push({ stage, minutes: slot });
-    for (const event of EVENT_TYPES) {
-      const count = byEvent.get(key(stage, event));
-      if (!count) continue;
-      demand.push({
-        stage,
-        event,
-        matches: count,
-        games: count * typicalGames(rules, inputs.bestOfThreeAllowance),
-        typical: count * slot.typical,
-        worst: count * slot.worst,
-      });
+    for (const category of playing) {
+      const rules = rulesFor(inputs, category, stage);
+      const timing = timingFor(inputs, category, stage);
+      if (!rules || !timing || analysed.get(category.id)!.matches[stage] === 0) continue;
+      const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
+      slots.push({ categoryId: category.id, stage, minutes: slot });
+      for (const event of EVENT_TYPES) {
+        const count = byEvent.get(key(category.id, stage, event));
+        if (!count) continue;
+        demand.push({
+          categoryId: category.id,
+          stage,
+          event,
+          matches: count,
+          games: count * typicalGames(rules, inputs.bestOfThreeAllowance),
+          typical: count * slot.typical,
+          worst: count * slot.worst,
+        });
+      }
     }
   }
   const typical = demand.reduce((sum, d) => sum + d.typical, 0);
@@ -144,12 +152,13 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
 
   const totalMatches = STAGES.reduce((sum, stage) => sum + matches[stage], 0);
 
-  const groupSlot = slots.find((s) => s.stage === "group")?.minutes.typical ?? 0;
+  const groupSlot = (categoryId: string) =>
+    slots.find((s) => s.stage === "group" && s.categoryId === categoryId)?.minutes.typical ?? 0;
   const groups = categories.flatMap((c) =>
     c.format.groupSizes.map((size, groupIndex) => ({
       categoryId: c.categoryId,
       groupIndex,
-      courtMinutes: groupMatchCount(size) * c.rubbersPerFixture * groupSlot,
+      courtMinutes: groupMatchCount(size) * c.rubbersPerFixture * groupSlot(c.categoryId),
     })),
   );
   // Shared by each hall's number of courts, so changing hours never moves a group between halls.
