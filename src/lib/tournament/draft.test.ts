@@ -7,6 +7,7 @@ import {
   removeBand,
   setBandTime,
   splitRates,
+  steppedHallTime,
   emptyCategory,
   emptyDraft,
   emptyHall,
@@ -307,6 +308,23 @@ describe("bands set the hall's hours", () => {
     splitRates(h);
     expect(h.multipleRates).toBe(true);
     expect(h.bands[0]).toMatchObject({ from: "09:00", to: "19:00" });
+  });
+});
+
+describe("steppedHallTime", () => {
+  it("moves a time by the hall's unit, keeping the hall a unit long and within the day", () => {
+    const hall = { ...emptyHall(), from: "09:00", to: "10:00", unitMinutes: 40 };
+    expect(steppedHallTime(hall, "from", -1)).toBe("08:20");
+    expect(steppedHallTime(hall, "to", 1)).toBe("10:40");
+    // 09:40 would leave less than a unit.
+    expect(steppedHallTime(hall, "from", 1)).toBeNull();
+    expect(steppedHallTime({ ...hall, from: "00:20" }, "from", -1)).toBeNull();
+    expect(steppedHallTime({ ...hall, to: "23:40" }, "to", 1)).toBeNull();
+  });
+
+  it("can't move without a unit or a time", () => {
+    expect(steppedHallTime({ ...emptyHall(), from: "09:00", to: "10:00" }, "from", 1)).toBeNull();
+    expect(steppedHallTime({ ...emptyHall(), unitMinutes: 30 }, "to", 1)).toBeNull();
   });
 });
 

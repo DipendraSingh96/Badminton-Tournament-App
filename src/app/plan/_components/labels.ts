@@ -100,6 +100,8 @@ export function entryNoun(unit: Unit | null, event: EventType | null, plural = f
 export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
   const [section, key] = issue.path;
   switch (section) {
+    case "name":
+      return "Tournament";
     case "frame": {
       if (key === "halls") {
         const index = issue.path[2];

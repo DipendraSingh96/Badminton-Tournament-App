@@ -37,10 +37,13 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const resolver = React.useRef<((ok: boolean) => void) | null>(null)
   const cancel = React.useRef<HTMLButtonElement>(null)
   const go = React.useRef<HTMLButtonElement>(null)
+  // Whatever had the focus when the question was asked: it gets it back.
+  const opener = React.useRef<HTMLElement | null>(null)
 
   const confirm = React.useCallback<Confirm>((next) => {
     // A second question while one is open: the first is answered "no".
     resolver.current?.(false)
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setRequest(next)
     setOpen(true)
     return new Promise<boolean>((resolve) => {
@@ -63,6 +66,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           <AlertDialog.Popup
             data-slot="confirm"
             initialFocus={request?.destructive ? cancel : go}
+            finalFocus={opener}
             className="fixed top-1/2 left-1/2 z-50 flex w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border bg-card p-4 text-sm text-card-foreground shadow-lg outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none"
           >
             <div className="flex flex-col gap-2">

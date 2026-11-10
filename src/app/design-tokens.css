@@ -159,7 +159,7 @@
    is the denser glass of the timeline's own sticky bars (its ruler and labels), which its rows
    scroll under. Solid for anyone who asks for less transparency. */
 .glass {
-  background-color: color-mix(in oklch, var(--background) var(--glass-tint, 62%), transparent);
+  background-color: color-mix(in srgb, var(--background) var(--glass-tint, 62%), transparent);
   background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent calc(var(--dot-size) + 0.2px));
   background-size: var(--dot-gap) var(--dot-gap);
   background-attachment: fixed;
@@ -167,7 +167,7 @@
   backdrop-filter: blur(14px);
 }
 .glass-bar {
-  background-color: color-mix(in oklch, var(--background) 90%, transparent);
+  background-color: color-mix(in srgb, var(--background) 90%, transparent);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
 }

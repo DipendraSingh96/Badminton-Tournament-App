@@ -29,6 +29,7 @@ import {
   setBandTime,
   setHallWindow,
   splitRates,
+  steppedHallTime,
   type HallDraft,
   type PlanDraft,
   type RateBandDraft,
@@ -39,7 +40,7 @@ import { CourtCard, type GroupOption } from "./court-card";
 import { CourtStrip } from "./court-strip";
 import type { CourtStatus } from "./timeline";
 import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
-import { formatMoney } from "./labels";
+import { InlineNumber, InlineTime } from "./inline-fields";
 import type { Update } from "./plan-editor";
 import { ViewRangeContext } from "./time-window";
 
@@ -285,19 +286,14 @@ export function HallCard({
   statuses: Map<string, CourtStatus> | null;
 }) {
   const hall = draft.frame.halls[hallIndex]!;
-  const [settingsOpen, setSettingsOpen] = useState(!hall.from || !hall.to);
+  // The hours, unit and rate are set in the heading's line; the panel under it is for rate bands.
+  const [settingsOpen, setSettingsOpen] = useState(hall.multipleRates);
   const [copyOpen, setCopyOpen] = useState(false);
   const confirm = useConfirm();
-  const summary = [
-    hall.from && hall.to ? `${hall.from}–${hall.to}` : "Hours not set",
-    hall.unitMinutes ? `charged per ${hall.unitMinutes === 60 ? "hour" : `${hall.unitMinutes} min`}` : "unit not set",
-    hall.multipleRates
-      ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}`
-      : hall.bands[0]?.rate != null
-        ? `${formatMoney(hall.bands[0].rate)} ${hall.unitMinutes === 60 ? "per hour" : hall.unitMinutes ? `per ${hall.unitMinutes} min` : "per unit"}`
-        : "rate not set",
-    `${hall.courts.length} ${hall.courts.length === 1 ? "court" : "courts"}`,
-  ].join(" · ");
+  const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
+  const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
+  const setHours = (key: "from" | "to") => (value: string) =>
+    editHall((h) => setHallWindow(h, key === "from" ? value : h.from, key === "to" ? value : h.to));
 
   const name = hallName(hall, hallIndex);
   const others = draft.frame.halls
@@ -347,7 +343,64 @@ export function HallCard({
           >
             <CaretDownIcon weight="bold" className={`transition-transform motion-reduce:transition-none ${settingsOpen ? "rotate-180" : ""}`} />
           </IconButton>
-          <p className="ml-1 text-sm text-muted-foreground tabular-nums">{summary}</p>
+          {/* The hall's settings in a line; the panel under it holds the same values. */}
+          <div className="ml-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <InlineTime
+              label="Opens"
+              path={path("from")}
+              value={hall.from}
+              onChange={setHours("from")}
+              earlier={steppedHallTime(hall, "from", -1)}
+              later={steppedHallTime(hall, "from", 1)}
+            />
+            <InlineTime
+              label="Closes"
+              path={path("to")}
+              value={hall.to}
+              onChange={setHours("to")}
+              earlier={steppedHallTime(hall, "to", -1)}
+              later={steppedHallTime(hall, "to", 1)}
+            />
+            <InlineNumber
+              label="Time unit"
+              path={path("unitMinutes")}
+              value={hall.unitMinutes}
+              onChange={(v) => editHall((h) => void (h.unitMinutes = v))}
+              after="min"
+              min={1}
+              whole
+            />
+            {hall.multipleRates ? (
+              <span className="flex items-center gap-1 text-sm">
+                <span className="text-muted-foreground">Rate</span>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="rounded-sm px-1 outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {hall.bands.length} rate {hall.bands.length === 1 ? "band" : "bands"}
+                </button>
+              </span>
+            ) : (
+              <InlineNumber
+                label="Rate"
+                path={path("bands", 0, "rate")}
+                value={hall.bands[0]?.rate ?? null}
+                onChange={(v) =>
+                  editHall((h) => {
+                    if (h.bands.length === 0) h.bands.push({ ...emptyBand(), from: h.from, to: h.to });
+                    h.bands[0]!.rate = v;
+                  })
+                }
+                before="£"
+              />
+            )}
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {hall.courts.length} {hall.courts.length === 1 ? "court" : "courts"}
+            </span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           {others.length > 0 ? (
             <Popover open={copyOpen} onOpenChange={setCopyOpen}>
               <Tooltip>
@@ -362,7 +415,7 @@ export function HallCard({
                 </TooltipTrigger>
                 <TooltipContent>Copy from another hall</TooltipContent>
               </Tooltip>
-              <PopoverContent align="start" className="w-60 gap-1 p-2">
+              <PopoverContent align="end" className="w-60 gap-1 p-2">
                 <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Copy hours, rates and courts from</p>
                 {others.map(({ hall: other, index }) => (
                   <button
@@ -377,8 +430,6 @@ export function HallCard({
               </PopoverContent>
             </Popover>
           ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
           <IconButton
             label={`Clear ${name}`}
             onClick={async () => {
@@ -392,7 +443,7 @@ export function HallCard({
               )
                 return;
               update((d) => clearHall(d.frame.halls[hallIndex]!));
-              setSettingsOpen(true);
+              setSettingsOpen(false);
             }}
           >
             <BroomIcon />

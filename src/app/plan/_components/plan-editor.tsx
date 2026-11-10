@@ -402,8 +402,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   function goTo(issue: PlanIssue) {
     const target = tabFor(issue);
     if (target) chooseTab(target);
-    // A hall's fields sit in its settings panel: open it first.
-    if (issue.path[0] === "frame" && issue.path[1] === "halls") {
+    // A hall's hours, unit and rate are in its heading's line; anything else of a hall's (its rate bands) sits in its settings panel: open it first.
+    if (
+      issue.path[0] === "frame" &&
+      issue.path[1] === "halls" &&
+      !document.querySelector(`[data-path="${pathKey(issue.path)}"]`)
+    ) {
       document
         .querySelector<HTMLElement>(`[data-hall-settings="${String(issue.path[2])}"][aria-expanded="false"]`)
         ?.click();

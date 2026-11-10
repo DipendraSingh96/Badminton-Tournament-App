@@ -463,6 +463,22 @@ export function steppedCourtTime(
   return ok ? clock(next) : null;
 }
 
+/**
+ * A hall's opening or closing time moved one charging unit earlier or later,
+ * kept within the day and leaving the hall at least one unit long. Null when
+ * it can't move that way (or that time or the unit isn't set).
+ */
+export function steppedHallTime(hall: HallDraft, key: "from" | "to", direction: 1 | -1): string | null {
+  const unit = hall.unitMinutes;
+  const at = minutesOfDay(hall[key]);
+  if (!unit || at === null) return null;
+  const next = at + direction * unit;
+  if (next < 0 || next >= 24 * 60) return null;
+  const other = minutesOfDay(key === "from" ? hall.to : hall.from);
+  if (other !== null && (key === "from" ? next > other - unit : next < other + unit)) return null;
+  return clock(next);
+}
+
 /** Sets a court's start or end; a time equal to the hall's follows the hall again. */
 export function setCourtTime(hall: HallDraft, court: CourtDraft, key: "from" | "to", value: string): void {
   court[key] = value === hall[key] ? null : value;
