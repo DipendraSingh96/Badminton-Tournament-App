@@ -42,8 +42,8 @@ export function ProgressSegments({ parts, vertical = false }: { parts: ProgressP
 /**
  * The top of the workbench: how complete the plan is, then what to fill in
  * next. Once the plan is complete, its fit and one line of results (court
- * time, matches, profit); the full figures are in the Schedule structure and
- * Finance tabs. Recalculates with every change.
+ * time, matches, profit); the full figures are in the Schedule and
+ * Budget tabs. Recalculates with every change.
  */
 export function Summary({
   draft,
@@ -69,8 +69,8 @@ export function Summary({
   const loss = result ? result.finance.profit < 0 : false;
 
   return (
-    <section aria-label="Summary" className="flex shrink-0 flex-col gap-2 px-5 pb-4">
-      <div className="flex items-center gap-3">
+    <section aria-label="Summary" className="flex flex-col gap-2">
+      <div className="flex min-h-8 items-center gap-3">
         <div className="min-w-0 flex-1">
           <ProgressSegments parts={progress} />
         </div>

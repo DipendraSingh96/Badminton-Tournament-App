@@ -100,10 +100,12 @@ export function InfoTip({ about, children }: { about: string; children: ReactNod
 }
 
 /**
- * Wraps a control with its help and message. The control shows its label
- * inside (as placeholder, with the same text as its accessible name and
- * tooltip), so there's no label above it. Missing values are listed on the
- * dashboard, so a field only shows its message once something is entered.
+ * Wraps a control with its help. The control shows its label inside (as
+ * placeholder, with the same text as its accessible name and tooltip), so
+ * there's no label above it. A value that's wrong outlines the control in
+ * red and puts the reason in its tooltip (and, for screen readers, its
+ * description); nothing is printed under it, so rows keep their shape.
+ * Missing values are listed on the workbench.
  */
 function Field({
   id,
@@ -123,17 +125,11 @@ function Field({
   const issues = useContext(IssuesContext);
   const message = filled ? issues.get(pathKey(path)) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-path={pathKey(path)}>
-      <div className="relative min-w-0">
-        {children}
-        {hint ? (
-          <span className="absolute top-1/2 left-full ml-1 flex -translate-y-1/2">
-            <InfoTip about={label}>{hint}</InfoTip>
-          </span>
-        ) : null}
-      </div>
+    <div className="flex min-w-0 items-center gap-1" data-path={pathKey(path)}>
+      <div className="min-w-0 flex-1">{children}</div>
+      {hint ? <InfoTip about={label}>{hint}</InfoTip> : null}
       {message ? (
-        <p id={`${id}-message`} className="text-xs text-over-text">
+        <p id={`${id}-message`} className="sr-only">
           {message}
         </p>
       ) : null}
@@ -141,9 +137,10 @@ function Field({
   );
 }
 
-function useInvalid(path: Path, filled: boolean) {
+/** What's wrong with a field's value, once it has one. */
+function useIssue(path: Path, filled: boolean): string | undefined {
   const issues = useContext(IssuesContext);
-  return filled && issues.has(pathKey(path));
+  return filled ? issues.get(pathKey(path)) : undefined;
 }
 
 export function NumberField({
@@ -163,7 +160,8 @@ export function NumberField({
 }) {
   const id = useId();
   const filled = value !== null;
-  const invalid = useInvalid(path, filled);
+  const issue = useIssue(path, filled);
+  const invalid = issue !== undefined;
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
       <Input
@@ -175,7 +173,7 @@ export function NumberField({
         value={value ?? ""}
         placeholder={label}
         aria-label={label}
-        title={label}
+        title={issue ? `${label}: ${issue}` : label}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? `${id}-message` : undefined}
         onChange={(e) => {
@@ -206,7 +204,8 @@ export function StepperField({
 }) {
   const id = useId();
   const filled = value !== null;
-  const invalid = useInvalid(path, filled);
+  const issue = useIssue(path, filled);
+  const invalid = issue !== undefined;
   const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
@@ -232,7 +231,7 @@ export function StepperField({
           value={value ?? ""}
           placeholder={label}
           aria-label={label}
-          title={label}
+          title={issue ? `${label}: ${issue}` : label}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
           className="w-full min-w-0 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -272,7 +271,8 @@ export function TextField({
 }) {
   const id = useId();
   const filled = value !== "";
-  const invalid = useInvalid(path, filled);
+  const issue = useIssue(path, filled);
+  const invalid = issue !== undefined;
   return (
     <Field id={id} label={label} path={path} filled={filled}>
       {type === "time" ? (
@@ -280,9 +280,9 @@ export function TextField({
         <div
           data-slot="field-box"
           className="flex h-(--control-h) items-center gap-2 rounded-md border px-3 transition-colors focus-within:ring-2 focus-within:ring-ring"
-          title={label}
+          title={issue ? `${label}: ${issue}` : label}
         >
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" aria-hidden="true">
+          <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
             {label}
           </span>
           <input
@@ -292,7 +292,7 @@ export function TextField({
             aria-label={label}
             aria-invalid={invalid || undefined}
             aria-describedby={invalid ? `${id}-message` : undefined}
-            className="w-[5.5rem] shrink-0 bg-transparent text-sm tabular-nums outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm tabular-nums outline-none"
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
@@ -303,7 +303,7 @@ export function TextField({
           value={value}
           placeholder={placeholder ?? label}
           aria-label={label}
-          title={label}
+          title={issue ? `${label}: ${issue}` : label}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? `${id}-message` : undefined}
           onChange={(e) => onChange(e.target.value)}

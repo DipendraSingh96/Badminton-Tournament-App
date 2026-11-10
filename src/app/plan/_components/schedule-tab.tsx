@@ -64,7 +64,7 @@ export function ScheduleTab({ draft, update, locked }: { draft: PlanDraft; updat
               <EntriesCard key={category.id} draft={draft} index={i} update={update} />
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
+            <p className="text-sm text-muted-foreground">Add categories on the Setup tab first.</p>
           )}
         </Section>
 
@@ -75,7 +75,7 @@ export function ScheduleTab({ draft, update, locked }: { draft: PlanDraft; updat
         title="Buffer"
         description="Time for miscellaneous activity like prize distribution. Shown on the timeline straight after the last match; play must end by the last hall's closing time less the buffer. Drag it on the timeline to pin it at a time."
       >
-        <div className="w-40">
+        <div className="w-[calc(50%-0.25rem)]">
           <StepperField
             label="Buffer (minutes)"
             path={["frame", "bufferMinutes"]}
@@ -143,7 +143,7 @@ function EntriesCard({ draft, index, update }: { draft: PlanDraft; index: number
   return (
     <div className="flex flex-col gap-3 rounded-lg bg-inset p-3">
       <CategoryHeading draft={draft} category={category} />
-      <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-3">
         <StepperField
           label={unit === "team" ? "Expected teams" : "Expected entries"}
           hint={unit === "team" ? teamCountHint(category) : `Number of ${nouns}.`}
@@ -246,7 +246,7 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
         options={GROUP_MODES}
         onChange={set("groupMode")}
       />
-      <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-3">
         {category.groupMode === "fixed" ? (
           <StepperField
             label="Groups"
@@ -315,7 +315,7 @@ function BronzeSwitches({ draft, update }: { draft: PlanDraft; update: Update })
 }
 
 function notPlayedReason(draft: PlanDraft): string {
-  if (!draft.format) return "Choose a format on the Tournament setup tab.";
+  if (!draft.format) return "Choose a format on the Setup tab.";
   return "Not played with this format.";
 }
 
@@ -329,7 +329,7 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
       description="In play order. Groups and qualifiers are set per category in the group stage, and the bronze match per category before the final. Scoring and timing apply to every event and rubber in the stage."
     >
       {usesBestOfThree(draft) ? (
-        <div className="w-40">
+        <div className="w-[calc(50%-0.25rem)]">
           <StepperField
             label="Best-of-3 allowance (%)"
             hint="Extra time added to every best-of-3 match, because some go to a third game. 33% adds a third."
@@ -430,7 +430,7 @@ function StageCard({
         <p className="text-sm text-muted-foreground">{rulesHidden}</p>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3">
             <StepperField
               label="Points per game"
               min={1}
@@ -455,7 +455,7 @@ function StageCard({
             onChange={set("deuce")}
           />
           {rules.deuce === "cap" || rules.deuce === "standard" ? (
-            <div className="w-40">
+            <div className="w-[calc(50%-0.25rem)]">
               <StepperField
                 label={rules.deuce === "cap" ? "Points cap" : "Maximum points"}
                 min={1}
@@ -465,7 +465,7 @@ function StageCard({
               />
             </div>
           ) : null}
-          <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3">
             <StepperField
               label="Minutes per game"
               hint="Typical playing time."

@@ -70,7 +70,7 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
             onChange={(on) => update((d) => void (d.rules.handicap.enabled = on))}
           />
           {rules.handicap.enabled ? (
-            <div className="grid grid-cols-[repeat(3,120px)] gap-x-5 gap-y-3">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-3">
               {HANDICAPS.map(({ key, label, hint }) => (
                 <StepperField
                   key={key}
@@ -232,7 +232,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
     <div className="flex flex-col gap-4">
       <Heading title="Eligibility" description="Who may enter what. Checked when entries are taken." />
-      <div className="w-40">
+      <div className="w-[calc(50%-0.25rem)]">
         <StepperField
           label="Most categories one person may enter"
           hint="Leave empty for no limit."

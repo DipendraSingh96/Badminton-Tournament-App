@@ -12,7 +12,7 @@ const TIME_ZONES = Intl.supportedValuesOf("timeZone").map((tz) => ({
 /** Name, date and time zone: the tournament's first row. */
 export function TournamentHeader({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
-    <div className="flex items-start gap-4 *:shrink-0 *:first:w-40 @min-[720px]:*:first:w-[200px] @min-[840px]:*:first:w-80 *:nth-2:w-40 *:nth-3:w-60">
+    <div className="flex items-start gap-2 *:shrink-0 *:first:w-40 @min-[720px]:*:first:w-[200px] @min-[840px]:*:first:w-80 *:nth-2:w-40 *:nth-3:w-60">
         <TextField
           label="Tournament name"
           path={["name"]}

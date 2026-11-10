@@ -96,7 +96,7 @@ export function entryNoun(unit: Unit | null, event: EventType | null, plural = f
   return noun === "entry" ? "entries" : `${noun}s`;
 }
 
-/** Where an issue sits, in words, e.g. "Mixed doubles" or "Finance". */
+/** Where an issue sits, in words, e.g. "Mixed doubles" or "Budget". */
 export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
   const [section, key] = issue.path;
   switch (section) {
@@ -114,7 +114,7 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
     }
     case "unit":
     case "format":
-      return "Tournament setup";
+      return "Setup";
     case "rules":
       return "Rules";
     case "bestOfThreeAllowance":
@@ -123,12 +123,12 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
       return `Stage: ${STAGE_LABELS[key as Stage]}`;
     case "finance":
       return key === "otherIncome"
-        ? "Finance: Other money in"
+        ? "Budget: Other money in"
         : key === "otherCosts"
-          ? "Finance: Other costs"
+          ? "Budget: Other costs"
           : key === "prizes"
-            ? "Finance: Prizes"
-            : "Finance: Shuttles";
+            ? "Budget: Prizes"
+            : "Budget: Shuttles";
     default:
       return "Plan";
   }

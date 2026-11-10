@@ -86,7 +86,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
           title={draft.unit === "team" ? "Competitions" : "Categories"}
           description={
             draft.unit === "team"
-              ? "Each competition has its own line-up. Entries and structure are on the Schedule structure tab."
+              ? "Each competition has its own line-up. Entries and structure are on the Schedule tab."
               : "Choose the events you're running. Add an event more than once for separate categories, such as an under-15s draw."
           }
           action={
@@ -116,7 +116,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
         </Section>
       ) : null}
 
-      <Section title="Format" description="Applies to every category.">
+      <Section title="Competition format" description="Applies to every category.">
         <OptionCards
           label="How categories are played"
           path={["format"]}
@@ -256,7 +256,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
             tie. Each player plays one rubber, so the line-up sets the squad.
           </InfoTip>
         </legend>
-        <div className="grid grid-cols-[repeat(3,120px)] gap-x-5 gap-y-3">
+        <div className="grid grid-cols-3 gap-x-2 gap-y-3">
           {EVENT_TYPES.map((event) => (
             <StepperField
               key={event}

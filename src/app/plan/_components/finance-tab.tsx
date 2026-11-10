@@ -64,7 +64,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
   return (
     <Section title="Entry fees" description="Per category. External entries can pay a different fee.">
       {!unit || draft.categories.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Add categories on the Tournament setup tab first.</p>
+        <p className="text-sm text-muted-foreground">Add categories on the Setup tab first.</p>
       ) : (
         draft.categories.map((category, i) => {
           const set = <K extends keyof CategoryDraft>(key: K) => (value: CategoryDraft[K]) =>
@@ -87,7 +87,7 @@ function EntryFees({ draft, update }: { draft: PlanDraft; update: Update }) {
                 ]}
                 onChange={set("feeBasis")}
               />
-              <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                 <NumberField label="Fee (£)" path={path("feeAmount")} value={category.feeAmount} onChange={set("feeAmount")} />
                 <NumberField
                   label="External fee (£)"
@@ -110,7 +110,7 @@ function Shuttles({ draft, update }: { draft: PlanDraft; update: Update }) {
   const perShuttle = costPerShuttle(finance);
   return (
     <Section title="Shuttles" description="Shuttle use follows the games played, at typical length.">
-      <div className="w-40">
+      <div className="w-[calc(50%-0.25rem)]">
         <NumberField
           label="Shuttles expected per game"
           path={["finance", "shuttlesPerGame"]}
@@ -125,7 +125,7 @@ function Shuttles({ draft, update }: { draft: PlanDraft; update: Update }) {
         options={PRICE_BASES}
         onChange={(v) => update((d) => void (d.finance.shuttlePriceBasis = v))}
       />
-      <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-3">
         <NumberField
           label={finance.shuttlePriceBasis === "tube" ? "Price per tube (£)" : "Price per shuttle (£)"}
           path={["finance", "shuttlePrice"]}
@@ -177,7 +177,7 @@ function Prizes({ draft, update }: { draft: PlanDraft; update: Update }) {
           const path = (key: keyof PrizeDraft) => ["finance", "prizes", i, key];
           return (
             // One prize: its category, then its position and amount on one line.
-            <div key={prize.id} className="grid grid-cols-[200px_120px_auto] items-end gap-2">
+            <div key={prize.id} className="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-2">
               <div className="col-span-3">
                 <SelectField
                   label="Category"
@@ -284,7 +284,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
                   onChange={(v) => edit(i, (l) => void ((l as OtherCostDraft).basis = v))}
                 />
               ) : null}
-              <div className="grid grid-cols-[repeat(2,160px)] gap-x-10 gap-y-3">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                 <NumberField
                   label={line.type === "perPerson" ? "Amount per person (£)" : "Amount (£)"}
                   path={path("amount")}

@@ -7,7 +7,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { CaretDoubleLeftIcon, XIcon } from "@phosphor-icons/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
@@ -36,7 +36,6 @@ import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
-import { PanelMenu } from "./panel-menu";
 import { ProgressSegments, Summary, type ProgressPart } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
@@ -57,7 +56,12 @@ const CARD = "h-full overflow-hidden rounded-xl border bg-background";
 /** The central column the tournament sits in: at most 960px, centred in the space the workbench leaves. */
 const COLUMN = "mx-auto w-full max-w-[960px]";
 /** A gutter that is also a soft divider: a faint line, stronger on hover. */
-const DIVIDER = GUTTER.replace("after:bg-transparent", "after:bg-border");
+const DIVIDER =
+  GUTTER.replace("after:bg-transparent", "after:bg-border") +
+  " aria-[orientation=horizontal]:after:left-4 aria-[orientation=horizontal]:after:w-[calc(100%-2rem)]";
+/** The workbench, level with the stage row, with an open divider at its left: a line that stops short of the shell's edges. */
+const WORKBENCH =
+  "relative mt-16 flex shrink-0 flex-col before:absolute before:top-0 before:bottom-4 before:left-0 before:w-px before:bg-border";
 /** The timeline folded to its bar. */
 const TIMELINE_FOLDED = 40;
 
@@ -65,9 +69,9 @@ const STAGE_ORDER: TournamentStage[] = ["plan", "draw", "live", "results"];
 const STAGE_NAMES: Record<TournamentStage, string> = { plan: "Plan", draw: "Draw", live: "Live", results: "Results" };
 
 const TABS: { value: Tab; label: string }[] = [
-  { value: "setup", label: "Tournament setup" },
-  { value: "schedule", label: "Schedule structure" },
-  { value: "finance", label: "Finance" },
+  { value: "setup", label: "Setup" },
+  { value: "schedule", label: "Schedule" },
+  { value: "finance", label: "Budget" },
 ];
 
 // Per-viewer conveniences, kept in this browser only.
@@ -118,7 +122,7 @@ function tabFor(issue: PlanIssue): Tab | null {
 }
 
 /** The parts of the plan the workbench's progress bar shows, in order. */
-const PROGRESS_PARTS = ["Basics", "Venue", "Setup", "Schedule", "Finance"] as const;
+const PROGRESS_PARTS = ["Basics", "Venue", "Setup", "Schedule", "Budget"] as const;
 
 /** Which part of the plan a missing item belongs to. */
 function partOf(issue: PlanIssue): (typeof PROGRESS_PARTS)[number] {
@@ -128,7 +132,7 @@ function partOf(issue: PlanIssue): (typeof PROGRESS_PARTS)[number] {
     return "Basics";
   }
   const tab = tabFor(issue);
-  return tab === "setup" ? "Setup" : tab === "schedule" ? "Schedule" : tab === "finance" ? "Finance" : "Basics";
+  return tab === "setup" ? "Setup" : tab === "schedule" ? "Schedule" : tab === "finance" ? "Budget" : "Basics";
 }
 
 // The workbench, folded to a rail or not.
@@ -169,7 +173,7 @@ function saveSidebarCollapsed(collapsed: boolean) {
   }
 }
 
-// The category break-even varies, chosen on the Finance tab.
+// The category break-even varies, chosen on the Budget tab.
 const BREAK_EVEN_KEY = "badminton:break-even-category";
 
 function loadBreakEven(): string | null {
@@ -498,7 +502,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     >
       <ResizablePanel id="venue" minSize={160}>
         <div className="@container scroll-pane relative h-full overflow-y-auto px-(--pane-x)">
-          <div className={cn(COLUMN, "flex flex-col gap-4 pt-2 pb-4")}>
+          <div className={cn(COLUMN, "flex flex-col gap-4 py-4")}>
             <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
           </div>
         </div>
@@ -562,7 +566,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
             />
-            <main className={cn("flex min-w-0 flex-1 flex-col", viewing === "plan" && "border-r")}>
+            <main className="flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
                 <div className={COLUMN}>
                   <NameRow
@@ -611,7 +615,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               workbenchFolded ? (
                 <aside
                   aria-label="Workbench (hidden)"
-                  className="flex h-full w-10 shrink-0 flex-col items-center gap-3 py-2"
+                  className={cn(WORKBENCH, "w-10 items-center gap-3")}
                 >
                   <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
                     <CaretDoubleLeftIcon />
@@ -621,13 +625,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </div>
                 </aside>
               ) : (
-                <aside aria-label="Workbench" className="flex h-full w-[440px] shrink-0 flex-col">
-                  <div className="flex shrink-0 items-center justify-between gap-2 px-5 pt-4 pb-3">
-                    <PanelMenu value={tab} options={TABS} onChoose={chooseTab} />
-                    <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
-                      <XIcon />
-                    </IconButton>
-                  </div>
+                <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
                   {draft.stage !== "plan" ? (
                     <StageBar
                       locked={locked}
@@ -645,20 +643,34 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       onDiscard={() => setPreview(null)}
                     />
                   ) : null}
-                  <Summary
-                    draft={shown}
-                    parsed={shownParsed}
-                    analysis={shownAnalysis}
-                    progress={progress}
-                    warnings={warnings}
-                    onGoTo={goTo}
-                  />
+                  <div className="flex shrink-0 items-start gap-2 px-4 pb-3">
+                    <div className="min-w-0 flex-1">
+                      <Summary
+                        draft={shown}
+                        parsed={shownParsed}
+                        analysis={shownAnalysis}
+                        progress={progress}
+                        warnings={warnings}
+                        onGoTo={goTo}
+                      />
+                    </div>
+                    <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
+                      <XIcon />
+                    </IconButton>
+                  </div>
                   <Tabs
                     value={tab}
                     onValueChange={(value) => chooseTab(value as Tab)}
                     className="min-h-0 flex-1 gap-0"
                   >
-                    <div className="@container scroll-pane pane-wide relative min-h-0 flex-1 overflow-y-auto">
+                    <TabsList variant="line" className="w-full shrink-0 justify-start px-2">
+                      {TABS.map((t) => (
+                        <TabsTrigger key={t.value} value={t.value}>
+                          {t.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    <div className="@container scroll-pane relative min-h-0 flex-1 overflow-y-auto">
                       <TabsContent value="setup" className="flex flex-col">
                         <ReadOnly when={locked}>
                           <SetupTab draft={draft} update={update} />

@@ -9,7 +9,7 @@ import {
   TrashIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -86,10 +86,16 @@ function HallSettings({
     editHall((h) => setHallWindow(h, key === "from" ? value : h.from, key === "to" ? value : h.to));
   }
 
+  // The rate bands sit on a fixed track of the day, 06:00 to midnight (earlier if the hall opens earlier),
+  // so it doesn't shift as the hours change.
+  const opens = minutesOfDay(hall.from);
+  const trackStart = Math.min(DAY_TRACK_START, opens === null ? DAY_TRACK_START : Math.floor(opens / 60) * 60);
+  const dayTrack = useMemo(() => ({ range: { start: trackStart, end: 24 * 60 }, setDragging: () => {} }), [trackStart]);
+
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-inset p-4">
       <div>
-        <div className="grid grid-cols-[repeat(auto-fill,160px)] gap-x-6 gap-y-3">
+        <div className="grid grid-cols-[repeat(4,minmax(0,12rem))] gap-x-2 gap-y-3">
           <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
           <TextField label="Closes" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
           <StepperField
@@ -137,6 +143,7 @@ function HallSettings({
 
       {hall.multipleRates ? (
         <>
+        <ViewRangeContext value={dayTrack}>
         <div className="flex flex-col gap-2">
           <HallTrack
             draft={draft}
@@ -149,13 +156,14 @@ function HallSettings({
           />
           <HallTicks hall={hall} />
         </div>
+        </ViewRangeContext>
 
         <div className="flex flex-col gap-2">
           {hall.bands.map((band, i) => (
             <div
               key={band.id}
-              className={`grid grid-cols-[120px_160px_160px_120px_auto] items-end gap-2 rounded-lg p-1 transition-colors ${
-                selectedBand === i ? "bg-background ring-1 ring-foreground/20" : ""
+              className={`grid grid-cols-[repeat(4,minmax(0,12rem))_auto] items-center gap-2 rounded-lg ${
+                selectedBand === i ? "outline-1 outline-offset-4 outline-foreground/30" : ""
               }`}
             >
               <TextField label="Band name" placeholder={`Band ${i + 1}`} path={path("bands", i, "name")} value={band.name} onChange={editBand(i, "name")} />
@@ -204,19 +212,35 @@ function HallSettings({
   );
 }
 
-/** The hall's hours and band edges under its strip, placed on the shared view of the day. */
+/** Where the rate-band track of the day starts: 06:00, in minutes. */
+const DAY_TRACK_START = 6 * 60;
+
+/**
+ * Times under the rate-band track: the hall's hours and band edges, and the
+ * day's scale every three hours (dimmer, and left out where an edge is close).
+ */
 function HallTicks({ hall }: { hall: HallDraft }) {
   const { range } = useContext(ViewRangeContext);
   const span = Math.max(1, range.end - range.start);
-  const ticks = [...new Set([hall.from, hall.to, ...hall.bands.flatMap((b) => [b.from, b.to])])]
+  const edges = [...new Set([hall.from, hall.to, ...hall.bands.flatMap((b) => [b.from, b.to])])]
     .map(minutesOfDay)
-    .filter((m): m is number => m !== null)
-    .sort((a, b) => a - b);
+    .filter((m): m is number => m !== null && m >= range.start && m <= range.end);
+  const scale: number[] = [];
+  for (let m = Math.ceil(range.start / 180) * 180; m <= range.end; m += 180) {
+    if (!edges.some((e) => Math.abs(e - m) < 75)) scale.push(m);
+  }
+  const ticks = [...edges.map((m) => ({ m, edge: true })), ...scale.map((m) => ({ m, edge: false }))].sort((a, b) => a.m - b.m);
   return (
-    <div className="relative h-4 text-xs text-muted-foreground tabular-nums" aria-hidden="true">
-      {ticks.map((m) => (
-        <span key={m} className="absolute -translate-x-1/2" style={{ left: `${((m - range.start) / span) * 100}%` }}>
-          {clock(m)}
+    <div className="relative h-4 text-xs tabular-nums" aria-hidden="true">
+      {ticks.map(({ m, edge }) => (
+        <span
+          key={m}
+          className={`absolute ${m === range.start ? "" : m === range.end ? "-translate-x-full" : "-translate-x-1/2"} ${
+            edge ? "text-foreground" : "text-muted-foreground"
+          }`}
+          style={{ left: `${((m - range.start) / span) * 100}%` }}
+        >
+          {m === 24 * 60 ? "24:00" : clock(m)}
         </span>
       ))}
     </div>
