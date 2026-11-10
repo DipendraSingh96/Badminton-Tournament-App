@@ -1,36 +1,41 @@
 /*
-  Court green design tokens
+  Design tokens: Light (default) and Dark
   Source of truth: docs/design-system.md
   Drop into src/app/ and import from globals.css:  @import "./design-tokens.css";
-  Written for Tailwind v4 + shadcn/ui. For Tailwind v3, map the same variables in tailwind.config.ts.
+  Written for Tailwind v4 + shadcn/ui.
+
+  Light is :root. Dark applies with the `dark` class on <html> (next-themes); its values are in the
+  .dark block of globals.css. Live screens use Dark.
 */
 
-/* ---------- Plan theme (default): light surface, green accents ---------- */
+/* ---------- Light theme (default): warm neutral surface, cool text, green accent ---------- */
 :root {
   /* shadcn/ui semantic tokens */
-  --background: #F4F7F3;
-  --foreground: #0A2A1B;
-  --card: #FFFFFF;
-  --card-foreground: #0A2A1B;
-  --popover: #FFFFFF;
-  --popover-foreground: #0A2A1B;
-  --primary: #0F6B45;
+  --background: #F2EFE9;           /* ground of the working area */
+  --foreground: #0F2A1F;           /* primary text, headings */
+  --card: #FAF8F4;                 /* sidebar, popovers */
+  --card-foreground: #0F2A1F;
+  --popover: #FAF8F4;
+  --popover-foreground: #0F2A1F;
+  --primary: #0F6B45;              /* accent: main button, selection */
   --primary-foreground: #FFFFFF;
-  --secondary: #EDF3EE;
-  --secondary-foreground: #0A2A1B;
-  --muted: #EDF3EE;
-  --muted-foreground: #4F685A;
-  --accent: #E3F6E8;
-  --accent-foreground: #0A2A1B;
+  --secondary: #E9E5DC;
+  --secondary-foreground: #0F2A1F;
+  --muted: #E9E5DC;
+  --muted-foreground: #615D56;     /* secondary text: warm neutral grey */
+  --accent: #E9E5DC;               /* hover wash only. Not the brand accent */
+  --accent-foreground: #0F2A1F;
   --destructive: #D8402F;
   --destructive-foreground: #FFFFFF;
-  --border: #D5DFD7;       /* hairlines between cards and sections */
-  --input: #7F9A89;        /* input and secondary button borders (3:1 on white) */
+  --border: #DDD8CC;               /* dividers, card outlines */
+  --input: #E9E5DC;                /* field fill (fields have no border) */
   --ring: #0F6B45;
   --radius: 0.5rem;        /* controls 8px. Cards use --radius-card */
 
   /* Extra surfaces */
-  --surface-inset: #EDF3EE;        /* tracks, segmented control wells, nested panels */
+  --surface-inset: #E9E5DC;        /* fields, tracks, segmented control wells, nested panels */
+  --card-system: var(--tile);      /* the selected tournament card. Reuses the court tile token */
+  --card-selected: #DCE7E4;        /* the selected format option */
   --surface-feature: #0A4A31;      /* the one deep-green block: the summary card */
   --surface-feature-inner: #07241A;
   --feature-foreground: #FFFFFF;
@@ -40,6 +45,11 @@
   --radius-card: 14px;
   --radius-tile: 12px;
 
+  /* Working-area dot matrix */
+  --dot-color: rgba(15, 42, 31, 0.16);
+  --dot-size: 1px;
+  --dot-gap: 22px;
+
   /* Brand */
   --turf: #0F6B45;
   --turf-2: #14804F;
@@ -47,7 +57,7 @@
   --shuttle: #F4C430;              /* accent. Always a fill with dark text, never text on white */
   --shuttle-foreground: #1A1400;
 
-  /* Status. Always shown with a word, never colour alone */
+  /* Status. Always shown with a word, never colour alone. Never used for selection */
   --status-fits: #58C27D;      --status-fits-fg: #07241A;
   --status-tight: #FFB020;     --status-tight-fg: #2A1A00;
   --status-over: #D8402F;      --status-over-fg: #FFFFFF;
@@ -55,13 +65,13 @@
   --status-off: #E4E7E5;       --status-off-fg: #2B343C;
 
   /* Timeline and match blocks */
-  --tl-group: #7FD6A0;
-  --tl-knockout: #0F6B45;
+  --tl-group: #A9C3A0;
+  --tl-knockout: #3F5D4B;
   --tl-bronze: #C97B2E;
-  --tl-final: #F4C430;
-  --tl-outline: rgba(10, 42, 27, 0.35);
+  --tl-final: #E9B949;
+  --tl-outline: rgba(0, 0, 0, 0.25);
   --tl-worst: #D8402F;
-  --tl-now: #0A2A1B;
+  --tl-now: #0F2A1F;
   --gauge-on: #58C27D;
   --gauge-warn: #FF7A6E;
   --gauge-off: #0F3E27;            /* gauge sits on the deep feature card */
@@ -77,36 +87,6 @@
   --pane-left: 280px;
   --pane-right-min: 400px;
   --pane-right-max: 480px;
-}
-
-/* ---------- Live theme: dark court green, for the wall board and umpire phone ---------- */
-[data-theme="live"] {
-  --background: #071F15;
-  --foreground: #F3F7F2;
-  --card: #0D3022;
-  --card-foreground: #F3F7F2;
-  --popover: #0D3022;
-  --popover-foreground: #F3F7F2;
-  --primary: #F4C430;              /* the main live action is the shuttle yellow */
-  --primary-foreground: #1A1400;
-  --secondary: #124030;
-  --secondary-foreground: #F3F7F2;
-  --muted: #124030;
-  --muted-foreground: #A4BDAD;
-  --accent: #124030;
-  --accent-foreground: #F3F7F2;
-  --border: #2A6B4C;
-  --input: #2A6B4C;
-  --ring: #F4C430;
-  --surface-inset: #124030;
-  --tile: #0F6B45;
-  --tile-border: #1F8A4C;
-  --tl-group: #1F8A4C;
-  --tl-knockout: #BDF2C9;
-  --tl-outline: rgba(250, 250, 242, 0.5);
-  --tl-now: #F3F7F2;
-  --tl-worst: #FF7A6E;
-  --status-off: #2A6B4C;       --status-off-fg: #F3F7F2;
 }
 
 /* ---------- Tailwind v4 mapping ---------- */
@@ -131,6 +111,8 @@
   --color-ring: var(--ring);
 
   --color-inset: var(--surface-inset);
+  --color-card-system: var(--card-system);
+  --color-card-selected: var(--card-selected);
   --color-feature: var(--surface-feature);
   --color-feature-foreground: var(--feature-foreground);
   --color-turf: var(--turf);
@@ -155,6 +137,17 @@
   --radius-md: var(--radius);
   --radius-lg: var(--radius-tile);
   --radius-xl: var(--radius-card);
+}
+
+/* ---------- Dot matrix: working-area background ---------- */
+/* On the centre working area only (halls, courts and timeline). Not on the sidebar, cards, fields,
+   popovers or the Live board. Fixed to the window, so it stays still as panes scroll and lines up
+   across the panes and sticky bars that carry it. */
+.workspace-dots {
+  background-color: var(--background);
+  background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent calc(var(--dot-size) + 0.2px));
+  background-size: var(--dot-gap) var(--dot-gap);
+  background-attachment: fixed;
 }
 
 /* Numerals never jitter as scores, times and money change */

@@ -5,7 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* The Court green tokens (design-tokens.css, docs/design-system.md) cover the
+/* The design tokens (design-tokens.css, docs/design-system.md) cover the
    shadcn roles. These map the few extra roles the app's components use onto
    the same tokens. Status always shows a word with its colour. */
 @theme inline {
@@ -70,43 +70,40 @@
   --umpire: #7CC4FF;
 }
 
-[data-theme="live"] {
-  --court: #0F6B45;
-  --umpire: #7CC4FF;
-}
-
-/* Plan dark: derived from the Live palette, with a mint primary so shuttle
-   yellow stays the one accent (docs/design-system.md, "Themes"). */
+/* Dark: a cool court-green surface, cream text, a butter accent
+   (docs/design-system.md, "Themes"). Live screens use it too. */
 .dark {
   --background: #071F15;
-  --foreground: #F3F7F2;
+  --foreground: #EFE8D1;
   --card: #0D3022;
-  --card-foreground: #F3F7F2;
+  --card-foreground: #EFE8D1;
   --popover: #0D3022;
-  --popover-foreground: #F3F7F2;
-  --primary: #BDF2C9;
-  --primary-foreground: #07241A;
-  --secondary: #124030;
-  --secondary-foreground: #F3F7F2;
-  --muted: #124030;
-  --muted-foreground: #A4BDAD;
-  --accent: #124030;
-  --accent-foreground: #F3F7F2;
-  --border: #2A6B4C;
-  --input: #4F9A72;
-  --ring: #BDF2C9;
-  --surface-inset: #124030;
+  --popover-foreground: #EFE8D1;
+  --primary: #F8D15E;
+  --primary-foreground: #1A1400;
+  --secondary: #1C4838;
+  --secondary-foreground: #EFE8D1;
+  --muted: #1C4838;
+  --muted-foreground: #ABB4AF;
+  --accent: #1C4838;
+  --accent-foreground: #EFE8D1;
+  --border: rgba(239, 232, 209, 0.22);
+  --input: #1C4838;
+  --ring: #F8D15E;
+  --surface-inset: #1C4838;
+  --card-system: #124030;
+  --card-selected: #0F4A43;
+  --dot-color: rgba(239, 232, 209, 0.09);
   --tile: #124030;
   --tile-border: #2A6B4C;
   --turf: #BDF2C9;
   --turf-2: #A6E6B6;
-  --tl-group: #1F8A4C;
-  --tl-knockout: #BDF2C9;
-  --tl-outline: rgba(250, 250, 242, 0.5);
-  --tl-now: #F3F7F2;
+  --tl-group: #62B584;
+  --tl-knockout: #D3EEDB;
+  --tl-now: #EFE8D1;
   --tl-worst: #FF7A6E;
   --status-off: #2A6B4C;
-  --status-off-fg: #F3F7F2;
+  --status-off-fg: #EFE8D1;
   --status-fits-text: #58C27D;
   --status-tight-text: #FFB020;
   --status-over-text: #FF7A6E;
@@ -143,20 +140,20 @@
     color: var(--foreground);
   }
   .dark ::selection {
-    background: var(--turf-2);
+    background: var(--primary);
     color: var(--primary-foreground);
   }
 }
 
 @layer components {
-  /* Screen and card headings: Barlow Condensed, uppercase, turf (design system §4). */
+  /* Screen and card headings: Barlow Condensed, uppercase, in the text colour (design system §4). */
   .heading-screen {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 30px;
     line-height: 1;
     text-transform: uppercase;
-    color: var(--turf);
+    color: var(--foreground);
   }
   .heading-card {
     font-family: var(--font-display);
@@ -164,7 +161,7 @@
     font-size: 24px;
     line-height: 1.05;
     text-transform: uppercase;
-    color: var(--turf);
+    color: var(--foreground);
   }
   .numeral-xl {
     font-family: var(--font-display);
