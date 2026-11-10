@@ -38,7 +38,8 @@ import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
-import { ProgressSegments, Summary, type ProgressPart } from "./summary";
+import { HealthBar, Summary } from "./summary";
+import { bookedCourtMinutes } from "@/lib/tournament/health-bar";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
 import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
 import { FIT_STATUS } from "./labels";
@@ -125,7 +126,7 @@ function tabFor(issue: PlanIssue): Tab | null {
   }
 }
 
-/** The parts of the plan the workbench's progress bar shows, in order. */
+/** The parts of the plan, in order; items still missing are counted by part. */
 const PROGRESS_PARTS = ["Basics", "Venue", "Setup", "Schedule", "Budget"] as const;
 
 /** Which part of the plan a missing item belongs to. */
@@ -330,8 +331,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     return [...homeless, ...zoneWarnings(shown, zones)];
   }, [shown, zones, schedule]);
   const range = dayRange(shown);
-  // How complete the plan is, part by part, for the workbench's progress bar.
-  const progress = useMemo<ProgressPart[]>(() => {
+  // How much each part of the plan still needs, for the counts on the workbench's tabs.
+  const progress = useMemo<{ name: string; missing: number }[]>(() => {
     const missing = new Map<string, number>(PROGRESS_PARTS.map((p) => [p, 0]));
     for (const issue of shownParsed.ok ? [] : shownParsed.issues) {
       const part = partOf(issue);
@@ -686,7 +687,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     <CaretDoubleLeftIcon />
                   </IconButton>
                   <div className="h-48">
-                    <ProgressSegments parts={progress} status={fitStatus} vertical />
+                    <HealthBar
+                      booked={
+                        shownAnalysis?.ok
+                          ? shownAnalysis.analysis.capacity.available.courtMinutes
+                          : bookedCourtMinutes(shown.frame.halls)
+                      }
+                      needed={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.needed.typical : null}
+                      status={fitStatus}
+                      vertical
+                    />
                   </div>
                 </aside>
               ) : (
@@ -710,7 +720,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       draft={shown}
                       parsed={shownParsed}
                       analysis={shownAnalysis}
-                      progress={progress}
                       warnings={warnings}
                       sample={sample}
                       onGoTo={goTo}

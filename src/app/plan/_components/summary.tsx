@@ -5,46 +5,55 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { AnalysisResult } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
+import { bookedCourtMinutes, healthBars } from "@/lib/tournament/health-bar";
 import type { ParseResult, PlanIssue } from "@/lib/tournament/schema";
 import { cn } from "@/lib/utils";
 import { FIT_STATUS, analysisErrorMessages, formatMinutesShort, formatMoney, issueSection } from "./labels";
 
-/** A part of the plan for the progress bar: done when nothing in it is missing. */
-export interface ProgressPart {
-  name: string;
-  /** Items still to fill in. */
-  missing: number;
-}
+/** The most bars the health bar shows; with more hours booked, each bar stands for more than one hour. */
+const MAX_BARS = 48;
 
 /**
- * How complete the plan is, one segment per part (Basics, Venue, Setup,
- * Schedule, Finance), filled when that part has nothing missing. Across the
- * top of the workbench, or down its rail when it's folded away.
+ * The plan's health bar: one small bar per hour of court time booked, filled
+ * for the court time the matches need (the typical case), in the plan's
+ * status colour, as the chip beside it. Empty and grey until the plan is
+ * complete. Across the top of the workbench, or down its rail when it's
+ * folded away.
  */
-export function ProgressSegments({
-  parts,
+export function HealthBar({
+  booked,
+  needed,
   status = null,
   vertical = false,
 }: {
-  parts: ProgressPart[];
-  /** The plan's fit once it's worked out; filled parts take its colour, as the chip beside them does. */
+  /** Court time booked, in minutes. */
+  booked: number;
+  /** Court time the matches need, in minutes; null until the plan is complete. */
+  needed: number | null;
   status?: "fits" | "tight" | "over" | null;
   vertical?: boolean;
 }) {
-  const filled = status === "fits" ? "bg-fits" : status === "tight" ? "bg-tight" : status === "over" ? "bg-over" : "bg-muted-foreground";
-  const done = parts.filter((p) => p.missing === 0).length;
+  const { hoursPerBar, fills } = healthBars(booked, needed, MAX_BARS);
+  const colour = status === "fits" ? "bg-fits" : status === "tight" ? "bg-tight" : status === "over" ? "bg-over" : "bg-muted-foreground";
+  const each = hoursPerBar === 1 ? "One bar is 1 hour." : `One bar is ${hoursPerBar} hours.`;
+  const label =
+    booked === 0
+      ? "No court time booked yet"
+      : needed === null
+        ? `${formatMinutesShort(booked)} of court time booked. ${each}`
+        : `${formatMinutesShort(needed)} needed of ${formatMinutesShort(booked)} booked. ${each}`;
   return (
-    <div
-      role="img"
-      aria-label={`${done} of ${parts.length} parts complete`}
-      className={cn("flex gap-1", vertical ? "h-full w-2 flex-col" : "h-2")}
-    >
-      {parts.map((p) => (
-        <span
-          key={p.name}
-          title={p.missing === 0 ? `${p.name}: complete` : `${p.name}: ${p.missing} to fill in`}
-          className={cn("flex-1 rounded-full", p.missing === 0 ? filled : "bg-border")}
-        />
+    <div role="img" aria-label={label} title={label} className={cn("flex gap-0.5", vertical ? "h-full w-2 flex-col" : "h-2")}>
+      {fills.length === 0 ? <span className="flex-1 rounded-full bg-border" /> : null}
+      {fills.map((fill, i) => (
+        <span key={i} className="relative flex-1 overflow-hidden rounded-full bg-border">
+          {fill > 0 ? (
+            <span
+              className={cn("absolute top-0 left-0", colour, vertical ? "w-full" : "h-full")}
+              style={vertical ? { height: `${fill * 100}%` } : { width: `${fill * 100}%` }}
+            />
+          ) : null}
+        </span>
       ))}
     </div>
   );
@@ -64,7 +73,7 @@ const LINK =
  * The top of the workbench. A heading that says what to do here ("Set up
  * your tournament"), or the plan's status once it's complete. While items
  * are missing, how many and a link to the next one; with sample data in the
- * plan, how much and a link to the first of it. Then the progress bar and
+ * plan, how much and a link to the first of it. Then the health bar and
  * chip, and under them one line of results (court time, matches, profit);
  * the full figures are in the Schedule and Budget tabs. Recalculates with
  * every change.
@@ -73,7 +82,6 @@ export function Summary({
   draft,
   parsed,
   analysis,
-  progress,
   warnings,
   sample,
   action,
@@ -86,7 +94,6 @@ export function Summary({
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
-  progress: ProgressPart[];
   /** Problems with zones and matches on the timeline; they don't stop the plan. */
   warnings: string[];
   onGoTo: (issue: PlanIssue) => void;
@@ -134,7 +141,11 @@ export function Summary({
       ) : null}
       <div className="flex min-h-8 items-center gap-3">
         <div className="min-w-0 flex-1">
-          <ProgressSegments parts={progress} status={status?.variant ?? null} />
+          <HealthBar
+            booked={result ? result.capacity.available.courtMinutes : bookedCourtMinutes(draft.frame.halls)}
+            needed={result ? result.capacity.needed.typical : null}
+            status={status?.variant ?? null}
+          />
         </div>
         {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
       </div>

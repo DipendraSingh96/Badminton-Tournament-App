@@ -91,7 +91,7 @@ Do not use the accent for: body text, headings, status, large fills, or more tha
 | Live | `#F4C430` | `#1A1400` | Match in progress |
 | Off | `#E4E7E5` | `#2B343C` | Not booked, finished |
 
-Status colours are the same in both themes and are used only for status: the workbench's progress bar and chip, the worst-case flag and line. They are never used for selection, and the accent is never used for status. The progress bar's filled segments and its chip always use the same status token; before the plan is complete (no status yet) the filled segments are `muted-foreground` and the chip reads "Incomplete".
+Status colours are the same in both themes and are used only for status: the workbench's health bar and chip, the worst-case flag and line. They are never used for selection, and the accent is never used for status. The health bar's filled bars and its chip always use the same status token; before the plan is complete the bar is empty and the chip reads "Incomplete".
 
 ### Timeline blocks
 | Block | Light | Dark |
@@ -126,8 +126,9 @@ The working area, which holds the venue (halls and courts), the timeline and the
 The timeline is frosted glass over the venue, so the two read as one space: halls and courts scroll under it and show through, blurred.
 
 - `.glass` on the timeline: the ground colour at `--glass-tint`, a 14px backdrop blur, and the dot matrix.
-- `--glass-tint` is as low as keeps secondary text at 4.5:1 with a court behind it: 82% in Light, 62% in Dark. Check before lowering it.
-- `.glass-bar` on the timeline's own sticky bars (ruler, labels): the ground colour at 90% with the same blur, so its rows don't show through.
+- `--glass-tint` keeps secondary text above 4.5:1 with a court behind it: 82% in Light, 70% in Dark (62% is the floor in Dark; it is a little denser so row labels read easily). Check before lowering it.
+- The timeline is one sheet of glass: its sticky labels and ruler have no fill of their own. Rows fade out over 8px as they scroll under them, so nothing shows through behind the labels or the times.
+- The glass starts at the soft divider above the timeline, with no gap between the line and the glass.
 - Under `prefers-reduced-transparency` both are solid `background`.
 - Glass is for the timeline only. Do not use it on cards, fields, popovers or dialogs.
 
@@ -164,11 +165,11 @@ export const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["
 
 - **Spacing is a 4px grid.** Every padding and gap is one of 4, 8, 12, 16 or 24px (Tailwind 1, 2, 3, 4, 6); no 2, 6, 10, 14, 18 or 20px one-offs. Typical uses: 4px around small edit and hover boxes (with 8px either side of text), 8px inside chips, tiles and menus, 12px inside inset blocks, 16px around sections and panes, 24px between major regions. Control sizes (32px controls and stepper buttons) are set by the controls, not the grid.
 - **No cards inside cards.** Panels (the workbench tabs, figure panels) are flat sections divided by a 1px `border` rule, not framed cards. Inside a section, at most one level of `inset` blocks (one per category or line); nothing framed inside those. Halls sit flat on the venue, divided by a rule.
-- **Scrollbars:** thin (8px), rounded thumb, no track or arrows. A scrolling pane keeps an equal gutter on both sides and its content's side padding is the pane padding less the gutter, so the bar sits inside the 16px padding and both sides look even.
+- **Scrollbars:** never take room in the layout and are not shown at rest. The browser's own scrollbars are hidden everywhere. While a pane is being scrolled, a 4px rounded thumb (`foreground` at 40%) lies over its edge, 2px in, and fades 0.7s after scrolling stops (`ScrollHints` in `src/components/ui/scroll-hints.tsx`). Panes use the full 16px side padding on both sides.
 - Radii: cards 14px, tiles 12px, controls 8px, timeline blocks 3px, chips fully round.
 - Borders 1px `border`. Cards get `box-shadow: 0 1px 0 rgba(10,42,27,.04)`, no heavy shadows.
 - Controls are 32px high in Plan (dense, desktop): inputs and selects with 14px text, buttons 32px (small 28px), steppers 32px, segmented controls 32px with 24px segments. Live's touch screens use 44px or more.
-- **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Sidebar 280px, collapsible to a 40px rail; the main column flexible (`min-width: 0`) with the 960px central column; the workbench 440px, folding to a 40px rail. The progress bar sits at the top of the workbench, under its title menu. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
+- **Plan layout:** three panes. The shell never scrolls as a page; each pane scrolls on its own. Sidebar 280px, collapsible to a 40px rail; the main column flexible (`min-width: 0`) with the 960px central column; the workbench 440px, folding to a 40px rail. The health bar sits at the top of the workbench, under its title menu. Below about 1000px wide the right pane stacks under the centre. (Plan mode is desktop only and keeps a 1024px minimum width, so in practice this applies to the results page.)
 - **Live layout:** the wall board is a grid of widgets. The phone is two full-width tap halves with Undo, Fault and End set below.
 
 ### Surfaces in the shell
@@ -223,7 +224,7 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Tabs.** Text tabs. Active: `foreground` label with a 3px `primary` underline. Inactive: `muted-foreground`. Wrap or scroll on narrow widths.
 - **Chip.** Pill. Status chips use the status fill and label from the status table. Neutral chips use `inset` and `foreground`.
 - **Radio option card.** `card` fill with a 1px `border` outline. Selected: `card-selected` fill, a 2px `primary` outline and a `primary` radio dot; its title stays `foreground`.
-- **Status bar.** The workbench's progress bar: one segment per part of the plan, with one chip. Filled segments and the chip use the current status token; unfilled segments use `border`.
+- **Health bar.** In the workbench, with one chip beside it. One small bar per hour of court time booked (2px gaps), filled for the court time the matches need in the typical case; a part hour is a part-filled bar. Up to 48 bars: with more hours booked, each bar stands for 2 hours, then 3, and so on, and the tooltip says what one bar is worth. Filled bars and the chip use the current status token (Fits, Tight, Over, by the worst-case rule); unfilled bars use `border`. Until the plan is complete the bar is empty and grey; with no court time booked it is one empty track.
 - **System card.** `card-system` fill, 1px `border` outline. Used for the selected tournament card in the sidebar.
 - **Card.** `card` fill, 1px `border`, 14px radius. Heading in Barlow Condensed uppercase `foreground`.
 - **Court face.** Replaces the court tile in Plan (wireframe: `docs/design/court-face-wireframe.webp`). A court drawn from above in `--court` green with white lines (only the outer box, 2px at 90%, and the net, 3px, are heavy; the singles sidelines 10px in, the service lines and the centre lines are 1px at 50%), compact portrait (about 1.5 times taller than wide, at least 160px across). Surround: copy and delete icons at the top, the court's hours with up and down chevrons at the bottom. Inside: a name band at each end, each side's draw slot large in its half, one centred line above the net ("Wave 1 · R1/2", or the knockout match), the court number as a faint watermark (black at 18%, multiplied). With own courts per group, the top surround carries the court's group as a menu (every group of the tournament, with the courts it has, plus No group and Automatic split). Umpire spots at the four corners and the net ends, `--umpire` blue when on (3.5:1 on the court), white rings when off; each a 24px target.
