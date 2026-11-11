@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { groupLetter } from "@/engine";
 import { courtNumber, entryName, type EntryDraft, type PlanDraft, type PlayerDraft } from "@/lib/tournament/draft";
-import { entryForSlot, rubbersOf, swapDrawn } from "@/lib/tournament/entries";
+import { entryForSlot, entryGroups, rubbersOf, swapDrawn, type EntryGroup } from "@/lib/tournament/entries";
+import { gameState, scoreText } from "@/lib/tournament/live";
 import { EVENT_LABELS } from "@/lib/tournament/events";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
+import { AttendanceTally, PlayerCheckIn } from "./attendance";
 import { IconButton } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
@@ -170,11 +172,23 @@ export function DrawPanel({
   );
 }
 
-function TeamList({
+/** What a card of entries is called: "Group A", "Seeds" or "Not drawn", with its category where there are several. */
+export function entryGroupTitle(draft: PlanDraft, group: EntryGroup): string {
+  const own = group.kind === "group" ? `Group ${groupLetter(group.group!)}` : group.kind === "seeds" ? "Seeds" : "Not drawn";
+  return draft.categories.length > 1 ? `${categoryName(draft, group.categoryId)} · ${own}` : own;
+}
+
+/**
+ * Everyone entered, a card for each group, each entry opening in place.
+ * While Live each card counts who has arrived, and an opened entry's players
+ * can be checked in there.
+ */
+export function TeamList({
   draft,
   update,
   segments,
   at,
+  live = false,
   openId,
   onToggle,
 }: {
@@ -182,6 +196,8 @@ function TeamList({
   update: Update;
   segments: LocalSegment[];
   at: number;
+  /** The tournament is Live: check-in counts and buttons, and scores on the matches. */
+  live?: boolean;
   /** The entry opened in place, showing its details under its row. */
   openId: string | null;
   onToggle: (entryId: string) => void;
@@ -195,20 +211,13 @@ function TeamList({
   }, [openId]);
   const team = draft.unit === "team";
   const q = query.trim().toLowerCase();
-  // In draw order (category, then group and place, knockout by seed); undrawn entries last, as entered.
-  const order = (e: EntryDraft) => {
-    const groups = draft.draw[e.categoryId]?.groups ?? [];
-    const g = groups.findIndex((list) => list.includes(e.id));
-    return g === -1 ? Infinity : g * 1000 + groups[g]!.indexOf(e.id);
-  };
-  const categoryOrder = (e: EntryDraft) => draft.categories.findIndex((c) => c.id === e.categoryId);
-  const visible = draft.entries
-    .filter(
-      (e) =>
-        (!category || e.categoryId === category) &&
-        (!q || (entryName(e) ?? "").toLowerCase().includes(q) || e.players.some((p) => p.name.toLowerCase().includes(q))),
-    )
-    .sort((a, b) => categoryOrder(a) - categoryOrder(b) || order(a) - order(b));
+  const visible = draft.entries.filter(
+    (e) =>
+      (!category || e.categoryId === category) &&
+      (!q || (entryName(e) ?? "").toLowerCase().includes(q) || e.players.some((p) => p.name.toLowerCase().includes(q))),
+  );
+  // A card for each group, in draw order; entries not drawn after their category's groups.
+  const groups = entryGroups(draft, visible);
   // Another entry is to be opened: if the search or the category is hiding it, show everything again.
   const [seenOpen, setSeenOpen] = useState(openId);
   if (openId !== seenOpen) {
@@ -249,72 +258,102 @@ function TeamList({
           </NativeSelect>
         ) : null}
       </div>
-      <ul className="flex flex-col gap-1">
-        {visible.length === 0 ? <li className="text-sm text-muted-foreground">Nothing matches “{query}”.</li> : null}
-        {visible.map((entry) => {
-          const next = matchesOf(draft, segments, entry).find((s) => s.to > at);
-          const name = entryName(entry) ?? "Unnamed entry";
-          return (
-            <li key={entry.id} ref={entry.id === openId ? opened : undefined} className="rounded-lg bg-card-system">
-              <button
-                type="button"
-                aria-expanded={entry.id === openId}
-                onClick={() => onToggle(entry.id)}
-                className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors outline-none hover:bg-(--field-raised) focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="text-xs font-semibold text-muted-foreground tabular-nums">{placeOf(draft, entry) ?? "–"}</span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold" title={name}>
-                    {name}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground tabular-nums">
-                    {next
-                      ? `Next ${clock(next.from)} · Court ${courtOf(draft, next.courtId) ?? "?"}`
-                      : draft.draw[entry.categoryId]
-                        ? "No more matches"
-                        : "Not drawn yet"}
-                    {draft.categories.length > 1 ? ` · ${categoryName(draft, entry.categoryId)}` : ""}
-                  </span>
+      {visible.length === 0 ? <p className="text-sm text-muted-foreground">Nothing matches “{query}”.</p> : null}
+      <ul className="flex flex-col gap-2">
+        {groups.map((group) => (
+          <li key={group.key} className="flex flex-col gap-1 rounded-lg bg-card-system p-1">
+            <div className="flex items-baseline justify-between gap-2 px-2 pt-2">
+              <h3 className="min-w-0 truncate text-sm font-semibold">{entryGroupTitle(draft, group)}</h3>
+              {live ? (
+                <AttendanceTally counts={group.counts} />
+              ) : (
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {group.entries.length} {group.entries.length === 1 ? (team ? "team" : "entry") : team ? "teams" : "entries"}
                 </span>
-                <CaretDownIcon
-                  weight="bold"
-                  aria-hidden="true"
-                  className={cn("size-4 text-muted-foreground transition-transform motion-reduce:transition-none", entry.id === openId && "rotate-180")}
-                />
-              </button>
-              {entry.id === openId ? (
-                // Opened in place: its details under its row, the list where it was.
-                <div className="px-3 pt-1 pb-3">
-                  <TeamDetail draft={draft} update={update} entry={entry} segments={segments} at={at} />
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
+              )}
+            </div>
+            <ul className="flex flex-col">
+              {group.entries.map((entry) => {
+                const own = matchesOf(draft, segments, entry);
+                const next = live ? own.find((s) => gameState(draft.results, s.id) !== "finished") : own.find((s) => s.to > at);
+                const name = entryName(entry) ?? "Unnamed entry";
+                const waiting = entry.players.filter((p) => p.attendance !== "arrived").length;
+                return (
+                  <li key={entry.id} ref={entry.id === openId ? opened : undefined}>
+                    <button
+                      type="button"
+                      aria-expanded={entry.id === openId}
+                      onClick={() => onToggle(entry.id)}
+                      className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none hover:bg-(--field-raised) focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">{placeOf(draft, entry) ?? "–"}</span>
+                      <span className="flex min-w-0 flex-col">
+                        <span
+                          className={cn("truncate text-sm font-semibold", draft.withdrawn[entry.id] && "text-muted-foreground line-through")}
+                          title={name}
+                        >
+                          {name}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground tabular-nums">
+                          {draft.withdrawn[entry.id]
+                            ? "Withdrawn"
+                            : next
+                              ? `${live && gameState(draft.results, next.id) === "onCourt" ? "On court" : `Next ${clock(next.from)}`} · Court ${courtOf(draft, next.courtId) ?? "?"}`
+                              : draft.draw[entry.categoryId]
+                                ? "No more matches"
+                                : "Not drawn yet"}
+                          {live && waiting > 0 && !draft.withdrawn[entry.id] ? <span className="text-tight-text"> · {waiting} not checked in</span> : null}
+                        </span>
+                      </span>
+                      <CaretDownIcon
+                        weight="bold"
+                        aria-hidden="true"
+                        className={cn("size-4 text-muted-foreground transition-transform motion-reduce:transition-none", entry.id === openId && "rotate-180")}
+                      />
+                    </button>
+                    {entry.id === openId ? (
+                      // Opened in place: its details under its row, the list where it was.
+                      <div className="px-2 pt-1 pb-3">
+                        <TeamDetail draft={draft} update={update} entry={entry} segments={segments} at={at} live={live} />
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        ))}
       </ul>
     </section>
   );
 }
 
-function TeamDetail({
+/** One entry: where it is in the draw, its players, and its matches in order (while Live: the one on court, those to come, then those played). */
+export function TeamDetail({
   draft,
   update,
   entry,
   segments,
   at,
+  live = false,
 }: {
   draft: PlanDraft;
   update: Update;
   entry: EntryDraft;
   segments: LocalSegment[];
   at: number;
+  live?: boolean;
 }) {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const player = entry.players.find((p) => p.id === playerId);
   const team = draft.unit === "team";
   const category = draft.categories.find((c) => c.id === entry.categoryId);
   const place = placeOf(draft, entry);
-  const matches = matchesOf(draft, segments, entry, player);
+  const stateOf = (s: LocalSegment) => gameState(draft.results, s.id);
+  const rank = { onCourt: 0, waiting: 1, finished: 2 } as const;
+  const inTime = matchesOf(draft, segments, entry, player);
+  // Live: what it is playing now, what it has to come, then what it has played.
+  const matches = live ? [...inTime].sort((a, b) => rank[stateOf(a)] - rank[stateOf(b)] || a.from - b.from) : inTime;
   const rubbers = team && category ? rubbersOf(category) : [];
   const nameOf = (id: string) => entry.players.find((p) => p.id === id)?.name || "Unnamed player";
   const draw = draft.draw[entry.categoryId];
@@ -368,6 +407,9 @@ function TeamDetail({
 
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">{team ? "Squad" : entry.players.length === 1 ? "Player" : "Players"}</h3>
+        {live && !team ? (
+          <PlayerCheckIn players={entry.players} update={update} />
+        ) : (
         <ul className="flex flex-col gap-1">
           {entry.players.map((p) =>
             team ? (
@@ -392,6 +434,7 @@ function TeamDetail({
             ),
           )}
         </ul>
+        )}
       </div>
 
       {team && rubbers.length > 0 ? (
@@ -426,27 +469,42 @@ function TeamDetail({
             {matches.map((s) => {
               const { where, rubber } = matchText(draft, s.match);
               const home = entryForSlot(draft, s.match.categoryId, s.match.home)?.id === entry.id;
+              const state = stateOf(s);
+              const score = live ? scoreText(draft.results[s.id]?.games, draft.results[s.id]?.award) : null;
               return (
                 <li
                   key={s.id}
-                  className={cn("flex flex-col gap-1 rounded-md bg-(--field-raised) px-3 py-2 text-sm", s.to <= at && "text-muted-foreground")}
+                  className={cn(
+                    "flex flex-col gap-1 rounded-md bg-(--field-raised) px-3 py-2 text-sm",
+                    (live ? state === "finished" : s.to <= at) && "text-muted-foreground",
+                  )}
                 >
                   <span className="flex justify-between gap-2 text-xs text-muted-foreground tabular-nums">
                     <span>
-                      {clock(s.from)}–{clock(s.to)} · Court {courtOf(draft, s.courtId) ?? "?"}
+                      {live && state === "onCourt" ? (
+                        <span className="font-semibold text-foreground">On court</span>
+                      ) : live && state === "finished" ? (
+                        "Played"
+                      ) : (
+                        `${clock(s.from)}–${clock(s.to)}`
+                      )}{" "}
+                      · Court {courtOf(draft, s.courtId) ?? "?"}
                     </span>
                     <span className="truncate">{[where, rubber?.replace(/: .*/, "")].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span className="flex min-w-0 items-baseline gap-1">
                     <span className="text-muted-foreground">v</span>
                     <Side draft={draft} segment={s} slot={home ? s.match.away : s.match.home} />
+                    {score ? <span className="ml-auto shrink-0 font-semibold tabular-nums">{score}</span> : null}
                   </span>
                 </li>
               );
             })}
           </ol>
         )}
-        <p className="text-xs text-muted-foreground">Knockout matches fill in as results arrive in Live.</p>
+        <p className="text-xs text-muted-foreground">
+          {live ? "Knockout matches fill in as results arrive." : "Knockout matches fill in as results arrive in Live."}
+        </p>
       </div>
     </section>
   );

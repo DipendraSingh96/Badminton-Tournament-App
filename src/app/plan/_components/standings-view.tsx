@@ -23,7 +23,7 @@ import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
 import { awardMark } from "./court-board";
-import { courtOf } from "./draw-panel";
+import { TeamName, courtOf } from "./draw-panel";
 import { DecideDialog } from "./live-dialogs";
 import type { Update } from "./plan-editor";
 import { categoryName } from "./labels";
@@ -74,12 +74,17 @@ export function StandingsView({
   update,
   segments,
   onCourt,
+  group,
+  onGroup,
 }: {
   draft: PlanDraft;
   update: Update;
   segments: LocalSegment[];
   /** Opens a court on the Court board. */
   onCourt: (courtId: string) => void;
+  /** The group whose games the side panel shows. */
+  group: { categoryId: string; group: number } | null;
+  onGroup: (categoryId: string, group: number) => void;
 }) {
   const [categoryId, setCategoryId] = useState<string | null>(draft.categories[0]?.id ?? null);
   const category = draft.categories.find((c) => c.id === categoryId) ?? draft.categories[0];
@@ -87,7 +92,16 @@ export function StandingsView({
   return (
     <div className="flex flex-col gap-4">
       <CategoryTabs draft={draft} value={category.id} onChange={setCategoryId} count={(id) => progress(draft, draft.categories.find((c) => c.id === id)!)} />
-      <CategoryStandings key={category.id} draft={draft} update={update} category={category} segments={segments} onCourt={onCourt} />
+      <CategoryStandings
+        key={category.id}
+        draft={draft}
+        update={update}
+        category={category}
+        segments={segments}
+        onCourt={onCourt}
+        group={group?.categoryId === category.id ? group.group : null}
+        onGroup={(index) => onGroup(category.id, index)}
+      />
     </div>
   );
 }
@@ -98,12 +112,16 @@ function CategoryStandings({
   category,
   segments,
   onCourt,
+  group,
+  onGroup,
 }: {
   draft: PlanDraft;
   update: Update;
   category: CategoryDraft;
   segments: LocalSegment[];
   onCourt: (courtId: string) => void;
+  group: number | null;
+  onGroup: (group: number) => void;
 }) {
   // "If it ended now": the knockout shows who would go through as the tables stand.
   const [endedNow, setEndedNow] = useState(false);
@@ -145,9 +163,19 @@ function CategoryStandings({
       </div>
 
       {tables.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4">
+        // Two across where there's room; one across beside the open side panel, so names stay readable.
+        <div className="grid grid-cols-1 gap-4 @[800px]:grid-cols-2">
           {tables.map((table) => (
-            <GroupCard key={table.index} draft={draft} update={update} categoryId={category.id} table={table} tiebreaks={tiebreaks} />
+            <GroupCard
+              key={table.index}
+              draft={draft}
+              update={update}
+              categoryId={category.id}
+              table={table}
+              tiebreaks={tiebreaks}
+              selected={group === table.index}
+              onSelect={() => onGroup(table.index)}
+            />
           ))}
         </div>
       ) : null}
@@ -165,12 +193,17 @@ function GroupCard({
   categoryId,
   table,
   tiebreaks,
+  selected,
+  onSelect,
 }: {
   draft: PlanDraft;
   update: Update;
   categoryId: string;
   table: GroupTable;
   tiebreaks: TiebreakCriterion[];
+  /** Chosen: the side panel shows this group's games. */
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const [deciding, setDeciding] = useState(false);
   // Entries still sharing a place once the group has finished: their order can be decided by hand.
@@ -182,9 +215,25 @@ function GroupCard({
   const statuses = table.rows.map((row) => groupStatus(table, row));
   const level = statuses.includes("level");
   return (
-    <div className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
+    <div
+      data-group-card
+      onClick={onSelect}
+      className={cn(
+        "flex cursor-pointer flex-col gap-2 rounded-lg bg-card-system p-3 transition-shadow",
+        selected && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
+      )}
+    >
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold">Group {table.letter}</h3>
+        <h3 className="text-sm font-semibold">
+          <button
+            type="button"
+            aria-pressed={selected}
+            title="Show this group's games in the panel"
+            className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Group {table.letter}
+          </button>
+        </h3>
         <p className="text-xs text-muted-foreground tabular-nums">
           {table.complete ? "Finished" : `${table.played} of ${table.total} ${team ? "ties" : "games"} played`}
         </p>
@@ -240,7 +289,9 @@ function GroupCard({
                   className={cn("max-w-0 truncate py-2 font-medium", statuses[i] === "withdrawn" && "text-muted-foreground line-through")}
                   title={label}
                 >
-                  {label}
+                  <TeamName entryId={row.id} className="max-w-full truncate align-bottom">
+                    {label}
+                  </TeamName>
                 </td>
                 <td className="py-2 text-right">{row.played}</td>
                 <td className="py-2 text-right">{row.won}</td>
@@ -264,7 +315,14 @@ function GroupCard({
               ? "Level on every tiebreak: decide by hand. The knockout places they'd take stay open until then."
               : "Entries sharing a place are level on every tiebreak. Their order can be decided by hand."}
           </p>
-          <Button variant="outline" size="sm" onClick={() => setDeciding(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeciding(true);
+            }}
+          >
             Decide…
           </Button>
         </div>
@@ -428,7 +486,9 @@ function MatchBox({
               className={cn("min-w-0 flex-1 truncate", won && "font-bold", !side.known && "text-muted-foreground", side.guessed && "italic")}
               title={side.guessed ? `${side.label} (as it stands)` : side.label}
             >
-              {side.label}
+              <TeamName entryId={side.known ? side.id : null} className="max-w-full truncate align-bottom">
+                {side.label}
+              </TeamName>
             </span>
             {scores[i]!.map((n, g) => (
               <span key={g} className={cn("w-5 shrink-0 text-right tabular-nums", won ? "font-bold" : "text-muted-foreground")}>

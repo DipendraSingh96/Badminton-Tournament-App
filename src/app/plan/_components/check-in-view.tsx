@@ -6,58 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { entryName, type Attendance, type EntryDraft, type PlanDraft, type PlayerDraft } from "@/lib/tournament/draft";
-import { entryForSlot } from "@/lib/tournament/entries";
+import { entryName, type EntryDraft, type PlanDraft, type PlayerDraft } from "@/lib/tournament/draft";
+import { entryForSlot, entryGroups } from "@/lib/tournament/entries";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
-import { courtOf, placeOf } from "./draw-panel";
+import { AttendanceChoice, AttendanceTally } from "./attendance";
+import { TeamName, courtOf, entryGroupTitle, placeOf } from "./draw-panel";
 import { SwitchField } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import type { LocalSegment } from "./timeline";
-
-const ATTENDANCE: { value: Attendance; label: string }[] = [
-  { value: "arrived", label: "Arrived" },
-  { value: "notYet", label: "Not yet" },
-  { value: "absent", label: "Absent" },
-];
-
-/** Arrived, not yet or absent: three buttons side by side, the chosen one filled. */
-function AttendanceChoice({ player, onChange }: { player: PlayerDraft; onChange: (a: Attendance) => void }) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={`${player.name || "Player"} check-in`}
-      data-slot="segmented"
-      className="flex shrink-0 gap-1 rounded-md bg-inset p-1"
-    >
-      {ATTENDANCE.map((a) => {
-        const selected = player.attendance === a.value;
-        return (
-          <button
-            key={a.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(a.value)}
-            className={cn(
-              "min-h-6 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              selected
-                ? a.value === "arrived"
-                  ? "bg-primary text-primary-foreground"
-                  : a.value === "absent"
-                    ? "bg-over-strong text-over-foreground"
-                    : "bg-card text-foreground"
-                : "text-muted-foreground hover:bg-card hover:text-foreground",
-            )}
-          >
-            {a.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * The Live stage's Check-in page: the first thing the desk does on the day.
@@ -69,6 +27,8 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [waiting, setWaiting] = useState(false);
+  // In order of first game (who to check in first), or gathered by group (who is missing from each).
+  const [order, setOrder] = useState<"first" | "group">("first");
   const team = draft.unit === "team";
   // The desk types a name as each person walks up: the search has the keyboard when the page
   // opens (a moment later, after a dialog that led here has handed focus back).
@@ -116,67 +76,7 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
       for (const p of entry?.players ?? []) if (playerId === null || p.id === playerId) recipe(p);
     });
 
-  if (draft.entries.length === 0) {
-    return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">No entries: add them on the Draw stage.</p>;
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="heading-card">Check-in</h2>
-          <p className="text-sm tabular-nums" aria-live="polite">
-            <span className="font-semibold">
-              {arrived} of {players.length}
-            </span>{" "}
-            <span className="text-muted-foreground">players checked in</span>
-            {absent > 0 ? <span className="font-semibold text-over-text"> · {absent} absent</span> : null}
-          </p>
-        </div>
-        {/* How far check-in has got: arrived, then absent, of everyone. */}
-        <div
-          role="img"
-          aria-label={`${arrived} of ${players.length} players checked in, ${absent} absent`}
-          className="flex h-2 overflow-hidden rounded-full bg-border"
-        >
-          <span className="bg-fits" style={{ width: `${(arrived / Math.max(1, players.length)) * 100}%` }} />
-          <span className="bg-over" style={{ width: `${(absent / Math.max(1, players.length)) * 100}%` }} />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 basis-60">
-          <MagnifyingGlassIcon
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            ref={search}
-            aria-label={team ? "Search teams and players" : "Search players"}
-            placeholder={team ? "Search teams or players" : "Search names"}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        {draft.categories.length > 1 ? (
-          <NativeSelect aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <NativeSelectOption value="">All categories</NativeSelectOption>
-            {draft.categories.map((c) => (
-              <NativeSelectOption key={c.id} value={c.id}>
-                {categoryName(draft, c.id)}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
-        <SwitchField label="Not checked in" checked={waiting} onChange={setWaiting} />
-      </div>
-
-      <ul className="flex flex-col gap-2">
-        {visible.length === 0 ? (
-          <li className="text-sm text-muted-foreground">{q ? `Nothing matches “${query}”.` : "Everyone here has checked in."}</li>
-        ) : null}
-        {visible.map((entry) => {
+  const card = (entry: EntryDraft) => {
           const game = first.get(entry.id);
           const allIn = entry.players.every((p) => p.attendance === "arrived");
           const anyAbsent = entry.players.some((p) => p.attendance === "absent");
@@ -186,9 +86,9 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-semibold" title={name}>
-                      {name}
-                    </span>
+                    <TeamName entryId={entry.id} className="truncate text-sm font-semibold">
+                      <span title={name}>{name}</span>
+                    </TeamName>
                     {draft.withdrawn[entry.id] ? (
                       <Badge variant="outline">Withdrawn</Badge>
                     ) : anyAbsent ? (
@@ -256,8 +156,107 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
               </ul>
             </li>
           );
-        })}
-      </ul>
+  };
+
+  if (draft.entries.length === 0) {
+    return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">No entries: add them on the Draw stage.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="heading-card">Check-in</h2>
+          <p className="text-sm tabular-nums" aria-live="polite">
+            <span className="font-semibold">
+              {arrived} of {players.length}
+            </span>{" "}
+            <span className="text-muted-foreground">players checked in</span>
+            {absent > 0 ? <span className="font-semibold text-over-text"> · {absent} absent</span> : null}
+          </p>
+        </div>
+        {/* How far check-in has got: arrived, then absent, of everyone. */}
+        <div
+          role="img"
+          aria-label={`${arrived} of ${players.length} players checked in, ${absent} absent`}
+          className="flex h-2 overflow-hidden rounded-full bg-border"
+        >
+          <span className="bg-fits" style={{ width: `${(arrived / Math.max(1, players.length)) * 100}%` }} />
+          <span className="bg-over" style={{ width: `${(absent / Math.max(1, players.length)) * 100}%` }} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1 basis-60">
+          <MagnifyingGlassIcon
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref={search}
+            aria-label={team ? "Search teams and players" : "Search players"}
+            placeholder={team ? "Search teams or players" : "Search names"}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {draft.categories.length > 1 ? (
+          <NativeSelect aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <NativeSelectOption value="">All categories</NativeSelectOption>
+            {draft.categories.map((c) => (
+              <NativeSelectOption key={c.id} value={c.id}>
+                {categoryName(draft, c.id)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        ) : null}
+        <SwitchField label="Not checked in" checked={waiting} onChange={setWaiting} />
+        <div role="radiogroup" aria-label="Order" data-slot="segmented" className="flex shrink-0 gap-1 rounded-md bg-inset p-1">
+          {(
+            [
+              ["first", "By first game"],
+              ["group", "By group"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={order === value}
+              onClick={() => setOrder(value)}
+              className={cn(
+                "min-h-6 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                order === value ? "bg-card text-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{q ? `Nothing matches “${query}”.` : "Everyone here has checked in."}</p>
+      ) : order === "first" ? (
+        <ul className="flex flex-col gap-2">{visible.map(card)}</ul>
+      ) : (
+        // A group at a time, the group playing soonest first.
+        <ul className="flex flex-col gap-4">
+          {entryGroups(draft, visible)
+            .map((group) => ({ group, from: Math.min(...group.entries.map((e) => first.get(e.id)?.from ?? Infinity)) }))
+            .sort((a, b) => a.from - b.from)
+            .map(({ group }) => (
+              <li key={group.key} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-sm font-semibold">{entryGroupTitle(draft, group)}</h3>
+                  <AttendanceTally counts={group.counts} />
+                </div>
+                <ul className="flex flex-col gap-2">{group.entries.map(card)}</ul>
+              </li>
+            ))}
+        </ul>
+      )}
     </div>
   );
 }

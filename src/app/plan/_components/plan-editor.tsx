@@ -10,7 +10,7 @@ import { ScrollHints } from "@/components/ui/scroll-hints";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
+import { analyseTournament, estimateSchedule, zoneOf, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
 import { canGoLive, courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
@@ -38,7 +38,7 @@ import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, path
 import { goLive, moveGame } from "@/lib/tournament/changes";
 import { gameState } from "@/lib/tournament/live";
 import { CourtBoard } from "./court-board";
-import { LivePanel } from "./live-panel";
+import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
@@ -458,13 +458,33 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const liveBlocked = canGoLive(draft) ? null : "Lock every category's draw first.";
   // The Live stage's open page.
   const [liveView, setLiveView] = useState<LiveStageView>("checkin");
-  // The court chosen on the Live board, shown in its side panel; none shows the call-up.
-  const [liveCourt, setLiveCourt] = useState<string | null>(null);
-  /** Opens a court in the Live board's panel, and the panel if it's folded. */
-  function openLiveCourt(courtId: string | null) {
-    setLiveCourt(courtId);
-    if (courtId) foldWorkbench(false);
+  // The Live side panel: its tab, the court or group its games are narrowed to, and the entry opened in it.
+  const [liveTab, setLiveTab] = useState<LiveTab>("games");
+  const [liveFilter, setLiveFilter] = useState<LiveFilter>(null);
+  const [liveEntry, setLiveEntry] = useState<string | null>(null);
+  /** Narrows the Live panel's games to a court or a group (and opens the panel if it's folded); null shows every game. */
+  function filterLive(filter: LiveFilter) {
+    setLiveFilter(filter);
+    if (filter) {
+      setLiveTab("games");
+      foldWorkbench(false);
+    }
   }
+  /** Opens an entry in the Live panel's Entries tab. */
+  function openLiveEntry(entryId: string) {
+    setLiveEntry(entryId);
+    setLiveTab("entries");
+    foldWorkbench(false);
+  }
+  // Escape goes back to every game (not while a dialog is open: it closes that).
+  useEffect(() => {
+    if (liveFilter === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector("[role=dialog], [role=alertdialog]")) setLiveFilter(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [liveFilter]);
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
 
   // Sample data: the stage being viewed can be filled where it's empty, and its sample data removed.
@@ -677,6 +697,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </ResizablePanelGroup>
     </div>
   );
+  // Where a waiting game may be played: a group game in its own hall, a knockout game in a hall that has its stage.
+  const canMove: CanMove = (segment, courtId) => {
+    const hallOf = (id: string) => draft.frame.halls.find((h) => h.courts.some((c) => c.id === id))?.id;
+    const hall = hallOf(courtId);
+    if (!hall) return false;
+    return segment.stage === "group" ? hall === hallOf(segment.courtId) : zones.some((z) => z.hallId === hall && z.zone === zoneOf(segment.stage));
+  };
   // The Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />);
 
@@ -715,7 +742,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onCollapsedChange={collapseSidebar}
             />
             {/* The working area: the dot matrix runs behind the venue, the timeline and the workbench. */}
-            <TeamOpenContext value={viewing === "plan" ? null : (id) => openInPanel({ kind: "team", id })}>
+            <TeamOpenContext
+              value={viewing === "plan" ? null : viewing === "live" || viewing === "results" ? openLiveEntry : (id) => openInPanel({ kind: "team", id })}
+            >
             <div className="workspace-dots flex min-w-0 flex-1">
             <main className="flex min-w-0 flex-1 flex-col">
               <div className="shrink-0 px-(--pane-x)">
@@ -733,7 +762,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               </div>
               <div className="flex min-h-0 flex-1">
                 {viewing === "live" || viewing === "results" ? (
-                  <CourtSelectionContext value={{ selected: liveCourt, onSelect: openLiveCourt }}>
+                  <CourtSelectionContext
+                    value={{ selected: liveFilter?.kind === "court" ? liveFilter.id : null, onSelect: (id) => filterLive({ kind: "court", id }) }}
+                  >
                     <LiveStage
                       draft={draft}
                       update={update}
@@ -742,6 +773,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       onViewChange={setLiveView}
                       // The Court board over the timeline, where games are moved between courts.
                       board={docked(<CourtBoard draft={draft} update={update} segments={segments} />)}
+                      filter={liveFilter}
+                      onFilter={filterLive}
                     />
                   </CourtSelectionContext>
                 ) : viewing !== "plan" ? (
@@ -772,13 +805,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               </div>
             </main>
             {viewing === "live" || viewing === "results" ? (
-              // The Court board's side panel: the call-up, or a court with its score entry. Check-in has none.
-              liveView !== "board" ? null : workbenchFolded ? (
+              // The Live side panel, on every Live page: the games to run, and the entries.
+              workbenchFolded ? (
                 <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
                   <IconButton label="Show panel" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
                     <CaretLeftIcon />
                   </IconButton>
-                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">Call-up</p>
+                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">Games</p>
                 </aside>
               ) : (
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
@@ -787,8 +820,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     update={update}
                     inputs={parsed.ok ? parsed.inputs : null}
                     segments={segments}
-                    courtId={liveCourt}
-                    onCourt={openLiveCourt}
+                    tab={liveTab}
+                    onTab={setLiveTab}
+                    filter={liveFilter}
+                    onFilter={filterLive}
+                    entryId={liveEntry}
+                    onEntry={setLiveEntry}
+                    canMove={canMove}
                     onFold={() => foldWorkbench(true)}
                   />
                 </aside>
@@ -865,7 +903,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     onValueChange={(value) => chooseTab(value as Tab)}
                     className="min-h-0 flex-1 gap-0"
                   >
-                    <TabsList variant="line" className="w-full shrink-0 justify-start px-2">
+                    <TabsList variant="line" className="mx-4 w-auto shrink-0 justify-start">
                       {TABS.map((t) => (
                         <TabsTrigger
                           key={t.value}

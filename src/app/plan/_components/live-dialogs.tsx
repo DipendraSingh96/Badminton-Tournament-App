@@ -129,6 +129,15 @@ export function AwardDialog({
       }
     >
       <Choices
+        label="Who wins it"
+        value={winner}
+        onChange={setWinner}
+        options={[
+          { value: "0", label: home, detail: `${away} ${reason === "walkover" ? "didn't play" : "retired"}` },
+          { value: "1", label: away, detail: `${home} ${reason === "walkover" ? "didn't play" : "retired"}` },
+        ]}
+      />
+      <Choices
         label="Why"
         value={reason}
         onChange={setReason}
@@ -139,15 +148,6 @@ export function AwardDialog({
             detail: `A side didn't play.${rule ? ` Scored by the tournament's rule: ${rule.toLowerCase()}.` : ""}${started ? " The scores entered so far are replaced." : ""}`,
           },
           { value: "retired", label: "Retired", detail: "A side stopped during play. The scores entered stand; the other side is given the match." },
-        ]}
-      />
-      <Choices
-        label="Who wins it"
-        value={winner}
-        onChange={setWinner}
-        options={[
-          { value: "0", label: home, detail: `${away} ${reason === "walkover" ? "didn't play" : "retired"}` },
-          { value: "1", label: away, detail: `${home} ${reason === "walkover" ? "didn't play" : "retired"}` },
         ]}
       />
       <Note value={note} onChange={setNote} placeholder={reason === "walkover" ? "Didn't arrive" : "Ankle injury"} />

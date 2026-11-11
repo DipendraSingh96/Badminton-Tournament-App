@@ -2,8 +2,8 @@
 
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from "@phosphor-icons/react";
 import { useContext, useMemo } from "react";
-import { courtNumber, hallName, type MatchAwardDraft, type PlanDraft } from "@/lib/tournament/draft";
-import { courtQueues, gameState } from "@/lib/tournament/live";
+import { courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { awardMark, courtQueues, gameState, scoreText } from "@/lib/tournament/live";
 import {
   COURT_SIZES,
   COURT_WIDTH,
@@ -18,17 +18,7 @@ import type { Update } from "./plan-editor";
 import { ScoreSheetsButton } from "./score-sheets";
 import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
 
-/** How an awarded match is marked beside its score: a walkover or a retirement. */
-export function awardMark(award: MatchAwardDraft | undefined): string | null {
-  return award ? (award.reason === "walkover" ? "W/O" : "Ret.") : null;
-}
-
-/** A match's scores as entered, a game at a time: "21–15  18–"; with "W/O" or "Ret." after an awarded match's. */
-export function scoreText(games: [number | null, number | null][] | undefined, award?: MatchAwardDraft): string | null {
-  const played = (games ?? []).filter(([home, away]) => home !== null || away !== null);
-  const text = [...played.map(([home, away]) => `${home ?? ""}–${away ?? ""}`), awardMark(award)].filter(Boolean).join("  ");
-  return text || null;
-}
+export { awardMark, scoreText };
 
 /**
  * The Live stage's Court board: every court with the game on it now (the

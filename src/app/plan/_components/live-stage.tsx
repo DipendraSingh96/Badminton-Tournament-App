@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CheckInView } from "./check-in-view";
 import { ChangesView } from "./changes-view";
 import { CourtSelectionContext } from "./court-card";
+import type { LiveFilter } from "./live-panel";
 import type { Update } from "./plan-editor";
 import { StandingsView } from "./standings-view";
 import type { LocalSegment } from "./timeline";
@@ -32,6 +33,8 @@ export function LiveStage({
   view,
   onViewChange,
   board,
+  filter,
+  onFilter,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -42,10 +45,22 @@ export function LiveStage({
   onViewChange: (view: LiveStageView) => void;
   /** The Court board over its timeline, built by the editor (it shares the timeline with Plan and Draw). */
   board: ReactNode;
+  /** What the side panel's games are narrowed to: a court or a group chosen here. */
+  filter: LiveFilter;
+  onFilter: (filter: LiveFilter) => void;
 }) {
   const selection = useContext(CourtSelectionContext);
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <main
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      // A click anywhere here that isn't on a court or a group goes back to every game.
+      onClick={(e) => {
+        const target = e.target as Element;
+        if (filter === null || !e.currentTarget.contains(target)) return;
+        if (target.closest("[data-court-card], [data-group-card], [data-court-id]")) return;
+        onFilter(null);
+      }}
+    >
       <div className="shrink-0 px-(--pane-x)">
         <nav aria-label="Live views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b">
           {LIVE_VIEWS.map((v) => (
@@ -70,7 +85,7 @@ export function LiveStage({
         <div className="min-h-0 min-w-0 flex-1 pt-4">{board}</div>
       ) : (
       <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
-        <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
+        <div className="@container mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
           {view === "changes" ? <ChangesView draft={draft} update={update} /> : null}
           {view === "standings" ? (
@@ -78,6 +93,8 @@ export function LiveStage({
               draft={draft}
               update={update}
               segments={segments}
+              group={filter?.kind === "group" ? filter : null}
+              onGroup={(categoryId, group) => onFilter({ kind: "group", categoryId, group })}
               onCourt={(courtId) => {
                 onViewChange("board");
                 selection?.onSelect(courtId);
