@@ -21,3 +21,5 @@ export * from "./types";
 export * from "./venue";
 export * from "./waves";
 export * from "./score";
+
+export * from "./standings";
