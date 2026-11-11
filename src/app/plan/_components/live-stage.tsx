@@ -1,10 +1,10 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, type ReactNode } from "react";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { CheckInView } from "./check-in-view";
-import { CourtBoard } from "./court-board";
+import { ChangesView } from "./changes-view";
 import { CourtSelectionContext } from "./court-card";
 import type { Update } from "./plan-editor";
 import { StandingsView } from "./standings-view";
@@ -17,7 +17,7 @@ export const LIVE_VIEWS: { value: LiveStageView; label: string; comingIn?: strin
   { value: "checkin", label: "Check-in" },
   { value: "board", label: "Court board" },
   { value: "standings", label: "Standings and bracket" },
-  { value: "changes", label: "Changes", comingIn: "Coming after standings: withdrawals, walkovers, court moves and score corrections, with a log." },
+  { value: "changes", label: "Changes" },
 ];
 
 /**
@@ -31,6 +31,7 @@ export function LiveStage({
   segments,
   view,
   onViewChange,
+  board,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -39,6 +40,8 @@ export function LiveStage({
   /** The page open; kept by the editor. */
   view: LiveStageView;
   onViewChange: (view: LiveStageView) => void;
+  /** The Court board over its timeline, built by the editor (it shares the timeline with Plan and Draw). */
+  board: ReactNode;
 }) {
   const selection = useContext(CourtSelectionContext);
   return (
@@ -63,13 +66,17 @@ export function LiveStage({
           ))}
         </nav>
       </div>
+      {view === "board" ? (
+        <div className="min-h-0 min-w-0 flex-1 pt-4">{board}</div>
+      ) : (
       <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
         <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
-          {view === "board" ? <CourtBoard draft={draft} update={update} segments={segments} /> : null}
+          {view === "changes" ? <ChangesView draft={draft} update={update} /> : null}
           {view === "standings" ? (
             <StandingsView
               draft={draft}
+              update={update}
               segments={segments}
               onCourt={(courtId) => {
                 onViewChange("board");
@@ -79,6 +86,7 @@ export function LiveStage({
           ) : null}
         </div>
       </div>
+      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { produce } from "immer";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { CaretLeftIcon, XIcon } from "@phosphor-icons/react";
@@ -35,6 +35,9 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { goLive, moveGame } from "@/lib/tournament/changes";
+import { gameState } from "@/lib/tournament/live";
+import { CourtBoard } from "./court-board";
 import { LivePanel } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
 import { FinanceTab } from "./finance-tab";
@@ -261,6 +264,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     setDraft(next);
   }, []);
   const step = useCallback((back: boolean) => {
+    // While Live nothing is undone: a controlled change is reversed from the log.
+    if (draftRef.current.stage === "live" || draftRef.current.stage === "results") return;
     const result = (back ? undoIn : redoIn)(history.current, draftRef.current);
     if (!result) return;
     history.current = result.history;
@@ -527,7 +532,19 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       )
         return;
     }
-    commit(produce(draftRef.current, (d) => void (d.stage = next)), false);
+    commit(
+      produce(draftRef.current, (d) => {
+        // Going Live is the first entry in the log.
+        if (next === "live") goLive(d, new Date().toISOString());
+        else d.stage = next;
+      }),
+      false,
+    );
+    // What came before can't be undone into once Live.
+    if (next === "live") {
+      history.current = emptyHistory<PlanDraft>();
+      setSteps({ back: 0, forward: 0 });
+    }
     setStageView(next);
   }
 
@@ -596,14 +613,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     foldWorkbench(false);
   }
 
-  // The venue over the timeline: the Plan stage's working area, and the Draw stage's Schedule page.
-  const workingArea = (
+  // The venue (or, while Live, the Court board) over the timeline.
+  const docked = (content: ReactNode) => (
     // The venue fills the area and scrolls under the timeline, which is glass over its lower part.
     // The panels above it only size the two: the venue's own panel is empty and lets the pointer through.
     <div className="relative h-full" style={{ "--under": `${timelineHeight + 8}px` } as CSSProperties}>
       <div className="@container scroll-pane absolute inset-0 isolate overflow-y-auto px-(--pane-x) pb-(--under) [scroll-padding-bottom:var(--under)]">
         <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
-          <VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />
+          {content}
         </div>
       </div>
     <ResizablePanelGroup
@@ -644,12 +661,24 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onFitHeight={setThinHeight}
           // After the draw the day is as planned: only games move.
           fixed={viewing !== "plan" || isLive}
+          // Live: a move is a controlled change, and a game that has started stays put.
+          live={
+            isLive
+              ? {
+                  state: (matchId) => gameState(draft.results, matchId),
+                  onMove: (segment, target) =>
+                    update((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target, now: new Date().toISOString() })),
+                }
+              : undefined
+          }
         />
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
     </div>
   );
+  // The Plan stage's working area, and the Draw stage's Schedule page.
+  const workingArea = docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />);
 
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
@@ -697,6 +726,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     onRedo={() => step(false)}
                     canUndo={steps.back > 0}
                     canRedo={steps.forward > 0}
+                    off={isLive ? "No undo while Live: reverse a change from the Changes page" : undefined}
                   />
                   {stageRow}
                 </div>
@@ -704,7 +734,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               <div className="flex min-h-0 flex-1">
                 {viewing === "live" || viewing === "results" ? (
                   <CourtSelectionContext value={{ selected: liveCourt, onSelect: openLiveCourt }}>
-                    <LiveStage draft={draft} update={update} segments={segments} view={liveView} onViewChange={setLiveView} />
+                    <LiveStage
+                      draft={draft}
+                      update={update}
+                      segments={segments}
+                      view={liveView}
+                      onViewChange={setLiveView}
+                      // The Court board over the timeline, where games are moved between courts.
+                      board={docked(<CourtBoard draft={draft} update={update} segments={segments} />)}
+                    />
                   </CourtSelectionContext>
                 ) : viewing !== "plan" ? (
                   <DrawStage

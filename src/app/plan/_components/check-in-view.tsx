@@ -189,7 +189,13 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
                     <span className="truncate text-sm font-semibold" title={name}>
                       {name}
                     </span>
-                    {anyAbsent ? <Badge variant="over">Absent</Badge> : allIn ? <Badge variant="fits">All in</Badge> : null}
+                    {draft.withdrawn[entry.id] ? (
+                      <Badge variant="outline">Withdrawn</Badge>
+                    ) : anyAbsent ? (
+                      <Badge variant="over">Absent</Badge>
+                    ) : allIn ? (
+                      <Badge variant="fits">All in</Badge>
+                    ) : null}
                   </span>
                   <span className="truncate text-xs text-muted-foreground tabular-nums">
                     {[

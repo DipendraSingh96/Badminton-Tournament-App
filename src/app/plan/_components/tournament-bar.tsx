@@ -21,6 +21,7 @@ export function NameRow({
   onRedo,
   canUndo,
   canRedo,
+  off,
 }: {
   /** The name, date and time zone fields. */
   fields: ReactNode;
@@ -28,19 +29,21 @@ export function NameRow({
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  /** Why undo and redo are off altogether (while Live), in place of their names. */
+  off?: string;
 }) {
   const mod = modifier();
   return (
     <header className="@container flex shrink-0 items-center gap-4 py-4">
       <div className="min-w-0 flex-1">{fields}</div>
       <div className="flex shrink-0 items-center gap-1">
-        <IconButton label={`Undo (${mod}+Z)`} side="bottom" disabled={!canUndo} onClick={onUndo}>
+        <IconButton label={off ?? `Undo (${mod}+Z)`} side="bottom" disabled={Boolean(off) || !canUndo} onClick={onUndo}>
           <ArrowArcLeftIcon />
         </IconButton>
         <IconButton
-          label={`Redo (${mod}+Shift+Z)`}
+          label={off ?? `Redo (${mod}+Shift+Z)`}
           side="bottom"
-          disabled={!canRedo}
+          disabled={Boolean(off) || !canRedo}
           onClick={onRedo}
         >
           <ArrowArcRightIcon />

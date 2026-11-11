@@ -403,6 +403,7 @@ export function Timeline({
   onCollapsedChange,
   onFitHeight,
   fixed = false,
+  live,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -426,6 +427,14 @@ export function Timeline({
   fixed?: boolean;
   /** Thin rows: the height the timeline needs to show them all, for its panel to shrink to; null when the rows are full again. */
   onFitHeight?: (height: number | null) => void;
+  /**
+   * The tournament is Live: a game on court or finished stays where it is, and a
+   * move is a controlled change, made (and logged) by `onMove`. Moves aren't put back from here.
+   */
+  live?: {
+    state: (matchId: string) => "waiting" | "onCourt" | "finished";
+    onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }) => void;
+  };
 }) {
   // The strips show the view range; the playhead runs over the day itself.
   const { range, setDragging } = useContext(ViewRangeContext);
@@ -795,12 +804,18 @@ export function Timeline({
     if (target.courtId === segment.courtId && (target.before === own[at + 1]?.id || (target.before === null && at === own.length - 1))) {
       return;
     }
-    update((d) => void (d.matchMoves[segment.id] = target));
+    if (live) live.onMove(segment, target);
+    else update((d) => void (d.matchMoves[segment.id] = target));
   }
 
   function resetMatch(segment: LocalSegment) {
+    // While Live a move is undone from the log, not here.
+    if (live) return;
     update((d) => void delete d.matchMoves[segment.id]);
   }
+
+  /** While Live: a game that has started (on court or finished) can't be moved. */
+  const stuck = (segment: LocalSegment) => (live ? live.state(segment.id) !== "waiting" : false);
 
   function focusPill(id: string) {
     document.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(id)}"]`)?.focus();
@@ -839,6 +854,7 @@ export function Timeline({
       pillNavigate(event, segment);
       return;
     }
+    if (stuck(segment)) return;
     const own = segments.filter((s) => s.courtId === segment.courtId).sort((a, b) => a.from - b.from);
     const at = own.findIndex((s) => s.id === segment.id);
     const hallId = courtHall.get(segment.courtId)!;
@@ -994,7 +1010,7 @@ export function Timeline({
           <span className="font-display text-xl leading-none font-bold tabular-nums">{clock(Math.round(now))}</span>
         </span>
         <span className="flex items-center gap-2">
-          {anyMoves ? (
+          {anyMoves && !live ? (
             <Button
               variant="ghost"
               size="sm"
@@ -1353,6 +1369,12 @@ export function Timeline({
                                       s.late ? "ring-2 ring-tl-worst" : "ring-1 ring-tl-outline"
                                     } ${
                                       pillDrag?.segment.id === s.id ? "opacity-30" : ""
+                                    } ${
+                                      live?.state(s.id) === "finished"
+                                        ? "cursor-default opacity-40 active:cursor-default"
+                                        : live?.state(s.id) === "onCourt"
+                                          ? "cursor-default outline-2 -outline-offset-2 outline-shuttle active:cursor-default"
+                                          : ""
                                     } transition-transform duration-150 motion-reduce:transition-none`}
                                     style={{
                                       left: pct(s.from),
@@ -1364,7 +1386,7 @@ export function Timeline({
                                           : undefined,
                                     }}
                                     onPointerDown={(e) => {
-                                      if (e.button !== 0) return;
+                                      if (e.button !== 0 || stuck(s)) return;
                                       e.currentTarget.setPointerCapture(e.pointerId);
                                       setHovered(null);
                                       setPillDrag({
@@ -1536,8 +1558,9 @@ export function Timeline({
           ) : null}
           {segments.length > 0 ? (
             <span className={thin ? "hidden" : "basis-full"}>
-              {fixed ? "Drag a game to move it" : "Drag a match or zone to move it"} · Arrow keys go between matches · Alt and the arrows move the focused one
-              · H or double-click puts it back · Ctrl or Cmd and scroll to zoom
+              {live
+                ? "Drag a game that hasn't started to move it: each move is logged · Arrow keys go between games · Alt and the arrows move the focused one · Ctrl or Cmd and scroll to zoom"
+                : `${fixed ? "Drag a game to move it" : "Drag a match or zone to move it"} · Arrow keys go between matches · Alt and the arrows move the focused one · H or double-click puts it back · Ctrl or Cmd and scroll to zoom`}
             </span>
           ) : null}
         </div>

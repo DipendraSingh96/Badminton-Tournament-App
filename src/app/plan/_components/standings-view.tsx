@@ -3,6 +3,7 @@
 import { TrophyIcon, WarningIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { countFixture, knockoutBracket, type KnockoutMatch, type TiebreakCriterion } from "@/engine";
 import { entryName, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
@@ -21,7 +22,10 @@ import { gameState } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
+import { awardMark } from "./court-board";
 import { courtOf } from "./draw-panel";
+import { DecideDialog } from "./live-dialogs";
+import type { Update } from "./plan-editor";
 import { categoryName } from "./labels";
 import type { LocalSegment } from "./timeline";
 
@@ -67,10 +71,12 @@ function progress(draft: PlanDraft, category: CategoryDraft): string {
  */
 export function StandingsView({
   draft,
+  update,
   segments,
   onCourt,
 }: {
   draft: PlanDraft;
+  update: Update;
   segments: LocalSegment[];
   /** Opens a court on the Court board. */
   onCourt: (courtId: string) => void;
@@ -81,18 +87,20 @@ export function StandingsView({
   return (
     <div className="flex flex-col gap-4">
       <CategoryTabs draft={draft} value={category.id} onChange={setCategoryId} count={(id) => progress(draft, draft.categories.find((c) => c.id === id)!)} />
-      <CategoryStandings key={category.id} draft={draft} category={category} segments={segments} onCourt={onCourt} />
+      <CategoryStandings key={category.id} draft={draft} update={update} category={category} segments={segments} onCourt={onCourt} />
     </div>
   );
 }
 
 function CategoryStandings({
   draft,
+  update,
   category,
   segments,
   onCourt,
 }: {
   draft: PlanDraft;
+  update: Update;
   category: CategoryDraft;
   segments: LocalSegment[];
   onCourt: (courtId: string) => void;
@@ -139,7 +147,7 @@ function CategoryStandings({
       {tables.length > 0 ? (
         <div className="grid grid-cols-2 gap-4">
           {tables.map((table) => (
-            <GroupCard key={table.index} draft={draft} table={table} tiebreaks={tiebreaks} />
+            <GroupCard key={table.index} draft={draft} update={update} categoryId={category.id} table={table} tiebreaks={tiebreaks} />
           ))}
         </div>
       ) : null}
@@ -151,7 +159,23 @@ function CategoryStandings({
   );
 }
 
-function GroupCard({ draft, table, tiebreaks }: { draft: PlanDraft; table: GroupTable; tiebreaks: TiebreakCriterion[] }) {
+function GroupCard({
+  draft,
+  update,
+  categoryId,
+  table,
+  tiebreaks,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  categoryId: string;
+  table: GroupTable;
+  tiebreaks: TiebreakCriterion[];
+}) {
+  const [deciding, setDeciding] = useState(false);
+  // Entries still sharing a place once the group has finished: their order can be decided by hand.
+  const shared = table.complete ? table.rows.filter((r) => r.shared && !table.withdrawn.includes(r.id)).map((r) => r.id) : [];
+  const decided = Boolean(draft.decided[`${categoryId}:${table.index}`]);
   const byId = new Map(draft.entries.map((e) => [e.id, e]));
   const columns = NUMERIC.filter((t) => tiebreaks.includes(t));
   const team = draft.unit === "team";
@@ -212,7 +236,10 @@ function GroupCard({ draft, table, tiebreaks }: { draft: PlanDraft; table: Group
             return (
               <tr key={row.id} className={cn("border-t border-border/60", cut && "border-b-2 border-dashed border-b-turf")}>
                 <td className="py-2 text-muted-foreground">{row.played === 0 && row.shared ? "–" : row.shared ? `${row.place}=` : row.place}</td>
-                <td className="max-w-0 truncate py-2 font-medium" title={label}>
+                <td
+                  className={cn("max-w-0 truncate py-2 font-medium", statuses[i] === "withdrawn" && "text-muted-foreground line-through")}
+                  title={label}
+                >
                   {label}
                 </td>
                 <td className="py-2 text-right">{row.played}</td>
@@ -229,13 +256,27 @@ function GroupCard({ draft, table, tiebreaks }: { draft: PlanDraft; table: Group
           })}
         </tbody>
       </table>
-      {level ? (
-        <p className="flex items-start gap-2 text-xs text-over-text">
-          <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-          Level on every tiebreak: decide by hand. The knockout places they&apos;d take stay open until then.
+      {shared.length > 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className={cn("flex items-start gap-2 text-xs", level ? "text-over-text" : "text-muted-foreground")}>
+            {level ? <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> : null}
+            {level
+              ? "Level on every tiebreak: decide by hand. The knockout places they'd take stay open until then."
+              : "Entries sharing a place are level on every tiebreak. Their order can be decided by hand."}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setDeciding(true)}>
+            Decide…
+          </Button>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {[table.qualify > 0 ? "Above the dashed line: through to the knockout." : null, decided ? "Level entries were placed by hand (see Changes)." : null]
+            .filter(Boolean)
+            .join(" ")}
         </p>
-      ) : table.qualify > 0 ? (
-        <p className="text-xs text-muted-foreground">Above the dashed line: through to the knockout.</p>
+      )}
+      {deciding ? (
+        <DecideDialog draft={draft} update={update} categoryId={categoryId} table={table} level={shared} onClose={() => setDeciding(false)} />
       ) : null}
     </div>
   );
@@ -347,7 +388,15 @@ function MatchBox({
   // Each side's score: every game's points, or for a team tie the rubbers won.
   const rubbers = own.map((s) => (draft.results[s.id]?.games ?? []).filter(([h, a]) => h !== null || a !== null).map(([h, a]) => [h ?? 0, a ?? 0] as [number, number]));
   const tie = own.length > 1;
-  const count = countFixture(rubbers);
+  const count = countFixture(
+    rubbers,
+    own.map((s) => {
+      const given = draft.results[s.id]?.award;
+      return given ? { winner: given.winner === 0 ? ("home" as const) : ("away" as const), open: given.open } : null;
+    }),
+  );
+  // A match given to a side: "W/O" or "Ret." beside the winner's score.
+  const mark = own.map((s) => awardMark(draft.results[s.id]?.award)).find(Boolean) ?? null;
   const scores: [string[], string[]] = tie
     ? rubbers.some((r) => r.length > 0)
       ? [[String(count.rubbersWon)], [String(count.rubbersLost)]]
@@ -386,6 +435,8 @@ function MatchBox({
                 {n}
               </span>
             ))}
+            {mark && won ? <span className="shrink-0 text-xs font-semibold">{mark}</span> : null}
+            {side.id && draft.withdrawn[side.id] ? <span className="shrink-0 text-xs text-muted-foreground">Withdrawn</span> : null}
           </div>
         );
       })}

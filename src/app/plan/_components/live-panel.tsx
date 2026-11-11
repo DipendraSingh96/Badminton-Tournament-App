@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { matchOutcome, rulesFor, type TournamentInputs } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
+import { finishMatch } from "@/lib/tournament/changes";
 import { entryForSlot, sidePlayers, sidesChanged } from "@/lib/tournament/entries";
-import { callUp, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "@/lib/tournament/live";
+import { callUp, courtQueues, gameState, reopenGame, setScore, startGame } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { scoreText } from "./court-board";
 import { courtOf } from "./draw-panel";
 import { IconButton } from "./fields";
+import { AwardDialog } from "./live-dialogs";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import { matchText, sideLabel, type LocalSegment } from "./timeline";
@@ -211,7 +213,7 @@ function CourtView({
                   <GameLine draft={draft} segment={s} court={false} />
                   <Sides draft={draft} segment={s} />
                   {gameState(draft.results, s.id) === "finished" ? (
-                    <span className="font-display text-xl leading-none font-bold tabular-nums">{scoreText(draft.results[s.id]?.games)}</span>
+                    <span className="font-display text-xl leading-none font-bold tabular-nums">{scoreText(draft.results[s.id]?.games, draft.results[s.id]?.award)}</span>
                   ) : null}
                 </button>
               </li>
@@ -256,6 +258,7 @@ function GameEditor({
   onClose?: () => void;
 }) {
   const confirm = useConfirm();
+  const [awarding, setAwarding] = useState(false);
   const { match, id } = segment;
   const category = inputs?.categories.find((c) => c.id === match.categoryId);
   const rules = inputs && category ? rulesFor(inputs, category, match.stage) : undefined;
@@ -327,7 +330,16 @@ function GameEditor({
               );
             })}
           </div>
-          {outcome.winner ? (
+          {result?.award ? (
+            <p className="text-sm">
+              <span className="font-semibold">{result.award.winner === 0 ? home : away}</span>{" "}
+              <span className="text-muted-foreground">
+                {result.award.reason === "walkover"
+                  ? `won by walkover: ${result.award.winner === 0 ? away : home} didn't play`
+                  : `won: ${result.award.winner === 0 ? away : home} retired`}
+              </span>
+            </p>
+          ) : outcome.winner ? (
             <p className="text-sm">
               <span className="font-semibold">{outcome.winner === "home" ? home : away}</span>{" "}
               <span className="text-muted-foreground">
@@ -350,7 +362,9 @@ function GameEditor({
                   if (
                     await confirm({
                       title: "Correct this score?",
-                      body: "The match goes back on court so its score can be changed, then finished again.",
+                      body: result?.award
+                        ? "The match goes back on court, to be decided by its scores, then finished again. The change is logged."
+                        : "The match goes back on court so its score can be changed, then finished again. The change is logged.",
                       action: "Correct score",
                     })
                   )
@@ -360,12 +374,28 @@ function GameEditor({
                 Correct score
               </Button>
             ) : (
-              <Button size="sm" disabled={!outcome.finished} onClick={() => update((d) => finishGame(d, id, now()))}>
-                Finish match
-              </Button>
+              <>
+                <Button size="sm" disabled={!outcome.finished} onClick={() => update((d) => finishMatch(d, id, now()))}>
+                  Finish match
+                </Button>
+                <Button variant="ghost" size="sm" title="A walkover, or a side retired" onClick={() => setAwarding(true)}>
+                  Award match…
+                </Button>
+              </>
             )}
             {state !== "finished" ? <Readiness draft={draft} segment={segment} /> : null}
           </div>
+          {awarding ? (
+            <AwardDialog
+              draft={draft}
+              update={update}
+              matchId={id}
+              started={(result?.games ?? []).some(([h, a]) => h !== null || a !== null)}
+              // The last game entered has no winner yet: it stopped mid-game.
+              midGame={outcome.games.some((game, g) => game.winner === null && (result?.games[g] ?? []).some((n) => n !== null && n !== undefined))}
+              onClose={() => setAwarding(false)}
+            />
+          ) : null}
         </>
       );
     })()

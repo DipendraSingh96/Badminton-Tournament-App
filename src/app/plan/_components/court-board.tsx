@@ -2,7 +2,7 @@
 
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from "@phosphor-icons/react";
 import { useContext, useMemo } from "react";
-import { courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { courtNumber, hallName, type MatchAwardDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { courtQueues, gameState } from "@/lib/tournament/live";
 import {
   COURT_SIZES,
@@ -18,11 +18,16 @@ import type { Update } from "./plan-editor";
 import { ScoreSheetsButton } from "./score-sheets";
 import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
 
-/** A match's scores as entered, a game at a time: "21–15  18–". */
-export function scoreText(games: [number | null, number | null][] | undefined): string | null {
+/** How an awarded match is marked beside its score: a walkover or a retirement. */
+export function awardMark(award: MatchAwardDraft | undefined): string | null {
+  return award ? (award.reason === "walkover" ? "W/O" : "Ret.") : null;
+}
+
+/** A match's scores as entered, a game at a time: "21–15  18–"; with "W/O" or "Ret." after an awarded match's. */
+export function scoreText(games: [number | null, number | null][] | undefined, award?: MatchAwardDraft): string | null {
   const played = (games ?? []).filter(([home, away]) => home !== null || away !== null);
-  if (played.length === 0) return null;
-  return played.map(([home, away]) => `${home ?? ""}–${away ?? ""}`).join("  ");
+  const text = [...played.map(([home, away]) => `${home ?? ""}–${away ?? ""}`), awardMark(award)].filter(Boolean).join("  ");
+  return text || null;
 }
 
 /**
@@ -78,7 +83,7 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
                 const live: CourtLive = current
                   ? {
                       state: gameState(draft.results, current.id) === "onCourt" ? "onCourt" : "upNext",
-                      score: scoreText(draft.results[current.id]?.games),
+                      score: scoreText(draft.results[current.id]?.games, draft.results[current.id]?.award),
                     }
                   : { state: queue && queue.played.length > 0 ? "done" : "free", score: null };
                 return (
