@@ -1,10 +1,13 @@
 "use client";
 
+import { useContext } from "react";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { CheckInView } from "./check-in-view";
 import { CourtBoard } from "./court-board";
+import { CourtSelectionContext } from "./court-card";
 import type { Update } from "./plan-editor";
+import { StandingsView } from "./standings-view";
 import type { LocalSegment } from "./timeline";
 
 export type LiveStageView = "checkin" | "board" | "standings" | "changes";
@@ -13,7 +16,7 @@ export type LiveStageView = "checkin" | "board" | "standings" | "changes";
 export const LIVE_VIEWS: { value: LiveStageView; label: string; comingIn?: string }[] = [
   { value: "checkin", label: "Check-in" },
   { value: "board", label: "Court board" },
-  { value: "standings", label: "Standings and bracket", comingIn: "Coming after the court board: group tables and the knockout, filling from scores." },
+  { value: "standings", label: "Standings and bracket" },
   { value: "changes", label: "Changes", comingIn: "Coming after standings: withdrawals, walkovers, court moves and score corrections, with a log." },
 ];
 
@@ -37,6 +40,7 @@ export function LiveStage({
   view: LiveStageView;
   onViewChange: (view: LiveStageView) => void;
 }) {
+  const selection = useContext(CourtSelectionContext);
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="shrink-0 px-(--pane-x)">
@@ -63,6 +67,16 @@ export function LiveStage({
         <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
           {view === "board" ? <CourtBoard draft={draft} update={update} segments={segments} /> : null}
+          {view === "standings" ? (
+            <StandingsView
+              draft={draft}
+              segments={segments}
+              onCourt={(courtId) => {
+                onViewChange("board");
+                selection?.onSelect(courtId);
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </main>
