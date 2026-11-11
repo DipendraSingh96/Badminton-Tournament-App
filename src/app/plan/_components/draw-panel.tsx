@@ -279,12 +279,16 @@ export function TeamList({
                 const name = entryName(entry) ?? "Unnamed entry";
                 const waiting = entry.players.filter((p) => p.attendance !== "arrived").length;
                 return (
-                  <li key={entry.id} ref={entry.id === openId ? opened : undefined}>
+                  // Opened, the whole entry (its row and its details) is one inset, apart from its neighbours.
+                  <li key={entry.id} ref={entry.id === openId ? opened : undefined} className={cn("rounded-md", entry.id === openId && "bg-card-inset")}>
                     <button
                       type="button"
                       aria-expanded={entry.id === openId}
                       onClick={() => onToggle(entry.id)}
-                      className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none hover:bg-(--field-raised) focus-visible:ring-2 focus-visible:ring-ring"
+                      className={cn(
+                        "grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        entry.id !== openId && "hover:bg-(--field-raised)",
+                      )}
                     >
                       <span className="text-xs font-semibold text-muted-foreground tabular-nums">{placeOf(draft, entry) ?? "–"}</span>
                       <span className="flex min-w-0 flex-col">
@@ -475,7 +479,8 @@ export function TeamDetail({
                 <li
                   key={s.id}
                   className={cn(
-                    "flex flex-col gap-1 rounded-md bg-(--field-raised) px-3 py-2 text-sm",
+                    // On the entry's inset, a match is a raised row in the card's own colour.
+                    "flex flex-col gap-1 rounded-md bg-card-system px-3 py-2 text-sm",
                     (live ? state === "finished" : s.to <= at) && "text-muted-foreground",
                   )}
                 >

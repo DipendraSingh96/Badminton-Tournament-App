@@ -304,17 +304,18 @@ function GamesTab({
                   move(dragging, f.courtId);
                   setDragging(null);
                 }}
+                // The court is the green frame; the game on it keeps the card's colour.
                 className={cn(
-                  "flex flex-col gap-1 rounded-lg border border-dashed p-1 transition-colors",
-                  takes ? "border-primary bg-primary/10" : "border-border",
+                  "flex flex-col gap-1 rounded-lg bg-court p-1 text-white transition-[opacity,box-shadow]",
+                  takes && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
                   dragging !== null && !takes && "opacity-50",
                 )}
               >
                 <span className="px-2 pt-1 text-xs font-semibold tabular-nums">
                   Court {courtOf(draft, f.courtId) ?? "?"}
-                  {board.started ? <span className="font-normal text-muted-foreground"> · Free</span> : null}
+                  {board.started ? <span className="font-normal"> · Free</span> : null}
                 </span>
-                {f.next ? card(f.next, false) : <p className="px-2 pb-1 text-xs text-muted-foreground">No game waiting.</p>}
+                {f.next ? <div className="text-foreground">{card(f.next, false)}</div> : <p className="px-2 pb-1 text-xs">No game waiting.</p>}
               </li>
             );
           })}
@@ -407,7 +408,7 @@ function GameCard({
           ) : null}
         </div>
         {peeked ? (
-          <div className="flex flex-col gap-3 rounded-md bg-(--field) p-3">
+          <div className="flex flex-col gap-3 rounded-md bg-card-inset p-3">
             <div className="flex items-center justify-between gap-2">
               <h4 className="min-w-0 truncate text-sm font-semibold">{entryName(peeked) ?? "Unnamed entry"}</h4>
               <IconButton label="Close this entry" side="left" onClick={() => setPeek(null)}>

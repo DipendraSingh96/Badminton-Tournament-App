@@ -40,6 +40,7 @@
   --surface-inset-hover: #E2DDD1;  /* a field on the ground, hovered */
   --field-raised: #E1D6C1;         /* a field or well on a card: one shade darker than the card */
   --field-raised-hover: #DFD4BE;
+  --card-inset: #D9CDB5;           /* a block opened inside a card (an entry's details): a step past the field shade, so it reads apart from its neighbours */
   --field-on-inset: #DFDACE;       /* a field or well on an inset block */
   --field-on-inset-hover: #DBD6C9;
   --card-selected: #DCE7E4;        /* the selected format option */
@@ -119,6 +120,7 @@
 
   --color-inset: var(--surface-inset);
   --color-card-system: var(--card-system);
+  --color-card-inset: var(--card-inset);
   --color-card-selected: var(--card-selected);
   --color-feature: var(--surface-feature);
   --color-feature-foreground: var(--feature-foreground);
