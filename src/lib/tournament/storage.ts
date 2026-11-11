@@ -38,6 +38,7 @@ export function normaliseDraft(
     stageWindows?: Record<string, { from: string; to: string }>;
     zoneMoves?: PlanDraft["zoneMoves"];
     matchMoves?: PlanDraft["matchMoves"];
+    results?: PlanDraft["results"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
     stage?: PlanDraft["stage"];
@@ -65,6 +66,8 @@ export function normaliseDraft(
     ...rest,
     zoneMoves: saved.zoneMoves ?? carried,
     matchMoves: saved.matchMoves ?? {},
+    // Saved before Live: nothing has been played.
+    results: saved.results ?? {},
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},

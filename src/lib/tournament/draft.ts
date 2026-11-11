@@ -180,6 +180,18 @@ export interface RulesDraft {
   walkover: WalkoverRule | null;
 }
 
+/**
+ * A match as it is played on the day: on court or finished, each game's two
+ * scores (home, then away), and when it was started and finished (UTC ISO).
+ * A match with no record hasn't been started.
+ */
+export interface MatchResultDraft {
+  state: "onCourt" | "finished";
+  games: [N, N][];
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 export interface ZoneMoveDraft {
   start: string | null;
   hallId: string | null;
@@ -211,13 +223,15 @@ export interface PlanDraft {
   zoneMoves: Record<string, ZoneMoveDraft>;
   /** Matches moved on the timeline, by match id: onto a court, before another match there (or last). */
   matchMoves: Record<string, { courtId: string; before: string | null }>;
+  /** Live: each match's state and scores, keyed by the match's id. Matches not started have none. */
+  results: Record<string, MatchResultDraft>;
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
   courtGroups: Record<string, string>;
   /** Where the tournament is: planning, the draw, the day, or after it. */
   stage: TournamentStage;
-  /** Who entered: teams, pairs or players, each in a category. Names only (no contact details). */
+  /** Who entered: teams, pairs or players, each in a category. Names, and optionally a phone number each for the desk. */
   entries: EntryDraft[];
   /** Each category's draw, by category id. */
   draw: Record<string, DrawDraft>;
@@ -334,7 +348,7 @@ export function newId(): string {
  */
 export function duplicateDraft(draft: PlanDraft): PlanDraft {
   const copy = structuredClone(draft);
-  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {} };
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {} };
 }
 
 export function emptyStageRules(): StageRulesDraft {
@@ -820,6 +834,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     rules: emptyRules(),
     zoneMoves: {},
     matchMoves: {},
+    results: {},
     groupCourts: "own",
     courtGroups: {},
     stage: "plan",
