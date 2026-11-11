@@ -239,6 +239,38 @@ export interface LogEntryDraft {
   reversedAt: string | null;
 }
 
+/** Something of the organiser's own to do before the day. */
+export interface ChecklistItemDraft {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+/** Something of the organiser's own to carry. */
+export interface KitRowDraft {
+  id: string;
+  text: string;
+  quantity: N;
+  packed: boolean;
+}
+
+/**
+ * Getting ready for the day (the Draw stage's Resources page). Preparation,
+ * not structure: it stays editable when the draw is locked and while Live.
+ */
+export interface ResourcesDraft {
+  /** The organiser's own rules, a line each: the rulebook's last section. */
+  houseRules: string;
+  checklist: ChecklistItemDraft[];
+  kit: KitRowDraft[];
+  /** The counted kit rows ticked as packed, by key ("shuttles", "sheets"…). */
+  packed: string[];
+}
+
+export function emptyResources(): ResourcesDraft {
+  return { houseRules: "", checklist: [], kit: [], packed: [] };
+}
+
 export interface ZoneMoveDraft {
   start: string | null;
   hallId: string | null;
@@ -278,6 +310,8 @@ export interface PlanDraft {
   decided: Record<string, string[]>;
   /** Live: every controlled change, oldest first. */
   log: LogEntryDraft[];
+  /** Getting ready for the day: house rules, the organiser's own checklist and kit. */
+  resources: ResourcesDraft;
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
@@ -401,7 +435,14 @@ export function newId(): string {
  */
 export function duplicateDraft(draft: PlanDraft): PlanDraft {
   const copy = structuredClone(draft);
-  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {} };
+  // The copy's own lists and house rules carry over; nothing is ticked yet.
+  const resources = {
+    ...copy.resources,
+    checklist: copy.resources.checklist.map((item) => ({ ...item, done: false })),
+    kit: copy.resources.kit.map((row) => ({ ...row, packed: false })),
+    packed: [],
+  };
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, resources };
 }
 
 export function emptyStageRules(): StageRulesDraft {
@@ -891,6 +932,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     withdrawn: {},
     decided: {},
     log: [],
+    resources: emptyResources(),
     groupCourts: "own",
     courtGroups: {},
     stage: "plan",

@@ -1,4 +1,4 @@
-import { emptyDummyMarks, newId, withOwnRules, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
+import { emptyDummyMarks, emptyResources, newId, withOwnRules, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
 import { migrateV3, migrateV4 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase: a list
@@ -45,6 +45,7 @@ export function normaliseDraft(
     | "withdrawn"
     | "decided"
     | "log"
+    | "resources"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
@@ -54,6 +55,7 @@ export function normaliseDraft(
     withdrawn?: PlanDraft["withdrawn"];
     decided?: PlanDraft["decided"];
     log?: PlanDraft["log"];
+    resources?: PlanDraft["resources"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
     stage?: PlanDraft["stage"];
@@ -87,6 +89,8 @@ export function normaliseDraft(
     withdrawn: saved.withdrawn ?? {},
     decided: saved.decided ?? {},
     log: saved.log ?? [],
+    // Saved before the Resources page: nothing prepared yet.
+    resources: saved.resources ?? emptyResources(),
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},
