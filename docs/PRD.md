@@ -140,6 +140,16 @@ Allocate every match to a court and slot in waves, from the match rules, time pe
 - **Delay tracking:** ahead or behind schedule, and effect on finish time
 - **Controlled changes:** withdrawals, walkovers, court reassignment, score corrections; all audit-logged
 
+**Going Live.** Live is reached from Draw once every category's draw is made and locked; moving on asks first. From then the structure, the venue and the draw are fixed (Plan and Draw can be looked at, and games can still be reordered), until controlled changes arrive.
+
+**No money while Live.** The hall is a shared space and the organiser's screen is often left open, so while the tournament is Live nothing about money is shown on any stage: no profit or loss, no entry fees, no hire rates, and the Budget tab cannot be opened. There is no way to reveal it. Money returns with Results.
+
+**Check-in.** The Live stage's first page. Everyone entered, the people playing soonest first, each player marked Arrived, Not yet or Absent, with one action to mark a whole pair or team arrived, a search, a category filter and a "Not checked in" filter. Absent is a note for the desk; it withdraws nobody (that is a controlled change).
+
+**Phone numbers.** Each player may have a phone number, entered on the Draw stage's Entries page (typed, or a "Phone 1…n" column in a paste or CSV) or at check-in. They are contact details for the organiser only and never appear on the audience board or a shared link.
+
+**Scores.** Per game. The desk can always enter or correct any score, whatever an umpire's phone or a paper sheet said; corrections are logged. Printable score sheets (one per game, for umpires without a phone) are made on the Draw stage once a draw is locked, and can be reprinted in Live when knockout sides are known.
+
 ## 7. Results
 After the event, the same spectator link becomes a **results page** inside the app (final rankings, group tables, bracket, scores). It is built from the database, so corrections update it. No separate hosting. A **PDF export** button generates a PDF on demand; PDFs are not stored.
 
@@ -161,7 +171,7 @@ Formats other than groups then knockout, knockout only, or groups only; online p
 ## 11. Design direction
 Supplied by the product owner on 26 October 2026: the **Court green** design system, `docs/design-system.md`, with its tokens in `src/app/design-tokens.css`. That document is the source of truth for colour, type, spacing, components and themes; this section only summarises it.
 
-- **Themes:** Plan (light surface, green accents) and Plan dark for the planning screens, with a toggle that follows the device until the person chooses; Live (dark court green) for the wall board, control desk and umpire phone.
+- **Themes:** Light and Dark, with a toggle that follows the device until the person chooses. Every stage, Live included, is built in both.
 - **Green is a signal, not a wallpaper;** one accent (shuttle yellow) marks the single most important thing on a screen.
 - **Status** always shows a word with its colour: Fits, Tight, Over, Live, Off.
 - **Type:** Barlow for text, Barlow Condensed for headings and numerals, tabular figures for all numbers.

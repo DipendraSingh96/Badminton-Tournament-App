@@ -21,9 +21,9 @@ There are two themes, **Light** and **Dark**. Both follow the same rules; only t
 | Theme | Where | How to apply |
 |---|---|---|
 | Light (default) | Desktop planning screens, results page | Nothing. It is the `:root` default, in `src/app/design-tokens.css` |
-| Dark | Planning screens when the organiser picks dark (or the device is dark and they haven't chosen); every Live screen (wall board, umpire phone, control desk) | `class="dark"` on `<html>` (next-themes, `attribute="class"`). Its values are in the `.dark` block of `src/app/globals.css` |
+| Dark | Planning screens when the organiser picks dark (or the device is dark and they haven't chosen) | `class="dark"` on `<html>` (next-themes, `attribute="class"`). Its values are in the `.dark` block of `src/app/globals.css` |
 
-The theme menu (Settings, in the sidebar) offers Light, Dark and System. There is no separate Live theme any more: Live screens use Dark.
+The theme menu (Settings, in the sidebar) offers Light, Dark and System. There is no separate Live theme: every stage, Live included, is built in Light and Dark and follows the menu, with the same layout, spacing, text levels and colour rules as Plan and Draw.
 
 ## 3. Colour
 
