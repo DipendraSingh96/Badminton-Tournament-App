@@ -17,7 +17,7 @@ import {
 import {
   STAGES,
   fixturesPerEntry,
-  profitCurve,
+  profitCurveTotal,
   suggestLevers,
   type Analysis,
   type AnalysisResult,
@@ -29,7 +29,7 @@ import {
 } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import type { ParseResult } from "@/lib/tournament/schema";
-import { InfoTip, NumberField, SelectField } from "./fields";
+import { InfoTip, NumberField } from "./fields";
 import {
   STAGE_LABELS,
   categoryName,
@@ -497,7 +497,7 @@ function FinanceCard({
         <div className="mb-4">
           <Stats
             items={[
-              { label: "Revenue", value: formatMoney(finance.revenue) },
+              { label: "Money in", value: formatMoney(finance.revenue) },
               { label: "Total cost", value: formatMoney(finance.totalCost) },
               { label: loss ? "Loss" : "Profit", value: formatMoney(Math.abs(finance.profit)) },
             ]}
@@ -520,7 +520,7 @@ function FinanceCard({
         ))}
         <Row
           strong
-          label="Revenue"
+          label="Money in"
           value={formatMoney(finance.revenue)}
           working={
             finance.revenueByCategory.length + finance.otherIncome.length > 1 ? revenueWorking(analysis, draft) : undefined
@@ -559,78 +559,109 @@ function FinanceCard({
   );
 }
 
-function ProfitCard({
-  draft,
-  inputs,
-  breakEvenId,
-  onChooseBreakEven,
-}: {
-  draft: PlanDraft;
-  inputs: TournamentInputs;
-  breakEvenId: string | null;
-  onChooseBreakEven: (id: string) => void;
-}) {
+/**
+ * Break-even for the whole tournament: profit against the total entries
+ * across every category, each total shared between the categories in the
+ * proportions of their expected entries. With the breakdown at break-even
+ * beside the plan as expected.
+ */
+function ProfitCard({ draft, analysis, inputs }: { draft: PlanDraft; analysis: Analysis; inputs: TournamentInputs }) {
   const [upTo, setUpTo] = useState<number | null>(null);
+  const expected = inputs.categories.reduce((sum, c) => sum + c.expectedEntries, 0);
+  const fewest = inputs.categories.length * 2;
+  const to = Math.max(upTo ?? expected * 2, fewest + 1);
+  const curve = useMemo(() => profitCurveTotal(inputs, { to }), [inputs, to]);
+  if (inputs.categories.length === 0) return null;
 
-  const category =
-    inputs.categories.find((c) => c.id === breakEvenId) ?? inputs.categories[0];
-  const to = Math.max(upTo ?? category!.expectedEntries * 2, 3);
-
-  const curve = useMemo(
-    () => (category ? profitCurve(inputs, category.id, { from: 2, to }) : null),
-    [inputs, category, to],
-  );
-  if (!category || !curve) return null;
-  const nouns = entryNoun(
-    inputs.unit,
-    category.entry.type === "individual" ? category.entry.event : null,
-    true,
-  );
+  // "pairs" when every category enters the same kind of thing; otherwise "entries".
+  const nounOf = (category: TournamentInputs["categories"][number], count: number) =>
+    entryNoun(inputs.unit, category.entry.type === "individual" ? category.entry.event : null, count !== 1);
+  const kinds = new Set(inputs.categories.map((c) => nounOf(c, 2)));
+  const nouns = kinds.size === 1 ? [...kinds][0]! : "entries";
+  const at = curve.points.find((p) => p.entries === curve.breakEven) ?? null;
+  const sentence =
+    at === null
+      ? `The tournament doesn't break even at up to ${to} ${nouns}.`
+      : at.entries === curve.points[0]?.entries
+        ? `The tournament is in profit even at the fewest ${nouns} it can run with (${at.entries}).`
+        : `The tournament breaks even at ${at.entries} ${nouns} in total (${expected} expected).`;
+  const { finance } = analysis;
 
   return (
     <Card size="flat">
       <CardHeader>
         <CardTitle>Break-even</CardTitle>
-        <CardDescription>
-          {curve.breakEven !== null
-            ? `${categoryName(draft, category.id)} breaks even at ${curve.breakEven} ${nouns} (expected ${category.expectedEntries}).`
-            : `${categoryName(draft, category.id)} doesn't break even at up to ${to} ${nouns}.`}
-          {inputs.categories.length > 1 ? " Other categories stay at their expected entries." : ""}
-        </CardDescription>
+        <CardDescription>{sentence}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          {inputs.categories.length > 1 ? (
-            <SelectField
-              label="Category"
-              path={["dashboard", "category"]}
-              value={category.id}
-              options={inputs.categories.map((c) => ({ value: c.id, label: categoryName(draft, c.id) }))}
-              onChange={onChooseBreakEven}
-            />
-          ) : null}
+        {at ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead />
+                <TableHead className="text-right">At break-even</TableHead>
+                <TableHead className="text-right">Expected</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {inputs.categories.map((c, i) => (
+                <TableRow key={c.id}>
+                  <TableCell>{categoryName(draft, c.id)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {at.split[i]} {nounOf(c, at.split[i]!)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{c.expectedEntries}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow>
+                <TableCell>Money in</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(at.revenue)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(finance.revenue)}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Total cost</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(at.totalCost)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(finance.totalCost)}</TableCell>
+              </TableRow>
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell>Profit</TableCell>
+                <TableCell className="text-right tabular-nums">{formatMoney(at.profit)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {finance.profit < 0 ? `−${formatMoney(Math.abs(finance.profit))}` : formatMoney(finance.profit)}
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
+        ) : null}
+        <div className="w-[calc(50%-0.375rem)]">
           <NumberField
-            label={`Show up to (${nouns})`}
+            label={`Show up to (${nouns} in total)`}
             step="1"
             path={["dashboard", "upTo"]}
             value={upTo}
             onChange={setUpTo}
-            hint={`Default: ${category.expectedEntries * 2}`}
+            hint={`Default: ${expected * 2}, twice the expected total.`}
           />
         </div>
         <ProfitChart
           points={curve.points}
-          breakEven={curve.breakEven}
-          expected={category.expectedEntries}
-          axisLabel={`${nouns.charAt(0).toUpperCase()}${nouns.slice(1)} entered`}
+          breakEven={at && at.entries !== curve.points[0]?.entries ? at.entries : null}
+          expected={expected}
+          axisLabel={`${nouns.charAt(0).toUpperCase()}${nouns.slice(1)} entered in total`}
         />
         <p className="text-xs text-muted-foreground">
+          {inputs.categories.length > 1
+            ? "Entries are shared between the categories in the same proportions as their expected entries. "
+            : ""}
           Each point re-runs the format, so match count and shuttle use change with entries.
         </p>
       </CardContent>
     </Card>
   );
 }
+
 
 /** Two lever changes are the same suggestion. */
 function sameChange(a: LeverChange | null, b: LeverChange): boolean {
@@ -735,8 +766,6 @@ export function DerivedCards({
   draft,
   parsed,
   analysis,
-  breakEvenId,
-  onChooseBreakEven,
   preview,
   onPreview,
   locked,
@@ -745,8 +774,6 @@ export function DerivedCards({
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
-  breakEvenId: string | null;
-  onChooseBreakEven: (id: string) => void;
   preview: LeverChange | null;
   onPreview: (change: LeverChange | null) => void;
   /** The draw is locked: levers that change the structure are left out. */
@@ -766,12 +793,7 @@ export function DerivedCards({
   return (
     <>
       <FinanceCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
-      <ProfitCard
-        draft={draft}
-        inputs={parsed.inputs}
-        breakEvenId={breakEvenId}
-        onChooseBreakEven={onChooseBreakEven}
-      />
+      <ProfitCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
       <LeversCard
         draft={draft}
         analysis={analysis.analysis}

@@ -193,7 +193,10 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
 }
 
 export interface ProfitPoint {
+  /** Entries across every category. */
   entries: number;
+  /** How those entries are shared: one number per category, in category order. */
+  split: number[];
   revenue: number;
   totalCost: number;
   profit: number;
@@ -201,32 +204,59 @@ export interface ProfitPoint {
 
 export interface ProfitCurve {
   points: ProfitPoint[];
-  /** Smallest entry count in range with profit ≥ 0; null if none. */
+  /** The smallest total in range with profit ≥ 0; null if none. */
   breakEven: number | null;
 }
 
+/** The fewest entries a category can run with. */
+const FEWEST_ENTRIES = 2;
+
 /**
- * Profit across entry counts for one category, others held at their
- * expected entries. Entries change the format and so the match count, so
- * each point re-runs the full analysis. Entry counts with no valid format
- * are skipped.
+ * A total number of entries shared between categories in the proportions of
+ * their expected entries (largest remainders), with none below the fewest a
+ * category can run with: 12 across categories expecting 24 and 8 is 9 and 3.
+ * A total too small for that gives every category the fewest.
  */
-export function profitCurve(
-  inputs: TournamentInputs,
-  categoryId: string,
-  range: { from: number; to: number },
-): ProfitCurve {
+export function shareEntries(total: number, expected: number[]): number[] {
+  const count = expected.length;
+  if (count === 0) return [];
+  if (total <= FEWEST_ENTRIES * count) return expected.map(() => FEWEST_ENTRIES);
+  const weight = expected.reduce((sum, e) => sum + e, 0);
+  const exact = expected.map((e) => (weight > 0 ? (total * e) / weight : total / count));
+  const share = exact.map(Math.floor);
+  let left = total - share.reduce((sum, n) => sum + n, 0);
+  const byRemainder = exact.map((x, i) => ({ i, rest: x - Math.floor(x) })).sort((a, b) => b.rest - a.rest || a.i - b.i);
+  for (let k = 0; left > 0; k++, left--) share[byRemainder[k % count]!.i]! += 1;
+  // Bring any category up to the fewest, taking from the largest.
+  for (let i = 0; i < count; i++) {
+    while (share[i]! < FEWEST_ENTRIES) {
+      const largest = share.indexOf(Math.max(...share));
+      share[largest]! -= 1;
+      share[i]! += 1;
+    }
+  }
+  return share;
+}
+
+/**
+ * Profit across total entries for the whole tournament, from the fewest it
+ * can run with: each total is shared between the categories in the
+ * proportions of their expected entries. Entries change the format and so the
+ * match count, so each point re-runs the full analysis. Totals with no valid
+ * format are skipped.
+ */
+export function profitCurveTotal(inputs: TournamentInputs, range: { to: number }): ProfitCurve {
+  const expected = inputs.categories.map((c) => c.expectedEntries);
   const points: ProfitPoint[] = [];
-  for (let entries = range.from; entries <= range.to; entries++) {
+  for (let entries = FEWEST_ENTRIES * expected.length; entries <= range.to; entries++) {
+    const split = shareEntries(entries, expected);
     const result = analyseTournament({
       ...inputs,
-      categories: inputs.categories.map((c) =>
-        c.id === categoryId ? { ...c, expectedEntries: entries } : c,
-      ),
+      categories: inputs.categories.map((c, i) => ({ ...c, expectedEntries: split[i]! })),
     });
     if (!result.ok) continue;
     const { revenue, totalCost, profit } = result.analysis.finance;
-    points.push({ entries, revenue, totalCost, profit });
+    points.push({ entries, split, revenue, totalCost, profit });
   }
   const breakEven = points.find((p) => p.profit >= 0)?.entries ?? null;
   return { points, breakEven };

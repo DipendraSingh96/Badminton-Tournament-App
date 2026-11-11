@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowLeftIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { ArrowLeftIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -16,7 +16,10 @@ import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import { matchText, sideLabel, type LocalSegment } from "./timeline";
 
-/** What the Draw stage's side panel shows: every team, one team, or one court's day. */
+/**
+ * What the Draw stage's side panel shows: the list of teams, the list with
+ * one team opened in place ("team"), or one court's day.
+ */
 export type DrawFocus = { kind: "teams" } | { kind: "team"; id: string } | { kind: "court"; id: string };
 
 /** Opens a team in the side panel (and the panel, if it's folded); absent where there's no panel. */
@@ -104,9 +107,10 @@ function Side({ draft, segment, slot }: { draft: PlanDraft; segment: LocalSegmen
 }
 
 /**
- * The Draw stage's side panel, built like the Plan stage's workbench: every
- * team by default; a team's details when its name is chosen anywhere; a
- * court's games when a court is chosen on the Schedule page.
+ * The Draw stage's side panel, built like the Plan stage's workbench: the
+ * list of teams, where a team opens in place to show its details (from the
+ * list, or when its name is chosen anywhere else); and a court's games when
+ * a court is chosen on the Schedule page.
  */
 export function DrawPanel({
   draft,
@@ -127,12 +131,11 @@ export function DrawPanel({
   onFold: () => void;
 }) {
   const team = draft.unit === "team";
-  const entry = focus.kind === "team" ? (draft.entries.find((e) => e.id === focus.id) ?? null) : null;
   const court = focus.kind === "court" ? courtOf(draft, focus.id) : null;
-  // A team or court that's gone (removed, or another tournament's): back to the list.
-  const shown: DrawFocus["kind"] = entry ? "team" : court !== null ? "court" : "teams";
-  const title =
-    shown === "team" ? (entryName(entry!) ?? "Unnamed entry") : shown === "court" ? `Court ${court}` : team ? "Teams" : "Entries";
+  // A court that's gone (removed, or another tournament's): back to the list.
+  const shown: "teams" | "court" = court !== null ? "court" : "teams";
+  const title = shown === "court" ? `Court ${court}` : team ? "Teams" : "Entries";
+  const openId = focus.kind === "team" ? focus.id : null;
   return (
     <>
       <div className="flex min-h-8 shrink-0 items-center gap-2 px-4 pb-3">
@@ -149,12 +152,18 @@ export function DrawPanel({
         </IconButton>
       </div>
       <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {shown === "team" ? (
-          <TeamDetail key={entry!.id} draft={draft} update={update} entry={entry!} segments={segments} at={moment ?? -Infinity} />
-        ) : shown === "court" ? (
+        {shown === "court" ? (
           <CourtGames draft={draft} segments={segments} courtId={(focus as { id: string }).id} />
         ) : (
-          <TeamList draft={draft} segments={segments} at={moment ?? -Infinity} onOpen={(id) => onFocus({ kind: "team", id })} />
+          <TeamList
+            draft={draft}
+            update={update}
+            segments={segments}
+            at={moment ?? -Infinity}
+            openId={openId}
+            // A second click on the open one closes it.
+            onToggle={(id) => onFocus(id === openId ? { kind: "teams" } : { kind: "team", id })}
+          />
         )}
       </div>
     </>
@@ -163,17 +172,27 @@ export function DrawPanel({
 
 function TeamList({
   draft,
+  update,
   segments,
   at,
-  onOpen,
+  openId,
+  onToggle,
 }: {
   draft: PlanDraft;
+  update: Update;
   segments: LocalSegment[];
   at: number;
-  onOpen: (entryId: string) => void;
+  /** The entry opened in place, showing its details under its row. */
+  openId: string | null;
+  onToggle: (entryId: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const opened = useRef<HTMLLIElement>(null);
+  // An entry opened from elsewhere (a name on a court, in the bracket): bring it into view.
+  useEffect(() => {
+    if (openId) opened.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [openId]);
   const team = draft.unit === "team";
   const q = query.trim().toLowerCase();
   // In draw order (category, then group and place, knockout by seed); undrawn entries last, as entered.
@@ -190,6 +209,15 @@ function TeamList({
         (!q || (entryName(e) ?? "").toLowerCase().includes(q) || e.players.some((p) => p.name.toLowerCase().includes(q))),
     )
     .sort((a, b) => categoryOrder(a) - categoryOrder(b) || order(a) - order(b));
+  // Another entry is to be opened: if the search or the category is hiding it, show everything again.
+  const [seenOpen, setSeenOpen] = useState(openId);
+  if (openId !== seenOpen) {
+    setSeenOpen(openId);
+    if (openId !== null && draft.entries.some((e) => e.id === openId) && !visible.some((e) => e.id === openId)) {
+      setQuery("");
+      setCategory("");
+    }
+  }
 
   if (draft.entries.length === 0) {
     return <p className="text-sm text-muted-foreground">No entries yet: add them on the Entries page.</p>;
@@ -227,11 +255,12 @@ function TeamList({
           const next = matchesOf(draft, segments, entry).find((s) => s.to > at);
           const name = entryName(entry) ?? "Unnamed entry";
           return (
-            <li key={entry.id}>
+            <li key={entry.id} ref={entry.id === openId ? opened : undefined} className="rounded-lg bg-card-system">
               <button
                 type="button"
-                onClick={() => onOpen(entry.id)}
-                className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-2 rounded-lg bg-card-system px-3 py-2 text-left transition-colors outline-none hover:bg-(--field-raised) focus-visible:ring-2 focus-visible:ring-ring"
+                aria-expanded={entry.id === openId}
+                onClick={() => onToggle(entry.id)}
+                className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors outline-none hover:bg-(--field-raised) focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="text-xs font-semibold text-muted-foreground tabular-nums">{placeOf(draft, entry) ?? "–"}</span>
                 <span className="flex min-w-0 flex-col">
@@ -247,7 +276,18 @@ function TeamList({
                     {draft.categories.length > 1 ? ` · ${categoryName(draft, entry.categoryId)}` : ""}
                   </span>
                 </span>
+                <CaretDownIcon
+                  weight="bold"
+                  aria-hidden="true"
+                  className={cn("size-4 text-muted-foreground transition-transform motion-reduce:transition-none", entry.id === openId && "rotate-180")}
+                />
               </button>
+              {entry.id === openId ? (
+                // Opened in place: its details under its row, the list where it was.
+                <div className="px-3 pt-1 pb-3">
+                  <TeamDetail draft={draft} update={update} entry={entry} segments={segments} at={at} />
+                </div>
+              ) : null}
             </li>
           );
         })}
@@ -389,7 +429,7 @@ function TeamDetail({
               return (
                 <li
                   key={s.id}
-                  className={cn("flex flex-col gap-1 rounded-lg bg-card-system px-3 py-2 text-sm", s.to <= at && "text-muted-foreground")}
+                  className={cn("flex flex-col gap-1 rounded-md bg-(--field-raised) px-3 py-2 text-sm", s.to <= at && "text-muted-foreground")}
                 >
                   <span className="flex justify-between gap-2 text-xs text-muted-foreground tabular-nums">
                     <span>

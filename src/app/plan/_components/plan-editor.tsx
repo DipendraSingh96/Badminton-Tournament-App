@@ -195,25 +195,6 @@ function saveSidebarCollapsed(collapsed: boolean) {
   }
 }
 
-// The category break-even varies, chosen on the Budget tab.
-const BREAK_EVEN_KEY = "badminton:break-even-category";
-
-function loadBreakEven(): string | null {
-  try {
-    return window.localStorage.getItem(BREAK_EVEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function saveBreakEven(id: string) {
-  try {
-    window.localStorage.setItem(BREAK_EVEN_KEY, id);
-  } catch {
-    // Not remembered; the first category is used.
-  }
-}
-
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
@@ -232,7 +213,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id) ?? emptyDraft(browserTimeZone()));
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
-  const [breakEvenId, setBreakEvenId] = useState<string | null>(loadBreakEven);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [courtSize, setCourtSize] = useState<CourtSize>(loadCourtSize);
   const courtSizing = useMemo(
@@ -420,11 +400,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       schedule && schedule.courtGroups.length > 0 ? new Map(schedule.courtGroups.map((c) => [c.courtId, c])) : null,
     [schedule],
   );
-
-  function chooseBreakEven(id: string) {
-    setBreakEvenId(id);
-    saveBreakEven(id);
-  }
 
   function collapseSidebar(collapsed: boolean) {
     setSidebarCollapsed(collapsed);
@@ -819,8 +794,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                           draft={draft}
                           parsed={parsed}
                           analysis={analysis}
-                          breakEvenId={breakEvenId}
-                          onChooseBreakEven={chooseBreakEven}
                           preview={preview}
                           onPreview={setPreview}
                           locked={locked}
@@ -833,8 +806,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                           draft={draft}
                           parsed={parsed}
                           analysis={analysis}
-                          breakEvenId={breakEvenId}
-                          onChooseBreakEven={chooseBreakEven}
                           preview={preview}
                           onPreview={setPreview}
                           locked={locked}

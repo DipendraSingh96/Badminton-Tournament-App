@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyseTournament, profitCurve } from "./analyse";
+import { analyseTournament, profitCurveTotal, shareEntries } from "./analyse";
 import { hall } from "./fixtures.test-helpers";
 import type { StageRules, Timing, TournamentInputs } from "./types";
 
@@ -257,28 +257,62 @@ describe("analyseTournament", () => {
   });
 });
 
-describe("profitCurve", () => {
-  it("finds the smallest entry count that breaks even", () => {
-    const curve = profitCurve(tournament(), "c1", { from: 2, to: 20 });
-    expect(curve.points[0]!.entries).toBe(2);
+describe("shareEntries", () => {
+  it("shares a total in the proportions of the expected entries", () => {
+    expect(shareEntries(10, [16, 16])).toEqual([5, 5]);
+    expect(shareEntries(12, [24, 8])).toEqual([9, 3]);
+    expect(shareEntries(11, [16, 16])).toEqual([6, 5]);
+    expect(shareEntries(7, [18])).toEqual([7]);
+  });
+
+  it("never gives a category fewer than two", () => {
+    expect(shareEntries(4, [30, 2])).toEqual([2, 2]);
+    expect(shareEntries(6, [30, 2])).toEqual([4, 2]);
+    expect(shareEntries(1, [8, 8])).toEqual([2, 2]);
+  });
+});
+
+describe("profitCurveTotal", () => {
+  function two() {
+    const plan = tournament();
+    plan.categories = [
+      { ...plan.categories[0]!, id: "ms", entry: { type: "individual", event: "MS" } },
+      { ...plan.categories[0]!, id: "md", entry: { type: "individual", event: "MD" } },
+    ];
+    return plan;
+  }
+
+  it("finds the smallest total that breaks even, from the fewest the tournament can run with", () => {
+    const curve = profitCurveTotal(two(), { to: 60 });
+    expect(curve.points[0]).toMatchObject({ entries: 4, split: [2, 2] });
     expect(curve.breakEven).not.toBeNull();
     const index = curve.points.findIndex((p) => p.entries === curve.breakEven);
     expect(curve.points[index]!.profit).toBeGreaterThanOrEqual(0);
     expect(curve.points.slice(0, index).every((p) => p.profit < 0)).toBe(true);
   });
 
+  it("is the plan's own profit at the expected entries", () => {
+    const plan = two();
+    const result = analyseTournament(plan);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const total = plan.categories.reduce((sum, c) => sum + c.expectedEntries, 0);
+    const point = profitCurveTotal(plan, { to: total }).points.find((p) => p.entries === total)!;
+    expect(point.split).toEqual(plan.categories.map((c) => c.expectedEntries));
+    expect(point.profit).toBe(result.analysis.finance.profit);
+  });
+
   it("returns no break-even when the tournament never pays for itself", () => {
     const free = tournament();
     free.categories[0]!.fee.amount = 0;
-    const curve = profitCurve(free, "c1", { from: 2, to: 20 });
+    const curve = profitCurveTotal(free, { to: 20 });
     expect(curve.breakEven).toBeNull();
     expect(curve.points.every((p) => p.profit < 0)).toBe(true);
   });
 
-  it("skips entry counts with no valid format", () => {
+  it("skips totals with no valid format", () => {
     const fixed = tournament();
     fixed.categories[0]!.groups = { type: "fixed", groupCount: 3 };
-    const curve = profitCurve(fixed, "c1", { from: 2, to: 8 });
+    const curve = profitCurveTotal(fixed, { to: 8 });
     expect(curve.points[0]!.entries).toBe(6);
   });
 });
