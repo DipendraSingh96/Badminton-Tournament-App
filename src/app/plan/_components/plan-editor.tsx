@@ -503,6 +503,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [liveFilter]);
+  // The same on the Draw stage's Schedule page: Escape lets the chosen court go.
+  const drawCourt = drawFocus.kind === "court";
+  useEffect(() => {
+    if (!drawCourt) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector("[role=dialog], [role=alertdialog]")) setDrawFocus({ kind: "teams" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawCourt]);
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
   const onLive = viewing === "live" || viewing === "results";
 
@@ -874,7 +884,18 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         <CourtSelectionContext
                           value={{ selected: drawFocus.kind === "court" ? drawFocus.id : null, onSelect: (id) => openInPanel({ kind: "court", id }) }}
                         >
-                          <div className="min-w-0 flex-1">{workingArea}</div>
+                          <div
+                            className="min-w-0 flex-1"
+                            // As on the Live board: a click that isn't on a court (or a game on the timeline) lets the chosen court go.
+                            onClick={(e) => {
+                              const target = e.target as Element;
+                              if (drawFocus.kind !== "court" || !e.currentTarget.contains(target)) return;
+                              if (target.closest("[data-court-card], [data-court-id]")) return;
+                              setDrawFocus({ kind: "teams" });
+                            }}
+                          >
+                            {workingArea}
+                          </div>
                         </CourtSelectionContext>
                       </VenueFixedContext>
                     }
