@@ -3,6 +3,7 @@
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { CheckInView } from "./check-in-view";
+import { CourtBoard } from "./court-board";
 import type { Update } from "./plan-editor";
 import type { LocalSegment } from "./timeline";
 
@@ -11,7 +12,7 @@ export type LiveStageView = "checkin" | "board" | "standings" | "changes";
 /** The Live stage's pages, in the order the day uses them; those not built yet say so. */
 export const LIVE_VIEWS: { value: LiveStageView; label: string; comingIn?: string }[] = [
   { value: "checkin", label: "Check-in" },
-  { value: "board", label: "Court board", comingIn: "Coming in the next round: courts, the call-up list and score entry." },
+  { value: "board", label: "Court board" },
   { value: "standings", label: "Standings and bracket", comingIn: "Coming after the court board: group tables and the knockout, filling from scores." },
   { value: "changes", label: "Changes", comingIn: "Coming after standings: withdrawals, walkovers, court moves and score corrections, with a log." },
 ];
@@ -37,7 +38,7 @@ export function LiveStage({
   onViewChange: (view: LiveStageView) => void;
 }) {
   return (
-    <main className="flex min-h-0 flex-1 flex-col">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="shrink-0 px-(--pane-x)">
         <nav aria-label="Live views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b">
           {LIVE_VIEWS.map((v) => (
@@ -61,6 +62,7 @@ export function LiveStage({
       <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
         <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
+          {view === "board" ? <CourtBoard draft={draft} update={update} segments={segments} /> : null}
         </div>
       </div>
     </main>

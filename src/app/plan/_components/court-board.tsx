@@ -1,0 +1,105 @@
+"use client";
+
+import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from "@phosphor-icons/react";
+import { useContext, useMemo } from "react";
+import { courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import { courtQueues, gameState } from "@/lib/tournament/live";
+import {
+  COURT_SIZES,
+  COURT_WIDTH,
+  CourtCard,
+  CourtSizeContext,
+  VenueFixedContext,
+  type CourtLive,
+} from "./court-card";
+import { CourtStrip } from "./court-strip";
+import { IconButton } from "./fields";
+import type { Update } from "./plan-editor";
+import { ScoreSheetsButton } from "./score-sheets";
+import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
+
+/** A match's scores as entered, a game at a time: "21–15  18–". */
+export function scoreText(games: [number | null, number | null][] | undefined): string | null {
+  const played = (games ?? []).filter(([home, away]) => home !== null || away !== null);
+  if (played.length === 0) return null;
+  return played.map(([home, away]) => `${home ?? ""}–${away ?? ""}`).join("  ");
+}
+
+/**
+ * The Live stage's Court board: every court with the game on it now (the
+ * first it hasn't finished), its score so far, and whether it's on court, up
+ * next, free or done. The venue is as planned and can't be changed here; a
+ * click on a court opens it in the side panel, where scores are entered.
+ */
+export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; update: Update; segments: LocalSegment[] }) {
+  const queues = useMemo(() => courtQueues(segments, draft.results), [segments, draft.results]);
+  const { size, setSize } = useContext(CourtSizeContext);
+  const sizeStep = COURT_SIZES.indexOf(size);
+  const played = segments.filter((s) => gameState(draft.results, s.id) === "finished").length;
+  const onCourt = segments.filter((s) => gameState(draft.results, s.id) === "onCourt").length;
+
+  return (
+    <VenueFixedContext value>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="heading-card">Court board</h2>
+            <p className="text-sm tabular-nums" aria-live="polite">
+              <span className="font-semibold">
+                {played} of {segments.length}
+              </span>{" "}
+              <span className="text-muted-foreground">games played</span>
+              {onCourt > 0 ? <span className="text-muted-foreground"> · {onCourt} on court</span> : null}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <ScoreSheetsButton draft={draft} segments={segments} />
+            <IconButton label="Smaller courts, to see more halls" disabled={sizeStep === 0} onClick={() => setSize(COURT_SIZES[sizeStep - 1]!)}>
+              <MagnifyingGlassMinusIcon />
+            </IconButton>
+            <IconButton
+              label="Larger courts, with more detail"
+              disabled={sizeStep === COURT_SIZES.length - 1}
+              onClick={() => setSize(COURT_SIZES[sizeStep + 1]!)}
+            >
+              <MagnifyingGlassPlusIcon />
+            </IconButton>
+          </div>
+        </div>
+
+        {draft.frame.halls.map((hall, h) => (
+          <section key={hall.id} aria-label={hallName(hall, h)} className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
+            <h3 className="heading-card">{hallName(hall, h)}</h3>
+            <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]} reversed={Boolean(hall.flipped)}>
+              {hall.courts.map((court, c) => {
+                const queue = queues.get(court.id);
+                const current = queue?.current ?? null;
+                const status: CourtStatus = current ? playingStatus(draft, current) : { kind: "free" };
+                const live: CourtLive = current
+                  ? {
+                      state: gameState(draft.results, current.id) === "onCourt" ? "onCourt" : "upNext",
+                      score: scoreText(draft.results[current.id]?.games),
+                    }
+                  : { state: queue && queue.played.length > 0 ? "done" : "free", score: null };
+                return (
+                  <CourtCard
+                    key={court.id}
+                    hall={hall}
+                    hallIndex={h}
+                    courtIndex={c}
+                    number={courtNumber(draft.frame.halls, h, c)}
+                    status={status}
+                    groups={null}
+                    allGroups={[]}
+                    update={update}
+                    live={live}
+                  />
+                );
+              })}
+            </CourtStrip>
+          </section>
+        ))}
+      </div>
+    </VenueFixedContext>
+  );
+}

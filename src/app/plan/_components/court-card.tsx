@@ -149,6 +149,20 @@ function shortNet(text: string): string {
  */
 export const VenueFixedContext = createContext(false);
 
+/** A court on the Live stage's board: where its current game has got to, and its score so far. */
+export interface CourtLive {
+  state: "onCourt" | "upNext" | "free" | "done";
+  /** The games' scores as entered ("21–15  18–"); null before any. */
+  score: string | null;
+}
+
+const LIVE_CHIP: Record<CourtLive["state"], { label: string; className: string }> = {
+  onCourt: { label: "On court", className: "bg-shuttle text-shuttle-foreground" },
+  upNext: { label: "Up next", className: "bg-black/30 text-white" },
+  free: { label: "Free", className: "bg-black/30 text-white" },
+  done: { label: "Done for today", className: "bg-black/30 text-white" },
+};
+
 /** Picking a court to show in a side panel (the Draw and Live stages); absent while planning. */
 export const CourtSelectionContext = createContext<{ selected: string | null; onSelect: (courtId: string) => void } | null>(
   null,
@@ -303,7 +317,10 @@ export function CourtCard({
   allGroups,
   update,
   size: sizeProp,
+  live,
 }: {
+  /** On the Live stage's board: the court's state as a chip, and its game's score under the net. */
+  live?: CourtLive;
   /** The size to draw it at; the venue's size when not given. */
   size?: CourtSize;
   hall: HallDraft;
@@ -339,7 +356,9 @@ export function CourtCard({
   if (size === "small") {
     const card = (
       <>
-        <span className="h-5 truncate text-center text-xs leading-5 font-semibold">{groups ? groupText(groups) : null}</span>
+        <span className="h-5 truncate text-center text-xs leading-5 font-semibold">
+          {live ? LIVE_CHIP[live.state].label : groups ? groupText(groups) : null}
+        </span>
         <span className="relative flex min-h-20 flex-col border-2 border-white/90">
           <span
             aria-hidden="true"
@@ -465,7 +484,11 @@ export function CourtCard({
           <CopyIcon />
         </button>
         )}
-        {groups ? (
+        {live ? (
+          <span className={`truncate rounded-full px-2 text-xs leading-5 font-semibold ${LIVE_CHIP[live.state].className}`}>
+            {LIVE_CHIP[live.state].label}
+          </span>
+        ) : groups ? (
           <GroupMenu
             number={number}
             groups={groups}
@@ -523,7 +546,14 @@ export function CourtCard({
             <span className="truncate">{face ? (medium ? shortNet(face.net) : face.net) : (idle ?? (medium ? "No estimate" : "No estimate yet"))}</span>
           </p>
           <span aria-hidden="true" className="h-[3px] bg-white" />
-          <span aria-hidden="true" className={medium ? "h-5" : "h-7"} />
+          {live?.score ? (
+            // The score so far, in the space under the net.
+            <p className={`flex items-center justify-center font-display leading-none font-bold tabular-nums ${medium ? "h-5 text-sm" : "h-7 text-xl"}`}>
+              {live.score}
+            </p>
+          ) : (
+            <span aria-hidden="true" className={medium ? "h-5" : "h-7"} />
+          )}
         </div>
         <div className="relative flex flex-1 flex-col">
           {medium ? null : <CentreLine />}

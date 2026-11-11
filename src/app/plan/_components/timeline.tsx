@@ -233,6 +233,35 @@ function playerNames(draft: PlanDraft, categoryId: string, slot: string, rubber:
     .filter(Boolean);
 }
 
+/** A match as a court shows it while it's the one on (or next on) the court: its face and a one-line label. */
+export function playingStatus(draft: PlanDraft, segment: LocalSegment): CourtStatus & { kind: "playing" } {
+    const { where, sides, rubber } = matchText(draft, segment.match);
+    const short = [where, sides.replace(/\b(Pair|Player|Team) /g, ""), rubber?.replace(/: .*/, ""), categoryName(draft, segment.match.categoryId)]
+      .filter(Boolean)
+      .join(" · ");
+    const m = segment.match;
+    const noun = sideNoun(draft, m.categoryId);
+    const group = m.stage === "group";
+    return {
+      kind: "playing",
+      stage: segment.stage,
+      label: short,
+      face: {
+        net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `R${m.rubber.number}/${m.rubber.of}` : null]
+          .filter(Boolean)
+          .join(" · "),
+        home: m.home,
+        away: m.away,
+        homeLabel: sideName(draft, m.categoryId, m.home) ?? (group ? `${noun} ${m.home}` : noun),
+        awayLabel: sideName(draft, m.categoryId, m.away) ?? (group ? `${noun} ${m.away}` : noun),
+        homePlayers: playerNames(draft, m.categoryId, m.home, m.rubber?.number),
+        awayPlayers: playerNames(draft, m.categoryId, m.away, m.rubber?.number),
+        homeEntryId: entryForSlot(draft, m.categoryId, m.home)?.id ?? null,
+        awayEntryId: entryForSlot(draft, m.categoryId, m.away)?.id ?? null,
+      },
+    };
+}
+
 /** What each court is doing at a moment: the match on it, in short. */
 export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute: number): Map<string, CourtStatus> {
   const statuses = new Map<string, CourtStatus>();
@@ -243,31 +272,7 @@ export function courtStatuses(draft: PlanDraft, segments: LocalSegment[], minute
       const to = minutesOfDay(hours.to);
       const segment = segments.find((s) => s.courtId === court.id && s.from <= minute && minute < s.to);
       if (segment) {
-        const { where, sides, rubber } = matchText(draft, segment.match);
-        const short = [where, sides.replace(/\b(Pair|Player|Team) /g, ""), rubber?.replace(/: .*/, ""), categoryName(draft, segment.match.categoryId)]
-          .filter(Boolean)
-          .join(" · ");
-        const m = segment.match;
-        const noun = sideNoun(draft, m.categoryId);
-        const group = m.stage === "group";
-        statuses.set(court.id, {
-          kind: "playing",
-          stage: segment.stage,
-          label: short,
-          face: {
-            net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `R${m.rubber.number}/${m.rubber.of}` : null]
-              .filter(Boolean)
-              .join(" · "),
-            home: m.home,
-            away: m.away,
-            homeLabel: sideName(draft, m.categoryId, m.home) ?? (group ? `${noun} ${m.home}` : noun),
-            awayLabel: sideName(draft, m.categoryId, m.away) ?? (group ? `${noun} ${m.away}` : noun),
-            homePlayers: playerNames(draft, m.categoryId, m.home, m.rubber?.number),
-            awayPlayers: playerNames(draft, m.categoryId, m.away, m.rubber?.number),
-            homeEntryId: entryForSlot(draft, m.categoryId, m.home)?.id ?? null,
-            awayEntryId: entryForSlot(draft, m.categoryId, m.away)?.id ?? null,
-          },
-        });
+        statuses.set(court.id, playingStatus(draft, segment));
       } else {
         statuses.set(
           court.id,

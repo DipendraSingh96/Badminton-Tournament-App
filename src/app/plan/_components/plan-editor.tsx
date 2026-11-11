@@ -35,6 +35,7 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { LivePanel } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
@@ -452,6 +453,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const liveBlocked = canGoLive(draft) ? null : "Lock every category's draw first.";
   // The Live stage's open page.
   const [liveView, setLiveView] = useState<LiveStageView>("checkin");
+  // The court chosen on the Live board, shown in its side panel; none shows the call-up.
+  const [liveCourt, setLiveCourt] = useState<string | null>(null);
+  /** Opens a court in the Live board's panel, and the panel if it's folded. */
+  function openLiveCourt(courtId: string | null) {
+    setLiveCourt(courtId);
+    if (courtId) foldWorkbench(false);
+  }
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
 
   // Sample data: the stage being viewed can be filled where it's empty, and its sample data removed.
@@ -695,7 +703,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               </div>
               <div className="flex min-h-0 flex-1">
                 {viewing === "live" || viewing === "results" ? (
-                  <LiveStage draft={draft} update={update} segments={segments} view={liveView} onViewChange={setLiveView} />
+                  <CourtSelectionContext value={{ selected: liveCourt, onSelect: openLiveCourt }}>
+                    <LiveStage draft={draft} update={update} segments={segments} view={liveView} onViewChange={setLiveView} />
+                  </CourtSelectionContext>
                 ) : viewing !== "plan" ? (
                   <DrawStage
                     draft={draft}
@@ -723,7 +733,29 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 )}
               </div>
             </main>
-            {viewing === "live" || viewing === "results" ? null : viewing !== "plan" ? (
+            {viewing === "live" || viewing === "results" ? (
+              // The Court board's side panel: the call-up, or a court with its score entry. Check-in has none.
+              liveView !== "board" ? null : workbenchFolded ? (
+                <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
+                  <IconButton label="Show panel" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
+                    <CaretLeftIcon />
+                  </IconButton>
+                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">Call-up</p>
+                </aside>
+              ) : (
+                <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
+                  <LivePanel
+                    draft={draft}
+                    update={update}
+                    inputs={parsed.ok ? parsed.inputs : null}
+                    segments={segments}
+                    courtId={liveCourt}
+                    onCourt={openLiveCourt}
+                    onFold={() => foldWorkbench(true)}
+                  />
+                </aside>
+              )
+            ) : viewing !== "plan" ? (
               // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
               workbenchFolded ? (
                 <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>

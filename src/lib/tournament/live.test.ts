@@ -66,7 +66,8 @@ describe("live play", () => {
   });
 
   it("opens a tournament saved before results with none", () => {
-    const { results: _results, ...saved } = emptyDraft("Europe/London");
-    expect(normaliseDraft(JSON.parse(JSON.stringify(saved))).results).toEqual({});
+    const saved = JSON.parse(JSON.stringify(emptyDraft("Europe/London")));
+    delete saved.results;
+    expect(normaliseDraft(saved).results).toEqual({});
   });
 });

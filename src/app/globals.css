@@ -338,3 +338,36 @@
 [data-thin-rows] * {
   font-size: 0 !important;
 }
+
+/* Score sheets: on screen they aren't there; on paper they are the only
+   thing, two to an A4 page (score-sheets.tsx). */
+.print-root {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  body > *:not(.print-root) {
+    display: none !important;
+  }
+  .print-root {
+    display: block;
+    background: #fff;
+  }
+  .score-sheet {
+    box-sizing: border-box;
+    height: 139mm;
+    break-inside: avoid;
+    border-bottom: 1px dashed #000;
+  }
+  .score-sheet:nth-child(2n) {
+    break-after: page;
+    border-bottom: 0;
+  }
+}
