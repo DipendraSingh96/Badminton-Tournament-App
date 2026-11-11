@@ -1,16 +1,27 @@
 import {
   EVENT_TYPES,
   categoryFormat,
+  entryInPlace,
+  fixtureWinner,
+  groupFixtures,
+  groupLetter,
+  groupStandings,
+  knockoutBracket,
   playersPerEntry,
   type CategoryFormat,
   type EventType,
   type GroupMode,
+  type KnockoutMatch,
+  type PlayedFixture,
+  type StandingRow,
 } from "@/engine";
 import type { ImportedEntry } from "./csv";
 import { emptyEntry, entryName, type CategoryDraft, type EntryDraft, type PlanDraft, type PlayerDraft } from "./draft";
 
 // From draw slots to the people in them: "A1" is group A's first place, and
 // the draw says which entry holds it. Before the draw, slots stay as they are.
+// Knockout sides ("Winner A", "Winner QF1") are filled from results: a group's
+// places once it has finished, a match's winner or loser once it's played.
 
 /** A group's index from its letter: A is 0; groups past Z are "G27" and on. */
 export function groupIndexOf(letter: string): number | null {
@@ -19,25 +30,200 @@ export function groupIndexOf(letter: string): number | null {
   return late ? Number(late[1]) - 1 : null;
 }
 
-/**
- * The entry holding a group slot ("A1"), or null before the draw. (Slots of
- * groups past Z, "G27…", run the group and place numbers together, so they
- * are read only up to 26 groups.)
- */
-export function entryForSlot(draft: PlanDraft, categoryId: string, slot: string): EntryDraft | null {
+export interface SlotOptions {
+  /**
+   * "If it ended now": group places are read from the tables as they stand,
+   * finished or not. Match winners still need the match to be played.
+   */
+  provisional?: boolean;
+}
+
+/** The id of the entry in a slot; see `entryForSlot`. */
+function entryIdForSlot(draft: PlanDraft, categoryId: string, slot: string, options?: SlotOptions): string | null {
   // Knockout only: "Seed 3" is the third place in the draw's one list.
   const seeded = /^Seed (\d+)$/.exec(slot);
-  const match = seeded ? null : /^([A-Z])(\d+)$/.exec(slot);
-  if (!seeded && !match) return null;
-  const group = seeded ? 0 : groupIndexOf(match![1]!);
-  const place = Number(seeded ? seeded[1] : match![2]) - 1;
-  const id = group === null ? undefined : draft.draw[categoryId]?.groups[group]?.[place];
+  const drawn = seeded ? null : /^([A-Z])(\d+)$/.exec(slot);
+  if (seeded || drawn) {
+    const group = seeded ? 0 : groupIndexOf(drawn![1]!);
+    const place = Number(seeded ? seeded[1] : drawn![2]) - 1;
+    return (group === null ? undefined : draft.draw[categoryId]?.groups[group]?.[place]) ?? null;
+  }
+  const category = draft.categories.find((c) => c.id === categoryId);
+  if (!category) return null;
+  // A group's place: "Winner A", "Runner-up B", "3rd C".
+  const placed = /^(Winner|Runner-up|(\d+)(?:st|nd|rd|th)) ([A-Z]|G\d+)$/.exec(slot);
+  if (placed) {
+    const group = groupIndexOf(placed[3]!);
+    const table = group === null ? null : groupTable(draft, category, group);
+    if (!table) return null;
+    const place = placed[1] === "Winner" ? 1 : placed[1] === "Runner-up" ? 2 : Number(placed[2]);
+    if (options?.provisional) return table.rows[place - 1]?.id ?? null;
+    return table.complete ? entryInPlace(table.rows, place) : null;
+  }
+  // A knockout match's winner or loser: "Winner QF1", "Loser SF2".
+  const fed = /^(Winner|Loser) (\S+)$/.exec(slot);
+  if (fed) {
+    const outcome = knockoutOutcome(draft, category, fed[2]!);
+    return outcome ? (fed[1] === "Winner" ? outcome.winner : outcome.loser) : null;
+  }
+  return null;
+}
+
+/**
+ * The entry on a side: who holds a draw slot ("A1", "Seed 3"), who finished
+ * in a group's place ("Winner A") once the group is played, or who won or
+ * lost a knockout match ("Winner QF1") once it's finished. Null until then.
+ * (Slots of groups past Z, "G27…", run the group and place numbers together,
+ * so they are read only up to 26 groups.)
+ */
+export function entryForSlot(draft: PlanDraft, categoryId: string, slot: string, options?: SlotOptions): EntryDraft | null {
+  const id = entryIdForSlot(draft, categoryId, slot, options);
   return (id && draft.entries.find((e) => e.id === id)) || null;
 }
 
-/** A side's name once the draw places an entry there ("Smashers"); null for a slot not decided yet. */
-export function sideName(draft: PlanDraft, categoryId: string, slot: string): string | null {
-  const entry = entryForSlot(draft, categoryId, slot);
+/** Matches in a fixture: 1, or the rubbers of a team tie. */
+function rubberCount(draft: PlanDraft, category: CategoryDraft): number {
+  return draft.unit === "team" ? Math.max(1, rubbersOf(category).length) : 1;
+}
+
+/**
+ * A fixture's games once every one of its matches is finished (a team tie's
+ * rubbers share the fixture's id, numbered ":r1", ":r2"…); null until then.
+ */
+function finishedFixture(draft: PlanDraft, fixtureId: string, rubbers: number): [number, number][][] | null {
+  const all: [number, number][][] = [];
+  for (let r = 1; r <= rubbers; r++) {
+    const result = draft.results[`${fixtureId}:r${r}`];
+    if (result?.state !== "finished") return null;
+    all.push(result.games.filter(([home, away]) => home !== null || away !== null).map(([home, away]) => [home ?? 0, away ?? 0]));
+  }
+  return all;
+}
+
+/** An entry's lot in its group, from the draw's stored number: the same every time, and different for each place. */
+function lotOf(randomSeed: number, group: number, place: number): number {
+  let x = (randomSeed ^ Math.imul(group + 1, 0x9e3779b1) ^ Math.imul(place + 1, 0x85ebca6b)) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return (x % 1_000_000) * 100 + place;
+}
+
+/** Where an entry stands once its group has finished. */
+export type GroupStatus = "contention" | "through" | "out" | "level" | "winner" | "placed";
+
+export interface GroupTable {
+  index: number;
+  letter: string;
+  /** Best first, by the tournament's tiebreak order. */
+  rows: StandingRow[];
+  /** Fixtures finished, and how many the group has. */
+  played: number;
+  total: number;
+  /** Every fixture is finished. */
+  complete: boolean;
+  /** How many go through to the knockout; 0 for groups only. */
+  qualify: number;
+}
+
+/** A group's table from the results so far; null before the draw. */
+export function groupTable(draft: PlanDraft, category: CategoryDraft, group: number): GroupTable | null {
+  const draw = draft.draw[category.id];
+  const ids = draft.format === "knockout" ? undefined : draw?.groups[group];
+  if (!draw || !ids) return null;
+  const letter = groupLetter(group);
+  const rubbers = rubberCount(draft, category);
+  const pairs = groupFixtures(ids.length).flat();
+  const fixtures: PlayedFixture[] = [];
+  for (const [a, b] of pairs) {
+    const played = finishedFixture(draft, `${category.id}:group:${letter}:${letter}${a}-${letter}${b}`, rubbers);
+    if (played) fixtures.push({ home: ids[a - 1]!, away: ids[b - 1]!, rubbers: played });
+  }
+  const rows = groupStandings({
+    entries: ids,
+    fixtures,
+    tiebreaks: draft.rules.tiebreaks,
+    lots: Object.fromEntries(ids.map((id, p) => [id, lotOf(draw.randomSeed, group, p)])),
+  });
+  return {
+    index: group,
+    letter,
+    rows,
+    played: fixtures.length,
+    total: pairs.length,
+    complete: pairs.length > 0 && fixtures.length === pairs.length,
+    qualify: draft.format === "groupsKnockout" ? (category.qualifiersPerGroup ?? 0) : 0,
+  };
+}
+
+/** Every group's table in a category; empty before the draw or for knockout only. */
+export function groupTables(draft: PlanDraft, category: CategoryDraft): GroupTable[] {
+  return (draft.draw[category.id]?.groups ?? []).flatMap((_, g) => groupTable(draft, category, g) ?? []);
+}
+
+/**
+ * Where a row stands: in contention until the group is finished; then
+ * through or out by the qualifying line. Entries level on every tiebreak are
+ * "level" when the line runs between them (or, with no knockout, when first
+ * place is among them): that needs deciding by hand.
+ */
+export function groupStatus(table: GroupTable, row: StandingRow): GroupStatus {
+  if (!table.complete) return "contention";
+  const last = row.place + table.rows.filter((r) => r.place === row.place).length - 1;
+  if (table.qualify === 0) return row.shared ? (row.place === 1 ? "level" : "placed") : row.place === 1 ? "winner" : "placed";
+  if (last <= table.qualify) return "through";
+  if (row.place > table.qualify) return "out";
+  return "level";
+}
+
+/** A category's knockout match by its code ("QF1", "Final", "Bronze"); null when there's none. */
+export function knockoutMatchOf(draft: PlanDraft, category: CategoryDraft, code: string): KnockoutMatch | null {
+  const format = categoryFormatOf(draft, category);
+  if (!format.ok || draft.format === "groups") return null;
+  const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
+  if (bracket.bronze?.code === code) return bracket.bronze;
+  return bracket.rounds.flatMap((r) => r.matches).find((m) => m.code === code) ?? null;
+}
+
+/** The ids of the matches (one, or a tie's rubbers) that make up a knockout match. */
+function knockoutIds(draft: PlanDraft, category: CategoryDraft, code: string): string[] {
+  return Array.from({ length: rubberCount(draft, category) }, (_, r) => `${category.id}:ko:${code}:r${r + 1}`);
+}
+
+/**
+ * A finished knockout match's winner and loser, as entry ids: the two entries
+ * that played it (as kept when it was started), by its scores. Null until
+ * every rubber is finished, or if a tie ended level on rubbers, games and points.
+ */
+export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code: string): { winner: string; loser: string } | null {
+  const match = knockoutMatchOf(draft, category, code);
+  if (!match) return null;
+  const played = finishedFixture(draft, `${category.id}:ko:${code}`, rubberCount(draft, category));
+  if (!played) return null;
+  const kept = knockoutIds(draft, category, code)
+    .map((id) => draft.results[id]?.sides)
+    .find(Boolean);
+  const home = kept?.[0] ?? entryIdForSlot(draft, category.id, match.home);
+  const away = kept?.[1] ?? entryIdForSlot(draft, category.id, match.away);
+  const winner = fixtureWinner(played);
+  if (!home || !away || !winner) return null;
+  return winner === "home" ? { winner: home, loser: away } : { winner: away, loser: home };
+}
+
+/**
+ * A started match whose sides are no longer who the results say should be in
+ * it: a score corrected after the fact changed a group's places or an earlier
+ * match's winner. Nothing is changed; the desk decides what to do.
+ */
+export function sidesChanged(draft: PlanDraft, categoryId: string, matchId: string, home: string, away: string): boolean {
+  const kept = draft.results[matchId]?.sides;
+  if (!kept) return false;
+  return kept[0] !== entryIdForSlot(draft, categoryId, home) || kept[1] !== entryIdForSlot(draft, categoryId, away);
+}
+
+/** A side's name once an entry is there, by the draw or by results ("Smashers"); null for a side not decided yet. */
+export function sideName(draft: PlanDraft, categoryId: string, slot: string, options?: SlotOptions): string | null {
+  const entry = entryForSlot(draft, categoryId, slot, options);
   return entry ? (entryName(entry) ?? "Unnamed entry") : null;
 }
 

@@ -190,6 +190,12 @@ export interface MatchResultDraft {
   games: [N, N][];
   startedAt: string | null;
   finishedAt: string | null;
+  /**
+   * The two entries that played it (home, away), kept when it's started: a
+   * knockout match's sides come from results, and a later correction can
+   * change who should have been in it.
+   */
+  sides?: [string, string];
 }
 
 export interface ZoneMoveDraft {

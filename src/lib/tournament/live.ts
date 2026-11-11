@@ -59,15 +59,26 @@ export function callUp<G extends ScheduledGame>(games: G[], results: PlanDraft["
     .sort((a, b) => a.from - b.from || (place.get(a.courtId) ?? 0) - (place.get(b.courtId) ?? 0));
 }
 
-/** A game put on court: its start time is kept. Nothing changes if it's already on court or finished. */
-export function startGame(draft: PlanDraft, id: string, now: string): void {
+/**
+ * A game put on court: its start time is kept, and who is playing it (the two
+ * entries' ids) when given. Nothing changes if it's already on court or finished.
+ */
+export function startGame(draft: PlanDraft, id: string, now: string, sides?: [string, string]): void {
   if (draft.results[id]) return;
-  draft.results[id] = { state: "onCourt", games: [], startedAt: now, finishedAt: null };
+  draft.results[id] = { state: "onCourt", games: [], startedAt: now, finishedAt: null, ...(sides ? { sides } : {}) };
 }
 
 /** One side's score in one game; a game that hadn't been started is put on court. */
-export function setScore(draft: PlanDraft, id: string, game: number, side: 0 | 1, value: number | null, now: string): void {
-  startGame(draft, id, now);
+export function setScore(
+  draft: PlanDraft,
+  id: string,
+  game: number,
+  side: 0 | 1,
+  value: number | null,
+  now: string,
+  sides?: [string, string],
+): void {
+  startGame(draft, id, now, sides);
   const result = draft.results[id]!;
   while (result.games.length <= game) result.games.push([null, null]);
   result.games[game]![side] = value;
