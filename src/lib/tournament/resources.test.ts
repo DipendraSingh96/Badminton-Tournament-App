@@ -107,7 +107,7 @@ describe("rulebook", () => {
     ]);
     // The final is best of three; the other stages score alike and are said once.
     expect(text("Scoring")).toEqual([
-      "Group stage, Knockout rounds, Bronze match: One game to 21. At 20–20 a game is won by two clear points, up to 30: at 29–29 the next point wins.",
+      "Group stage, knockout rounds, bronze match: One game to 21. At 20–20 a game is won by two clear points, up to 30: at 29–29 the next point wins.",
       "Final: Best of three games to 21. At 20–20 a game is won by two clear points, up to 30: at 29–29 the next point wins.",
     ]);
     expect(text("How groups are ranked").slice(1)).toEqual([

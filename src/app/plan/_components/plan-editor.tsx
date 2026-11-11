@@ -23,6 +23,8 @@ import { dayAfter, eventsBy, simulateDay, type SimEvent } from "@/lib/tournament
 import { Button } from "@/components/ui/button";
 import { SimulationButton } from "./dummy-data";
 import { WatchOnlyContext } from "./watch-only";
+import { ResourcesView } from "./resources-view";
+import type { FixAt } from "@/lib/tournament/resources";
 import { formatClock } from "./workings";
 import type { LocalSegment } from "./timeline";
 import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
@@ -503,6 +505,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [liveFilter]);
+  /** From the Resources page: opens where something still open is put right. */
+  function fixAt(at: FixAt) {
+    if (at === "plan" || at === "budget") {
+      setStageView("plan");
+      chooseTab(at === "budget" && !isLive ? "finance" : "setup");
+      foldWorkbench(false);
+    } else setDrawView(at === "schedule" ? "courts" : at);
+  }
   // The same on the Draw stage's Schedule page: Escape lets the chosen court go.
   const drawCourt = drawFocus.kind === "court";
   useEffect(() => {
@@ -878,6 +888,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     segments={segments}
                     view={drawView}
                     onViewChange={setDrawView}
+                    resources={
+                      <ResourcesView
+                        draft={draft}
+                        update={update}
+                        segments={segments}
+                        shuttles={shownAnalysis?.ok ? shownAnalysis.analysis.finance.shuttles : null}
+                        fits={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status !== "doesNotFit" : null}
+                        onFix={fixAt}
+                      />
+                    }
                     courts={
                       // After the draw the venue is as planned: it's looked at here, not rebuilt.
                       <VenueFixedContext value>

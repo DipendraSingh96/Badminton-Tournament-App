@@ -10,7 +10,7 @@ import type { Update } from "./plan-editor";
 import { ScoreSheetsButton } from "./score-sheets";
 import type { LocalSegment } from "./timeline";
 
-export type DrawStageView = "entries" | "draw" | "courts" | "bracket";
+export type DrawStageView = "entries" | "draw" | "courts" | "bracket" | "resources";
 
 /**
  * The Draw stage's pages, in order. Teams are in the side panel; the group
@@ -21,6 +21,7 @@ export const DRAW_VIEWS: { value: DrawStageView; label: string; comingIn?: strin
   { value: "draw", label: "Draw" },
   { value: "bracket", label: "KO stage" },
   { value: "courts", label: "Schedule" },
+  { value: "resources", label: "Resources" },
 ];
 
 /** The Draw stage: entries, the draw, and the post-draw views (built step by step). */
@@ -32,6 +33,7 @@ export function DrawStage({
   segments,
   view,
   onViewChange,
+  resources,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -43,6 +45,8 @@ export function DrawStage({
   /** The page open; kept by the editor so the top bar knows it. */
   view: DrawStageView;
   onViewChange: (view: DrawStageView) => void;
+  /** The Resources page: getting ready for the day. Built by the editor, which knows the plan's counts. */
+  resources: ReactNode;
 }) {
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -82,10 +86,11 @@ export function DrawStage({
         </>
       ) : (
         <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
-          <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 pb-4 pt-4">
+          <div className="@container mx-auto flex w-full max-w-[960px] flex-col gap-4 pb-4 pt-4">
             {view === "entries" ? <EntriesView draft={draft} update={update} locked={locked} /> : null}
             {view === "draw" ? <DrawView draft={draft} update={update} /> : null}
             {view === "bracket" ? <BracketView draft={draft} segments={segments} /> : null}
+            {view === "resources" ? resources : null}
           </div>
         </div>
       )}

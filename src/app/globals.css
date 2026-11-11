@@ -383,6 +383,15 @@
     display: block;
     background: #fff;
   }
+  /* The rulebook and the programme: running text, with a section kept whole where it fits. */
+  .print-doc {
+    padding: 4mm;
+  }
+  .print-doc h2,
+  .print-doc h3,
+  .print-doc caption {
+    break-after: avoid;
+  }
   .score-sheet {
     box-sizing: border-box;
     height: 139mm;

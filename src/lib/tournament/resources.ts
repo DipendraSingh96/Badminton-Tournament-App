@@ -223,8 +223,9 @@ export function rulebook(draft: PlanDraft, houseRules: string): { sections: Rule
       byText.set(text, [...(byText.get(text) ?? []), stage]);
     }
     for (const [text, list] of byText) {
-      const which = list.length === used.length ? "Every match" : list.map((s) => STAGE_NAMES[s]).join(", ");
-      scoring.push(`${several ? `${categoryLabel(draft, category.id)}, ` : ""}${several ? which.charAt(0).toLowerCase() + which.slice(1) : which}: ${text}`);
+      // In lower case but for the line's first letter: "Group stage, knockout rounds", or "Men's doubles, group stage".
+      const which = (list.length === used.length ? "every match" : list.map((s) => STAGE_NAMES[s]).join(", ")).toLowerCase();
+      scoring.push(`${several ? `${categoryLabel(draft, category.id)}, ${which}` : which.charAt(0).toUpperCase() + which.slice(1)}: ${text}`);
     }
   }
   if (scoring.length > 0) sections.push({ title: "Scoring", lines: scoring });

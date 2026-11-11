@@ -31,7 +31,7 @@ function dateText(date: string): string {
 }
 
 /** One game's paper score sheet: half an A4 page. Names only; no phone numbers and no money. */
-function Sheet({ draft, segment }: { draft: PlanDraft; segment: LocalSegment }) {
+export function ScoreSheet({ draft, segment }: { draft: PlanDraft; segment: LocalSegment }) {
   const { match } = segment;
   const { where, rubber } = matchText(draft, match);
   const category = draft.categories.find((c) => c.id === match.categoryId);
@@ -108,7 +108,7 @@ function Sheet({ draft, segment }: { draft: PlanDraft; segment: LocalSegment }) 
  * games; the sheets print two to an A4 page through the browser's own print
  * dialog (which can also save a PDF). Available once any draw is locked.
  */
-export function ScoreSheetsButton({ draft, segments }: { draft: PlanDraft; segments: LocalSegment[] }) {
+export function ScoreSheetsButton({ draft, segments, label = "Print score sheets" }: { draft: PlanDraft; segments: LocalSegment[]; label?: string }) {
   const [open, setOpen] = useState(false);
   const [which, setWhich] = useState("all");
   const [printing, setPrinting] = useState<LocalSegment[] | null>(null);
@@ -151,7 +151,7 @@ export function ScoreSheetsButton({ draft, segments }: { draft: PlanDraft; segme
             />
           }
         >
-          <PrinterIcon /> Print score sheets
+          <PrinterIcon /> {label}
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 gap-3 p-3">
           <div className="flex flex-col gap-1">
@@ -196,7 +196,7 @@ export function ScoreSheetsButton({ draft, segments }: { draft: PlanDraft; segme
         ? createPortal(
             <div className="print-root" data-sheets={printing.length}>
               {printing.map((s) => (
-                <Sheet key={s.id} draft={draft} segment={s} />
+                <ScoreSheet key={s.id} draft={draft} segment={s} />
               ))}
             </div>,
             document.body,
