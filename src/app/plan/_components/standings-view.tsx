@@ -41,6 +41,7 @@ const STATUS: Record<GroupStatus, { label: string; variant: "off" | "fits" | "ti
   level: { label: "Level", variant: "tight" },
   winner: { label: "Winner", variant: "fits" },
   placed: null,
+  withdrawn: { label: "Withdrawn", variant: "outline" },
 };
 
 /** A round's name from its size: Final, Semi-finals, Quarter-finals, Round of 16. */

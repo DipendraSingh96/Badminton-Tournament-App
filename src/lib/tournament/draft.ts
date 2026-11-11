@@ -196,6 +196,47 @@ export interface MatchResultDraft {
    * change who should have been in it.
    */
   sides?: [string, string];
+  /** Given to a side rather than won on the scores: a walkover or a retirement. */
+  award?: MatchAwardDraft;
+  /** While a finished match is open to be corrected: what it held before, for the log. */
+  was?: { games: [N, N][]; finishedAt: string | null; award?: MatchAwardDraft };
+}
+
+/** A match given to a side (0 is home, 1 is away). */
+export interface MatchAwardDraft {
+  winner: 0 | 1;
+  /** Walkover: the other side didn't play. Retired: the other side stopped during play. */
+  reason: "walkover" | "retired";
+  /** Retired during a game: that game's points stand, but it's nobody's game. */
+  open?: boolean;
+}
+
+/** An entry that withdrew while Live. */
+export interface WithdrawalDraft {
+  at: string;
+  /** When it withdrew: with group games still to play, or after its group finished. */
+  stage: "group" | "knockout";
+  /** Group stage: its played results stand (the rest are walkovers), or none of its results count. */
+  results: "stand" | "void";
+}
+
+export type LogKind = "live" | "withdrawal" | "walkover" | "retirement" | "correction" | "move" | "decision" | "reversal";
+
+/** A controlled change made while Live: what, when, who, and what it replaced so it can be reversed. */
+export interface LogEntryDraft {
+  id: string;
+  /** UTC ISO. */
+  at: string;
+  /** Who made it: "Desk" until sign-in exists. No more personal data than a name. */
+  by: string;
+  kind: LogKind;
+  /** The change in one plain sentence. */
+  text: string;
+  note: string;
+  /** What it changed, by key ("results/<match id>", "matchMoves", "stage"…), each with what was there before (null for nothing). */
+  before: Record<string, unknown>;
+  /** When it was reversed; null while it stands. */
+  reversedAt: string | null;
 }
 
 export interface ZoneMoveDraft {
@@ -231,6 +272,12 @@ export interface PlanDraft {
   matchMoves: Record<string, { courtId: string; before: string | null }>;
   /** Live: each match's state and scores, keyed by the match's id. Matches not started have none. */
   results: Record<string, MatchResultDraft>;
+  /** Live: entries that withdrew, by entry id. */
+  withdrawn: Record<string, WithdrawalDraft>;
+  /** Live: groups level on every tiebreak, decided by hand: the entries in order, by "categoryId:groupIndex". */
+  decided: Record<string, string[]>;
+  /** Live: every controlled change, oldest first. */
+  log: LogEntryDraft[];
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
@@ -841,6 +888,9 @@ export function emptyDraft(timeZone: string): PlanDraft {
     zoneMoves: {},
     matchMoves: {},
     results: {},
+    withdrawn: {},
+    decided: {},
+    log: [],
     groupCourts: "own",
     courtGroups: {},
     stage: "plan",

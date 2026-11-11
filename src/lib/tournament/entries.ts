@@ -11,12 +11,22 @@ import {
   type CategoryFormat,
   type EventType,
   type GroupMode,
+  type Award,
   type KnockoutMatch,
   type PlayedFixture,
+  type Stage,
   type StandingRow,
 } from "@/engine";
 import type { ImportedEntry } from "./csv";
-import { emptyEntry, entryName, type CategoryDraft, type EntryDraft, type PlanDraft, type PlayerDraft } from "./draft";
+import {
+  defaultCategoryName,
+  emptyEntry,
+  entryName,
+  type CategoryDraft,
+  type EntryDraft,
+  type PlanDraft,
+  type PlayerDraft,
+} from "./draft";
 
 // From draw slots to the people in them: "A1" is group A's first place, and
 // the draw says which entry holds it. Before the draw, slots stay as they are.
@@ -90,14 +100,21 @@ function rubberCount(draft: PlanDraft, category: CategoryDraft): number {
  * A fixture's games once every one of its matches is finished (a team tie's
  * rubbers share the fixture's id, numbered ":r1", ":r2"…); null until then.
  */
-function finishedFixture(draft: PlanDraft, fixtureId: string, rubbers: number): [number, number][][] | null {
+function finishedFixture(
+  draft: PlanDraft,
+  fixtureId: string,
+  rubbers: number,
+): { rubbers: [number, number][][]; awards: (Award | null)[] } | null {
   const all: [number, number][][] = [];
+  const awards: (Award | null)[] = [];
   for (let r = 1; r <= rubbers; r++) {
     const result = draft.results[`${fixtureId}:r${r}`];
     if (result?.state !== "finished") return null;
     all.push(result.games.filter(([home, away]) => home !== null || away !== null).map(([home, away]) => [home ?? 0, away ?? 0]));
+    // A match given to a side (a walkover, a retirement) is that side's whatever the scores.
+    awards.push(result.award ? { winner: result.award.winner === 0 ? "home" : "away", open: result.award.open } : null);
   }
-  return all;
+  return { rubbers: all, awards };
 }
 
 /** An entry's lot in its group, from the draw's stored number: the same every time, and different for each place. */
@@ -110,7 +127,7 @@ function lotOf(randomSeed: number, group: number, place: number): number {
 }
 
 /** Where an entry stands once its group has finished. */
-export type GroupStatus = "contention" | "through" | "out" | "level" | "winner" | "placed";
+export type GroupStatus = "contention" | "through" | "out" | "level" | "winner" | "placed" | "withdrawn";
 
 export interface GroupTable {
   index: number;
@@ -124,6 +141,8 @@ export interface GroupTable {
   complete: boolean;
   /** How many go through to the knockout; 0 for groups only. */
   qualify: number;
+  /** Entries that withdrew during the group stage: last in the table. */
+  withdrawn: string[];
 }
 
 /** A group's table from the results so far; null before the draw. */
@@ -133,17 +152,24 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
   if (!draw || !ids) return null;
   const letter = groupLetter(group);
   const rubbers = rubberCount(draft, category);
-  const pairs = groupFixtures(ids.length).flat();
+  // Entries that withdrew with group games to play come last; one whose results were voided has no games that count.
+  const withdrawn = ids.filter((id) => draft.withdrawn[id]?.stage === "group");
+  const voided = new Set(withdrawn.filter((id) => draft.withdrawn[id]!.results === "void"));
+  const pairs = groupFixtures(ids.length)
+    .flat()
+    .filter(([a, b]) => !voided.has(ids[a - 1]!) && !voided.has(ids[b - 1]!));
   const fixtures: PlayedFixture[] = [];
   for (const [a, b] of pairs) {
     const played = finishedFixture(draft, `${category.id}:group:${letter}:${letter}${a}-${letter}${b}`, rubbers);
-    if (played) fixtures.push({ home: ids[a - 1]!, away: ids[b - 1]!, rubbers: played });
+    if (played) fixtures.push({ home: ids[a - 1]!, away: ids[b - 1]!, ...played });
   }
   const rows = groupStandings({
     entries: ids,
     fixtures,
     tiebreaks: draft.rules.tiebreaks,
     lots: Object.fromEntries(ids.map((id, p) => [id, lotOf(draw.randomSeed, group, p)])),
+    byHand: draft.decided[`${category.id}:${group}`],
+    withdrawn,
   });
   return {
     index: group,
@@ -153,6 +179,7 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
     total: pairs.length,
     complete: pairs.length > 0 && fixtures.length === pairs.length,
     qualify: draft.format === "groupsKnockout" ? (category.qualifiersPerGroup ?? 0) : 0,
+    withdrawn,
   };
 }
 
@@ -168,6 +195,7 @@ export function groupTables(draft: PlanDraft, category: CategoryDraft): GroupTab
  * place is among them): that needs deciding by hand.
  */
 export function groupStatus(table: GroupTable, row: StandingRow): GroupStatus {
+  if (table.withdrawn.includes(row.id)) return "withdrawn";
   if (!table.complete) return "contention";
   const last = row.place + table.rows.filter((r) => r.place === row.place).length - 1;
   if (table.qualify === 0) return row.shared ? (row.place === 1 ? "level" : "placed") : row.place === 1 ? "winner" : "placed";
@@ -205,7 +233,7 @@ export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code:
     .find(Boolean);
   const home = kept?.[0] ?? entryIdForSlot(draft, category.id, match.home);
   const away = kept?.[1] ?? entryIdForSlot(draft, category.id, match.away);
-  const winner = fixtureWinner(played);
+  const winner = fixtureWinner(played.rubbers, played.awards);
   if (!home || !away || !winner) return null;
   return winner === "home" ? { winner: home, loser: away } : { winner: away, loser: home };
 }
@@ -219,6 +247,96 @@ export function sidesChanged(draft: PlanDraft, categoryId: string, matchId: stri
   const kept = draft.results[matchId]?.sides;
   if (!kept) return false;
   return kept[0] !== entryIdForSlot(draft, categoryId, home) || kept[1] !== entryIdForSlot(draft, categoryId, away);
+}
+
+/** A knockout match's name from its code: "Quarter-final 1", "Final", "Bronze match". */
+export function knockoutRoundName(code: string): string {
+  if (code === "Final") return "Final";
+  if (code === "Bronze") return "Bronze match";
+  const quarter = /^QF(\d+)$/.exec(code);
+  if (quarter) return `Quarter-final ${quarter[1]}`;
+  const semi = /^SF(\d+)$/.exec(code);
+  if (semi) return `Semi-final ${semi[1]}`;
+  const round = /^R(\d+)-(\d+)$/.exec(code);
+  return round ? `Round of ${round[1]}, match ${round[2]}` : code;
+}
+
+/** A category's name: its own, or its event's. */
+export function categoryLabel(draft: PlanDraft, categoryId: string): string {
+  const index = draft.categories.findIndex((c) => c.id === categoryId);
+  return draft.categories[index]?.name.trim() || defaultCategoryName(draft, index);
+}
+
+/** A match read from its id: its category and stage, the two sides' slots, and what to call it. */
+export interface MatchRef {
+  id: string;
+  categoryId: string;
+  stage: Stage;
+  /** Group stage: the group's index. */
+  group: number | null;
+  /** Knockout: "QF1", "Final", "Bronze". */
+  code: string | null;
+  home: string;
+  away: string;
+  /** "Group A", "Quarter-final 1"; with "rubber 2" for a team tie, and the category when there are several. */
+  label: string;
+}
+
+/** The match with an id as the schedule makes them ("<category>:group:A:A1-A2:r1", "<category>:ko:QF1:r1"); null for any other. */
+export function matchRef(draft: PlanDraft, id: string): MatchRef | null {
+  const parts = /^(.*):(?:group:([A-Z]|G\d+):(\w+)-(\w+)|ko:([^:]+)):r(\d+)$/.exec(id);
+  if (!parts) return null;
+  const categoryId = parts[1]!;
+  const category = draft.categories.find((c) => c.id === categoryId);
+  if (!category) return null;
+  const code = parts[5] ?? null;
+  const knockout = code ? knockoutMatchOf(draft, category, code) : null;
+  if (code && !knockout) return null;
+  const rubber = draft.unit === "team" && rubberCount(draft, category) > 1 ? `, rubber ${parts[6]}` : "";
+  const of = draft.categories.length > 1 ? `${categoryLabel(draft, categoryId)}, ` : "";
+  return {
+    id,
+    categoryId,
+    stage: !code ? "group" : code === "Final" ? "final" : code === "Bronze" ? "bronze" : "knockout",
+    group: code ? null : groupIndexOf(parts[2]!),
+    code,
+    home: knockout ? knockout.home : parts[3]!,
+    away: knockout ? knockout.away : parts[4]!,
+    label: `${of}${code ? knockoutRoundName(code) : `Group ${parts[2]}`}${rubber}`,
+  };
+}
+
+/** The ids of every match (rubber) in a group fixture or knockout match that a match belongs to. */
+export function fixtureMatchIds(draft: PlanDraft, ref: MatchRef): string[] {
+  const category = draft.categories.find((c) => c.id === ref.categoryId)!;
+  const base = ref.id.replace(/:r\d+$/, "");
+  return Array.from({ length: rubberCount(draft, category) }, (_, r) => `${base}:r${r + 1}`);
+}
+
+/** Every match id of a category: its group fixtures, then its knockout, in bracket order. */
+export function categoryMatchIds(draft: PlanDraft, category: CategoryDraft): string[] {
+  const rubbers = rubberCount(draft, category);
+  const ids: string[] = [];
+  const add = (base: string) => {
+    for (let r = 1; r <= rubbers; r++) ids.push(`${base}:r${r}`);
+  };
+  if (draft.format !== "knockout") {
+    (draft.draw[category.id]?.groups ?? []).forEach((group, g) => {
+      const letter = groupLetter(g);
+      for (const [a, b] of groupFixtures(group.length).flat()) add(`${category.id}:group:${letter}:${letter}${a}-${letter}${b}`);
+    });
+  }
+  const format = categoryFormatOf(draft, category);
+  if (format.ok && draft.format !== "groups") {
+    const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
+    for (const m of [...bracket.rounds.flatMap((r) => r.matches), ...(bracket.bronze ? [bracket.bronze] : [])]) add(`${category.id}:ko:${m.code}`);
+  }
+  return ids;
+}
+
+/** The id of the entry on a side, by the draw or by results; null until it's known. */
+export function entryIdOn(draft: PlanDraft, categoryId: string, slot: string): string | null {
+  return entryIdForSlot(draft, categoryId, slot);
 }
 
 /** A side's name once an entry is there, by the draw or by results ("Smashers"); null for a side not decided yet. */

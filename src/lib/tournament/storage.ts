@@ -32,13 +32,28 @@ type EarlyHall = Omit<HallDraft, "unitMinutes" | "multipleRates"> & {
 export function normaliseDraft(
   saved: Omit<
     PlanDraft,
-    "finance" | "frame" | "zoneMoves" | "matchMoves" | "groupCourts" | "courtGroups" | "stage" | "entries" | "draw" | "dummy"
+    | "finance"
+    | "frame"
+    | "zoneMoves"
+    | "matchMoves"
+    | "groupCourts"
+    | "courtGroups"
+    | "stage"
+    | "entries"
+    | "draw"
+    | "dummy"
+    | "withdrawn"
+    | "decided"
+    | "log"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
     zoneMoves?: PlanDraft["zoneMoves"];
     matchMoves?: PlanDraft["matchMoves"];
     results?: PlanDraft["results"];
+    withdrawn?: PlanDraft["withdrawn"];
+    decided?: PlanDraft["decided"];
+    log?: PlanDraft["log"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
     stage?: PlanDraft["stage"];
@@ -68,6 +83,10 @@ export function normaliseDraft(
     matchMoves: saved.matchMoves ?? {},
     // Saved before Live: nothing has been played.
     results: saved.results ?? {},
+    // Saved before controlled changes: none have been made.
+    withdrawn: saved.withdrawn ?? {},
+    decided: saved.decided ?? {},
+    log: saved.log ?? [],
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},

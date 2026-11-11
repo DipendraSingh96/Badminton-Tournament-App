@@ -92,10 +92,16 @@ export function finishGame(draft: PlanDraft, id: string, now: string): void {
   result.finishedAt = now;
 }
 
-/** A finished match opened again to correct its score; it goes back on court. */
+/**
+ * A finished match opened again to correct its score; it goes back on court.
+ * What it held is kept until it's finished again, for the log; a match that
+ * was awarded (a walkover, a retirement) is back to being decided by its scores.
+ */
 export function reopenGame(draft: PlanDraft, id: string): void {
   const result = draft.results[id];
-  if (!result) return;
+  if (!result || result.state !== "finished") return;
+  result.was = { games: result.games.map(([home, away]) => [home, away]), finishedAt: result.finishedAt, ...(result.award ? { award: { ...result.award } } : {}) };
+  delete result.award;
   result.state = "onCourt";
   result.finishedAt = null;
 }
