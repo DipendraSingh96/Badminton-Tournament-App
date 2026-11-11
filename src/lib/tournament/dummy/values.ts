@@ -74,3 +74,24 @@ export const DUMMY_SURNAMES = [
 
 /** Share of players checked in by a dummy fill of check-in; a few more are absent. */
 export const DUMMY_CHECK_IN = { arrived: 0.75, absent: 0.1 };
+
+/**
+ * The simulated day (Settings, Developer tools, Run simulation): how fast it
+ * plays, and how its random day is drawn. Never read by a plan or a real result.
+ */
+export const SIMULATION = {
+  /** Simulated minutes that pass in one second of watching. */
+  minutesPerSecond: 5,
+  /** The share of players not yet checked in who never turn up, and who turn up late. */
+  absentShare: 0.04,
+  lateShare: 0.12,
+  /** Minutes before their first game that players check in: on time (from, to), and late (negative is after it was due). */
+  arriveBefore: [50, 10],
+  lateBefore: [3, -6],
+  /** How long a game takes against its planned length: from early to late. */
+  pace: [0.7, 1.35],
+  /** The share of games that go past the points per game, where the rules allow it. */
+  deuceShare: 0.15,
+  /** The fewest points a game's loser is given, as a share of the points per game. */
+  loserFloor: 0.35,
+} as const;
