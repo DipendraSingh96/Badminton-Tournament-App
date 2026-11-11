@@ -1,6 +1,6 @@
 "use client";
 
-import { EraserIcon, MagicWandIcon } from "@phosphor-icons/react";
+import { EraserIcon, MagicWandIcon, PlayCircleIcon, StopCircleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
 
@@ -40,5 +40,28 @@ export function SampleDataButtons({
         <EraserIcon />
       </IconButton>
     </>
+  );
+}
+
+/**
+ * Developer tools: runs a simulated day on the Live stage, or ends the one
+ * running. It sits where the sample-data buttons are on Plan and Draw.
+ */
+export function SimulationButton({ running, blocked, onRun, onEnd }: { running: boolean; blocked: string | null; onRun: () => void; onEnd: () => void }) {
+  const off = "opacity-50 cursor-not-allowed hover:bg-transparent";
+  return running ? (
+    <IconButton label="End simulation: the tournament goes back to how it was" side="bottom" onClick={onEnd}>
+      <StopCircleIcon />
+    </IconButton>
+  ) : (
+    <IconButton
+      label={blocked ? `Run simulation: ${blocked}` : "Run simulation: plays the whole day through, to watch. Nothing is saved"}
+      side="bottom"
+      className={cn(blocked && off)}
+      aria-disabled={blocked !== null}
+      onClick={() => (blocked ? undefined : onRun())}
+    >
+      <PlayCircleIcon />
+    </IconButton>
   );
 }

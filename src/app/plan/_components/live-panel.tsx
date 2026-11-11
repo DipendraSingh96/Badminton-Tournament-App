@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDownIcon, PlayIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
@@ -21,12 +21,17 @@ import { AwardDialog } from "./live-dialogs";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import { matchText, sideLabel, type LocalSegment } from "./timeline";
+import { useWatchOnly } from "./watch-only";
 
 /** How many waiting games the Games tab lists after the courts' own: the next few, not the whole day. */
 const UP_NEXT = 12;
 
 /** What the main area has narrowed the Games tab to: a court, or a group; null for every game. */
-export type LiveFilter = { kind: "court"; id: string } | { kind: "group"; categoryId: string; group: number } | null;
+export type LiveFilter =
+  // A court chosen on the board; with `game`, a game chosen on the timeline (its court, with that game opened).
+  | { kind: "court"; id: string; game?: string }
+  | { kind: "group"; categoryId: string; group: number }
+  | null;
 
 export type LiveTab = "games" | "entries";
 
@@ -176,7 +181,13 @@ function GamesTab({
   const board = useMemo(() => boardSections(segments, draft.results, order), [segments, draft.results, order]);
   const queue = filter?.kind === "court" ? (courtQueues(segments, draft.results).get(filter.id) ?? null) : null;
   // The game opened to run it; a chosen court opens on its current game.
-  const [openId, setOpenId] = useState<string | null>(queue?.current?.id ?? null);
+  const [openId, setOpenId] = useState<string | null>((filter?.kind === "court" ? filter.game : undefined) ?? queue?.current?.id ?? null);
+  // A game chosen on the timeline may be far down its court's list: bring it into view.
+  const root = useRef<HTMLElement>(null);
+  const chosen = filter?.kind === "court" ? (filter.game ?? null) : null;
+  useEffect(() => {
+    if (chosen) root.current?.querySelector(`[data-game="${CSS.escape(chosen)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [chosen]);
   // The waiting game being dragged to a free court.
   const [dragging, setDragging] = useState<LocalSegment | null>(null);
 
@@ -220,7 +231,7 @@ function GamesTab({
       </div>
     );
   const narrowed = (label: string, body: ReactNode) => (
-    <section aria-label={label} className="flex flex-col gap-4">
+    <section ref={root} aria-label={label} className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 rounded-md bg-inset py-1 pr-1 pl-3">
         <span className="min-w-0 truncate text-sm font-semibold">{label}</span>
         <Button variant="ghost" size="sm" onClick={() => onFilter(null)}>
@@ -278,7 +289,7 @@ function GamesTab({
   return (
     <section aria-label="Games" className="flex flex-col gap-4">
       {list("On court", board.onCourt)}
-      <div className="flex flex-col gap-2">
+      <div className={cn("flex flex-col gap-2", board.free.length === 0 && "hidden")}>
         <h3 className="text-sm font-semibold">
           {board.started ? "Free courts" : "First games"}{" "}
           <span className="font-normal text-muted-foreground tabular-nums">({board.free.length})</span>
@@ -367,7 +378,8 @@ function GameCard({
   const state = gameState(draft.results, id);
   const score = scoreText(result?.games, result?.award);
   const waiting = matchPlayers(draft, segment.match).filter((p) => p.attendance !== "arrived").length;
-  const movable = state === "waiting" && freeCourts.length > 0;
+  const watch = useWatchOnly();
+  const movable = state === "waiting" && freeCourts.length > 0 && !watch;
   return (
     <TeamOpenContext value={(entryId) => setPeek((now) => (now === entryId ? null : entryId))}>
       <div
@@ -446,6 +458,7 @@ function GameBody({
   onMove: (courtId: string) => void;
 }) {
   const confirm = useConfirm();
+  const watch = useWatchOnly();
   const [awarding, setAwarding] = useState(false);
   const { match, id } = segment;
   const category = inputs?.categories.find((c) => c.id === match.categoryId);
@@ -507,7 +520,7 @@ function GameBody({
                   inputMode="numeric"
                   min={0}
                   step={1}
-                  disabled={closed || blocked}
+                  disabled={closed || blocked || watch}
                   value={score[side] ?? ""}
                   placeholder={name}
                   aria-label={`${name}, ${side === 0 ? home : away}`}
@@ -553,7 +566,7 @@ function GameBody({
         {state === "waiting" ? (
           <Button
             size="sm"
-            disabled={blocked}
+            disabled={blocked || watch}
             title={blocked ? "Every player has to be checked in first; or award the match" : undefined}
             onClick={() => update((d) => startGame(d, id, now(), playing ?? undefined))}
           >
@@ -562,7 +575,7 @@ function GameBody({
         ) : state === "onCourt" ? (
           <Button
             size="sm"
-            disabled={!outcome.finished}
+            disabled={!outcome.finished || watch}
             title={outcome.finished ? undefined : "Enter the scores first"}
             onClick={() => update((d) => finishMatch(d, id, now()))}
           >
@@ -572,6 +585,7 @@ function GameBody({
           <Button
             variant="outline"
             size="sm"
+            disabled={watch}
             onClick={async () => {
               if (
                 await confirm({
@@ -589,7 +603,7 @@ function GameBody({
           </Button>
         )}
         {finished ? null : (
-          <Button variant="ghost" size="sm" title="A walkover, or a side retired" onClick={() => setAwarding(true)}>
+          <Button variant="ghost" size="sm" disabled={watch} title="A walkover, or a side retired" onClick={() => setAwarding(true)}>
             Award match…
           </Button>
         )}
@@ -605,7 +619,7 @@ function GameBody({
           <PlayerCheckIn players={players} update={update} />
         </div>
       ) : null}
-      {state === "waiting" && freeCourts.length > 0 ? (
+      {state === "waiting" && freeCourts.length > 0 && !watch ? (
         <NativeSelect
           aria-label="Move this game to a free court"
           className="w-full"

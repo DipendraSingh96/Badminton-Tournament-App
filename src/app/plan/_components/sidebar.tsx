@@ -1,5 +1,7 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
+import { setDeveloperTools, useDeveloperTools } from "@/lib/developer";
 import {
   CopyIcon,
   DesktopIcon,
@@ -51,6 +53,7 @@ const THEMES = [
 /** Settings: for now, the theme. Opens from the sidebar's foot. */
 function SettingsMenu({ collapsed }: { collapsed: boolean }) {
   const { theme, setTheme } = useTheme();
+  const developer = useDeveloperTools();
   const optionClass =
     "flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none hover:bg-inset focus-visible:bg-inset focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent";
   return (
@@ -81,6 +84,11 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
             {label}
           </button>
         ))}
+        <p className="mt-1 border-t px-2 pt-2 pb-1 text-xs font-semibold text-muted-foreground">For developers</p>
+        <label className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-medium" title="Adds Run simulation to the Live stage. Remembered on this device only.">
+          Developer tools
+          <Switch checked={developer} onCheckedChange={setDeveloperTools} />
+        </label>
       </PopoverContent>
     </Popover>
   );

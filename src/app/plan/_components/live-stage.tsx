@@ -32,7 +32,8 @@ export function LiveStage({
   segments,
   view,
   onViewChange,
-  board,
+  dock,
+  courtBoard,
   filter,
   onFilter,
 }: {
@@ -43,8 +44,9 @@ export function LiveStage({
   /** The page open; kept by the editor. */
   view: LiveStageView;
   onViewChange: (view: LiveStageView) => void;
-  /** The Court board over its timeline, built by the editor (it shares the timeline with Plan and Draw). */
-  board: ReactNode;
+  /** Puts a page over the timeline, which the editor shares with Plan and Draw. */
+  dock: (content: ReactNode) => ReactNode;
+  courtBoard: ReactNode;
   /** What the side panel's games are narrowed to: a court or a group chosen here. */
   filter: LiveFilter;
   onFilter: (filter: LiveFilter) => void;
@@ -81,11 +83,12 @@ export function LiveStage({
           ))}
         </nav>
       </div>
-      {view === "board" ? (
-        <div className="min-h-0 min-w-0 flex-1 pt-4">{board}</div>
-      ) : (
-      <div className="scroll-pane min-h-0 flex-1 overflow-y-auto px-(--pane-x)">
-        <div className="@container mx-auto flex w-full max-w-[960px] flex-col gap-4 pt-4 pb-4">
+      <div className="min-h-0 min-w-0 flex-1 pt-4">
+        {dock(
+          view === "board" ? (
+            courtBoard
+          ) : (
+            <>
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
           {view === "changes" ? <ChangesView draft={draft} update={update} /> : null}
           {view === "standings" ? (
@@ -101,9 +104,10 @@ export function LiveStage({
               }}
             />
           ) : null}
-        </div>
+            </>
+          ),
+        )}
       </div>
-      )}
     </main>
   );
 }

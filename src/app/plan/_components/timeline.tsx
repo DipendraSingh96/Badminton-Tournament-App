@@ -404,6 +404,10 @@ export function Timeline({
   onFitHeight,
   fixed = false,
   live,
+  locked = false,
+  rate,
+  picked = null,
+  onPick,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -434,7 +438,17 @@ export function Timeline({
   live?: {
     state: (matchId: string) => "waiting" | "onCourt" | "finished";
     onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }) => void;
+    /** Nothing can be moved (a simulated day is being watched). */
+    frozen?: boolean;
   };
+  /** The cursor is the real clock: it can't be played or moved. */
+  locked?: boolean;
+  /** Playback speed in minutes a second; without it the whole day plays in half a minute. */
+  rate?: number;
+  /** The game chosen (shown in the side panel): outlined here. */
+  picked?: string | null;
+  /** A game was clicked (not dragged), or chosen from the keyboard. */
+  onPick?: (segment: LocalSegment) => void;
 }) {
   // The strips show the view range; the playhead runs over the day itself.
   const { range, setDragging } = useContext(ViewRangeContext);
@@ -469,7 +483,7 @@ export function Timeline({
     if (!playing) return;
     let frame = 0;
     let last = performance.now();
-    const perMs = (end - start) / (PLAYBACK_SECONDS * 1000);
+    const perMs = (rate ?? (end - start) / PLAYBACK_SECONDS) / 1000;
     const tick = (time: number) => {
       const next = Math.min(end, (position.current ?? start) + (time - last) * perMs);
       last = time;
@@ -480,7 +494,7 @@ export function Timeline({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, start, end, onSeek, onPlayingChange]);
+  }, [playing, start, end, rate, onSeek, onPlayingChange]);
 
   useEffect(() => {
     if (!notice) return;
@@ -695,6 +709,7 @@ export function Timeline({
   }, [playing, playhead, zoom, viewWidth, range.start, range.end, span]);
 
   function seekFrom(event: PointerEvent<HTMLElement>) {
+    if (locked) return;
     const box = track.current?.getBoundingClientRect();
     if (!box || box.width === 0) return;
     const ratio = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
@@ -711,7 +726,7 @@ export function Timeline({
       End: end,
     };
     const next = moves[event.key];
-    if (next === undefined) return;
+    if (next === undefined || locked) return;
     event.preventDefault();
     onPlayingChange(false);
     onSeek(clampDay(Math.round(next)));
@@ -815,7 +830,7 @@ export function Timeline({
   }
 
   /** While Live: a game that has started (on court or finished) can't be moved. */
-  const stuck = (segment: LocalSegment) => (live ? live.state(segment.id) !== "waiting" : false);
+  const stuck = (segment: LocalSegment) => (live ? Boolean(live.frozen) || live.state(segment.id) !== "waiting" : false);
 
   function focusPill(id: string) {
     document.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(id)}"]`)?.focus();
@@ -845,6 +860,11 @@ export function Timeline({
   }
 
   function pillKeys(event: KeyboardEvent<HTMLElement>, segment: LocalSegment) {
+    if (onPick && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      onPick(segment);
+      return;
+    }
     if ((event.key === "h" || event.key === "H") && segment.moved) {
       event.preventDefault();
       resetMatch(segment);
@@ -932,7 +952,7 @@ export function Timeline({
   );
   const anyMoves = hasMoves(draft);
 
-  const playButton = (
+  const playButton = locked ? null : (
     <Button
       variant="ghost"
       size="sm"
@@ -970,7 +990,7 @@ export function Timeline({
             max={end}
             step={1}
             value={Math.round(now)}
-            disabled={!hasHours}
+            disabled={!hasHours || locked}
             onChange={(e) => onSeek(Number(e.target.value))}
             className="w-full accent-primary"
           />
@@ -1372,10 +1392,10 @@ export function Timeline({
                                     } ${
                                       live?.state(s.id) === "finished"
                                         ? "cursor-default opacity-40 active:cursor-default"
-                                        : live?.state(s.id) === "onCourt"
+                                        : live?.state(s.id) === "onCourt" && s.id !== picked
                                           ? "cursor-default outline-2 -outline-offset-2 outline-shuttle active:cursor-default"
                                           : ""
-                                    } transition-transform duration-150 motion-reduce:transition-none`}
+                                    } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} transition-transform duration-150 motion-reduce:transition-none`}
                                     style={{
                                       left: pct(s.from),
                                       width: width(s.from, s.to),
@@ -1416,6 +1436,9 @@ export function Timeline({
                                       if (pillDrag && dragged) {
                                         if (pillDrag.target) moveMatch(s, pillDrag.target);
                                         else if (pillDrag.refusal) setNotice(pillDrag.refusal);
+                                      } else {
+                                        // A click: the game is shown in the side panel.
+                                        onPick?.(s);
                                       }
                                       setPillDrag(null);
                                     }}

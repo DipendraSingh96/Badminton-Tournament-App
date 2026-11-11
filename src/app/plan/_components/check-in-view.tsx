@@ -16,6 +16,7 @@ import { SwitchField } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import type { LocalSegment } from "./timeline";
+import { useWatchOnly } from "./watch-only";
 
 /**
  * The Live stage's Check-in page: the first thing the desk does on the day.
@@ -27,6 +28,7 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [waiting, setWaiting] = useState(false);
+  const watch = useWatchOnly();
   // In order of first game (who to check in first), or gathered by group (who is missing from each).
   const [order, setOrder] = useState<"first" | "group">("first");
   const team = draft.unit === "team";
@@ -111,7 +113,7 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={allIn}
+                    disabled={allIn || watch}
                     onClick={() => setPlayer(entry.id, null, (p) => void (p.attendance = "arrived"))}
                   >
                     <CheckIcon /> All arrived
@@ -130,6 +132,7 @@ export function CheckInView({ draft, update, segments }: { draft: PlanDraft; upd
                         inputMode="tel"
                         aria-label={`${p.name || `Player ${i + 1}`}'s phone number`}
                         placeholder="Phone"
+                        disabled={watch}
                         value={p.phone ?? ""}
                         onChange={(e) => setPlayer(entry.id, p.id, (x) => void (x.phone = e.target.value))}
                         className="w-40 tabular-nums"

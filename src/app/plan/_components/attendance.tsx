@@ -4,6 +4,7 @@ import type { Attendance, PlanDraft, PlayerDraft } from "@/lib/tournament/draft"
 import type { AttendanceCounts } from "@/lib/tournament/entries";
 import { cn } from "@/lib/utils";
 import type { Update } from "./plan-editor";
+import { useWatchOnly } from "./watch-only";
 
 const ATTENDANCE: { value: Attendance; label: string }[] = [
   { value: "arrived", label: "Arrived" },
@@ -13,6 +14,7 @@ const ATTENDANCE: { value: Attendance; label: string }[] = [
 
 /** Arrived, not yet or absent: three buttons side by side, the chosen one filled. */
 export function AttendanceChoice({ player, onChange }: { player: PlayerDraft; onChange: (a: Attendance) => void }) {
+  const watch = useWatchOnly();
   return (
     <div
       role="radiogroup"
@@ -28,9 +30,10 @@ export function AttendanceChoice({ player, onChange }: { player: PlayerDraft; on
             type="button"
             role="radio"
             aria-checked={selected}
+            disabled={watch}
             onClick={() => onChange(a.value)}
             className={cn(
-              "min-h-6 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "min-h-6 rounded-sm px-3 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
               selected
                 ? a.value === "arrived"
                   ? "bg-primary text-primary-foreground"

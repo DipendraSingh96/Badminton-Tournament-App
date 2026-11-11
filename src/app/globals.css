@@ -58,7 +58,7 @@
    bright for small text, so text uses these darker shades (AA on card and
    inset). See docs/design-system.md §3, "Contrast rules". */
 :root {
-  --status-fits-text: #1A7343;
+  --status-fits-text: #166A3C;
   --status-tight-text: #8A5200;
   --status-over-text: #B42B1C;
   /* Over as a fill behind text (chips, the loss tile, badges): white on #D8402F is
@@ -97,7 +97,7 @@
   --surface-inset-hover: #1F4D3C;
   --field-raised: #1C4838;
   --field-raised-hover: #1F4D3C;
-  --card-inset: #235443;
+  --card-inset: #0C2F22;
   --field-on-inset: #124030;
   --field-on-inset-hover: #1A4636;
   --card-selected: #0F4A43;
@@ -296,6 +296,28 @@
 .bg-inset {
   --field: var(--field-on-inset);
   --field-hover: var(--field-on-inset-hover);
+}
+/* A block opened inside a card is a step darker than the card. In Light the secondary and
+   status text on it are a step stronger, to stay at 4.5:1; Dark's own text colours already are. */
+.bg-card-inset {
+  --muted-foreground: #54504A;
+  --color-muted-foreground: #54504A;
+  --status-fits-text: #145F36;
+  --color-fits-text: #145F36;
+  --status-tight-text: #7A4700;
+  --color-tight-text: #7A4700;
+  --status-over-text: #A32417;
+  --color-over-text: #A32417;
+}
+.dark .bg-card-inset {
+  --muted-foreground: #ABB4AF;
+  --color-muted-foreground: #ABB4AF;
+  --status-fits-text: #58C27D;
+  --color-fits-text: #58C27D;
+  --status-tight-text: #FFB020;
+  --color-tight-text: #FFB020;
+  --status-over-text: #FF7A6E;
+  --color-over-text: #FF7A6E;
 }
 /* A segmented control's well is itself inset: on a card or an inset block it takes that surface's step. */
 .bg-card-system [data-slot="segmented"] {

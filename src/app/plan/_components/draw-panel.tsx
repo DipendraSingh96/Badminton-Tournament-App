@@ -22,7 +22,7 @@ import { matchText, sideLabel, type LocalSegment } from "./timeline";
  * What the Draw stage's side panel shows: the list of teams, the list with
  * one team opened in place ("team"), or one court's day.
  */
-export type DrawFocus = { kind: "teams" } | { kind: "team"; id: string } | { kind: "court"; id: string };
+export type DrawFocus = { kind: "teams" } | { kind: "team"; id: string } | { kind: "court"; id: string; game?: string };
 
 /** Opens a team in the side panel (and the panel, if it's folded); absent where there's no panel. */
 export const TeamOpenContext = createContext<((entryId: string) => void) | null>(null);
@@ -155,7 +155,7 @@ export function DrawPanel({
       </div>
       <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {shown === "court" ? (
-          <CourtGames draft={draft} segments={segments} courtId={(focus as { id: string }).id} />
+          <CourtGames draft={draft} segments={segments} courtId={(focus as { id: string }).id} gameId={focus.kind === "court" ? (focus.game ?? null) : null} />
         ) : (
           <TeamList
             draft={draft}
@@ -516,8 +516,13 @@ export function TeamDetail({
 }
 
 /** A court's games for the day, in time order: when, what, and both sides. */
-function CourtGames({ draft, segments, courtId }: { draft: PlanDraft; segments: LocalSegment[]; courtId: string }) {
+function CourtGames({ draft, segments, courtId, gameId }: { draft: PlanDraft; segments: LocalSegment[]; courtId: string; gameId: string | null }) {
   const games = segments.filter((s) => s.courtId === courtId).sort((a, b) => a.from - b.from);
+  // The game chosen on the timeline: outlined, and brought into view.
+  const chosen = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (gameId) chosen.current?.scrollIntoView({ block: "nearest" });
+  }, [gameId]);
   return (
     <section aria-label="Games on this court" className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground tabular-nums">
@@ -529,7 +534,12 @@ function CourtGames({ draft, segments, courtId }: { draft: PlanDraft; segments: 
         {games.map((s) => {
           const { where, rubber } = matchText(draft, s.match);
           return (
-            <li key={s.id} className="flex flex-col gap-1 rounded-lg bg-card-system px-3 py-2 text-sm">
+            <li
+              key={s.id}
+              ref={s.id === gameId ? chosen : undefined}
+              aria-current={s.id === gameId || undefined}
+              className={cn("flex flex-col gap-1 rounded-lg bg-card-system px-3 py-2 text-sm", s.id === gameId && "ring-[3px] ring-primary ring-inset")}
+            >
               <span className="flex justify-between gap-2 text-xs text-muted-foreground tabular-nums">
                 <span>
                   {clock(s.from)}–{clock(s.to)}
