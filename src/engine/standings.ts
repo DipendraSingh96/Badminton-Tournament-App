@@ -5,12 +5,24 @@ import type { TiebreakCriterion } from "./types";
 // against the rules when they were entered, so here a game goes to the side
 // with more points and a match to the side with more games.
 
+/**
+ * A match given to a side rather than won on the scores: a walkover (the
+ * other side didn't play) or a retirement (the other side stopped).
+ */
+export interface Award {
+  winner: "home" | "away";
+  /** Retired during a game: that last game's points count, but it's nobody's game. */
+  open?: boolean;
+}
+
 /** A finished fixture between two of the group's entries. */
 export interface PlayedFixture {
   home: string;
   away: string;
   /** One match's games, or each rubber's games for a team tie; each game is [home, away]. */
   rubbers: [number, number][][];
+  /** Rubbers given to a side, by the rubber's place in `rubbers`; none for a rubber won on its scores. */
+  awards?: (Award | null | undefined)[];
 }
 
 /** What one side took from a fixture. */
@@ -23,23 +35,29 @@ export interface FixtureCount {
   pointsLost: number;
 }
 
-/** A fixture counted from the home side: rubbers, games and points each way. */
-export function countFixture(rubbers: [number, number][][]): FixtureCount {
+/**
+ * A fixture counted from the home side: rubbers, games and points each way.
+ * An awarded rubber goes to the side it was given to; the games and points
+ * entered for it still count.
+ */
+export function countFixture(rubbers: [number, number][][], awards?: PlayedFixture["awards"]): FixtureCount {
   const count: FixtureCount = { rubbersWon: 0, rubbersLost: 0, gamesWon: 0, gamesLost: 0, pointsWon: 0, pointsLost: 0 };
-  for (const games of rubbers) {
+  rubbers.forEach((games, r) => {
+    const award = awards?.[r];
     let won = 0;
     let lost = 0;
-    for (const [home, away] of games) {
+    games.forEach(([home, away], g) => {
       count.pointsWon += home;
       count.pointsLost += away;
+      if (award?.open && g === games.length - 1) return;
       if (home > away) won += 1;
       else if (away > home) lost += 1;
-    }
+    });
     count.gamesWon += won;
     count.gamesLost += lost;
-    if (won > lost) count.rubbersWon += 1;
-    else if (lost > won) count.rubbersLost += 1;
-  }
+    if (award ? award.winner === "home" : won > lost) count.rubbersWon += 1;
+    else if (award ? award.winner === "away" : lost > won) count.rubbersLost += 1;
+  });
   return count;
 }
 
@@ -48,8 +66,8 @@ export function countFixture(rubbers: [number, number][][]): FixtureCount {
  * match). A team tie level on rubbers goes to games, then points; still level
  * is nobody's.
  */
-export function fixtureWinner(rubbers: [number, number][][]): "home" | "away" | null {
-  const c = countFixture(rubbers);
+export function fixtureWinner(rubbers: [number, number][][], awards?: PlayedFixture["awards"]): "home" | "away" | null {
+  const c = countFixture(rubbers, awards);
   const by = c.rubbersWon - c.rubbersLost || c.gamesWon - c.gamesLost || c.pointsWon - c.pointsLost;
   return by > 0 ? "home" : by < 0 ? "away" : null;
 }
@@ -81,8 +99,8 @@ function tally(ids: string[], fixtures: PlayedFixture[]): Map<string, Tally> {
     const home = rows.get(f.home);
     const away = rows.get(f.away);
     if (!home || !away) continue;
-    const c = countFixture(f.rubbers);
-    const winner = fixtureWinner(f.rubbers);
+    const c = countFixture(f.rubbers, f.awards);
+    const winner = fixtureWinner(f.rubbers, f.awards);
     home.played += 1;
     away.played += 1;
     if (winner === "home") {
@@ -139,18 +157,25 @@ export interface StandingsInput {
   tiebreaks: TiebreakCriterion[];
   /** Each entry's lot for a draw of lots: the lower number is placed higher. */
   lots?: Record<string, number>;
+  /** An order decided by hand, best first: it separates entries still level after every tiebreak. */
+  byHand?: string[];
+  /** Entries that withdrew during the group stage: placed after everyone else. */
+  withdrawn?: string[];
 }
 
 /**
  * A group's table, best first. The tiebreaks apply in order, each separating
  * only the entries still level after the ones before it. Head-to-head looks
  * only at the fixtures between the entries level at that point. Entries level
- * after every tiebreak share a place and keep their draw order.
+ * after every tiebreak are put in the order decided by hand, if there is one;
+ * otherwise they share a place and keep their draw order. Entries that
+ * withdrew come after everyone else.
  */
-export function groupStandings({ entries, fixtures, tiebreaks, lots }: StandingsInput): StandingRow[] {
+export function groupStandings({ entries, fixtures, tiebreaks, lots, byHand, withdrawn }: StandingsInput): StandingRow[] {
   const rows = tally(entries, fixtures);
+  const gone = new Set(withdrawn ?? []);
   // Sets of entries still level, best first.
-  let sets: string[][] = [entries];
+  let sets: string[][] = [entries.filter((id) => !gone.has(id)), entries.filter((id) => gone.has(id))].filter((s) => s.length > 0);
   for (const criterion of tiebreaks) {
     sets = sets.flatMap((set) => {
       if (set.length < 2) return [set];
@@ -164,6 +189,10 @@ export function groupStandings({ entries, fixtures, tiebreaks, lots }: Standings
       }
       return split(set, (id) => measure(criterion, rows.get(id)!));
     });
+  }
+  if (byHand) {
+    // Only a set the decision covers in full is settled by it.
+    sets = sets.flatMap((set) => (set.length > 1 && set.every((id) => byHand.includes(id)) ? split(set, (id) => -byHand.indexOf(id)) : [set]));
   }
   let place = 1;
   return sets.flatMap((set) => {

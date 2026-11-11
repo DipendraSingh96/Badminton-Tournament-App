@@ -144,6 +144,53 @@ describe("group standings", () => {
     expect(rows[0]).toMatchObject({ played: 2, won: 1, lost: 1, rubbersWon: 4 });
   });
 
+  it("gives an awarded match to the side it was given to, whatever the scores", () => {
+    // A walkover with no games or points: a win and nothing else.
+    const bare: PlayedFixture = { home: "a", away: "b", rubbers: [[]], awards: [{ winner: "away" }] };
+    expect(fixtureWinner(bare.rubbers, bare.awards)).toBe("away");
+    const rows = groupStandings({ entries: ["a", "b"], fixtures: [bare], tiebreaks: ["matchesWon"] });
+    expect(rows[0]).toMatchObject({ id: "b", played: 1, won: 1, gamesWon: 0, pointsWon: 0 });
+    // A walkover in straight games: the games and points count too.
+    const straight: PlayedFixture = { home: "a", away: "b", rubbers: [[[21, 0], [21, 0]]], awards: [{ winner: "home" }] };
+    expect(countFixture(straight.rubbers, straight.awards)).toMatchObject({ rubbersWon: 1, gamesWon: 2, pointsWon: 42 });
+  });
+
+  it("keeps a retired match's points, and its finished games, but not the game it stopped in", () => {
+    // Home won the first game and led the second when they retired: away is given the match.
+    const retired: PlayedFixture = { home: "a", away: "b", rubbers: [[[21, 15], [11, 5]]], awards: [{ winner: "away", open: true }] };
+    expect(countFixture(retired.rubbers, retired.awards)).toEqual({ rubbersWon: 0, rubbersLost: 1, gamesWon: 1, gamesLost: 0, pointsWon: 32, pointsLost: 20 });
+    expect(fixtureWinner(retired.rubbers, retired.awards)).toBe("away");
+  });
+
+  it("puts entries that withdrew after everyone else", () => {
+    const rows = groupStandings({
+      entries: ["a", "b", "c"],
+      fixtures: [match("a", "b", [21, 10]), match("a", "c", [21, 10])],
+      tiebreaks: ["matchesWon"],
+      withdrawn: ["a"],
+    });
+    expect(rows.map((r) => [r.id, r.place])).toEqual([
+      ["b", 1],
+      ["c", 1],
+      ["a", 3],
+    ]);
+  });
+
+  it("orders entries still level by a decision made by hand", () => {
+    const input = { entries: ["a", "b", "c"], fixtures: ring, tiebreaks: ["matchesWon"] as TiebreakCriterion[] };
+    expect(groupStandings(input).every((r) => r.shared)).toBe(true);
+    const rows = groupStandings({ ...input, byHand: ["c", "a", "b"] });
+    expect(rows.map((r) => [r.id, r.place, r.shared])).toEqual([
+      ["c", 1, false],
+      ["a", 2, false],
+      ["b", 3, false],
+    ]);
+    // A decision that leaves one of them out settles nothing.
+    expect(groupStandings({ ...input, byHand: ["c", "a"] }).every((r) => r.shared)).toBe(true);
+    // It never overrides a tiebreak that did separate them.
+    expect(order(groupStandings({ ...input, tiebreaks: ["matchesWon", "pointDifference"], byHand: ["c", "a", "b"] }))).toEqual(["b", "a", "c"]);
+  });
+
   it("gives a tie level on rubbers to games, then points", () => {
     expect(fixtureWinner([[[21, 10]], [[10, 21]]])).toBeNull();
     expect(fixtureWinner([[[21, 10]], [[10, 21], [20, 22]]])).toBe("away");
