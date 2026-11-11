@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PlayIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { matchOutcome, rulesFor, type TournamentInputs } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
-import { entryForSlot, sidePlayers } from "@/lib/tournament/entries";
+import { entryForSlot, sidePlayers, sidesChanged } from "@/lib/tournament/entries";
 import { callUp, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
@@ -29,9 +29,16 @@ function notArrived(draft: PlanDraft, segment: LocalSegment): string[] {
     .map((p) => p.name.trim() || "A player");
 }
 
-/** Both sides are known (a knockout game's aren't until the group stage decides them). */
+/** The two entries playing a game, home then away; null until both are known (a knockout game's come from results). */
+function sidesOf(draft: PlanDraft, segment: LocalSegment): [string, string] | null {
+  const home = entryForSlot(draft, segment.match.categoryId, segment.match.home)?.id;
+  const away = entryForSlot(draft, segment.match.categoryId, segment.match.away)?.id;
+  return home && away ? [home, away] : null;
+}
+
+/** Both sides are known. */
 function sidesKnown(draft: PlanDraft, segment: LocalSegment): boolean {
-  return [segment.match.home, segment.match.away].every((slot) => entryForSlot(draft, segment.match.categoryId, slot) !== null);
+  return sidesOf(draft, segment) !== null;
 }
 
 /** Ready, or who is still to check in. */
@@ -254,14 +261,20 @@ function GameEditor({
   const rules = inputs && category ? rulesFor(inputs, category, match.stage) : undefined;
   const result = draft.results[id];
   const state = gameState(draft.results, id);
-  const known = sidesKnown(draft, segment);
+  const playing = sidesOf(draft, segment);
+  // A game already started keeps its score entry even if a correction has since left a side open.
+  const known = playing !== null || result !== undefined;
+  const changed = sidesChanged(draft, match.categoryId, id, match.home, match.away);
   const home = sideLabel(draft, match, match.home);
   const away = sideLabel(draft, match, match.away);
   const now = () => new Date().toISOString();
 
   const body = !known ? (
     <p className="text-sm text-muted-foreground">
-      The sides are decided from the group standings, which arrive with the next round. This game can&apos;t be started yet.
+      {match.stage === "group"
+        ? "The draw hasn't placed both sides yet."
+        : "The sides come from results still to be played: a group's final places, or the winner of an earlier match."}{" "}
+      This game can&apos;t be started yet.
     </p>
   ) : !rules ? (
     <p className="text-sm text-over-text">This category&apos;s scoring rules for the stage aren&apos;t set, so scores can&apos;t be checked.</p>
@@ -301,7 +314,7 @@ function GameEditor({
                       onChange={(e) => {
                         const raw = e.target.value;
                         const value = raw === "" ? null : Number(raw);
-                        update((d) => setScore(d, id, g, side, value !== null && Number.isNaN(value) ? null : value, now()));
+                        update((d) => setScore(d, id, g, side, value !== null && Number.isNaN(value) ? null : value, now(), playing ?? undefined));
                       }}
                       className={cn(
                         "h-10 w-full min-w-0 [appearance:textfield] rounded-md border text-center font-display text-xl tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
@@ -325,7 +338,7 @@ function GameEditor({
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             {state === "waiting" ? (
-              <Button variant="outline" size="sm" onClick={() => update((d) => startGame(d, id, now()))}>
+              <Button variant="outline" size="sm" onClick={() => update((d) => startGame(d, id, now(), playing ?? undefined))}>
                 <PlayIcon /> Start game
               </Button>
             ) : null}
@@ -371,6 +384,12 @@ function GameEditor({
           </IconButton>
         ) : null}
       </div>
+      {changed ? (
+        <p className="flex items-start gap-2 text-xs text-over-text">
+          <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+          The sides have changed since this was played: a corrected score put someone else in this game.
+        </p>
+      ) : null}
       {body}
     </div>
   );
