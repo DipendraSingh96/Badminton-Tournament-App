@@ -6,6 +6,8 @@ import {
   drawSizes,
   drawStale,
   entryForSlot,
+  entryGroups,
+  matchPlayers,
   groupIndexOf,
   importedEntries,
   lineUpComplete,
@@ -124,6 +126,36 @@ describe("entries in the plan", () => {
     draft.entries[0]!.lineUp = { "2": [draft.entries[0]!.players[0]!.id] };
     expect(sidePlayers(draft, id, "A1", 2).map((p) => p.name)).toEqual(["Ann"]);
     expect(sidePlayers(draft, id, "A1", 1)).toEqual([]);
+  });
+
+  it("lists everyone a match waits for, and gathers entries by group with who has arrived", () => {
+    const draft = completeDraft();
+    const id = draft.categories[0]!.id;
+    draft.entries = Array.from({ length: 5 }, (_, i) => ({ ...emptyEntry(id, 2), name: `Entry ${i + 1}` }));
+    const [e1, e2, e3, e4, e5] = draft.entries.map((e) => e.id) as [string, string, string, string, string];
+    draft.draw[id] = { groups: [[e1, e2], [e4, e3]], randomSeed: 1, locked: true };
+    draft.entries[0]!.players[0]!.attendance = "arrived";
+    draft.entries[1]!.players[1]!.attendance = "absent";
+    const match = { categoryId: id, home: "A1", away: "A2" };
+    expect(matchPlayers(draft, match)).toHaveLength(4);
+    expect(matchPlayers(draft, match).filter((p) => p.attendance !== "arrived")).toHaveLength(3);
+
+    const groups = entryGroups(draft);
+    expect(groups.map((g) => [g.kind, g.group, g.entries.map((e) => e.name)])).toEqual([
+      ["group", 0, ["Entry 1", "Entry 2"]],
+      // In place order, not as entered.
+      ["group", 1, ["Entry 4", "Entry 3"]],
+      ["undrawn", null, ["Entry 5"]],
+    ]);
+    expect(groups[0]!.counts).toEqual({ arrived: 1, notYet: 2, absent: 1 });
+    expect(e5).toBe(groups[2]!.entries[0]!.id);
+    // Only the entries asked for; a group none of them is in is left out.
+    expect(entryGroups(draft, [draft.entries[2]!]).map((g) => g.key)).toEqual([`${id}:1`]);
+
+    // A team's rubber waits only for the players in its line-up.
+    draft.unit = "team";
+    draft.entries[0]!.lineUp = { "1": [draft.entries[0]!.players[0]!.id] };
+    expect(matchPlayers(draft, { ...match, rubber: { number: 1 } })).toHaveLength(1);
   });
 
   it("lists who plays a rubber by the team's line-up", () => {

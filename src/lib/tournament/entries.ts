@@ -360,6 +360,60 @@ export function sidePlayers(draft: PlanDraft, categoryId: string, slot: string, 
   return entry.players;
 }
 
+/** Everyone playing a match, home side then away: the players a game waits for. */
+export function matchPlayers(draft: PlanDraft, match: { categoryId: string; home: string; away: string; rubber?: { number: number } }): PlayerDraft[] {
+  return [match.home, match.away].flatMap((slot) => sidePlayers(draft, match.categoryId, slot, match.rubber?.number));
+}
+
+/** How many of some players have arrived, are still awaited, or are absent. */
+export interface AttendanceCounts {
+  arrived: number;
+  notYet: number;
+  absent: number;
+}
+
+export function attendanceCounts(players: PlayerDraft[]): AttendanceCounts {
+  const counts = { arrived: 0, notYet: 0, absent: 0 };
+  for (const p of players) counts[p.attendance === "arrived" ? "arrived" : p.attendance === "absent" ? "absent" : "notYet"] += 1;
+  return counts;
+}
+
+/** Entries that sit together: a group of a category, a knockout-only category's seeds, or a category's entries not drawn yet. */
+export interface EntryGroup {
+  key: string;
+  categoryId: string;
+  kind: "group" | "seeds" | "undrawn";
+  /** The group's index in its category's draw; null for seeds and undrawn entries. */
+  group: number | null;
+  /** In draw order (place in the group, or seed); undrawn entries as entered. */
+  entries: EntryDraft[];
+  counts: AttendanceCounts;
+}
+
+/**
+ * Entries gathered by where the draw put them, a category at a time: each
+ * group in order, then that category's entries not drawn. Empty ones are
+ * left out. Given a list, only those entries are gathered.
+ */
+export function entryGroups(draft: PlanDraft, entries: EntryDraft[] = draft.entries): EntryGroup[] {
+  const out: EntryGroup[] = [];
+  const add = (key: string, categoryId: string, kind: EntryGroup["kind"], group: number | null, list: EntryDraft[]) => {
+    if (list.length > 0) out.push({ key, categoryId, kind, group, entries: list, counts: attendanceCounts(list.flatMap((e) => e.players)) });
+  };
+  for (const category of draft.categories) {
+    const own = entries.filter((e) => e.categoryId === category.id);
+    const byId = new Map(own.map((e) => [e.id, e]));
+    const drawn = new Set<string>();
+    for (const [g, ids] of (draft.draw[category.id]?.groups ?? []).entries()) {
+      const list = ids.map((id) => byId.get(id)).filter((e): e is EntryDraft => Boolean(e));
+      for (const e of list) drawn.add(e.id);
+      add(`${category.id}:${g}`, category.id, draft.format === "knockout" ? "seeds" : "group", draft.format === "knockout" ? null : g, list);
+    }
+    add(`${category.id}:undrawn`, category.id, "undrawn", null, own.filter((e) => !drawn.has(e.id)));
+  }
+  return out;
+}
+
 /** The players of a team who play a rubber, by the team's fixed line-up; empty when not set. */
 export function rubberPlayers(entry: EntryDraft, rubber: number): string[] {
   const ids = entry.lineUp[String(rubber)] ?? [];

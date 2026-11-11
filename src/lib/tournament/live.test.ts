@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
-import { callUp, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
+import { boardSections, callUp, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
 import { normaliseDraft } from "./storage";
 
 const games = [
@@ -69,5 +69,29 @@ describe("live play", () => {
     const saved = JSON.parse(JSON.stringify(emptyDraft("Europe/London")));
     delete saved.results;
     expect(normaliseDraft(saved).results).toEqual({});
+  });
+
+  it("sorts the desk's games: on court, then free courts with their next game, then the rest", () => {
+    const draft = emptyDraft("Europe/London");
+    const order = ["c1", "c2", "c3"];
+    // Nothing started: every court is free with its first game; a court with no games has none.
+    let board = boardSections(games, draft.results, order);
+    expect(board.started).toBe(false);
+    expect(board.onCourt).toEqual([]);
+    expect(board.free.map((f) => [f.courtId, f.next?.id ?? null])).toEqual([["c1", "a"], ["c2", "b"], ["c3", null]]);
+    expect(board.upNext.map((g) => g.id)).toEqual(["c", "d", "e"]);
+
+    startGame(draft, "b", NOW);
+    board = boardSections(games, draft.results, order);
+    expect(board.started).toBe(true);
+    expect(board.onCourt.map((g) => g.id)).toEqual(["b"]);
+    expect(board.free.map((f) => f.courtId)).toEqual(["c1", "c3"]);
+
+    // A court that finishes is free again, with the game it is due next.
+    finishGame(draft, "b", LATER);
+    board = boardSections(games, draft.results, order);
+    expect(board.onCourt).toEqual([]);
+    expect(board.free.map((f) => [f.courtId, f.next?.id ?? null])).toEqual([["c1", "a"], ["c2", "d"], ["c3", null]]);
+    expect(board.upNext.map((g) => g.id)).toEqual(["c", "e"]);
   });
 });

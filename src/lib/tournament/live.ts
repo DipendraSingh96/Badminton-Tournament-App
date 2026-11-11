@@ -1,4 +1,4 @@
-import type { MatchResultDraft, PlanDraft } from "./draft";
+import type { MatchAwardDraft, MatchResultDraft, PlanDraft } from "./draft";
 
 // What "now" means once the tournament is Live: the board follows what has
 // actually been played, not the clock. Each court keeps its games in their
@@ -104,4 +104,51 @@ export function reopenGame(draft: PlanDraft, id: string): void {
   delete result.award;
   result.state = "onCourt";
   result.finishedAt = null;
+}
+
+/** The desk's view of every game still to finish, as the day stands. */
+export interface BoardSections<G extends ScheduledGame> {
+  /** A game has been started or finished: before that the courts just show their first games. */
+  started: boolean;
+  /** The games being played, in the courts' order. */
+  onCourt: G[];
+  /** Each court with nothing on it, in the courts' order, with the game it is due next (null when it has none waiting). */
+  free: { courtId: string; next: G | null }[];
+  /** The other waiting games, soonest scheduled first. */
+  upNext: G[];
+}
+
+/**
+ * What the desk works from: the games on court, then the courts standing
+ * free (each with its next game), then everything else that is waiting. It
+ * re-sorts itself as games start and finish.
+ */
+export function boardSections<G extends ScheduledGame>(games: G[], results: PlanDraft["results"], courtOrder: string[]): BoardSections<G> {
+  const queues = courtQueues(games, results);
+  const onCourt: G[] = [];
+  const free: { courtId: string; next: G | null }[] = [];
+  for (const courtId of courtOrder) {
+    const current = queues.get(courtId)?.current ?? null;
+    if (current && gameState(results, current.id) === "onCourt") onCourt.push(current);
+    else free.push({ courtId, next: current });
+  }
+  const shown = new Set(free.map((f) => f.next?.id));
+  return {
+    started: games.some((g) => results[g.id] !== undefined),
+    onCourt,
+    free,
+    upNext: callUp(games, results, courtOrder).filter((g) => !shown.has(g.id)),
+  };
+}
+
+/** How an awarded match is marked beside its score: a walkover or a retirement. */
+export function awardMark(award: MatchAwardDraft | undefined): string | null {
+  return award ? (award.reason === "walkover" ? "W/O" : "Ret.") : null;
+}
+
+/** A match's scores as entered, a game at a time: "21–15  18–"; with "W/O" or "Ret." after an awarded match's. */
+export function scoreText(games: [number | null, number | null][] | undefined, award?: MatchAwardDraft): string | null {
+  const played = (games ?? []).filter(([home, away]) => home !== null || away !== null);
+  const text = [...played.map(([home, away]) => `${home ?? ""}–${away ?? ""}`), awardMark(award)].filter(Boolean).join("  ");
+  return text || null;
 }
