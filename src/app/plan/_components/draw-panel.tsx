@@ -60,7 +60,7 @@ export function TeamName({
 }
 
 /** Where an entry sits in its category's draw: "A1", "Seed 3", or null before the draw. */
-function placeOf(draft: PlanDraft, entry: EntryDraft): string | null {
+export function placeOf(draft: PlanDraft, entry: EntryDraft): string | null {
   const groups = draft.draw[entry.categoryId]?.groups ?? [];
   for (const [g, list] of groups.entries()) {
     const p = list.indexOf(entry.id);
@@ -70,7 +70,7 @@ function placeOf(draft: PlanDraft, entry: EntryDraft): string | null {
 }
 
 /** A court's number from its id. */
-function courtOf(draft: PlanDraft, courtId: string): number | null {
+export function courtOf(draft: PlanDraft, courtId: string): number | null {
   for (const [h, hall] of draft.frame.halls.entries()) {
     const c = hall.courts.findIndex((x) => x.id === courtId);
     if (c !== -1) return courtNumber(draft.frame.halls, h, c);

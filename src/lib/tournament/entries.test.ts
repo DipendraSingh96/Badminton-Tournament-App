@@ -255,3 +255,35 @@ describe("swapDrawn", () => {
     expect(draft.draw[id]!.groups).toEqual([["a", "b"], ["c", "d"]]);
   });
 });
+
+describe("phone numbers", () => {
+  it("come in with a Phone column for each player, and blank where a row has none", () => {
+    const rows = parseDelimited(
+      ["Name,Player 1,Phone 1,Player 2,Phone 2", ",Ann Lee,07700 900001,Raj Shah,", ",Mo Ali,,Li Wei,07700 900002"].join("\n"),
+    );
+    const { entries, problems } = entriesFromRows(rows, [{ id: "c1", name: "Mixed doubles" }]);
+    expect(problems).toEqual([]);
+    expect(entries.map((e) => e.phones)).toEqual([
+      ["07700 900001", ""],
+      ["", "07700 900002"],
+    ]);
+    const made = importedEntries(completeDraft(), entries);
+    expect(made[0]!.players.map((p) => p.phone)).toEqual(["07700 900001", undefined]);
+    expect(made[1]!.players[1]!.phone).toBe("07700 900002");
+  });
+
+  it("are left out of rows with no Phone column", () => {
+    const rows = parseDelimited(["Name,Player 1,Player 2", ",Ann Lee,Raj Shah"].join("\n"));
+    const { entries } = entriesFromRows(rows, [{ id: "c1", name: "Mixed doubles" }]);
+    expect(entries[0]).not.toHaveProperty("phones");
+  });
+
+  it("survive saving and loading, and older entries open without one", () => {
+    const draft = completeDraft();
+    const entry = emptyEntry(draft.categories[0]!.id, 2);
+    entry.players[0]!.phone = "07700 900003";
+    draft.entries.push(entry);
+    const loaded = normaliseDraft(JSON.parse(JSON.stringify(draft)));
+    expect(loaded.entries[0]!.players.map((p) => p.phone)).toEqual(["07700 900003", undefined]);
+  });
+});

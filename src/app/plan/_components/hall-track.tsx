@@ -5,7 +5,7 @@ import { bandCoverage, type Span } from "@/engine";
 import { bandName, drawBand, hallName, hoursFromBands, newId, removeBand, setHallWindow, type PlanDraft } from "@/lib/tournament/draft";
 import { GRID_MINUTES, stepOf, type Window } from "@/lib/tournament/snap";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
-import { IssuesContext, pathKey } from "./fields";
+import { IssuesContext, MoneyHiddenContext, pathKey } from "./fields";
 import { formatMoney } from "./labels";
 import type { Update } from "./plan-editor";
 import { TimeWindowTrack, ViewRangeContext, type Boundary } from "./time-window";
@@ -37,6 +37,7 @@ export function HallTrack({
   /** Before the hours are drawn, a line follows the pointer with the time drawing would start at. */
   hoverGuide?: boolean;
 }) {
+  const moneyHidden = useContext(MoneyHiddenContext);
   const hall = draft.frame.halls[hallIndex]!;
   const issues = useContext(IssuesContext);
   const { range } = useContext(ViewRangeContext);
@@ -112,11 +113,11 @@ export function HallTrack({
                 detailed ? "text-xs font-medium" : "text-xs text-muted-foreground"
               } ${i % 2 === 0 ? "bg-foreground/[0.05]" : "bg-foreground/[0.11]"}`}
               style={{ left: pct(from), width: `calc(${pct(to)} - ${pct(from)})` }}
-              title={`${bandName(band, index)}: ${band.from}–${band.to}${band.rate !== null ? `, ${formatMoney(band.rate)} ${per}` : ""}`}
+              title={`${bandName(band, index)}: ${band.from}–${band.to}${band.rate !== null && !moneyHidden ? `, ${formatMoney(band.rate)} ${per}` : ""}`}
             >
               <span className="truncate">
                 {bandName(band, index)}
-                {band.rate !== null ? ` · ${formatMoney(band.rate)}${detailed ? ` ${per}` : ""}` : ""}
+                {band.rate !== null && !moneyHidden ? ` · ${formatMoney(band.rate)}${detailed ? ` ${per}` : ""}` : ""}
               </span>
             </span>
           ))}
@@ -169,6 +170,7 @@ export function BandTrack({
   selected: number | null;
   onSelectBand: (index: number) => void;
 }) {
+  const moneyHidden = useContext(MoneyHiddenContext);
   const hall = draft.frame.halls[hallIndex]!;
   const { range } = useContext(ViewRangeContext);
   /** The band being drawn, and the free part of the day it's drawn in. */
@@ -271,11 +273,11 @@ export function BandTrack({
               <span
                 className="absolute inset-y-0 flex items-center overflow-hidden px-2 text-xs font-medium"
                 style={{ left: pct(from), width: `calc(${pct(to)} - ${pct(from)})` }}
-                title={`${label}: ${band.from}–${band.to}${band.rate !== null ? `, ${formatMoney(band.rate)} ${per}` : ""}`}
+                title={`${label}: ${band.from}–${band.to}${band.rate !== null && !moneyHidden ? `, ${formatMoney(band.rate)} ${per}` : ""}`}
               >
                 <span className="truncate">
                   {label}
-                  {band.rate !== null ? ` · ${formatMoney(band.rate)} ${per}` : ""}
+                  {band.rate !== null && !moneyHidden ? ` · ${formatMoney(band.rate)} ${per}` : ""}
                 </span>
               </span>
             }

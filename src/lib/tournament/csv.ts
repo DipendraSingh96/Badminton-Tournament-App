@@ -1,6 +1,6 @@
 // Reading entries from a spreadsheet: a CSV file, or rows pasted from one
 // (tab separated). Columns are found by their heading: Category, Name (or
-// Team), Player 1…n, External, Seed. Without a heading row, the columns are
+// Team), Player 1…n, Phone 1…n (each player's number), External, Seed. Without a heading row, the columns are
 // taken as Name, then players. Anything that can't be read is reported, never
 // guessed.
 
@@ -42,6 +42,8 @@ export interface ImportedEntry {
   categoryId: string;
   name: string;
   players: string[];
+  /** Each player's phone number, in the players' order; only when the rows have Phone columns. */
+  phones?: string[];
   external: boolean;
   seed: number | null;
 }
@@ -61,7 +63,7 @@ export function entriesFromRows(
   if (rows.length === 0) return { entries, problems };
 
   const heading = rows[0]!.map((c) => c.toLowerCase());
-  const hasHeading = heading.some((c) => /^(category|name|team|pair|external|seed|player\s*\d*)$/.test(c));
+  const hasHeading = heading.some((c) => /^(category|name|team|pair|external|seed|player\s*\d*|phone\s*\d*)$/.test(c));
   const column = (test: RegExp) => (hasHeading ? heading.findIndex((c) => test.test(c)) : -1);
   const categoryCol = column(/^category$/);
   const nameCol = hasHeading ? column(/^(name|team|pair)$/) : 0;
@@ -70,6 +72,8 @@ export function entriesFromRows(
   const playerCols = hasHeading
     ? heading.flatMap((c, i) => (/^player\s*\d*$/.test(c) ? [i] : []))
     : rows[0]!.map((_, i) => i).slice(1);
+  // "Phone 1", "Phone 2"…: the nth is the nth player's.
+  const phoneCols = hasHeading ? heading.flatMap((c, i) => (/^phone\s*\d*$/.test(c) ? [i] : [])) : [];
 
   const byName = new Map(categories.map((c) => [c.name.trim().toLowerCase(), c.id]));
   (hasHeading ? rows.slice(1) : rows).forEach((row, i) => {
@@ -86,7 +90,10 @@ export function entriesFromRows(
       problems.push(`Row ${line}: say which category it's in`);
       return;
     }
-    const players = playerCols.map((c) => row[c] ?? "").filter(Boolean);
+    const named = playerCols
+      .map((c, k) => ({ name: row[c] ?? "", phone: phoneCols[k] === undefined ? "" : (row[phoneCols[k]!] ?? "") }))
+      .filter((p) => p.name);
+    const players = named.map((p) => p.name);
     const name = nameCol === -1 ? "" : (row[nameCol] ?? "");
     if (!name && players.length === 0) {
       problems.push(`Row ${line}: no name or players`);
@@ -102,6 +109,7 @@ export function entriesFromRows(
       categoryId,
       name,
       players,
+      ...(phoneCols.length > 0 ? { phones: named.map((p) => p.phone) } : {}),
       external: externalCol !== -1 && YES.has((row[externalCol] ?? "").toLowerCase()),
       seed,
     });

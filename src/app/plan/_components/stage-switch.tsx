@@ -13,7 +13,6 @@ export const STAGES: { value: TournamentStage; label: string }[] = [
 
 /** Stages that can't be reached yet in this build, and why. */
 const NOT_YET: Partial<Record<TournamentStage, string>> = {
-  live: "Live comes with the next slice: scores, live standings and the moving bracket.",
   results: "Results come after Live.",
 };
 
@@ -28,7 +27,10 @@ export function StageSwitch({
   onView,
   onAdvance,
   planMissing,
+  liveBlocked,
 }: {
+  /** Why the tournament can't go Live yet (a draw still unlocked); null when it can. */
+  liveBlocked: string | null;
   /** How many items the plan still needs; none means it's complete. */
   planMissing: number;
   /** The furthest stage reached. */
@@ -48,10 +50,14 @@ export function StageSwitch({
         const next = i === reached + 1;
         // The draw needs a complete plan.
         const unfinished = next && s.value === "draw" && planMissing > 0;
-        const blocked = (i > reached && !next) || (next && NOT_YET[s.value] !== undefined) || unfinished;
+        // Going Live needs every category's draw locked.
+        const undrawn = next && s.value === "live" && liveBlocked !== null;
+        const blocked = (i > reached && !next) || (next && NOT_YET[s.value] !== undefined) || unfinished || undrawn;
         const title = unfinished
           ? `Finish the plan first: ${planMissing} ${planMissing === 1 ? "item" : "items"} to fill in.`
-          : blocked
+          : undrawn
+            ? liveBlocked
+            : blocked
             ? (NOT_YET[s.value] ?? `Reach ${STAGES[i - 1]!.label} first.`)
             : next
               ? `Move on to ${s.label}`

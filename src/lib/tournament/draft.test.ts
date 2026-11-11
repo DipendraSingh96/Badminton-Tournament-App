@@ -6,6 +6,7 @@ import {
   removeBand,
   setBandTime,
   splitRates,
+  canGoLive,
   newCategory,
   withOwnRules,
   categoryRules,
@@ -322,6 +323,23 @@ describe("rules per category", () => {
     expect(opened.categories[0]!.stageRules!.group).not.toBe(opened.categories[1]!.stageRules!.group);
     // Already its own: left as it is.
     expect(withOwnRules(opened)).toBe(opened);
+  });
+});
+
+describe("canGoLive", () => {
+  it("needs every category's draw made and locked", () => {
+    const draft = draftWith(["MD", "XD"]);
+    expect(canGoLive(draft)).toBe(false);
+    draft.draw.c1 = { groups: [[]], randomSeed: 1, locked: true };
+    expect(canGoLive(draft)).toBe(false);
+    draft.draw.c2 = { groups: [[]], randomSeed: 1, locked: false };
+    expect(canGoLive(draft)).toBe(false);
+    draft.draw.c2.locked = true;
+    expect(canGoLive(draft)).toBe(true);
+  });
+
+  it("is never possible with no categories", () => {
+    expect(canGoLive(emptyDraft("Europe/London"))).toBe(false);
   });
 });
 

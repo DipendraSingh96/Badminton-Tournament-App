@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { analyseTournament, estimateSchedule, type LeverChange } from "@/engine";
 import { emptyHistory, record, redo as redoIn, undo as undoIn } from "@/lib/tournament/history";
 import { applyLever } from "@/lib/tournament/levers";
-import { courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
+import { canGoLive, courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
 import { fillStage } from "@/lib/tournament/dummy/fill";
 import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type SampleStage } from "@/lib/tournament/dummy/marks";
 import { minutesOfDay } from "@/lib/tournament/time";
@@ -34,7 +34,8 @@ import { DrawStage, type DrawStageView } from "./draw-stage";
 import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
-import { IconButton, IssuesContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
+import { LiveStage, type LiveStageView } from "./live-stage";
 import { FinanceTab } from "./finance-tab";
 import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
@@ -445,6 +446,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [stageView, setStageView] = useState<TournamentStage>(draft.stage);
   // Once any category's draw is locked, the structure is read-only.
   const locked = Object.values(draft.draw).some((d) => d.locked);
+  // Live (and after): the structure and the venue are fixed, and nothing about money is on screen.
+  const isLive = draft.stage === "live" || draft.stage === "results";
+  // Going Live needs every category drawn and its draw locked.
+  const liveBlocked = canGoLive(draft) ? null : "Lock every category's draw first.";
+  // The Live stage's open page.
+  const [liveView, setLiveView] = useState<LiveStageView>("checkin");
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
 
   // Sample data: the stage being viewed can be filled where it's empty, and its sample data removed.
@@ -498,6 +505,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           title: "Move on to the draw?",
           body: "From here the plan uses the entries you enter instead of the expected numbers. You can go back to the expected numbers.",
           action: "Move on to the draw",
+        }))
+      )
+        return;
+    }
+    if (next === "live") {
+      if (
+        !(await confirm({
+          title: "Go Live?",
+          body: "The structure is fixed from here: categories, groups, rules, the venue and the draw can't be changed. Money is hidden while the tournament is Live.",
+          action: "Go Live",
         }))
       )
         return;
@@ -618,7 +635,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onCollapsedChange={foldTimeline}
           onFitHeight={setThinHeight}
           // After the draw the day is as planned: only games move.
-          fixed={viewing !== "plan"}
+          fixed={viewing !== "plan" || isLive}
         />
         </div>
       </ResizablePanel>
@@ -634,9 +651,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       onView={setStageView}
       onAdvance={advance}
       planMissing={planMissing}
+      liveBlocked={liveBlocked}
       actions={
-        // Live runs on the day's real data: no sample data there.
-        viewing === "live" ? null : <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
+        // Live runs on the day's real data: no sample data there, or anywhere once the tournament is Live.
+        isLive ? null : <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
       }
     />
   );
@@ -645,6 +663,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
+        <MoneyHiddenContext value={isLive}>
         <CourtSizeContext value={courtSizing}>
           <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background text-sm">
             <Sidebar
@@ -675,7 +694,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </div>
               </div>
               <div className="flex min-h-0 flex-1">
-                {viewing !== "plan" ? (
+                {viewing === "live" || viewing === "results" ? (
+                  <LiveStage draft={draft} update={update} segments={segments} view={liveView} onViewChange={setLiveView} />
+                ) : viewing !== "plan" ? (
                   <DrawStage
                     draft={draft}
                     update={update}
@@ -695,11 +716,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     }
                   />
                 ) : (
-                  <div className="min-w-0 flex-1">{workingArea}</div>
+                  // Once the tournament is Live, the venue is looked at here, not rebuilt.
+                  <VenueFixedContext value={isLive}>
+                    <div className="min-w-0 flex-1">{workingArea}</div>
+                  </VenueFixedContext>
                 )}
               </div>
             </main>
-            {viewing !== "plan" ? (
+            {viewing === "live" || viewing === "results" ? null : viewing !== "plan" ? (
               // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
               workbenchFolded ? (
                 <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
@@ -731,13 +755,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
                     <CaretLeftIcon />
                   </IconButton>
-                  <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} />
+                  <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={isLive} />
                 </aside>
               ) : (
                 <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
                   {locked ? (
                     <div className="px-4 pb-3">
-                      <StageBar onUnlock={unlockDraw} />
+                      <StageBar onUnlock={unlockDraw} live={isLive} />
                     </div>
                   ) : null}
                   {preview && parsed.ok ? (
@@ -756,6 +780,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       analysis={shownAnalysis}
                       warnings={warnings}
                       sample={sample}
+                      hideMoney={isLive}
                       onGoTo={goTo}
                       action={
                         <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
@@ -765,13 +790,19 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     />
                   </div>
                   <Tabs
-                    value={tab}
+                    // While Live the Budget tab can't be opened: wherever it was left, Setup shows.
+                    value={isLive && tab === "finance" ? "setup" : tab}
                     onValueChange={(value) => chooseTab(value as Tab)}
                     className="min-h-0 flex-1 gap-0"
                   >
                     <TabsList variant="line" className="w-full shrink-0 justify-start px-2">
                       {TABS.map((t) => (
-                        <TabsTrigger key={t.value} value={t.value}>
+                        <TabsTrigger
+                          key={t.value}
+                          value={t.value}
+                          disabled={isLive && t.value === "finance"}
+                          title={isLive && t.value === "finance" ? "Hidden while the tournament is Live" : undefined}
+                        >
                           {t.label}
                           {tabMissing[t.value] > 0 ? (
                             <span className="font-normal tabular-nums" aria-label={`${tabMissing[t.value]} to fill in`}>
@@ -819,6 +850,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             </TeamOpenContext>
           </div>
         </CourtSizeContext>
+        </MoneyHiddenContext>
         </IssuesContext>
       </ViewRangeContext>
     </TooltipProvider>

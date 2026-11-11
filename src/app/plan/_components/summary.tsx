@@ -86,10 +86,13 @@ export function RailSummary({
   draft,
   parsed,
   analysis,
+  hideMoney = false,
 }: {
   draft: PlanDraft;
   parsed: ParseResult;
   analysis: AnalysisResult | null;
+  /** The tournament is Live: no profit or loss on screen. */
+  hideMoney?: boolean;
 }) {
   const result = analysis?.ok ? analysis.analysis : null;
   const status = result ? FIT_STATUS[result.capacity.status].variant : null;
@@ -113,7 +116,7 @@ export function RailSummary({
         <p className={cn(sideways, "text-muted-foreground")}>
           {missing} {missing === 1 ? "item" : "items"} to fill in
         </p>
-      ) : result ? (
+      ) : result && !hideMoney ? (
         <p className={cn(sideways, "font-semibold tabular-nums", loss ? "text-over-text" : "text-fits-text")}>
           {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
         </p>
@@ -142,7 +145,10 @@ export function Summary({
   sample,
   action,
   onGoTo,
+  hideMoney = false,
 }: {
+  /** The tournament is Live: no profit or loss on screen. */
+  hideMoney?: boolean;
   /** The sample data in the plan: how many items, and the first of them to jump to. */
   sample: { count: number; first: PlanIssue | null };
   /** At the right of the heading: the workbench's hide button. */
@@ -205,9 +211,11 @@ export function Summary({
             {formatMinutesShort(result.capacity.needed.typical)} of {formatMinutesShort(result.capacity.available.courtMinutes)}
           </span>
           <span>{result.totalMatches} matches</span>
-          <span className={cn("font-semibold", loss ? "text-over-text" : "text-fits-text")}>
-            {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
-          </span>
+          {hideMoney ? null : (
+            <span className={cn("font-semibold", loss ? "text-over-text" : "text-fits-text")}>
+              {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
+            </span>
+          )}
         </p>
       ) : null}
       {notes.length > 0 ? (

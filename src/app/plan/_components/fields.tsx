@@ -18,6 +18,12 @@ export function pathKey(path: Path): string {
   return path.map(String).join(".");
 }
 
+/**
+ * The tournament is Live: nothing about money is shown (profit, fees, hire
+ * rates), because the screen is often open in the hall.
+ */
+export const MoneyHiddenContext = createContext(false);
+
 /** Validation messages keyed by field path. */
 export const IssuesContext = createContext<Map<string, string>>(new Map());
 

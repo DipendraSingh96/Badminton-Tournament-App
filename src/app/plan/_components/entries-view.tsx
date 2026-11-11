@@ -294,13 +294,24 @@ function EntryRow({
           ) : (
             <span className="flex gap-2">
               {entry.players.map((player, p) => (
-                <Input
-                  key={player.id}
-                  aria-label={label(`Player ${p + 1}`)}
-                  value={player.name}
-                  placeholder={`Player ${p + 1}`}
-                  onChange={(e) => edit((x) => void (x.players[p]!.name = e.target.value))}
-                />
+                // Each player's name, with a phone number under it for the desk on the day.
+                <span key={player.id} className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Input
+                    aria-label={label(`Player ${p + 1}`)}
+                    value={player.name}
+                    placeholder={`Player ${p + 1}`}
+                    onChange={(e) => edit((x) => void (x.players[p]!.name = e.target.value))}
+                  />
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    aria-label={label(`Player ${p + 1} phone`)}
+                    value={player.phone ?? ""}
+                    placeholder="Phone (optional)"
+                    className="tabular-nums"
+                    onChange={(e) => edit((x) => void (x.players[p]!.phone = e.target.value))}
+                  />
+                </span>
               ))}
             </span>
           )}
@@ -363,6 +374,15 @@ function TeamDetails({
               value={player.name}
               placeholder={`Player ${p + 1}`}
               onChange={(e) => edit((x) => void (x.players[p]!.name = e.target.value))}
+            />
+            <Input
+              type="tel"
+              inputMode="tel"
+              aria-label={`Squad player ${p + 1} phone`}
+              value={player.phone ?? ""}
+              placeholder="Phone"
+              className="w-36 shrink-0 tabular-nums"
+              onChange={(e) => edit((x) => void (x.players[p]!.phone = e.target.value))}
             />
             <IconButton
               label={`Remove squad player ${p + 1}`}

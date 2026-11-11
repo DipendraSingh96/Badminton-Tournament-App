@@ -250,6 +250,11 @@ export interface PlayerDraft {
   id: string;
   name: string;
   attendance: Attendance;
+  /**
+   * A contact number for the desk on the day. Optional, and for the organiser
+   * only: never on the audience board or a shared link.
+   */
+  phone?: string;
 }
 
 /** A team, pair or single player entered in a category. */
@@ -359,6 +364,11 @@ export function stagesInPlay(draft: PlanDraft): Stage[] {
     stages.push("final");
   }
   return stages;
+}
+
+/** Going Live needs every category drawn and its draw locked: the day runs on a fixed draw. */
+export function canGoLive(draft: PlanDraft): boolean {
+  return draft.categories.length > 0 && draft.categories.every((c) => draft.draw[c.id]?.locked === true);
 }
 
 /** A category's scoring and timing per stage: its own, or the plan's when it has none yet. */

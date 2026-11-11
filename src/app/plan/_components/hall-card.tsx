@@ -40,7 +40,7 @@ import { BandTrack } from "./hall-track";
 import { COURT_SIZES, COURT_WIDTH, CourtCard, CourtSizeContext, VenueFixedContext, type GroupOption } from "./court-card";
 import { CourtStrip } from "./court-strip";
 import type { CourtStatus } from "./timeline";
-import { IconButton, InfoTip, NumberField, StepperField, TextField } from "./fields";
+import { IconButton, InfoTip, MoneyHiddenContext, NumberField, StepperField, TextField } from "./fields";
 import { InlineNumber, InlineTime } from "./inline-fields";
 import type { Update } from "./plan-editor";
 import { ViewRangeContext } from "./time-window";
@@ -295,6 +295,7 @@ export function HallCard({
   const { size, setSize } = useContext(CourtSizeContext);
   const sizeStep = COURT_SIZES.indexOf(size);
   const fixed = useContext(VenueFixedContext);
+  const moneyHidden = useContext(MoneyHiddenContext);
   const path = (...rest: PropertyKey[]) => ["frame", "halls", hallIndex, ...rest];
   const editHall = (recipe: (h: HallDraft) => void) => update((d) => recipe(d.frame.halls[hallIndex]!));
   const setHours = (key: "from" | "to") => (value: string) =>
@@ -353,7 +354,10 @@ export function HallCard({
     ["Opens", hall.from || "--:--"],
     ["Closes", hall.to || "--:--"],
     ["Time unit", hall.unitMinutes ? `${hall.unitMinutes} min` : "–"],
-    ["Rate", hall.multipleRates ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}` : rate != null ? `£ ${rate}` : "–"],
+    // No money on screen while the tournament is Live.
+    ...(moneyHidden
+      ? []
+      : ([["Rate", hall.multipleRates ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}` : rate != null ? `£ ${rate}` : "–"]] as [string, string][])),
   ];
 
   return (

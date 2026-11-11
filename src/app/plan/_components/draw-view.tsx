@@ -93,6 +93,9 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
           {draw?.locked ? (
             <Button
               variant="outline"
+              // Live: the draw stays as it is.
+              disabled={draft.stage !== "draw"}
+              title={draft.stage !== "draw" ? "The tournament is Live: the draw stays locked." : undefined}
               onClick={() => update((d) => void (d.draw[category.id]!.locked = false))}
             >
               <LockSimpleOpenIcon /> Unlock

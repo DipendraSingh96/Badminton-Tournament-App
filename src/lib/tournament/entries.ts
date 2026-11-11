@@ -115,6 +115,7 @@ export function importedEntries(draft: PlanDraft, imported: ImportedEntry[]): En
     entry.external = row.external;
     entry.seed = row.seed;
     row.players.forEach((name, i) => (entry.players[i]!.name = name));
+    row.phones?.forEach((phone, i) => phone && (entry.players[i]!.phone = phone));
     return entry;
   });
 }
