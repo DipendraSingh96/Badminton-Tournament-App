@@ -84,7 +84,8 @@ describe("a simulated day", () => {
     const end = dayAfter(draft, events, events.length);
     const played = games.filter((g) => span.has(g.id));
     for (const a of played) {
-      expect(span.get(a.id)!.from).toBeGreaterThanOrEqual(a.from);
+      // Nothing before the day begins (here, the planned first game at 09:00).
+      expect(span.get(a.id)!.from).toBeGreaterThanOrEqual(540);
       for (const b of played) {
         if (a.id >= b.id) continue;
         const apart = span.get(a.id)!.to <= span.get(b.id)!.from || span.get(b.id)!.to <= span.get(a.id)!.from;
@@ -119,8 +120,33 @@ describe("a simulated day", () => {
     expect(events.map((e) => e.at)).toEqual([...events.map((e) => e.at)].sort((a, b) => a - b));
     const finished = (minute: number) => Object.values(dayAfter(draft, events, eventsBy(events, minute)).results).filter((r) => r.state === "finished").length;
     expect(finished(539)).toBe(0);
-    expect(finished(575)).toBeGreaterThan(0);
-    expect(finished(575)).toBeLessThan(finished(700));
+    expect(finished(565)).toBeGreaterThan(0);
+    expect(finished(565)).toBeLessThan(finished(700));
     expect(finished(2000)).toBe(games.length);
+  });
+
+  it("begins when told to, shifts the day with it, and starts each game as soon as it can", () => {
+    const { draft, games } = tournament();
+    // Twenty minutes late.
+    const events = simulateDay(draft, games, rulesOf, 9, 560);
+    expect(events[0]).toEqual({ at: 560, kind: "begin", late: 20 });
+    expect(events.filter((e) => e.kind === "start").every((e) => e.at >= 560)).toBe(true);
+    const end = dayAfter(draft, events, Infinity);
+    expect(end.startedAt).not.toBeNull();
+    expect(end.log.find((l) => l.kind === "start")).toMatchObject({ text: "The tournament started at 09:20, 20 minutes after the plan", by: SIMULATED_BY });
+    expect(games.every((g) => end.results[g.id]?.state === "finished")).toBe(true);
+
+    // On a court, the next game starts the moment the one before it ends: no waiting for its planned minute.
+    const starts = new Map(events.filter((e) => e.kind === "start").map((e) => [(e as { matchId: string }).matchId, e.at]));
+    const ends = new Map(events.filter((e) => e.kind === "finish").map((e) => [(e as { matchId: string }).matchId, e.at]));
+    const early = games.filter((g) => starts.has(g.id) && starts.get(g.id)! < g.from + 20);
+    expect(early.length).toBeGreaterThan(0);
+    const firstOnCourt = games.find((g) => g.courtId === "c1")!;
+    const second = games.filter((g) => g.courtId === "c1")[1]!;
+    expect(starts.get(second.id)).toBeGreaterThanOrEqual(ends.get(firstOnCourt.id)!);
+
+    // A tournament already started keeps its own start.
+    draft.startedAt = "2026-07-04T08:10:00.000Z";
+    expect(simulateDay(draft, games, rulesOf, 9, 550).some((e) => e.kind === "begin")).toBe(false);
   });
 });

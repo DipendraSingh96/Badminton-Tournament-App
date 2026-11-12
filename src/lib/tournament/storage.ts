@@ -45,6 +45,7 @@ export function normaliseDraft(
     | "withdrawn"
     | "decided"
     | "log"
+    | "startedAt"
     | "resources"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
@@ -55,6 +56,7 @@ export function normaliseDraft(
     withdrawn?: PlanDraft["withdrawn"];
     decided?: PlanDraft["decided"];
     log?: PlanDraft["log"];
+    startedAt?: PlanDraft["startedAt"];
     resources?: PlanDraft["resources"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
@@ -89,6 +91,8 @@ export function normaliseDraft(
     withdrawn: saved.withdrawn ?? {},
     decided: saved.decided ?? {},
     log: saved.log ?? [],
+    // Saved before the tournament could be started by hand: not started.
+    startedAt: saved.startedAt ?? null,
     // Saved before the Resources page: nothing prepared yet.
     resources: { ...emptyResources(), ...saved.resources },
     // Groups keep their own courts unless the organiser chose to share them.

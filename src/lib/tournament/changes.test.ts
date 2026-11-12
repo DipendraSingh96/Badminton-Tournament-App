@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awardMatch, canReverse, decideTie, finishMatch, goLive, moveGame, planWithdrawal, reversalBlockedBy, reverseChange, withdrawEntry } from "./changes";
+import { awardMatch, canReverse, decideTie, finishMatch, goLive, holding, moveGame, planWithdrawal, playingNow, reversalBlockedBy, reverseChange, startReadyGames, startTournament, withdrawEntry } from "./changes";
 import { emptyDraft, emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
 import { entryForSlot, groupStatus, groupTable, knockoutOutcome, matchRef, sidesChanged } from "./entries";
@@ -303,5 +303,69 @@ describe("a tie decided by hand", () => {
     reverseChange(draft, draft.log.at(-1)!.id, LATER);
     expect(draft.decided).toEqual({});
     expect(entryForSlot(draft, "c1", "Winner A")).toBeNull();
+  });
+});
+
+describe("starting the tournament, and games starting by themselves", () => {
+  // Group A on court c1, group B on c2: e1 v e2 then e1 v e3; e4 v e5 then e4 v e6.
+  const games = [
+    { id: group("A", 1, 2), courtId: "c1", from: 540, match: { categoryId: "c1", home: "A1", away: "A2" } },
+    { id: group("A", 1, 3), courtId: "c1", from: 555, match: { categoryId: "c1", home: "A1", away: "A3" } },
+    { id: group("B", 1, 2), courtId: "c2", from: 540, match: { categoryId: "c1", home: "B1", away: "B2" } },
+    { id: group("B", 1, 3), courtId: "c2", from: 555, match: { categoryId: "c1", home: "B1", away: "B3" } },
+  ];
+  const arrive = (draft: PlanDraft, ...ids: string[]) => {
+    for (const e of draft.entries) if (ids.includes(e.id)) for (const p of e.players) p.attendance = "arrived";
+  };
+  const on = (draft: PlanDraft) => games.filter((g) => draft.results[g.id]?.state === "onCourt").map((g) => g.id);
+
+  it("logs the start once, with how late it was", () => {
+    const draft = live();
+    expect(startReadyGames(draft, games, NOW)).toBe(0);
+    expect(startTournament(draft, { now: NOW, at: "09:20", late: 20 })).toBe(true);
+    expect(draft.startedAt).toBe(NOW);
+    expect(draft.log.at(-1)).toMatchObject({ kind: "start", text: "The tournament started at 09:20, 20 minutes after the plan", by: "Desk" });
+    expect(startTournament(draft, { now: LATER, at: "10:00", late: 60 })).toBe(false);
+    expect(draft.log.filter((l) => l.kind === "start")).toHaveLength(1);
+    const other = live();
+    startTournament(other, { now: NOW, at: "09:00", late: 0 });
+    expect(other.log.at(-1)!.text).toBe("The tournament started at 09:00, on time");
+  });
+
+  it("puts each court's first game on court where its players are all in, and holds the rest back", () => {
+    const draft = live();
+    arrive(draft, "e1", "e2", "e4");
+    startTournament(draft, { now: NOW, at: "09:00", late: 0 });
+    expect(startReadyGames(draft, games, NOW)).toBe(1);
+    expect(on(draft)).toEqual([group("A", 1, 2)]);
+    expect(draft.results[group("A", 1, 2)]!.sides).toEqual(["e1", "e2"]);
+    // Court c2's game waits for e5: checking them in lets it start.
+    expect(holding(draft, games[2]!, playingNow(draft, games))).toBe("missing");
+    arrive(draft, "e5");
+    expect(startReadyGames(draft, games, NOW)).toBe(1);
+    expect(on(draft)).toEqual([group("A", 1, 2), group("B", 1, 2)]);
+  });
+
+  it("starts the next game when one finishes, but not with a player still on another court", () => {
+    const draft = live();
+    arrive(draft, "e1", "e2", "e3", "e4", "e5", "e6");
+    startTournament(draft, { now: NOW, at: "09:00", late: 0 });
+    startReadyGames(draft, games, NOW);
+    play(draft, group("A", 1, 2), [21, 15]);
+    expect(startReadyGames(draft, games, LATER)).toBe(1);
+    expect(on(draft)).toEqual([group("A", 1, 3), group("B", 1, 2)]);
+
+    // Moved onto c1 behind e1's game, B1 v B3 would need e4, who is on c2: it waits, held by nothing but that.
+    const waiting = { ...games[3]!, courtId: "c3" };
+    expect(holding(draft, waiting, playingNow(draft, [...games, waiting]))).toBe("busy");
+    expect(startReadyGames(draft, [...games.slice(0, 3), waiting], LATER)).toBe(0);
+    // A knockout game with no sides yet isn't started either.
+    expect(holding(draft, { id: ko("SF1"), courtId: "c3", from: 600, match: { categoryId: "c1", home: "Winner A", away: "Runner-up B" } }, new Set())).toBe("unknown");
+  });
+
+  it("opens a tournament saved before it could be started as not started", () => {
+    const saved: Partial<PlanDraft> = live();
+    delete saved.startedAt;
+    expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).startedAt).toBeNull();
   });
 });

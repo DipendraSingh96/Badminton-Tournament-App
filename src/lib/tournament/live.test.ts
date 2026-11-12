@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
-import { callUp, courtBoard, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
+import { callUp, courtBoard, courtQueues, projectDay, timingOf, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
 import { normaliseDraft } from "./storage";
 
 const games = [
@@ -93,5 +93,58 @@ describe("live play", () => {
     startGame(draft, "d", LATER);
     finishGame(draft, "d", LATER);
     expect(shape().courts).toEqual([["c1", "a"], ["c2", null], ["c3", null]]);
+  });
+
+  describe("the day as it is really going", () => {
+    // Two courts, a game every 15 minutes from 09:00; "k" is a knockout game whose sides aren't known.
+    const day = [
+      { id: "a", courtId: "c1", from: 540, to: 555 },
+      { id: "c", courtId: "c1", from: 555, to: 570 },
+      { id: "e", courtId: "c1", from: 570, to: 585 },
+      { id: "b", courtId: "c2", from: 540, to: 555 },
+      { id: "k", courtId: "c2", from: 600, to: 615 },
+    ];
+    // Stored times here are just minutes as text.
+    const at = (started: number | null, now: number | null, results: Parameters<typeof projectDay>[1]) =>
+      Object.fromEntries(
+        [...projectDay(day, results, { started, now, minuteOf: (iso) => Number(iso), known: (g) => g.id !== "k" })].map(([id, p]) => [id, p.gone ? "gone" : `${p.from}-${p.to}`]),
+      );
+    const played = (from: number, to: number | null, extra = {}) => ({
+      state: to === null ? ("onCourt" as const) : ("finished" as const),
+      games: [[21, 15]] as [number, number][],
+      startedAt: String(from),
+      finishedAt: to === null ? null : String(to),
+      ...extra,
+    });
+
+    it("is the plan until the tournament starts", () => {
+      expect(at(null, 700, {})).toEqual({ a: "540-555", c: "555-570", e: "570-585", b: "540-555", k: "600-615" });
+    });
+
+    it("shifts everything by a late start, an unknown knockout game by the same", () => {
+      expect(at(560, 560, {})).toEqual({ a: "560-575", c: "575-590", e: "590-605", b: "560-575", k: "620-635" });
+    });
+
+    it("pulls the next game forward after an early finish, and pushes it back after a late one", () => {
+      // "a" ran 09:00 to 09:09: "c" follows straight on.
+      expect(at(540, 549, { a: played(540, 549) })).toMatchObject({ a: "540-549", c: "549-564", e: "564-579" });
+      // "a" is still on at 09:20, past its slot: it runs to now, and the rest wait behind it.
+      expect(at(540, 560, { a: played(540, null) })).toMatchObject({ a: "540-560", c: "560-575", e: "575-590" });
+      // On court and inside its slot, it is shown to its planned length.
+      expect(at(540, 545, { a: played(540, null) })).toMatchObject({ a: "540-555", c: "555-570" });
+    });
+
+    it("gives a walkover no time, and never puts a waiting game before now", () => {
+      const walkover = { state: "finished" as const, games: [[21, 0]] as [number, number][], startedAt: null, finishedAt: "541", award: { winner: 0 as const, reason: "walkover" as const } };
+      expect(at(540, 541, { a: walkover })).toMatchObject({ a: "gone", c: "541-556", e: "556-571" });
+      // The court stood idle until 09:30 (its game was held back): what is waiting starts from now.
+      expect(at(540, 570, {})).toMatchObject({ a: "570-585", c: "585-600" });
+      // A known game moves up past its planned time; the unknown one waits for its own.
+      expect(at(540, 556, { b: played(540, 556) })).toMatchObject({ b: "540-556", k: "600-615" });
+    });
+
+    it("says when a game is near the end of its slot, and when it is over it", () => {
+      expect([11, 12, 14, 15, 30].map((minutes) => timingOf(540, 15, 540 + minutes))).toEqual(["ok", "near", "near", "over", "over"]);
+    });
   });
 });

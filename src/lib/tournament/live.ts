@@ -124,6 +124,95 @@ export function courtBoard<G extends ScheduledGame>(games: G[], results: PlanDra
   return { courts, upNext: callUp(games, results, courtOrder).filter((g) => !shown.has(g.id)) };
 }
 
+/** A game on the schedule with its planned end, to work out where it really falls. */
+export interface TimedGame extends ScheduledGame {
+  /** Scheduled end, in minutes since midnight. */
+  to: number;
+}
+
+/** Where a game falls on the day as it is really going; `gone` for one that took no time (a walkover with nothing played). */
+export interface Projected {
+  from: number;
+  to: number;
+  gone: boolean;
+}
+
+/**
+ * The schedule as the day is really going. Until the tournament has started
+ * it is the plan. After that, on each court in its own order: a finished
+ * game sits at its real start and finish; a game on court runs from its real
+ * start to its planned length, or to now once it has run past it; a waiting
+ * game follows straight on from the one before (never before now), though
+ * one whose sides aren't known yet doesn't move ahead of its planned time
+ * shifted by how late the day began; and a walkover with nothing played
+ * takes no time at all.
+ */
+export function projectDay<G extends TimedGame>(
+  games: G[],
+  results: PlanDraft["results"],
+  day: {
+    /** When play began, in minutes since midnight; null before it has. */
+    started: number | null;
+    now: number | null;
+    /** A stored time (UTC ISO) as minutes since midnight in the tournament's time zone. */
+    minuteOf: (iso: string) => number | null;
+    /** Both sides of a waiting game are known. */
+    known: (game: G) => boolean;
+  },
+): Map<string, Projected> {
+  const out = new Map<string, Projected>();
+  if (day.started === null) {
+    for (const g of games) out.set(g.id, { from: g.from, to: g.to, gone: false });
+    return out;
+  }
+  const first = games.reduce((min, g) => Math.min(min, g.from), Infinity);
+  const offset = Number.isFinite(first) ? day.started - first : 0;
+  const byCourt = new Map<string, G[]>();
+  for (const g of [...games].sort((a, b) => a.from - b.from)) byCourt.set(g.courtId, [...(byCourt.get(g.courtId) ?? []), g]);
+  for (const list of byCourt.values()) {
+    let cursor = day.started;
+    for (const g of list) {
+      const length = Math.max(1, g.to - g.from);
+      const result = results[g.id];
+      const began = result?.startedAt ? day.minuteOf(result.startedAt) : null;
+      if (result?.state === "finished") {
+        const played = result.games.some(([home, away]) => home !== null || away !== null);
+        if (result.award && (result.award.reason === "walkover" || !played)) {
+          out.set(g.id, { from: cursor, to: cursor, gone: true });
+          continue;
+        }
+        const from = began ?? cursor;
+        const ended = result.finishedAt ? day.minuteOf(result.finishedAt) : null;
+        const to = Math.max(from + 1, ended ?? from + length);
+        out.set(g.id, { from, to, gone: false });
+        cursor = Math.max(cursor, to);
+      } else if (result) {
+        const from = began ?? cursor;
+        const to = Math.max(from + length, day.now ?? -Infinity);
+        out.set(g.id, { from, to, gone: false });
+        cursor = Math.max(cursor, to);
+      } else {
+        const from = Math.max(cursor, day.now ?? -Infinity, day.known(g) ? -Infinity : g.from + offset);
+        out.set(g.id, { from, to: from + length, gone: false });
+        cursor = from + length;
+      }
+    }
+  }
+  return out;
+}
+
+/** How far through its slot a game on court is: fine, nearly out of time, or over it. */
+export type Timing = "ok" | "near" | "over";
+
+/** The share of a game's slot after which it is "nearly out of time". */
+export const NEARLY_OVER = 0.8;
+
+/** A game on court against its slot on the schedule: from 80% of the slot it is near its end; past the slot it is over. */
+export function timingOf(began: number, slot: number, now: number): Timing {
+  const share = (now - began) / Math.max(1, slot);
+  return share >= 1 ? "over" : share >= NEARLY_OVER ? "near" : "ok";
+}
+
 /** How an awarded match is marked beside its score: a walkover or a retirement. */
 export function awardMark(award: MatchAwardDraft | undefined): string | null {
   return award ? (award.reason === "walkover" ? "W/O" : "Ret.") : null;

@@ -13,13 +13,15 @@ import {
 import {
   categoryLabel,
   categoryMatchIds,
+  entryForSlot,
   entryIdOn,
   groupTable,
+  matchPlayers,
   matchRef,
   sidesChanged,
   type MatchRef,
 } from "./entries";
-import { finishGame } from "./live";
+import { courtQueues, finishGame, gameState, startGame, type ScheduledGame } from "./live";
 
 // Controlled changes: the few things the desk may change while the tournament
 // is Live. Each one writes a log entry with what it replaced, so it can be
@@ -30,6 +32,7 @@ export const DESK = "Desk";
 
 export const LOG_KIND_LABELS: Record<LogKind, string> = {
   live: "Went Live",
+  start: "Started",
   withdrawal: "Withdrawal",
   walkover: "Walkover",
   retirement: "Retirement",
@@ -42,6 +45,7 @@ export const LOG_KIND_LABELS: Record<LogKind, string> = {
 const resultKey = (matchId: string) => `results/${matchId}`;
 const MOVES = "matchMoves";
 const STAGE = "stage";
+const STARTED = "startedAt";
 
 function copy<T>(value: T): T {
   return value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T);
@@ -51,6 +55,7 @@ function copy<T>(value: T): T {
 function read(draft: PlanDraft, key: string): unknown {
   if (key === MOVES) return copy(draft.matchMoves);
   if (key === STAGE) return draft.stage;
+  if (key === STARTED) return draft.startedAt;
   const [where, ...rest] = key.split("/");
   const id = rest.join("/");
   const held =
@@ -66,6 +71,10 @@ function write(draft: PlanDraft, key: string, value: unknown): void {
   }
   if (key === STAGE) {
     draft.stage = value as PlanDraft["stage"];
+    return;
+  }
+  if (key === STARTED) {
+    draft.startedAt = value as PlanDraft["startedAt"];
     return;
   }
   const [where, ...rest] = key.split("/");
@@ -440,4 +449,74 @@ export function decideTie(
       draft.decided[key] = change.order;
     },
   );
+}
+
+/**
+ * Play begins: the real start is kept, and the day's times shift by how far
+ * it is from the plan. `at` is the start as a clock time ("09:20") and `late`
+ * the minutes after the planned first game (negative when early), for the
+ * log's sentence. Nothing happens if the tournament has already started.
+ */
+export function startTournament(draft: PlanDraft, start: { now: string; at: string; late: number; by?: string }): boolean {
+  if (draft.startedAt) return false;
+  const minutes = Math.abs(Math.round(start.late));
+  const against = minutes === 0 ? "on time" : `${minutes} ${minutes === 1 ? "minute" : "minutes"} ${start.late > 0 ? "after" : "before"} the plan`;
+  const made = logged(draft, { kind: "start", text: `The tournament started at ${start.at}, ${against}`, now: start.now }, [STARTED], () => {
+    draft.startedAt = start.now;
+  });
+  if (start.by) made.by = start.by;
+  return true;
+}
+
+/** A game on the schedule with what it is, for deciding whether it can start. */
+export type PlayableGame = ScheduledGame & { match: { categoryId: string; home: string; away: string; rubber?: { number: number } } };
+
+/** Why a court's waiting game isn't on court: nothing holds it; a player hasn't checked in; a player is on another court; or its sides aren't known yet. */
+export type Holding = "ready" | "missing" | "busy" | "unknown";
+
+/** What holds a waiting game back, given who is playing elsewhere (player ids, or entry ids where a side has no named players). */
+export function holding(draft: PlanDraft, game: PlayableGame, playing: Set<string>): Holding {
+  const home = entryForSlot(draft, game.match.categoryId, game.match.home)?.id;
+  const away = entryForSlot(draft, game.match.categoryId, game.match.away)?.id;
+  if (!home || !away) return "unknown";
+  const players = matchPlayers(draft, game.match);
+  if (players.some((p) => p.attendance !== "arrived")) return "missing";
+  const held = players.length > 0 ? players.map((p) => p.id) : [home, away];
+  return held.some((id) => playing.has(id)) ? "busy" : "ready";
+}
+
+/** Everyone on a court now: player ids (and entry ids, for sides with no named players). */
+export function playingNow(draft: PlanDraft, games: PlayableGame[]): Set<string> {
+  const playing = new Set<string>();
+  for (const game of games) {
+    if (gameState(draft.results, game.id) !== "onCourt") continue;
+    for (const p of matchPlayers(draft, game.match)) playing.add(p.id);
+    for (const id of draft.results[game.id]?.sides ?? []) playing.add(id);
+  }
+  return playing;
+}
+
+/**
+ * Once the tournament has started, games start by themselves: each court's
+ * next game goes on court as soon as its sides are known, its players have
+ * all checked in and none of them is on another court. Returns how many
+ * were started. A game held back stays waiting, for the desk to deal with.
+ */
+export function startReadyGames(draft: PlanDraft, games: PlayableGame[], now: string): number {
+  if (!draft.startedAt) return 0;
+  const playing = playingNow(draft, games);
+  let started = 0;
+  for (const queue of courtQueues(games, draft.results).values()) {
+    const game = queue.current;
+    if (!game || gameState(draft.results, game.id) !== "waiting" || holding(draft, game, playing) !== "ready") continue;
+    const sides: [string, string] = [
+      entryForSlot(draft, game.match.categoryId, game.match.home)!.id,
+      entryForSlot(draft, game.match.categoryId, game.match.away)!.id,
+    ];
+    startGame(draft, game.id, now, sides);
+    for (const p of matchPlayers(draft, game.match)) playing.add(p.id);
+    for (const id of sides) playing.add(id);
+    started += 1;
+  }
+  return started;
 }

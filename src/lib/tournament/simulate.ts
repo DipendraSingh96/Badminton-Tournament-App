@@ -1,7 +1,7 @@
 import { TZDate } from "@date-fns/tz";
 import { produce } from "immer";
 import { gameWinner, type GameScore, type StageRules } from "@/engine";
-import { awardMatch } from "./changes";
+import { awardMatch, startTournament } from "./changes";
 import type { Attendance, PlanDraft } from "./draft";
 import { SIMULATION } from "./dummy/values";
 import { entryForSlot, matchPlayers } from "./entries";
@@ -26,6 +26,8 @@ export interface SimGame {
 }
 
 export type SimEvent = { at: number } & (
+  /** Play begins: the day's real start, `late` minutes after the plan. */
+  | { kind: "begin"; late: number }
   | { kind: "attendance"; playerId: string; attendance: Attendance }
   | { kind: "start"; matchId: string; sides?: [string, string] }
   /** The match's games so far, as they stand once another game of it has ended. */
@@ -57,7 +59,10 @@ function isoAt(draft: PlanDraft, minute: number): string {
 /** One event applied to a draft. */
 function apply(draft: PlanDraft, event: SimEvent): void {
   const now = isoAt(draft, event.at);
-  if (event.kind === "attendance") {
+  if (event.kind === "begin") {
+    const at = `${String(Math.floor(event.at / 60)).padStart(2, "0")}:${String(Math.floor(event.at % 60)).padStart(2, "0")}`;
+    startTournament(draft, { now, at, late: event.late, by: SIMULATED_BY });
+  } else if (event.kind === "attendance") {
     for (const entry of draft.entries) for (const p of entry.players) if (p.id === event.playerId) p.attendance = event.attendance;
   } else if (event.kind === "start") {
     startGame(draft, event.matchId, now, event.sides);
@@ -93,23 +98,29 @@ function gameScore(rules: StageRules, homeWins: boolean, rand: () => number): [n
 }
 
 /**
- * The whole day, from the tournament as it stands: players not yet marked
- * check in (a few late, a few never), each game starts once its court and its
- * players are free, its sides are known and its time has come, and runs a
- * little short of or past its planned length; a game with an absent player
- * is a walkover. The draft is not changed. Events come back in time order.
+ * The whole day, from the tournament as it stands: play begins at `startAt`
+ * (the planned first game unless given, or when it really began if it
+ * already has); players not yet marked check in (a few late, a few never);
+ * each game starts as soon as its court and its players are free and its
+ * sides are known, without waiting for its planned minute, and runs a little
+ * short of or past its planned length; a game with an absent player is a
+ * walkover. The draft is not changed. Events come back in time order.
  */
 export function simulateDay(
   draft: PlanDraft,
   games: SimGame[],
   rulesOf: (game: SimGame) => StageRules | undefined,
   seed: number,
+  startAt?: number,
 ): SimEvent[] {
   const rand = random(seed);
   const between = ([a, b]: readonly [number, number]) => a + rand() * (b - a);
   const events: SimEvent[] = [];
-  const dayStart = games.reduce((min, g) => Math.min(min, g.from), Infinity);
-  if (!Number.isFinite(dayStart)) return [];
+  const planned = games.reduce((min, g) => Math.min(min, g.from), Infinity);
+  if (!Number.isFinite(planned)) return [];
+  // Nothing is played before the day begins; everything planned moves with it.
+  const dayStart = startAt ?? planned;
+  const late = dayStart - planned;
   // The day as simulated so far: results are applied as they are made, so later sides can be read from it.
   let day = draft;
   const emit = (event: SimEvent) => {
@@ -117,12 +128,14 @@ export function simulateDay(
     day = produce(day, (d) => apply(d, event));
   };
 
+  if (!draft.startedAt) emit({ at: dayStart, kind: "begin", late });
+
   // Each entry's first game, to check its players in ahead of it.
   const firstGame = new Map<string, number>();
   for (const g of [...games].sort((a, b) => a.from - b.from)) {
     for (const slot of [g.match.home, g.match.away]) {
       const entry = entryForSlot(draft, g.match.categoryId, slot);
-      if (entry && !firstGame.has(entry.id)) firstGame.set(entry.id, g.from);
+      if (entry && !firstGame.has(entry.id)) firstGame.set(entry.id, g.from + late);
     }
   }
   const arrival = new Map<string, number>();
@@ -176,7 +189,7 @@ export function simulateDay(
       // A side with no named players (a line-up not set) is held by its entry.
       const held = players.length > 0 ? players : [home, away];
       const start = Math.max(
-        game.from,
+        dayStart,
         courtFree.get(courtId) ?? dayStart,
         knownFrom(game, game.match.home),
         knownFrom(game, game.match.away),

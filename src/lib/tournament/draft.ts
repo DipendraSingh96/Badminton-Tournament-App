@@ -251,7 +251,7 @@ export interface WithdrawalDraft {
   results: "stand" | "void";
 }
 
-export type LogKind = "live" | "withdrawal" | "walkover" | "retirement" | "correction" | "move" | "decision" | "reversal";
+export type LogKind = "live" | "start" | "withdrawal" | "walkover" | "retirement" | "correction" | "move" | "decision" | "reversal";
 
 /** A controlled change made while Live: what, when, who, and what it replaced so it can be reversed. */
 export interface LogEntryDraft {
@@ -346,6 +346,8 @@ export interface PlanDraft {
   decided: Record<string, string[]>;
   /** Live: every controlled change, oldest first. */
   log: LogEntryDraft[];
+  /** Live: when play really began (UTC ISO); null until the desk starts the tournament. The day's times shift by how far this is from the plan. */
+  startedAt: string | null;
   /** Getting ready for the day: house rules, the organiser's own checklist and kit. */
   resources: ResourcesDraft;
   /** Group stage: each group on its own courts, or any free court in the hall. */
@@ -478,7 +480,7 @@ export function duplicateDraft(draft: PlanDraft): PlanDraft {
     kit: copy.resources.kit.map((row) => ({ ...row, packed: false })),
     packed: [],
   };
-  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, resources };
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, startedAt: null, resources };
 }
 
 export function emptyStageRules(): StageRulesDraft {
@@ -968,6 +970,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     withdrawn: {},
     decided: {},
     log: [],
+    startedAt: null,
     resources: emptyResources(),
     groupCourts: "own",
     courtGroups: {},
