@@ -4,7 +4,7 @@ import {
   CaretDownIcon,
   CheckCircleIcon,
   ClipboardTextIcon,
-  FileArrowUpIcon,
+  FileArrowDownIcon, FileArrowUpIcon,
   PlusIcon,
   TrashIcon,
   WarningCircleIcon,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { entriesFromRows, parseDelimited } from "@/lib/tournament/csv";
+import { entriesFromRows, entryTemplate, parseDelimited } from "@/lib/tournament/csv";
 import {
   emptyEntry,
   emptyPlayer,
@@ -83,10 +83,28 @@ function CategoryEntries({ draft, category, update }: { draft: PlanDraft; catego
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setPending({ source: "paste", text: "" })}>
-            <ClipboardTextIcon /> Paste rows
+            <ClipboardTextIcon /> Paste entries
           </Button>
           <Button variant="outline" onClick={() => file.current?.click()}>
             <FileArrowUpIcon /> Import CSV
+          </Button>
+          <Button
+            variant="outline"
+            title="A CSV with the headings the import reads, to fill in and import"
+            onClick={() => {
+              // Every category, so one file can hold the whole tournament's entries.
+              const text = entryTemplate(
+                draft.categories.map((c) => ({ name: categoryName(draft, c.id), players: playersFor(draft, c) })),
+                draft.unit === "team",
+              );
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+              link.download = "entries-template.csv";
+              link.click();
+              URL.revokeObjectURL(link.href);
+            }}
+          >
+            <FileArrowDownIcon /> Download template
           </Button>
           <input
             ref={file}
@@ -188,9 +206,9 @@ function ImportPanel({
   return (
     <div className="flex flex-col gap-3 rounded-lg bg-card-system p-3">
       <p className="text-sm">
-        {pending.source === "paste" ? "Paste rows from a spreadsheet" : "Rows from the CSV file"}: a heading row with{" "}
+        {pending.source === "paste" ? "Paste entries from a spreadsheet" : "Entries from the CSV file"}: a heading row with{" "}
         <span className="font-semibold">Category, Name, Player 1, Player 2…, External, Seed</span> (any order, any
-        left out), or just name then players.
+        left out), or just name then players. Download template gives a file with these headings to fill in.
       </p>
       <textarea
         aria-label="Rows to add"
@@ -364,7 +382,8 @@ function TeamDetails({
 }) {
   const rubbers = rubbersOf(category);
   return (
-    <div className="mt-2 ml-10 grid grid-cols-1 gap-4 rounded-lg bg-card-system p-3 md:grid-cols-2">
+    // Its left edge is the Team name field's: past the row's padding, the number column and the gap.
+    <div className="mt-2 ml-14 grid grid-cols-1 gap-4 rounded-lg bg-card-system p-3 md:grid-cols-2">
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground">Squad</h3>
         {entry.players.map((player, p) => (

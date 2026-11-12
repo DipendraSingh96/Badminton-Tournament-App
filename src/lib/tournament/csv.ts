@@ -116,3 +116,29 @@ export function entriesFromRows(
   });
   return { entries, problems };
 }
+
+/** One CSV cell: quoted when it holds a comma, a quote or a line break. */
+function cell(text: string): string {
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * A CSV to fill in and import: exactly the headings the import reads, with
+ * as many player (and phone) columns as the largest entry needs, and one
+ * example row for each category to show the shape. The example rows say
+ * what they are, so they are easy to spot and replace.
+ */
+export function entryTemplate(categories: { name: string; players: number }[], team: boolean): string {
+  const most = Math.max(1, ...categories.map((c) => c.players));
+  const numbers = Array.from({ length: most }, (_, i) => i + 1);
+  const heading = ["Category", team ? "Team" : "Name", ...numbers.map((n) => `Player ${n}`), ...numbers.map((n) => `Phone ${n}`), "External", "Seed"];
+  const rows = categories.map((c) => [
+    c.name,
+    team ? "Example team (replace this row)" : "",
+    ...numbers.map((n) => (n <= c.players ? `Example player ${n}` : "")),
+    ...numbers.map(() => ""),
+    "no",
+    "",
+  ]);
+  return [heading, ...rows].map((row) => row.map(cell).join(",")).join("\r\n") + "\r\n";
+}

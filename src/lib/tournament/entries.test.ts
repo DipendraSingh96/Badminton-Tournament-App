@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entriesFromRows, parseDelimited } from "./csv";
+import { entriesFromRows, entryTemplate, parseDelimited } from "./csv";
 import { effectiveCategory, emptyDraft, emptyEntry, entryName, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
 import {
@@ -55,6 +55,32 @@ describe("entriesFromRows", () => {
   it("takes name then players when there's no heading, with one category", () => {
     const { entries } = entriesFromRows(parseDelimited("Smashers\tAnn\tRaj"), [categories[0]!]);
     expect(entries).toEqual([{ categoryId: "md", name: "Smashers", players: ["Ann", "Raj"], external: false, seed: null }]);
+  });
+
+  it("makes a template the import reads back", () => {
+    const text = entryTemplate(
+      [
+        { name: "Men's doubles", players: 2 },
+        { name: "Mixed, open", players: 2 },
+      ],
+      false,
+    );
+    const rows = parseDelimited(text);
+    expect(rows[0]).toEqual(["Category", "Name", "Player 1", "Player 2", "Phone 1", "Phone 2", "External", "Seed"]);
+    // A category's name with a comma survives the file.
+    const read = entriesFromRows(rows, [
+      { id: "md", name: "Men's doubles" },
+      { id: "xo", name: "Mixed, open" },
+    ]);
+    expect(read.problems).toEqual([]);
+    expect(read.entries.map((e) => [e.categoryId, e.players, e.external, e.seed])).toEqual([
+      ["md", ["Example player 1", "Example player 2"], false, null],
+      ["xo", ["Example player 1", "Example player 2"], false, null],
+    ]);
+    // A team file names the team and has a column for each squad place.
+    expect(parseDelimited(entryTemplate([{ name: "Open", players: 4 }], true))[0]).toEqual([
+      "Category", "Team", "Player 1", "Player 2", "Player 3", "Player 4", "Phone 1", "Phone 2", "Phone 3", "Phone 4", "External", "Seed",
+    ]);
   });
 
   it("reports rows it can't read instead of guessing", () => {
