@@ -50,6 +50,13 @@ export function CourtStrip({
     };
   }, [count]);
 
+  // The hall flipped: its row reads from its start again.
+  const wasReversed = useRef(reversed);
+  useLayoutEffect(() => {
+    if (wasReversed.current !== reversed) row.current?.scrollTo({ left: 0 });
+    wasReversed.current = reversed;
+  }, [reversed]);
+
   // A court added: bring the new court and Add court into view (the row's end, or its start in a flipped hall).
   const before = useRef(count);
   useLayoutEffect(() => {

@@ -364,13 +364,16 @@ function GameCard({
   const score = scoreText(result?.games, result?.award);
   const waiting = matchPlayers(draft, match).filter((p) => p.attendance !== "arrived").length;
   const movable = state === "waiting" && freeCourts.length > 0;
-  // Closed and waiting on a player: the whole card is yellow. Opened, it says who.
-  const held = !open && state === "waiting" && waiting > 0;
+  // Due on a court and waiting on a player: closed, the whole card is yellow; opened, it says who.
+  // A game further off (in Up next) only carries a yellow dot, or the whole list would be yellow all morning.
+  const missing = state === "waiting" && waiting > 0;
+  const held = !open && missing && label === null;
   const side = (slot: string, align: string) => {
     const name = sideLabel(draft, match, slot);
     return open ? (
-      <TeamName entryId={entryForSlot(draft, match.categoryId, slot)?.id} className={cn("truncate", align)}>
-        <span title={name}>{name}</span>
+      // Opened, a long name wraps rather than being cut short.
+      <TeamName entryId={entryForSlot(draft, match.categoryId, slot)?.id} className={cn("leading-tight text-balance", align)}>
+        {name}
       </TeamName>
     ) : (
       <span className={cn("truncate", align)} title={name}>
@@ -391,12 +394,17 @@ function GameCard({
           onDrag(segment);
         }}
         onDragEnd={() => onDrag(null)}
-        title={held ? `${waiting} ${waiting === 1 ? "player" : "players"} not checked in` : undefined}
+        title={missing && !open ? `${waiting} ${waiting === 1 ? "player" : "players"} not checked in` : undefined}
         className={cn("flex flex-col gap-3 rounded-md px-2 py-2", held ? "bg-tight text-tight-foreground" : "bg-card-system", movable && "active:cursor-grabbing")}
       >
         {/* The whole of the closed card opens it; opened, this line folds it away (the names open their entries). */}
         <div className="flex cursor-pointer flex-col gap-1" onClick={onToggle}>
-          {label ? <span className={cn("truncate text-xs tabular-nums", held ? "" : "text-muted-foreground")}>{label}</span> : null}
+          {label ? (
+            <span className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+              {missing && !open ? <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-tight" /> : null}
+              <span className="truncate">{label}</span>
+            </span>
+          ) : null}
           <span className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 font-semibold", open ? "text-xl" : "text-sm")}>
             {side(match.home, "text-left")}
             <span className={cn("shrink-0 text-center tabular-nums", score ? "font-display text-xl leading-none font-bold" : "text-xs font-normal", !score && !held && "text-muted-foreground")}>
