@@ -503,7 +503,13 @@ export function parsePlan(draft: PlanDraft): ParseResult {
     return [{ courtId, group: { categoryId: match[1]!, groupIndex: Number(match[2]) } }];
   });
 
-  const finance = collect(financeSchema, draft.finance, ["finance"]);
+  // An unticked prize isn't given: nothing about it needs filling in, and it costs nothing.
+  const off = new Set(draft.finance.prizes.filter((p) => p.off).map((p) => p.id));
+  const finance = collect(
+    financeSchema,
+    { ...draft.finance, prizes: draft.finance.prizes.map((p) => (p.off ? { ...p, position: p.position || "-", amount: p.amount ?? 0 } : p)) },
+    ["finance"],
+  );
   const categoryIds = new Set(draft.categories.map((c) => c.id));
   draft.finance.prizes.forEach((prize, i) => {
     if (!categoryIds.has(prize.categoryId)) {
@@ -621,7 +627,7 @@ export function parsePlan(draft: PlanDraft): ParseResult {
         shuttlesPerGame: finance.shuttlesPerGame,
         costPerShuttle:
           finance.shuttlePriceBasis === "tube" ? finance.shuttlePrice / finance.shuttlesPerTube! : finance.shuttlePrice,
-        prizes: finance.prizes.map(({ categoryId, position, amount }) => ({ categoryId, position, amount })),
+        prizes: finance.prizes.filter((p) => !off.has(p.id)).map(({ categoryId, position, amount }) => ({ categoryId, position, amount })),
         otherCosts,
         otherIncome,
       },

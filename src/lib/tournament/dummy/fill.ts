@@ -128,10 +128,10 @@ export function fillPlan(draft: PlanDraft, today: Date): PlanDraft {
     }
     if (finance.shuttlePriceBasis === "tube") finance.shuttlesPerTube ??= DUMMY_FINANCE.shuttlesPerTube;
     if (finance.prizes.length === 0) {
-      for (const c of d.categories) finance.prizes.push({ ...emptyPrize(c.id), position: "Winners", amount: DUMMY_FINANCE.winnersPrize });
+      for (const c of d.categories) finance.prizes.push({ ...emptyPrize(c.id), position: "1st", amount: DUMMY_FINANCE.winnersPrize });
     }
     for (const prize of finance.prizes) {
-      if (prize.position.trim() === "") prize.position = "Winners";
+      if (prize.position.trim() === "") prize.position = "1st";
       prize.amount ??= DUMMY_FINANCE.winnersPrize;
     }
 

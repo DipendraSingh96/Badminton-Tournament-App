@@ -124,6 +124,37 @@ export interface PrizeDraft {
   categoryId: string;
   position: string;
   amount: N;
+  /** Unticked: the prize isn't given (its amount is kept in case it is ticked again). */
+  off?: boolean;
+}
+
+/** The places a prize is usually for. */
+export const PRIZE_PLACES = ["1st", "2nd", "3rd"] as const;
+
+/** Which place a prize's position names (0 for 1st, 1 for 2nd, 2 for 3rd), however it was typed; null for anything else. */
+export function prizePlace(position: string): 0 | 1 | 2 | null {
+  const text = position.trim().toLowerCase();
+  if (/^(1st|first|winners?|champions?|gold)$/.test(text)) return 0;
+  if (/^(2nd|second|runners?[- ]up|silver)$/.test(text)) return 1;
+  if (/^(3rd|third|bronze)$/.test(text)) return 2;
+  return null;
+}
+
+/** A category's prize for a place, ticked or not. */
+export function prizeFor(draft: PlanDraft, categoryId: string, place: 0 | 1 | 2): PrizeDraft | undefined {
+  return draft.finance.prizes.find((p) => p.categoryId === categoryId && prizePlace(p.position) === place);
+}
+
+/** Ticks or unticks a category's prize for a place. Unticked, a prize with no amount is forgotten. */
+export function setPrizeOn(draft: PlanDraft, categoryId: string, place: 0 | 1 | 2, on: boolean): void {
+  const prize = prizeFor(draft, categoryId, place);
+  if (on) {
+    if (prize) delete prize.off;
+    else draft.finance.prizes.push({ id: newId(), categoryId, position: PRIZE_PLACES[place], amount: null });
+  } else if (prize) {
+    if (prize.amount === null) draft.finance.prizes = draft.finance.prizes.filter((p) => p.id !== prize.id);
+    else prize.off = true;
+  }
 }
 
 export interface OtherCostDraft {

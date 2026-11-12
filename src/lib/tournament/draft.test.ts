@@ -15,6 +15,9 @@ import {
   emptyDraft,
   emptyHall,
   emptyPrize,
+  prizeFor,
+  prizePlace,
+  setPrizeOn,
   keepOneRate,
   moveZone,
   removeCategory,
@@ -28,6 +31,8 @@ import {
   umpireSpots,
   zoneHall,
 } from "./draft";
+import { completeDraft } from "./draft.test-helpers";
+import { parsePlan } from "./schema";
 import { normaliseDraft } from "./storage";
 
 function draftWith(events: ("MD" | "XD")[]) {
@@ -405,5 +410,45 @@ describe("zone moves", () => {
     expect(draft.zoneMoves).toEqual({ "h1:group": { start: "10:30", hallId: null } });
     shiftZone(draft, "h1", "group", null);
     expect(draft.zoneMoves).toEqual({});
+  });
+});
+
+describe("prizes by place", () => {
+  it("reads a place however it was typed, and leaves other names alone", () => {
+    expect(["Winner", "winners", "1st", "First"].map(prizePlace)).toEqual([0, 0, 0, 0]);
+    expect(["2nd", "Runner-up", "runners up"].map(prizePlace)).toEqual([1, 1, 1]);
+    expect(["3rd", "third", "Bronze"].map(prizePlace)).toEqual([2, 2, 2]);
+    expect(["Best newcomer", "", "4th"].map(prizePlace)).toEqual([null, null, null]);
+  });
+
+  it("ticks and unticks a place, keeping an amount that was entered", () => {
+    const draft = completeDraft();
+    // The sample plan has a "Winners" prize of 50: that is its 1st.
+    expect(prizeFor(draft, "c1", 0)).toMatchObject({ amount: 50 });
+    setPrizeOn(draft, "c1", 1, true);
+    expect(prizeFor(draft, "c1", 1)).toMatchObject({ position: "2nd", amount: null });
+    // Unticked with no amount, it is forgotten.
+    setPrizeOn(draft, "c1", 1, false);
+    expect(prizeFor(draft, "c1", 1)).toBeUndefined();
+    setPrizeOn(draft, "c1", 0, false);
+    expect(prizeFor(draft, "c1", 0)).toMatchObject({ amount: 50, off: true });
+    setPrizeOn(draft, "c1", 0, true);
+    expect(prizeFor(draft, "c1", 0)).toEqual({ id: "p1", categoryId: "c1", position: "Winners", amount: 50 });
+  });
+
+  it("costs nothing, and needs nothing filled in, while unticked", () => {
+    const draft = completeDraft();
+    const prizes = () => {
+      const parsed = parsePlan(draft);
+      return parsed.ok ? parsed.inputs.finance.prizes : parsed.issues.map((i) => i.message);
+    };
+    expect(prizes()).toEqual([{ categoryId: "c1", position: "Winners", amount: 50 }]);
+    setPrizeOn(draft, "c1", 0, false);
+    expect(prizes()).toEqual([]);
+    // A ticked place with no amount is still to fill in.
+    setPrizeOn(draft, "c1", 2, true);
+    expect(parsePlan(draft).ok).toBe(false);
+    draft.finance.prizes.find((p) => p.position === "3rd")!.amount = 20;
+    expect(prizes()).toEqual([{ categoryId: "c1", position: "3rd", amount: 20 }]);
   });
 });

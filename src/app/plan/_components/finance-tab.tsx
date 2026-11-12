@@ -3,19 +3,25 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { playersPerEntry } from "@/engine";
 import {
   costPerShuttle,
   emptyOtherCost,
   emptyOtherIncome,
-  emptyPrize,
+  PRIZE_PLACES,
+  prizeFor,
+  prizePlace,
+  setPrizeOn,
   type CategoryDraft,
   type OtherCostDraft,
   type OtherIncomeDraft,
   type PlanDraft,
   type PrizeDraft,
 } from "@/lib/tournament/draft";
-import { NumberField, Section, SegmentedField, SelectField, StepperField, TextField } from "./fields";
+import { NumberField, Section, SegmentedField, SelectField, StepperField, TextField, pathKey } from "./fields";
 import { categoryName, entryNoun, formatMoney } from "./labels";
 import type { Update } from "./plan-editor";
 
@@ -151,62 +157,80 @@ function Shuttles({ draft, update }: { draft: PlanDraft; update: Update }) {
   );
 }
 
+/**
+ * Prizes: a box for each category, with 1st, 2nd and 3rd to tick and price.
+ * A ticked place is a prize; unticked, it isn't given. A prize entered
+ * earlier under another name keeps its own row in its category's box.
+ */
 function Prizes({ draft, update }: { draft: PlanDraft; update: Update }) {
-  const options = draft.categories.map((c) => ({ value: c.id, label: categoryName(draft, c.id) }));
+  const amount = (prize: PrizeDraft | undefined, label: string, disabled: boolean) => {
+    const index = prize ? draft.finance.prizes.indexOf(prize) : -1;
+    return (
+      <Input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step="any"
+        aria-label={label}
+        placeholder="Amount (£)"
+        disabled={disabled}
+        data-path={index === -1 ? undefined : pathKey(["finance", "prizes", index, "amount"])}
+        className="w-32 text-right tabular-nums"
+        value={prize?.amount ?? ""}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const parsed = raw === "" ? null : Number(raw);
+          update((d) => {
+            const own = d.finance.prizes[index];
+            if (own) own.amount = parsed === null || Number.isNaN(parsed) ? null : parsed;
+          });
+        }}
+      />
+    );
+  };
   return (
-    <Section
-      title="Prizes"
-      description="Cash prizes by category and position."
-      action={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={draft.categories.length === 0}
-          onClick={() => update((d) => void d.finance.prizes.push(emptyPrize(d.categories[0]?.id ?? "")))}
-        >
-          <PlusIcon /> Add prize
-        </Button>
-      }
-    >
-      {draft.finance.prizes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No prizes yet.</p>
-      ) : (
-        draft.finance.prizes.map((prize, i) => {
-          const set = <K extends keyof PrizeDraft>(key: K) => (value: PrizeDraft[K]) =>
-            update((d) => void (d.finance.prizes[i]![key] = value));
-          const path = (key: keyof PrizeDraft) => ["finance", "prizes", i, key];
-          return (
-            // One prize: its category, then its position and amount on one line.
-            <div key={prize.id} className="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-2">
-              <div className="col-span-3">
-                <SelectField
-                  label="Category"
-                  path={path("categoryId")}
-                  value={prize.categoryId || null}
-                  options={options}
-                  onChange={set("categoryId")}
-                />
-              </div>
-              <TextField
-                label="Position"
-                placeholder="e.g. Winner"
-                path={path("position")}
-                value={prize.position}
-                onChange={set("position")}
-              />
-              <NumberField label="Amount (£)" path={path("amount")} value={prize.amount} onChange={set("amount")} />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove prize"
-                onClick={() => update((d) => void d.finance.prizes.splice(i, 1))}
-              >
-                <TrashIcon />
-              </Button>
-            </div>
-          );
-        })
-      )}
+    <Section title="Prizes" description="Tick the places that win a cash prize in each category, and say how much.">
+      {draft.categories.length === 0 ? <p className="text-sm text-muted-foreground">Add a category first.</p> : null}
+      {draft.categories.map((category) => {
+        const name = categoryName(draft, category.id);
+        const others = draft.finance.prizes.filter((p) => p.categoryId === category.id && prizePlace(p.position) === null);
+        return (
+          <div key={category.id} role="group" aria-label={`${name} prizes`} className="flex flex-col gap-2 rounded-lg bg-card-system p-3">
+            <h4 className="text-sm font-semibold">{name}</h4>
+            {PRIZE_PLACES.map((label, place) => {
+              const prize = prizeFor(draft, category.id, place as 0 | 1 | 2);
+              const on = Boolean(prize) && !prize!.off;
+              return (
+                <label key={label} className="flex items-center gap-3">
+                  <Checkbox checked={on} onCheckedChange={(next) => update((d) => setPrizeOn(d, category.id, place as 0 | 1 | 2, Boolean(next)))} />
+                  <span className={cn("flex-1 text-sm", !on && "text-muted-foreground")}>{label}</span>
+                  {amount(prize, `${name}, ${label} prize (£)`, !on)}
+                </label>
+              );
+            })}
+            {others.map((prize) => {
+              const on = !prize.off;
+              return (
+                <label key={prize.id} className="flex items-center gap-3">
+                  <Checkbox
+                    checked={on}
+                    onCheckedChange={(next) =>
+                      update((d) => {
+                        const own = d.finance.prizes.find((p) => p.id === prize.id);
+                        if (!own) return;
+                        if (next) delete own.off;
+                        else own.off = true;
+                      })
+                    }
+                  />
+                  <span className={cn("min-w-0 flex-1 truncate text-sm", !on && "text-muted-foreground")}>{prize.position || "Prize"}</span>
+                  {amount(prize, `${name}, ${prize.position || "prize"} (£)`, !on)}
+                </label>
+              );
+            })}
+          </div>
+        );
+      })}
     </Section>
   );
 }
