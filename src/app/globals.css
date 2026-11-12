@@ -362,8 +362,8 @@
   font-size: 0 !important;
 }
 
-/* Score sheets: on screen they aren't there; on paper they are the only
-   thing, two to an A4 page (score-sheets.tsx). */
+/* What is printed (score sheets, the rulebook, the programme, the log): on
+   screen it isn't there; on paper it is the only thing. */
 .print-root {
   display: none;
 }
@@ -392,14 +392,13 @@
   .print-doc caption {
     break-after: avoid;
   }
+  /* A blank score sheet is one match to a page; its shaded boxes print as shaded. */
   .score-sheet {
     box-sizing: border-box;
-    height: 139mm;
-    break-inside: avoid;
-    border-bottom: 1px dashed #000;
-  }
-  .score-sheet:nth-child(2n) {
+    min-height: 270mm;
     break-after: page;
-    border-bottom: 0;
+    break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }

@@ -1,207 +1,110 @@
 "use client";
 
-import { PrinterIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { categoryRules, courtNumber, type PlanDraft } from "@/lib/tournament/draft";
-import { sidePlayers } from "@/lib/tournament/entries";
-import { clock } from "@/lib/tournament/time";
-import { categoryName } from "./labels";
-import { matchText, sideLabel, type LocalSegment } from "./timeline";
-
-/** A court's number from its id. */
-function courtOf(draft: PlanDraft, courtId: string): number | null {
-  for (const [h, hall] of draft.frame.halls.entries()) {
-    const c = hall.courts.findIndex((x) => x.id === courtId);
-    if (c !== -1) return courtNumber(draft.frame.halls, h, c);
-  }
-  return null;
-}
+import type { PlanDraft } from "@/lib/tournament/draft";
+import type { SheetDesign } from "@/lib/tournament/resources";
 
 /** "Sat 14 Nov 2026" from the plan's date. */
 function dateText(date: string): string {
   if (!date) return "";
   const [y, m, d] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(
-    new Date(Date.UTC(y!, m! - 1, d!)),
-  );
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(y!, m! - 1, d!)))
+    .replace(",", "");
 }
 
-/** One game's paper score sheet: half an A4 page. Names only; no phone numbers and no money. */
-export function ScoreSheet({ draft, segment }: { draft: PlanDraft; segment: LocalSegment }) {
-  const { match } = segment;
-  const { where, rubber } = matchText(draft, match);
-  const category = draft.categories.find((c) => c.id === match.categoryId);
-  const games = category ? (categoryRules(draft, category)[match.stage].bestOf ?? 1) : 1;
-  const side = (slot: string) => ({
-    name: sideLabel(draft, match, slot),
-    players: sidePlayers(draft, match.categoryId, slot, match.rubber?.number)
-      .map((p) => p.name.trim())
-      .filter(Boolean),
-  });
-  const sides = [side(match.home), side(match.away)];
-  const cell = "border border-black";
+/** A blank to write on: its caption, then a line. */
+function Blank({ label, className = "" }: { label: string; className?: string }) {
   return (
-    <section className="score-sheet flex flex-col gap-[4mm] px-[4mm] py-[6mm] font-sans text-[11pt] leading-tight text-black">
-      <header className="flex items-baseline justify-between gap-[4mm] border-b-2 border-black pb-[2mm]">
-        <span className="text-[14pt] font-bold">{draft.name.trim() || "Tournament"}</span>
-        <span>{dateText(draft.frame.date)}</span>
-      </header>
-      <div className="grid grid-cols-4 gap-[3mm]">
-        {[
-          ["Court", String(courtOf(draft, segment.courtId) ?? "")],
-          ["Time", clock(segment.from)],
-          ["Category", categoryName(draft, match.categoryId)],
-          ["Game", [where, rubber?.replace(/: .*/, "")].filter(Boolean).join(" · ")],
-        ].map(([label, value]) => (
-          <div key={label} className="flex flex-col">
-            <span className="text-[8pt] uppercase">{label}</span>
-            <span className="text-[13pt] font-bold">{value}</span>
-          </div>
-        ))}
-      </div>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr>
-            <th className={`${cell} px-[2mm] py-[1.5mm] text-left text-[8pt] font-normal uppercase`}>Side</th>
-            {Array.from({ length: games }, (_, g) => (
-              <th key={g} className={`${cell} w-[22mm] py-[1.5mm] text-[8pt] font-normal uppercase`}>
-                {games === 1 ? "Score" : `Game ${g + 1}`}
-              </th>
-            ))}
-            <th className={`${cell} w-[22mm] py-[1.5mm] text-[8pt] font-normal uppercase`}>Winner (tick)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sides.map((s, i) => (
-            <tr key={i}>
-              <td className={`${cell} h-[20mm] px-[2mm] align-middle`}>
-                <span className="block font-bold">{s.name}</span>
-                {/* A team's players for this rubber, or a pair's two, when they aren't already the name. */}
-                {s.players.length > 0 && s.players.join(" / ") !== s.name ? <span className="block text-[9pt]">{s.players.join(" / ")}</span> : null}
-              </td>
-              {Array.from({ length: games }, (_, g) => (
-                <td key={g} className={cell} />
-              ))}
-              <td className={cell} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-auto grid grid-cols-2 gap-[6mm]">
-        {["Umpire's name", "Umpire's signature"].map((label) => (
-          <div key={label} className="flex flex-col gap-[7mm]">
-            <span className="text-[8pt] uppercase">{label}</span>
-            <span className="border-b border-black" />
-          </div>
-        ))}
-      </div>
-    </section>
+    <div className={`flex flex-col gap-[6mm] ${className}`}>
+      <span className="text-[7.5pt] uppercase">{label}</span>
+      <span className="border-b border-black" />
+    </div>
   );
 }
 
 /**
- * Print score sheets: for umpires without a phone. A small menu asks which
- * games; the sheets print two to an A4 page through the browser's own print
- * dialog (which can also save a PDF). Available once any draw is locked.
+ * A blank score sheet for one match: a full A4 page. It carries no names, so
+ * any sheet of a design does for any match scored that way. For each game
+ * (one, or three for best of three) each side has a row of numbered boxes to
+ * cross off as points are won: up to the points per game, and on to the
+ * deuce limit where there is one (those boxes are lighter). Names only are
+ * written on it at the court; never a phone number or money.
  */
-export function ScoreSheetsButton({ draft, segments, label = "Print score sheets" }: { draft: PlanDraft; segments: LocalSegment[]; label?: string }) {
-  const [open, setOpen] = useState(false);
-  const [which, setWhich] = useState("all");
-  const [printing, setPrinting] = useState<LocalSegment[] | null>(null);
-  const locked = Object.values(draft.draw).some((d) => d.locked);
-  const courts = draft.frame.halls.flatMap((hall, h) => hall.courts.map((c, i) => ({ id: c.id, number: courtNumber(draft.frame.halls, h, i) })));
-  const ordered = [...segments].sort(
-    (a, b) => a.from - b.from || (courtOf(draft, a.courtId) ?? 0) - (courtOf(draft, b.courtId) ?? 0),
-  );
-  const chosen =
-    which === "all"
-      ? ordered
-      : which === "group"
-        ? ordered.filter((s) => s.stage === "group")
-        : which.startsWith("court:")
-          ? ordered.filter((s) => s.courtId === which.slice(6))
-          : ordered.filter((s) => s.match.categoryId === which.slice(9));
-
-  // Once the sheets are on the page, print them; afterwards take them off again.
-  useEffect(() => {
-    if (!printing) return;
-    const done = () => setPrinting(null);
-    window.addEventListener("afterprint", done);
-    const timer = window.setTimeout(() => window.print(), 50);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("afterprint", done);
-    };
-  }, [printing]);
-
+export function BlankScoreSheet({ draft, design }: { draft: PlanDraft; design: SheetDesign }) {
+  const team = draft.unit === "team";
+  const several = design.categoryIds.length > 1;
+  const points = Array.from({ length: design.limit }, (_, i) => i + 1);
+  const cell = "border border-black";
   return (
-    <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!locked || segments.length === 0}
-              title={!locked ? "Lock a draw first: sheets carry the names it gives." : undefined}
-            />
-          }
-        >
-          <PrinterIcon /> {label}
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-72 gap-3 p-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="score-sheets-which" className="text-xs leading-4 text-muted-foreground">
-              Which games
-            </label>
-            <NativeSelect id="score-sheets-which" className="w-full" value={which} onChange={(e) => setWhich(e.target.value)}>
-              <NativeSelectOption value="all">Every game</NativeSelectOption>
-              <NativeSelectOption value="group">Group stage only</NativeSelectOption>
-              {courts.map((c) => (
-                <NativeSelectOption key={c.id} value={`court:${c.id}`}>
-                  Court {c.number}
-                </NativeSelectOption>
-              ))}
-              {draft.categories.length > 1
-                ? draft.categories.map((c) => (
-                    <NativeSelectOption key={c.id} value={`category:${c.id}`}>
-                      {categoryName(draft, c.id)}
-                    </NativeSelectOption>
-                  ))
-                : null}
-            </NativeSelect>
+    <section className="score-sheet flex flex-col gap-[5mm] p-[4mm] font-sans text-[10pt] leading-tight text-black">
+      <header className="flex items-baseline justify-between gap-[4mm] border-b-2 border-black pb-[2mm]">
+        <span className="text-[15pt] font-bold">{draft.name.trim() || "Tournament"}</span>
+        <span>{dateText(draft.frame.date)}</span>
+      </header>
+      <div className="flex flex-col gap-[1mm]">
+        <span className="text-[7.5pt] uppercase">Score sheet for</span>
+        {design.uses.map((use) => (
+          <span key={use} className="text-[11pt] font-bold">
+            {use}
+          </span>
+        ))}
+        <span>{design.scoring}</span>
+      </div>
+
+      <div className={`grid gap-[5mm] ${several ? "grid-cols-5" : "grid-cols-4"}`}>
+        {several ? <Blank label="Category" /> : null}
+        <Blank label="Court" />
+        <Blank label="Time" />
+        <Blank label="Group or round" />
+        <Blank label={team ? "Tie and rubber" : "Match"} />
+      </div>
+      <div className="grid grid-cols-2 gap-[8mm]">
+        {["Side A", "Side B"].map((side) => (
+          <div key={side} className="flex flex-col gap-[4mm]">
+            <Blank label={team ? `${side}: team` : side} />
+            <Blank label="Players" />
           </div>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {chosen.length} {chosen.length === 1 ? "sheet" : "sheets"}, two to an A4 page ({Math.ceil(chosen.length / 2)}{" "}
-            {Math.ceil(chosen.length / 2) === 1 ? "page" : "pages"}). Knockout sheets name their sides once the groups decide them.
-          </p>
-          <Button
-            size="sm"
-            className="self-end"
-            disabled={chosen.length === 0}
-            onClick={() => {
-              setOpen(false);
-              setPrinting(chosen);
-            }}
-          >
-            <PrinterIcon /> Print
-          </Button>
-        </PopoverContent>
-      </Popover>
-      {printing
-        ? createPortal(
-            <div className="print-root" data-sheets={printing.length}>
-              {printing.map((s) => (
-                <ScoreSheet key={s.id} draft={draft} segment={s} />
+        ))}
+      </div>
+
+      {Array.from({ length: design.bestOf }, (_, g) => (
+        <div key={g} className="flex flex-col gap-[1.5mm] break-inside-avoid">
+          <div className="flex items-baseline justify-between">
+            <span className="font-bold">{design.bestOf === 1 ? "Game" : `Game ${g + 1}`}</span>
+            <span className="text-[7.5pt] uppercase">Cross off a box for each point won</span>
+          </div>
+          <table className="w-full table-fixed border-collapse">
+            <tbody>
+              {["A", "B"].map((side) => (
+                <tr key={side}>
+                  <th className={`${cell} w-[9mm] py-[1.6mm] text-[10pt] font-bold`}>{side}</th>
+                  {points.map((n) => (
+                    <td
+                      key={n}
+                      // Past the points per game: only reached from deuce.
+                      className={`${cell} py-[1.6mm] text-center text-[7.5pt] tabular-nums ${n > design.target ? "bg-black/10" : ""}`}
+                    >
+                      {n}
+                    </td>
+                  ))}
+                  <td className={`${cell} w-[16mm]`} />
+                </tr>
               ))}
-            </div>,
-            document.body,
-          )
-        : null}
-    </>
+            </tbody>
+          </table>
+          <span className="self-end text-[7.5pt] uppercase">Game score in the end box</span>
+        </div>
+      ))}
+
+      <div className="grid grid-cols-[2fr_1fr] gap-[8mm]">
+        <Blank label="Match won by" />
+        <Blank label={design.bestOf === 1 ? "Score" : "Games"} />
+      </div>
+      <div className="mt-auto grid grid-cols-3 gap-[8mm] pt-[4mm]">
+        <Blank label="Umpire's signature" />
+        <Blank label="Side A's signature" />
+        <Blank label="Side B's signature" />
+      </div>
+    </section>
   );
 }

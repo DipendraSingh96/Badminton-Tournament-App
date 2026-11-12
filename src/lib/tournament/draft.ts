@@ -296,10 +296,15 @@ export interface ResourcesDraft {
   kit: KitRowDraft[];
   /** The counted kit rows ticked as packed, by key ("shuttles", "sheets"…). */
   packed: string[];
+  /** For the poster: the venue's name and address, and how to enter. Typed by the organiser. */
+  venue: string;
+  howToEnter: string;
+  /** The organiser's own score sheet in place of ours: its file's name and type (the file itself is kept on the device). */
+  ownSheet: { name: string; type: string } | null;
 }
 
 export function emptyResources(): ResourcesDraft {
-  return { houseRules: "", checklist: [], kit: [], packed: [] };
+  return { houseRules: "", checklist: [], kit: [], packed: [], venue: "", howToEnter: "", ownSheet: null };
 }
 
 export interface ZoneMoveDraft {

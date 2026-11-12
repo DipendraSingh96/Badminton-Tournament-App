@@ -90,7 +90,7 @@ export function normaliseDraft(
     decided: saved.decided ?? {},
     log: saved.log ?? [],
     // Saved before the Resources page: nothing prepared yet.
-    resources: saved.resources ?? emptyResources(),
+    resources: { ...emptyResources(), ...saved.resources },
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},

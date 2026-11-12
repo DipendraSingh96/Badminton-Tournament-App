@@ -938,6 +938,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         shuttles={shownAnalysis?.ok ? shownAnalysis.analysis.finance.shuttles : null}
                         fits={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status !== "doesNotFit" : null}
                         onFix={fixAt}
+                        tournamentId={id}
                       />
                     }
                     courts={

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { duplicateDraft, emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { autoChecklist, daysText, daysToGo, kitList, playerMessage, rulebook, scoringText } from "./resources";
+import { autoChecklist, daysText, daysToGo, kitList, playerMessage, posterPrompt, rulebook, scoringText, sheetDesigns } from "./resources";
 import { normaliseDraft } from "./storage";
 
 /** Sixteen pairs entered and drawn into four groups of four. */
@@ -32,9 +32,9 @@ describe("kit list", () => {
     expect(row(draft, { sheets: 0, shuttles: null }, "shuttles")).toMatchObject({ quantity: null, fix: "budget" });
   });
 
-  it("counts a score sheet a game, two to a page, and what each court needs", () => {
+  it("counts a score sheet a match, and what each court needs", () => {
     const draft = drawn();
-    expect(row(draft, { sheets: 31, shuttles: 40 }, "sheets")).toMatchObject({ quantity: 31, detail: "One a game: 16 A4 pages, two sheets to a page" });
+    expect(row(draft, { sheets: 31, shuttles: 40 }, "sheets")).toMatchObject({ quantity: 31, detail: "One A4 page a match; print a few spare" });
     expect(row(draft, { sheets: 0, shuttles: 40 }, "sheets").fix).toBe("schedule");
     // The sample venue: two courts, with one and two umpires.
     expect(row(draft, { sheets: 31, shuttles: 40 }, "pens").quantity).toBe(2);
@@ -157,7 +157,19 @@ describe("message to players, and saved tournaments", () => {
   it("opens a tournament saved before the Resources page with nothing prepared", () => {
     const saved: Partial<PlanDraft> = drawn();
     delete saved.resources;
-    expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).resources).toEqual({ houseRules: "", checklist: [], kit: [], packed: [] });
+    expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).resources).toEqual({
+      houseRules: "",
+      checklist: [],
+      kit: [],
+      packed: [],
+      venue: "",
+      howToEnter: "",
+      ownSheet: null,
+    });
+    // One saved before the poster fields gains them.
+    const older = drawn();
+    delete (older.resources as Partial<PlanDraft["resources"]>).venue;
+    expect(normaliseDraft(older as Parameters<typeof normaliseDraft>[0]).resources.venue).toBe("");
   });
 
   it("copies a tournament's own lists unticked", () => {
@@ -167,12 +179,80 @@ describe("message to players, and saved tournaments", () => {
       checklist: [{ id: "a", text: "Book first aider", done: true }],
       kit: [{ id: "b", text: "Spare nets", quantity: 2, packed: true }],
       packed: ["shuttles"],
+      venue: "",
+      howToEnter: "",
+      ownSheet: null,
     };
     expect(duplicateDraft(draft).resources).toEqual({
       houseRules: "Feather shuttles only.",
       checklist: [{ id: "a", text: "Book first aider", done: false }],
       kit: [{ id: "b", text: "Spare nets", quantity: 2, packed: false }],
       packed: [],
+      venue: "",
+      howToEnter: "",
+      ownSheet: null,
     });
+  });
+});
+
+describe("score sheets by stage", () => {
+  const games = [
+    ...Array.from({ length: 24 }, () => ({ categoryId: "c1", stage: "group" })),
+    ...Array.from({ length: 6 }, () => ({ categoryId: "c1", stage: "knockout" })),
+    { categoryId: "c1", stage: "bronze" },
+    { categoryId: "c1", stage: "final" },
+  ];
+
+  it("needs one design for stages scored alike, and another for a best-of-three final", () => {
+    const designs = sheetDesigns(drawn(), games);
+    expect(designs.map((d) => [d.uses, d.matches, d.bestOf, d.target, d.limit])).toEqual([
+      [["Mixed doubles: group stage, knockout rounds, bronze match"], 31, 1, 21, 30],
+      [["Mixed doubles: final"], 1, 3, 21, 30],
+    ]);
+    expect(designs[0]!.categoryIds).toEqual(["c1"]);
+  });
+
+  it("stops the point boxes at the points per game without a deuce rule", () => {
+    const draft = drawn();
+    const rules = draft.categories[0]!.stageRules!;
+    for (const stage of ["group", "knockout", "bronze", "final"] as const) rules[stage] = { ...rules[stage], deuce: "none", deuceLimit: null, bestOf: 1 };
+    const designs = sheetDesigns(draft, games);
+    expect(designs).toHaveLength(1);
+    expect(designs[0]).toMatchObject({ target: 21, limit: 21, matches: 32, uses: ["Mixed doubles: group stage, knockout rounds, bronze match, final"] });
+    rules.group = { ...rules.group, deuce: "cap", deuceLimit: 25 };
+    expect(sheetDesigns(draft, games).find((d) => d.uses[0]!.endsWith("group stage"))).toMatchObject({ limit: 25, matches: 24 });
+  });
+
+  it("shares a design between categories scored alike", () => {
+    const draft = drawn();
+    draft.categories.push({ ...structuredClone(draft.categories[0]!), id: "c2", name: "Advanced" });
+    const designs = sheetDesigns(draft, [...games, { categoryId: "c2", stage: "group" }]);
+    expect(designs[0]).toMatchObject({ categoryIds: ["c1", "c2"], matches: 32 });
+    expect(designs[0]!.uses).toEqual(["Mixed doubles: group stage, knockout rounds, bronze match", "Advanced: group stage"]);
+  });
+});
+
+describe("poster prompt", () => {
+  it("carries what a poster needs, with blanks for what only the organiser knows", () => {
+    const draft = drawn();
+    const prompt = posterPrompt(draft, { firstGame: "09:00", money: true });
+    expect(prompt).toContain("Tournament: Club Open");
+    expect(prompt).toContain("Date: Saturday 4 July 2026");
+    expect(prompt).toContain("Doors open 09:00, first games 09:00");
+    expect(prompt).toContain("Venue: [venue name and address]");
+    expect(prompt).toContain("- Mixed doubles, entry £10 per player; prizes: Winners £50");
+    expect(prompt).toContain("Format: groups, then a knockout");
+    draft.resources.venue = "Riverside Sports Hall, Mill Lane";
+    draft.resources.howToEnter = "Message Sam by 1 July";
+    const filled = posterPrompt(draft, { firstGame: "09:00", money: true });
+    expect(filled).toContain("Venue: Riverside Sports Hall, Mill Lane");
+    expect(filled).toContain("How to enter: Message Sam by 1 July");
+  });
+
+  it("leaves money out while the tournament is Live, and an unticked prize always", () => {
+    const draft = drawn();
+    expect(posterPrompt(draft, { firstGame: null, money: false })).not.toMatch(/£|prize/i);
+    draft.finance.prizes[0]!.off = true;
+    expect(posterPrompt(draft, { firstGame: null, money: true })).not.toMatch(/prizes:/);
   });
 });

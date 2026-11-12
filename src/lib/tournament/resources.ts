@@ -33,7 +33,6 @@ export function kitList(draft: PlanDraft, counts: { sheets: number; shuttles: nu
   const perTube = draft.finance.shuttlesPerTube;
   const shuttles = counts.shuttles === null ? null : Math.ceil(counts.shuttles);
   const tubes = shuttles !== null && perTube ? Math.ceil(shuttles / perTube) : null;
-  const pages = Math.ceil(counts.sheets / 2);
   return [
     {
       key: "shuttles",
@@ -51,7 +50,7 @@ export function kitList(draft: PlanDraft, counts: { sheets: number; shuttles: nu
       key: "sheets",
       label: "Score sheets",
       quantity: counts.sheets,
-      detail: counts.sheets === 0 ? "No games on the schedule yet" : `One a game: ${pages} A4 ${pages === 1 ? "page" : "pages"}, two sheets to a page`,
+      detail: counts.sheets === 0 ? "No games on the schedule yet" : "One A4 page a match; print a few spare",
       fix: counts.sheets === 0 ? "schedule" : null,
     },
     { key: "pens", label: "Pens", quantity: courts, detail: "One a court", fix: null },
@@ -293,6 +292,61 @@ export function rulebook(draft: PlanDraft, houseRules: string): { sections: Rule
   return { sections, missing };
 }
 
+// ----- Score sheets
+
+/**
+ * A blank score sheet: one design for every match that is scored the same
+ * way. Sheets carry no names, so any sheet of a design does for any of its
+ * matches, and nobody hunts for the right one at the desk.
+ */
+export interface SheetDesign {
+  /** The scoring it is for, as a key. */
+  key: string;
+  /** What it is for: "Intermediate: group stage, knockout rounds". A line each. */
+  uses: string[];
+  /** Every category it serves; with several, the sheet has a blank for the category. */
+  categoryIds: string[];
+  /** The scoring in a sentence, printed on the sheet. */
+  scoring: string;
+  bestOf: 1 | 3;
+  /** The points a game is played to, and the most it can reach (the same without a deuce rule). */
+  target: number;
+  limit: number;
+  /** How many matches on the schedule use it. */
+  matches: number;
+}
+
+/** The designs a tournament needs, from the games on its schedule; the one most used first. */
+export function sheetDesigns(draft: PlanDraft, games: { categoryId: string; stage: string }[]): SheetDesign[] {
+  const designs = new Map<string, SheetDesign & { stages: Map<string, Set<StageKey>> }>();
+  for (const game of games) {
+    const category = draft.categories.find((c) => c.id === game.categoryId);
+    const rules = category ? categoryRules(draft, category)[game.stage as StageKey] : undefined;
+    const scoring = rules ? scoringText(rules) : null;
+    if (!category || !rules || !scoring) continue;
+    const target = rules.pointsPerGame!;
+    const limit = rules.deuce !== "none" && rules.deuceLimit && rules.deuceLimit > target ? rules.deuceLimit : target;
+    const design =
+      designs.get(scoring) ??
+      designs.set(scoring, { key: scoring, uses: [], categoryIds: [], scoring, bestOf: rules.bestOf!, target, limit, matches: 0, stages: new Map() }).get(scoring)!;
+    design.matches += 1;
+    design.stages.set(category.id, (design.stages.get(category.id) ?? new Set()).add(game.stage as StageKey));
+  }
+  return [...designs.values()]
+    .map(({ stages, ...design }) => {
+      const order = draft.categories.filter((c) => stages.has(c.id));
+      return {
+        ...design,
+        categoryIds: order.map((c) => c.id),
+        uses: order.map((c) => {
+          const own = (["group", "knockout", "bronze", "final"] as const).filter((st) => stages.get(c.id)!.has(st));
+          return `${categoryLabel(draft, c.id)}: ${own.map((st) => STAGE_NAMES[st].toLowerCase()).join(", ")}`;
+        }),
+      };
+    })
+    .sort((a, b) => b.matches - a.matches);
+}
+
 // ----- Programme
 
 /** The venue's hours a hall at a time: "Hall 1: 09:00 to 18:00, courts 1 to 4". */
@@ -337,6 +391,52 @@ export function playerMessage(draft: PlanDraft, firstGame: string | null): strin
     `Attached are the programme (the groups, the draw and the order of play${entered > 0 ? ` for all ${entered} entries` : ""}) and the rulebook. Please read both before the day.`,
     "",
     "If you can no longer play, tell us as soon as you can.",
+  ].join("\n");
+}
+
+// ----- Poster prompt
+
+const FORMAT_WORDS = { groupsKnockout: "groups, then a knockout", knockout: "a straight knockout", groups: "round-robin groups" } as const;
+
+/**
+ * A prompt to give an image tool (ChatGPT and the like) to make a poster:
+ * everything a poster needs that the tournament already knows, the venue and
+ * how to enter as the organiser typed them, and how it should be laid out.
+ * With `money` false (the tournament is Live) fees and prizes are left out.
+ */
+export function posterPrompt(draft: PlanDraft, options: { firstGame: string | null; money: boolean }): string {
+  const name = draft.name.trim() || "Badminton tournament";
+  const opens = draft.frame.halls.map((h) => h.from).filter((t): t is string => Boolean(t)).sort()[0] ?? null;
+  const courts = draft.frame.halls.reduce((n, h) => n + h.courts.length, 0);
+  const pounds = (n: number) => `£${Number.isInteger(n) ? n : n.toFixed(2)}`;
+  const categories = draft.categories.map((c) => {
+    const fee =
+      options.money && c.feeAmount !== null && c.feeBasis
+        ? `, entry ${pounds(c.feeAmount)} per ${c.feeBasis === "player" ? "player" : draft.unit === "team" ? "team" : "entry"}`
+        : "";
+    const prizes = options.money
+      ? draft.finance.prizes
+          .filter((p) => p.categoryId === c.id && !p.off && p.amount !== null && p.position.trim())
+          .map((p) => `${p.position.trim()} ${pounds(p.amount!)}`)
+      : [];
+    return `- ${categoryLabel(draft, c.id)}${fee}${prizes.length > 0 ? `; prizes: ${prizes.join(", ")}` : ""}`;
+  });
+  const facts = [
+    `Tournament: ${name}`,
+    draft.frame.date ? `Date: ${longDate(draft.frame.date)}` : "Date: to be announced",
+    [opens ? `Doors open ${opens}` : null, options.firstGame ? `first games ${options.firstGame}` : null].filter(Boolean).join(", ") || null,
+    `Venue: ${draft.resources.venue.trim() || "[venue name and address]"}`,
+    courts > 0 ? `${courts} ${courts === 1 ? "court" : "courts"}` : null,
+    draft.format ? `Format: ${draft.unit === "team" ? "team event, " : ""}${FORMAT_WORDS[draft.format]}` : null,
+    categories.length > 0 ? `Categories:\n${categories.join("\n")}` : null,
+    `How to enter: ${draft.resources.howToEnter.trim() || "[how to enter, and by when]"}`,
+  ].filter(Boolean);
+  return [
+    "Design a poster for a badminton tournament. Use exactly this information, spelt exactly as written, and add no other facts:",
+    "",
+    ...facts,
+    "",
+    "Layout: portrait, A4 proportions, readable on a phone screen. The tournament's name is the largest text, then the date and venue. List the categories clearly. Leave a clear square in a bottom corner for a QR code. Use badminton imagery (a shuttlecock, rackets, a court) in a bold, modern, sporty style with strong contrast. No small print, no invented logos or sponsors.",
   ].join("\n");
 }
 
