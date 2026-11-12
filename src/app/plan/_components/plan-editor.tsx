@@ -79,6 +79,31 @@ const DIVIDER =
 /** The workbench, from the top of the shell, with an open divider at its left: a line that stops 16px short of the shell's edges. */
 const WORKBENCH =
   "relative flex shrink-0 flex-col pt-4 before:absolute before:top-4 before:bottom-4 before:left-0 before:w-px before:bg-border";
+/** Text running down the folded rail. */
+const RAIL_TEXT = "text-xl font-semibold whitespace-nowrap [writing-mode:vertical-rl]";
+
+/**
+ * A side panel folded to its rail: 64px wide, and the whole of it one button
+ * that opens the panel again, so it is easy to see and to hit.
+ */
+function Rail({ name, open, onOpen, children }: { name: string; open: string; onOpen: () => void; children: ReactNode }) {
+  return (
+    <aside aria-label={`${name} (hidden)`} className={cn(WORKBENCH, "w-16 overflow-hidden pt-0")}>
+      <button
+        type="button"
+        aria-label={open}
+        aria-expanded={false}
+        title={open}
+        onClick={onOpen}
+        className="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center gap-4 pt-4 pb-4 text-foreground transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        <CaretLeftIcon className="size-5 shrink-0" aria-hidden="true" />
+        {children}
+      </button>
+    </aside>
+  );
+}
+
 /** The timeline folded to its bar. */
 const TIMELINE_FOLDED = 40;
 
@@ -931,12 +956,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             {viewing === "live" || viewing === "results" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
-                <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
-                  <IconButton label="Show panel" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
-                    <CaretLeftIcon />
-                  </IconButton>
-                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">Games</p>
-                </aside>
+                <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
+                  <span className={RAIL_TEXT}>Games</span>
+                </Rail>
               ) : (
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
                   {watching ? (
@@ -968,14 +990,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             ) : viewing !== "plan" ? (
               // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
               workbenchFolded ? (
-                <aside aria-label="Side panel (hidden)" className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}>
-                  <IconButton label="Show panel" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
-                    <CaretLeftIcon />
-                  </IconButton>
-                  <p className="text-sm font-semibold whitespace-nowrap [writing-mode:vertical-rl]">
-                    {draft.unit === "team" ? "Teams" : "Entries"}
-                  </p>
-                </aside>
+                <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
+                  <span className={RAIL_TEXT}>{draft.unit === "team" ? "Teams" : "Entries"}</span>
+                </Rail>
               ) : (
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
                   <DrawPanel
@@ -990,15 +1007,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </aside>
               )
             ) : workbenchFolded ? (
-                <aside
-                  aria-label="Workbench (hidden)"
-                  className={cn(WORKBENCH, "w-10 items-center gap-4 overflow-hidden pb-4")}
-                >
-                  <IconButton label="Show workbench" side="left" aria-expanded={false} onClick={() => foldWorkbench(false)}>
-                    <CaretLeftIcon />
-                  </IconButton>
+                <Rail name="Workbench" open="Show workbench" onOpen={() => foldWorkbench(false)}>
                   <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={isLive} />
-                </aside>
+                </Rail>
               ) : (
                 <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
                   {locked ? (

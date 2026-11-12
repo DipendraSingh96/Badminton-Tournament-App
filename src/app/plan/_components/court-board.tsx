@@ -66,7 +66,8 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
           <section key={hall.id} aria-label={hallName(hall, h)} className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
             <h3 className="heading-card">{hallName(hall, h)}</h3>
             <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]} reversed={Boolean(hall.flipped)}>
-              {hall.courts.map((court, c) => {
+              {(hall.flipped ? [...hall.courts.keys()].reverse() : [...hall.courts.keys()]).map((c) => {
+                const court = hall.courts[c]!;
                 const queue = queues.get(court.id);
                 const current = queue?.current ?? null;
                 const status: CourtStatus = current ? playingStatus(draft, current) : { kind: "free" };

@@ -19,7 +19,7 @@ export function CourtStrip({
   reversed = false,
   children,
 }: {
-  /** Drawn right to left: the first court at the right, Add court at the left end. */
+  /** The hall is flipped: its courts are given highest number first, with Add court before them, so a new court appears at the left end. */
   reversed?: boolean;
   count: number;
   /** How wide each court's card is, in pixels. */
@@ -36,12 +36,8 @@ export function CourtStrip({
     const el = row.current;
     if (!el) return;
     const measure = () => {
-      // Drawn right to left, the row starts at its right end and scrolls into negative numbers.
-      const from = Math.abs(el.scrollLeft);
-      const start = from > 1;
-      const end = from + el.clientWidth < el.scrollWidth - 1;
-      const left = reversed ? end : start;
-      const right = reversed ? start : end;
+      const left = el.scrollLeft > 1;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
       setMore((m) => (m.left === left && m.right === right ? m : { left, right }));
     };
     measure();
@@ -52,15 +48,15 @@ export function CourtStrip({
       el.removeEventListener("scroll", measure);
       observer.disconnect();
     };
-  }, [count, reversed]);
+  }, [count]);
 
-  // A court added: bring the end of the row (the new court and Add court) into view.
+  // A court added: bring the new court and Add court into view (the row's end, or its start in a flipped hall).
   const before = useRef(count);
   useLayoutEffect(() => {
     const el = row.current;
     if (el && count > before.current) {
       const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el.scrollTo({ left: reversed ? -el.scrollWidth : el.scrollWidth, behavior: still ? "auto" : "smooth" });
+      el.scrollTo({ left: reversed ? 0 : el.scrollWidth, behavior: still ? "auto" : "smooth" });
     }
     before.current = count;
   }, [count, reversed]);
@@ -116,7 +112,7 @@ export function CourtStrip({
       onPointerCancel={onPointerEnd}
       style={{ maskImage: mask, WebkitMaskImage: mask, "--court-w": `${width}px` } as CSSProperties}
       // The 4px of padding leaves room for focus and selection rings, which the clip would cut.
-      className={`-m-1 flex ${reversed ? "flex-row-reverse" : ""} gap-3 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:none] *:w-(--court-w) *:shrink-0 [&::-webkit-scrollbar]:hidden ${
+      className={`-m-1 flex gap-3 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:none] *:w-(--court-w) *:shrink-0 [&::-webkit-scrollbar]:hidden ${
         dragging ? "cursor-grabbing select-none" : ""
       }`}
     >

@@ -360,6 +360,18 @@ export function HallCard({
       : ([["Rate", hall.multipleRates ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}` : rate != null ? `£ ${rate}` : "–"]] as [string, string][])),
   ];
 
+  const addCourt = fixed ? null : (
+    <button
+      key="add-court"
+      type="button"
+      onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
+      className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${
+        size === "large" ? "min-h-80" : size === "medium" ? "min-h-56" : "min-h-28"
+      } border-foreground/30 bg-background text-sm font-semibold text-foreground transition-colors outline-none hover:border-foreground/60 hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring`}
+    >
+      <PlusIcon className="size-5" /> Add court
+    </button>
+  );
   return (
     <section className="flex flex-col gap-3 border-t pt-4 first:border-t-0 first:pt-0">
       {fixed ? (
@@ -510,30 +522,22 @@ export function HallCard({
       {settingsOpen && !fixed ? <HallSettings draft={draft} hall={hall} hallIndex={hallIndex} update={update} /> : null}
 
       <CourtStrip count={hall.courts.length} width={COURT_WIDTH[size]} reversed={Boolean(hall.flipped)}>
-        {hall.courts.map((court, i) => (
+        {/* A flipped hall reads the other way: Add court first, then the highest number down to the lowest. */}
+        {hall.flipped ? addCourt : null}
+        {(hall.flipped ? [...hall.courts.keys()].reverse() : [...hall.courts.keys()]).map((i) => (
           <CourtCard
-            key={court.id}
+            key={hall.courts[i]!.id}
             hall={hall}
             hallIndex={hallIndex}
             courtIndex={i}
             number={courtNumber(draft.frame.halls, hallIndex, i)}
-            status={statuses?.get(court.id) ?? null}
-            groups={courtGroups?.get(court.id) ?? null}
+            status={statuses?.get(hall.courts[i]!.id) ?? null}
+            groups={courtGroups?.get(hall.courts[i]!.id) ?? null}
             allGroups={allGroups}
             update={update}
           />
         ))}
-        {fixed ? null : (
-        <button
-          type="button"
-          onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
-          className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${
-            size === "large" ? "min-h-80" : size === "medium" ? "min-h-56" : "min-h-28"
-          } border-foreground/30 bg-background text-sm font-semibold text-foreground transition-colors outline-none hover:border-foreground/60 hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring`}
-        >
-          <PlusIcon className="size-5" /> Add court
-        </button>
-        )}
+        {hall.flipped ? null : addCourt}
       </CourtStrip>
     </section>
   );

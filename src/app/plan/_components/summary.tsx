@@ -43,10 +43,10 @@ export function HealthBar({
         ? `${formatMinutesShort(booked)} of court time booked. ${each}`
         : `${formatMinutesShort(needed)} needed of ${formatMinutesShort(booked)} booked. ${each}`;
   return (
-    <div role="img" aria-label={label} title={label} className={cn("flex gap-0.5", vertical ? "h-full w-2 flex-col" : "h-2")}>
+    <div role="img" aria-label={label} title={label} className={cn("flex gap-0.5", vertical ? "h-full w-3 flex-col" : "h-2")}>
       {fills.length === 0 ? <span className="flex-1 rounded-full bg-border" /> : null}
       {fills.map((fill, i) => (
-        <span key={i} className="relative flex-1 overflow-hidden rounded-full bg-border">
+        <span key={i} className="relative block flex-1 overflow-hidden rounded-full bg-border">
           {fill > 0 ? (
             <span
               className={cn("absolute top-0 left-0", colour, vertical ? "w-full" : "h-full")}
@@ -98,28 +98,28 @@ export function RailSummary({
   const status = result ? FIT_STATUS[result.capacity.status].variant : null;
   const missing = !parsed.ok ? parsed.issues.length : 0;
   const loss = result ? result.finance.profit < 0 : false;
-  const sideways = "text-sm whitespace-nowrap [writing-mode:vertical-rl]";
+  const sideways = "whitespace-nowrap [writing-mode:vertical-rl]";
   return (
     <>
-      <p className={cn(sideways, "font-semibold")}>
+      <span className={cn(sideways, "text-xl font-semibold")}>
         <PlanHeading missing={missing} status={status} />
-      </p>
-      <div className="h-48 shrink-0">
+      </span>
+      <span className="block h-56 shrink-0">
         <HealthBar
           booked={result ? result.capacity.available.courtMinutes : bookedCourtMinutes(draft.frame.halls)}
           needed={result ? result.capacity.needed.typical : null}
           status={status}
           vertical
         />
-      </div>
+      </span>
       {missing > 0 ? (
-        <p className={cn(sideways, "text-muted-foreground")}>
+        <span className={cn(sideways, "text-sm text-muted-foreground")}>
           {missing} {missing === 1 ? "item" : "items"} to fill in
-        </p>
+        </span>
       ) : result && !hideMoney ? (
-        <p className={cn(sideways, "font-semibold tabular-nums", loss ? "text-over-text" : "text-fits-text")}>
+        <span className={cn(sideways, "text-sm font-semibold tabular-nums", loss ? "text-over-text" : "text-fits-text")}>
           {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
-        </p>
+        </span>
       ) : null}
     </>
   );
