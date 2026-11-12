@@ -179,7 +179,15 @@ Allocate every match to a court and slot in waves, from the match rules, time pe
 - **Message to players:** written from the tournament, to copy and send with the two documents.
 - A copied tournament keeps the organiser's own rules, items and kit rows, unticked.
 
-**The Live clock.** While Live the timeline's cursor is the real time in the tournament's time zone. It is not moved by hand.
+**Prizes.** For each category, a prize for 1st, 2nd and 3rd place, each given or not and with its own amount. A prize that isn't given costs nothing and needs nothing filled in.
+
+**Score sheets (replaces the earlier per-match sheets).** Blank, and by how a stage is scored rather than by match: every match scored the same way (points per game, deuce rule, best of one or three) uses the same design, across stages and categories, so any sheet does for any of its matches. One match to an A4 page: the tournament and date; what the design is for and its scoring; blanks for court, time, group or round, match (and category where the design serves several), the two sides and their players; for each game a row of numbered point boxes a side, to the points per game and on to the deuce limit where there is one; the result; and signatures of the umpire and both sides. The organiser prints as many of each design as they want, starting from the number of matches that use it. An organiser may instead use their own sheet (a PDF or an image), kept on the device until tournaments are stored in the database.
+
+**Free courts.** While Live a court is free only when it has nothing on it and no game of its own waiting. Only a free court can be given a waiting game from the side panel.
+
+**Poster prompt.** Resources offers a prompt to give an image tool to make a poster: the name, date, times, venue and how to enter (typed by the organiser), courts, format, and each category with its entry fee and prizes. Fees and prizes are left out while the tournament is Live. Generating the poster inside the app is not built: it needs an image model behind a server route with its key kept off the browser, sign-in, and storage for the images.
+
+**The Live clock.** While Live the timeline's cursor is the real time in the tournament's time zone. It is not moved by hand. (With developer mode on it can be, to look around the day.)
 
 **Developer tools: the simulated day.** Not an organiser feature: behind a Developer tools switch in Settings (off by default, kept on the device, not in the tournament). On the Live stage it plays a whole day through so the Live pages can be looked at with a day's data. From the tournament as it stands: players not yet marked are checked in before their first game (a few late, a few never); each game starts once its court and its players are free, its sides are known and its scheduled time has come, and runs a little short of or past its planned length; scores are random but valid under the stage's rules; a game with an absent player is a walkover; the knockout fills from the simulated results to a champion. Check-ins and results already entered are kept as they are. The day is watch-only, can be played at 5 minutes a second or moved to any time, and **is never saved**: ending it leaves the tournament exactly as it was. Its random numbers (the share absent and late, how early or late a game runs) are kept with the sample-data values.
 
