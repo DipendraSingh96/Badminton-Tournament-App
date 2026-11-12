@@ -362,6 +362,28 @@
   font-size: 0 !important;
 }
 
+/* A court that needs the desk (its game can't start, or a new game has just
+   come onto it): a slow, soft pulse of a yellow outline. Still, for anyone
+   who has asked for less motion. */
+@keyframes court-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--status-tight);
+  }
+}
+.court-flash {
+  animation: court-flash 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .court-flash {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--status-tight);
+  }
+}
+
 /* What is printed (score sheets, the rulebook, the programme, the log): on
    screen it isn't there; on paper it is the only thing. */
 .print-root {

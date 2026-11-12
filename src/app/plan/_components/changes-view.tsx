@@ -141,7 +141,7 @@ export function ChangesView({ draft, update }: { draft: PlanDraft; update: Updat
                   <p className={cn("text-sm", reversed && "text-muted-foreground line-through")}>{entry.text}</p>
                   {entry.note ? <p className="text-xs text-muted-foreground">Note: {entry.note}</p> : null}
                 </div>
-                {entry.kind === "reversal" || reversed ? null : (
+                {entry.kind === "reversal" || entry.kind === "start" || reversed ? null : (
                   <Button
                     variant="outline"
                     size="sm"

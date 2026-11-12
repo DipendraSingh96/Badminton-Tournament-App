@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -273,7 +273,7 @@ export function TeamList({
                 </span>
               )}
             </div>
-            <ul className="flex flex-col">
+            <ul className="flex flex-col gap-1">
               {group.entries.map((entry) => {
                 const own = matchesOf(draft, segments, entry);
                 const next = live ? own.find((s) => gameState(draft.results, s.id) !== "finished") : own.find((s) => s.to > at);
@@ -281,18 +281,20 @@ export function TeamList({
                 const waiting = entry.players.filter((p) => p.attendance !== "arrived").length;
                 return (
                   // Opened, the whole entry (its row and its details) is one inset, apart from its neighbours.
-                  <li key={entry.id} ref={entry.id === openId ? opened : undefined} className={cn("rounded-md", entry.id === openId && "bg-card-inset")}>
+                  // Each entry is its own inset block in its group's card, as a game is in its court; opened, a step further in.
+                  <li key={entry.id} ref={entry.id === openId ? opened : undefined} className={cn("rounded-md", entry.id === openId ? "bg-card-inset" : "bg-(--field-raised)")}>
                     <button
                       type="button"
                       aria-expanded={entry.id === openId}
                       onClick={() => onToggle(entry.id)}
                       className={cn(
-                        "grid w-full cursor-pointer grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        entry.id !== openId && "hover:bg-(--field-raised)",
+                        // 12px from the edge to the place, and 12px from the place to the name.
+                        "grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md px-3 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        entry.id !== openId && "hover:bg-(--field-raised-hover)",
                       )}
                     >
                       {/* Where it sits in the draw: as tall as the two lines beside it. */}
-                      <span className="font-display text-xl leading-none font-bold tabular-nums">{(placeOf(draft, entry) ?? "–").replace(/^Seed /, "")}</span>
+                      <span className="min-w-8 font-display text-xl leading-none font-bold tabular-nums">{(placeOf(draft, entry) ?? "–").replace(/^Seed /, "")}</span>
                       <span className="flex min-w-0 flex-col">
                         <span
                           className={cn("truncate text-sm font-semibold", draft.withdrawn[entry.id] && "text-muted-foreground line-through")}
@@ -311,15 +313,10 @@ export function TeamList({
                           {live && waiting > 0 && !draft.withdrawn[entry.id] ? <span className="text-tight-text"> · {waiting} not checked in</span> : null}
                         </span>
                       </span>
-                      <CaretDownIcon
-                        weight="bold"
-                        aria-hidden="true"
-                        className={cn("size-4 text-muted-foreground transition-transform motion-reduce:transition-none", entry.id === openId && "rotate-180")}
-                      />
                     </button>
                     {entry.id === openId ? (
                       // Opened in place: its details under its row, the list where it was.
-                      <div className="px-2 pt-1 pb-3">
+                      <div className="px-3 pt-1 pb-3">
                         <TeamDetail draft={draft} update={update} entry={entry} segments={segments} at={at} live={live} />
                       </div>
                     ) : null}

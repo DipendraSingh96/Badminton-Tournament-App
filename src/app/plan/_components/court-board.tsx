@@ -12,6 +12,7 @@ import {
   VenueFixedContext,
   type CourtLive,
 } from "./court-card";
+import { useLiveAttention } from "./attention";
 import { CourtStrip } from "./court-strip";
 import { IconButton } from "./fields";
 import type { Update } from "./plan-editor";
@@ -27,6 +28,7 @@ export { awardMark, scoreText };
  */
 export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; update: Update; segments: LocalSegment[] }) {
   const queues = useMemo(() => courtQueues(segments, draft.results), [segments, draft.results]);
+  const attention = useLiveAttention();
   const { size, setSize } = useContext(CourtSizeContext);
   const sizeStep = COURT_SIZES.indexOf(size);
   const played = segments.filter((s) => gameState(draft.results, s.id) === "finished").length;
@@ -72,6 +74,7 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
                 const live: CourtLive = current
                   ? {
                       state: gameState(draft.results, current.id) === "onCourt" ? "onCourt" : "upNext",
+                      timing: attention?.timing(current.id) ?? undefined,
                       score: scoreText(draft.results[current.id]?.games, draft.results[current.id]?.award),
                     }
                   : { state: queue && queue.played.length > 0 ? "done" : "free", score: null };

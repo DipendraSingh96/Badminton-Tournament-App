@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretDownIcon, PlayIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
+import { PlayIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { entryForSlot, matchPlayers, sidesChanged } from "@/lib/tournament/entri
 import { courtBoard, courtQueues, gameState, reopenGame, scoreText, setScore, startGame } from "@/lib/tournament/live";
 import { cn } from "@/lib/utils";
 import { PlayerCheckIn } from "./attendance";
+import { TIMING_BADGE, useLiveAttention } from "./attention";
 import { TeamDetail, TeamList, TeamName, TeamOpenContext, courtOf } from "./draw-panel";
 import { IconButton } from "./fields";
 import { AwardDialog } from "./live-dialogs";
@@ -169,14 +170,23 @@ function GamesTab({
   // The waiting game being dragged to a free court.
   const [dragging, setDragging] = useState<LocalSegment | null>(null);
 
-  // A free court has no game of its own, so the game moved there is its only one.
-  const move = (segment: LocalSegment, courtId: string) =>
-    update((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before: null }, now: new Date().toISOString() }));
-  /** The free courts a waiting game could be played on instead. */
+  const attention = useLiveAttention();
+  /** A court that isn't playing takes a game: one with nothing on it, or one whose game is still waiting (that game goes back to Up next). */
+  const takes = (segment: LocalSegment, court: { courtId: string; game: LocalSegment | null }) =>
+    court.game?.id !== segment.id && (court.game === null || gameState(draft.results, court.game.id) === "waiting") && canMove(segment, court.courtId);
+  // The game put on a court goes first there: ahead of the one that was waiting.
+  const move = (segment: LocalSegment, courtId: string) => {
+    const before = board.courts.find((c) => c.courtId === courtId)?.game?.id ?? null;
+    attention?.attend(courtId);
+    update((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before }, now: new Date().toISOString() }));
+  };
+  /** The courts a waiting game could be played on instead. */
   const courtsFor = (segment: LocalSegment) =>
     watch || gameState(draft.results, segment.id) !== "waiting"
       ? []
-      : board.courts.filter((c) => c.game === null && canMove(segment, c.courtId)).map((c) => ({ id: c.courtId, number: courtOf(draft, c.courtId) ?? 0 }));
+      : board.courts.filter((c) => takes(segment, c)).map((c) => ({ id: c.courtId, number: courtOf(draft, c.courtId) ?? 0, free: c.game === null }));
+  // Matches given to a side (a walkover or a retirement) have left their courts: they are listed last.
+  const given = segments.filter((s) => draft.results[s.id]?.award).sort((a, b) => a.from - b.from);
 
   const card = (s: LocalSegment, label: string | null) => (
     <GameCard
@@ -187,7 +197,10 @@ function GamesTab({
       segment={s}
       label={label}
       open={s.id === openId}
-      onToggle={() => setOpenId(s.id === openId ? null : s.id)}
+      onToggle={() => {
+        attention?.attend(s.courtId);
+        setOpenId(s.id === openId ? null : s.id);
+      }}
       freeCourts={courtsFor(s)}
       onMove={(courtId) => move(s, courtId)}
       onDrag={setDragging}
@@ -268,20 +281,21 @@ function GamesTab({
       {/* Every court in its own place: the game on it or due on it next, or nothing (a free court). */}
       <ol aria-label="Courts" className="flex flex-col gap-1">
         {board.courts.map(({ courtId, game }) => {
-          const takes = dragging !== null && game === null && canMove(dragging, courtId);
+          const takesIt = dragging !== null && takes(dragging, { courtId, game });
           const playing = game !== null && gameState(draft.results, game.id) === "onCourt";
           return (
             <li
               key={courtId}
               data-court-frame={courtId}
               data-free={game === null || undefined}
+              onClick={() => attention?.attend(courtId)}
               onDragOver={(e) => {
-                if (!takes) return;
+                if (!takesIt) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
               }}
               onDrop={(e) => {
-                if (!takes || !dragging) return;
+                if (!takesIt || !dragging) return;
                 e.preventDefault();
                 move(dragging, courtId);
                 setDragging(null);
@@ -289,21 +303,23 @@ function GamesTab({
               // The court is the green frame; the game on it keeps the card's colour.
               className={cn(
                 "flex flex-col gap-1 rounded-lg bg-court p-1 text-white transition-[opacity,box-shadow]",
-                takes && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
-                dragging !== null && !takes && "opacity-50",
+                attention?.flashing.has(courtId) && !dragging && "court-flash",
+                takesIt && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
+                dragging !== null && !takesIt && "opacity-50",
               )}
             >
               <span className="flex items-center gap-2 px-2 pt-0.5 text-xs leading-4 tabular-nums">
                 <span className="shrink-0 font-semibold">Court {courtOf(draft, courtId) ?? "?"}</span>
                 <span className="min-w-0 flex-1 truncate">{game ? whatOf(draft, game) : "Free"}</span>
-                {playing ? <Badge className="bg-shuttle text-shuttle-foreground">On court</Badge> : null}
+                {/* Its fill follows the game's time: neutral, yellow near the end of its slot, red past it. */}
+                {playing ? <Badge className={TIMING_BADGE[attention?.timing(game.id) ?? "ok"]}>On court</Badge> : null}
               </span>
               {game ? (
                 <div className="text-foreground">{card(game, null)}</div>
               ) : (
                 // The same height as a card, so the list doesn't jump when a court empties.
                 <div className="grid h-9 place-items-center rounded-md border border-dashed border-white/50 text-xs">
-                  {dragging ? (takes ? "Drop here" : "Can't be played here") : "No game waiting"}
+                  {dragging ? (takesIt ? "Drop here" : "Can't be played here") : "No game waiting"}
                 </div>
               )}
             </li>
@@ -313,10 +329,13 @@ function GamesTab({
       {board.upNext.length === 0 && board.courts.every((c) => c.game === null) ? (
         <p className="text-sm text-muted-foreground">Every game has been played.</p>
       ) : null}
-      {board.upNext.length > 0 && board.courts.some((c) => c.game === null) && !watch ? (
-        <p className="text-xs text-muted-foreground">Drag a game from Up next onto a free court to play it there. The move is logged.</p>
-      ) : null}
       {list("Up next", board.upNext.slice(0, UP_NEXT), true, Math.max(0, board.upNext.length - UP_NEXT))}
+      {board.upNext.length > 0 && !watch ? (
+        <p className="text-xs text-muted-foreground">
+          Drag a game onto a court that isn&apos;t playing to put it on next there; the game that was waiting goes back to Up next. The move is logged.
+        </p>
+      ) : null}
+      {list("Walkovers", given)}
     </section>
   );
 }
@@ -351,10 +370,12 @@ function GameCard({
   open: boolean;
   onToggle: () => void;
   /** The free courts this waiting game could be moved to. */
-  freeCourts: { id: string; number: number }[];
+  freeCourts: { id: string; number: number; free: boolean }[];
   onMove: (courtId: string) => void;
   onDrag: (segment: LocalSegment | null) => void;
 }) {
+  const attention = useLiveAttention();
+  const watch = useWatchOnly();
   // The entry opened under the card from one of its names.
   const [peek, setPeek] = useState<string | null>(null);
   const peeked = open && peek ? draft.entries.find((e) => e.id === peek) : undefined;
@@ -363,11 +384,13 @@ function GameCard({
   const state = gameState(draft.results, id);
   const score = scoreText(result?.games, result?.award);
   const waiting = matchPlayers(draft, match).filter((p) => p.attendance !== "arrived").length;
-  const movable = state === "waiting" && freeCourts.length > 0;
-  // Due on a court and waiting on a player: closed, the whole card is yellow; opened, it says who.
-  // A game further off (in Up next) only carries a yellow dot, or the whole list would be yellow all morning.
-  const missing = state === "waiting" && waiting > 0;
-  const held = !open && missing && label === null;
+  // A waiting game drags from anywhere on it (closed: an open one is being worked on).
+  const movable = state === "waiting" && freeCourts.length > 0 && !open && !watch;
+  // It can't start: a player hasn't checked in. Greyed out, until they are or it is given as a walkover.
+  const held = state === "waiting" && Boolean(attention?.held.has(id));
+  // On court: how its time is going. Closed, the card takes the colour: yellow near the end of its slot, red past it.
+  const timing = state === "onCourt" ? (attention?.timing(id) ?? "ok") : "ok";
+  const tinted = !open && timing !== "ok";
   const side = (slot: string, align: string) => {
     const name = sideLabel(draft, match, slot);
     return open ? (
@@ -394,34 +417,44 @@ function GameCard({
           onDrag(segment);
         }}
         onDragEnd={() => onDrag(null)}
-        title={missing && !open ? `${waiting} ${waiting === 1 ? "player" : "players"} not checked in` : undefined}
-        className={cn("flex flex-col gap-3 rounded-md px-2 py-2", held ? "bg-tight text-tight-foreground" : "bg-card-system", movable && "active:cursor-grabbing")}
+        title={
+          held && !open
+            ? `Can't start: ${waiting} ${waiting === 1 ? "player" : "players"} not checked in`
+            : timing === "over"
+              ? "Past its time on the schedule"
+              : timing === "near"
+                ? "Near the end of its time on the schedule"
+                : undefined
+        }
+        className={cn(
+          "flex flex-col gap-3 rounded-md px-2 py-2 select-none",
+          tinted ? (timing === "over" ? "bg-over-strong text-over-foreground" : "bg-tight text-tight-foreground") : "bg-card-system",
+          held && !open && "opacity-50 grayscale",
+          movable && "active:cursor-grabbing",
+        )}
       >
         {/* The whole of the closed card opens it; opened, this line folds it away (the names open their entries). */}
-        <div className="flex cursor-pointer flex-col gap-1" onClick={onToggle}>
-          {label ? (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-              {missing && !open ? <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-tight" /> : null}
-              <span className="truncate">{label}</span>
-            </span>
-          ) : null}
-          <span className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 font-semibold", open ? "text-xl" : "text-sm")}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          aria-label={open ? "Close this game" : "Open this game"}
+          className="flex cursor-pointer flex-col gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+            e.preventDefault();
+            onToggle();
+          }}
+        >
+          {label ? <span className={cn("truncate text-xs tabular-nums", !tinted && "text-muted-foreground")}>{label}</span> : null}
+          <span className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 font-semibold", open ? "text-xl" : "text-sm")}>
             {side(match.home, "text-left")}
-            <span className={cn("shrink-0 text-center tabular-nums", score ? "font-display text-xl leading-none font-bold" : "text-xs font-normal", !score && !held && "text-muted-foreground")}>
-              {score ?? "vs"}
+            {/* Larger than the names' line but light, so it parts the two sides without drawing the eye. */}
+            <span className={cn("shrink-0 text-center text-xl leading-none tabular-nums", score ? "font-display font-bold" : "font-normal", !score && !tinted && "text-muted-foreground")}>
+              {score ?? "V/S"}
             </span>
             {side(match.away, "text-right")}
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-label={open ? "Close this game" : "Open this game"}
-              className={cn(
-                "grid size-5 shrink-0 cursor-pointer place-items-center rounded-md outline-none hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-ring",
-                !held && "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <CaretDownIcon weight="bold" className={cn("size-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
-            </button>
           </span>
         </div>
         {peeked ? (
@@ -459,7 +492,7 @@ function GameBody({
   segment: LocalSegment;
   /** How many of its players haven't arrived. */
   waiting: number;
-  freeCourts: { id: string; number: number }[];
+  freeCourts: { id: string; number: number; free: boolean }[];
   onMove: (courtId: string) => void;
 }) {
   const confirm = useConfirm();
@@ -602,8 +635,8 @@ function GameBody({
           </Button>
         )}
         {finished ? null : (
-          <Button variant="ghost" size="sm" disabled={watch} title="A walkover, or a side retired" onClick={() => setAwarding(true)}>
-            Award match…
+          <Button variant="ghost" size="sm" disabled={watch} title="Give the match to a side: the other didn't play, or retired" onClick={() => setAwarding(true)}>
+            Walkover…
           </Button>
         )}
         {blocked ? (
@@ -620,7 +653,7 @@ function GameBody({
       ) : null}
       {state === "waiting" && freeCourts.length > 0 && !watch ? (
         <NativeSelect
-          aria-label="Move this game to a free court"
+          aria-label="Move this game to another court"
           className="w-full"
           value=""
           data-empty
@@ -631,7 +664,7 @@ function GameBody({
           <NativeSelectOption value="">Move to court…</NativeSelectOption>
           {freeCourts.map((c) => (
             <NativeSelectOption key={c.id} value={c.id}>
-              Court {c.number} (free)
+              Court {c.number} ({c.free ? "free" : "its game goes back to Up next"})
             </NativeSelectOption>
           ))}
         </NativeSelect>

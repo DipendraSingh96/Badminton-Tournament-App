@@ -4,7 +4,7 @@ import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { CaretLeftIcon, XIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 import { ScrollHints } from "@/components/ui/scroll-hints";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +23,7 @@ import { dayAfter, eventsBy, simulateDay, type SimEvent } from "@/lib/tournament
 import { Button } from "@/components/ui/button";
 import { SimulationControls } from "./dummy-data";
 import { WatchOnlyContext } from "./watch-only";
+import { LiveAttentionContext, type LiveAttention } from "./attention";
 import { ResourcesView } from "./resources-view";
 import type { FixAt } from "@/lib/tournament/resources";
 import { formatClock } from "./workings";
@@ -45,8 +46,9 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
-import { goLive, moveGame } from "@/lib/tournament/changes";
-import { gameState } from "@/lib/tournament/live";
+import { goLive, holding, moveGame, playingNow, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { entryForSlot } from "@/lib/tournament/entries";
+import { courtQueues, gameState, projectDay, timingOf } from "@/lib/tournament/live";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
@@ -551,6 +553,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
   const onLive = viewing === "live" || viewing === "results";
 
+  /** A stored time as minutes since midnight in the tournament's time zone. */
+  const minuteOf = useCallback((iso: string) => minutesOfDay(formatClock(iso, draft.frame.timeZone)), [draft.frame.timeZone]);
   // Developer tools: a simulated day, watched on the Live stage. It is a list of timed events laid
   // over the saved tournament up to the timeline's cursor; the tournament itself is never changed.
   const developer = useDeveloperTools();
@@ -560,7 +564,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const liveDraft = useMemo(() => (sim ? dayAfter(draft, sim, simCount) : draft), [sim, draft, simCount]);
   const liveUpdate: Update = watching ? () => {} : update;
   const simBlocked = !parsed.ok ? "the plan can't be read" : segments.length === 0 ? "there are no games on the schedule" : null;
-  function runSimulation() {
+  /** Runs a simulated day from a time (the cursor's), or from when the tournament really began if it has. */
+  function runSimulation(from: number | null = range?.start ?? null) {
     if (!parsed.ok) return;
     const inputs = parsed.inputs;
     const events = simulateDay(
@@ -571,9 +576,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         return category ? rulesFor(inputs, category, game.match.stage as Stage) : undefined;
       },
       Math.floor(Math.random() * 2 ** 31),
+      draft.startedAt ? (minuteOf(draft.startedAt) ?? undefined) : (from ?? undefined),
     );
     setSim(events);
-    setPlayhead(range?.start ?? null);
+    setPlayhead(draft.startedAt ? (minuteOf(draft.startedAt) ?? from) : from);
     setPlaying(true);
   }
   function endSimulation() {
@@ -592,6 +598,116 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // The time shown beside the Live panel's tabs: the cursor's.
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
+  // The day as it is really going: every Live page reads its times from this, not from the plan.
+  const started = liveDraft.startedAt ? minuteOf(liveDraft.startedAt) : null;
+  const projection = useMemo(
+    () =>
+      projectDay(segments, liveDraft.results, {
+        started,
+        now: liveMinute,
+        minuteOf,
+        known: (g) => Boolean(entryForSlot(liveDraft, g.match.categoryId, g.match.home) && entryForSlot(liveDraft, g.match.categoryId, g.match.away)),
+      }),
+    [segments, liveDraft, started, liveMinute, minuteOf],
+  );
+  const liveSegments = useMemo(
+    () =>
+      segments.map((s) => {
+        const at = projection.get(s.id);
+        return at ? { ...s, from: at.from, to: at.to, details: s.details.map((d) => ({ ...d, from: at.from, to: at.to })) } : s;
+      }),
+    [segments, projection],
+  );
+  // A walkover with nothing played took no time: it isn't on the timeline.
+  const timelineSegments = useMemo(() => liveSegments.filter((s) => !projection.get(s.id)?.gone), [liveSegments, projection]);
+
+  // Once started, games start by themselves; and a first game started by hand starts the tournament.
+  useEffect(() => {
+    if (watching || draft.stage !== "live") return;
+    const now = new Date().toISOString();
+    const next = produce(draft, (d) => {
+      const first = Object.values(d.results)
+        .map((r) => r.startedAt)
+        .filter((t): t is string => Boolean(t))
+        .sort()[0];
+      if (!d.startedAt && first) {
+        const planned = segments.reduce((min, s) => Math.min(min, s.from), Infinity);
+        const at = minuteOf(first) ?? planned;
+        startTournament(d, { now: first, at: clock(at), late: Number.isFinite(planned) ? at - planned : 0 });
+      }
+      startReadyGames(d, segments, now);
+    });
+    if (next !== draft) commit(next, false);
+  }, [draft, segments, watching, minuteOf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Start tournament: play begins now, and the day's times shift by how far that is from the plan. */
+  function beginTournament() {
+    const now = new Date();
+    const at = minutesOfDay(formatClock(now.toISOString(), draft.frame.timeZone));
+    const planned = segments.reduce((min, s) => Math.min(min, s.from), Infinity);
+    if (at === null) return;
+    update((d) => void startTournament(d, { now: now.toISOString(), at: clock(at), late: Number.isFinite(planned) ? at - planned : 0 }));
+  }
+
+  // What the desk's eye is drawn to: courts whose game can't start, games that have just come onto a court, and games running out of time.
+  const courtIds = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
+  const [attended, setAttended] = useState<ReadonlySet<string>>(new Set());
+  const [arrived, setArrived] = useState<readonly string[]>([]);
+  const watch = useMemo(() => {
+    const held = new Set<string>();
+    const stuck = new Map<string, string>();
+    const byCourt = new Map<string, string>();
+    if (started !== null && onLive) {
+      const playing = playingNow(liveDraft, segments);
+      const queues = courtQueues(segments, liveDraft.results);
+      for (const s of segments) {
+        if (gameState(liveDraft.results, s.id) === "waiting" && holding(liveDraft, s, playing) === "missing") held.add(s.id);
+      }
+      for (const courtId of courtIds) {
+        const game = queues.get(courtId)?.current;
+        if (!game) continue;
+        byCourt.set(courtId, game.id);
+        if (held.has(game.id)) stuck.set(courtId, game.id);
+      }
+    }
+    return { held, stuck, byCourt };
+  }, [liveDraft, segments, started, onLive, courtIds]);
+  // A new game on a court (the next one moving up): the court flashes for a few seconds.
+  const lastOn = useRef<Map<string, string> | null>(null);
+  const currentKey = [...watch.byCourt].map(([c, g]) => `${c}=${g}`).join("|");
+  useEffect(() => {
+    const before = lastOn.current;
+    lastOn.current = watch.byCourt;
+    if (!before || before.size === 0) return;
+    const changed = [...watch.byCourt].filter(([court, game]) => before.has(court) && before.get(court) !== game).map(([court]) => court);
+    if (changed.length === 0) return;
+    const on = window.setTimeout(() => setArrived((list) => [...list, ...changed]), 0);
+    const off = window.setTimeout(() => setArrived((list) => list.filter((c) => !changed.includes(c))), 3000);
+    return () => {
+      window.clearTimeout(on);
+      // The three seconds run out even if another court changes meanwhile.
+      void off;
+    };
+  }, [currentKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const slots = useMemo(() => new Map(segments.map((s) => [s.id, s.to - s.from])), [segments]);
+  const attention = useMemo<LiveAttention>(
+    () => ({
+      flashing: new Set([...[...watch.stuck].filter(([court, game]) => !attended.has(`${court}:${game}`)).map(([court]) => court), ...arrived]),
+      held: watch.held,
+      timing: (matchId) => {
+        const result = liveDraft.results[matchId];
+        const began = result?.state === "onCourt" && result.startedAt ? minuteOf(result.startedAt) : null;
+        return began === null || liveMinute === null ? null : timingOf(began, slots.get(matchId) ?? 1, liveMinute);
+      },
+      attend: (courtId) => {
+        const game = watch.byCourt.get(courtId);
+        if (game) setAttended((set) => (set.has(`${courtId}:${game}`) ? set : new Set(set).add(`${courtId}:${game}`)));
+        setArrived((list) => (list.includes(courtId) ? list.filter((c) => c !== courtId) : list));
+      },
+    }),
+    [watch, attended, arrived, liveDraft, liveMinute, minuteOf, slots],
+  );
+
   /** A game chosen on the timeline: its court in the side panel, with the game opened (Live) or marked (Draw). */
   function pickGame(segment: LocalSegment) {
     if (onLive) filterLive({ kind: "court", id: segment.courtId, game: segment.id });
@@ -787,7 +903,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           draft={shown}
           update={update}
           schedule={schedule}
-          segments={segments}
+          segments={onLive ? timelineSegments : segments}
           zones={zones}
           fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
           playhead={clockLocked ? clockMinute : playhead}
@@ -809,6 +925,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               ? {
                   state: (matchId) => gameState(liveDraft.results, matchId),
                   frozen: watching,
+                  held: (matchId) => attention.held.has(matchId),
+                  timing: (matchId) => attention.timing(matchId),
                   onMove: (segment, target) =>
                     liveUpdate((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target, now: new Date().toISOString() })),
                 }
@@ -843,13 +961,31 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         // Live runs on the day's real data: no sample data there, or anywhere once the tournament is Live.
         isLive ? (
           // Developer tools: a simulated day to watch, on the Live stage only.
-          developer && onLive ? (
+          onLive ? (
+            <>
+              {liveDraft.startedAt ? (
+                <span className="text-sm text-muted-foreground tabular-nums">Started {clock(started ?? 0)}</span>
+              ) : developer ? (
+                <Button
+                  size="sm"
+                  disabled={simBlocked !== null}
+                  title="Plays a whole day from the timeline's time, to watch. Nothing is saved"
+                  onClick={() => runSimulation(playhead ?? range?.start ?? null)}
+                >
+                  <PlayIcon /> Start tournament simulation
+                </Button>
+              ) : (
+                <Button size="sm" title="Play begins now: the day's times move to match, and each court's first game goes on court" onClick={beginTournament}>
+                  <PlayIcon /> Start tournament
+                </Button>
+              )}
+              {developer ? (
             <SimulationControls
               state={!watching ? "none" : playing ? "playing" : "paused"}
               blocked={simBlocked}
               // Play starts a day, or carries on with the one loaded (from the start again once it has reached the end).
               onPlay={() => {
-                if (!watching) runSimulation();
+                if (!watching) runSimulation(playhead ?? range?.start ?? null);
                 else {
                   if (range && playhead !== null && playhead >= range.end) setPlayhead(range.start);
                   setPlaying(true);
@@ -858,6 +994,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onPause={() => setPlaying(false)}
               onStop={endSimulation}
             />
+              ) : null}
+            </>
           ) : null
         ) : (
           <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
@@ -872,6 +1010,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         <IssuesContext value={issues}>
         <MoneyHiddenContext value={isLive}>
         <WatchOnlyContext value={watching && onLive}>
+        <LiveAttentionContext value={onLive ? attention : null}>
         <CourtSizeContext value={courtSizing}>
           <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background text-sm">
             <Sidebar
@@ -907,17 +1046,21 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               <div className="flex min-h-0 flex-1">
                 {viewing === "live" || viewing === "results" ? (
                   <CourtSelectionContext
-                    value={{ selected: liveFilter?.kind === "court" ? liveFilter.id : null, onSelect: (id) => filterLive({ kind: "court", id }) }}
+                    value={{ selected: liveFilter?.kind === "court" ? liveFilter.id : null, onSelect: (id) => {
+                        attention.attend(id);
+                        filterLive({ kind: "court", id });
+                      },
+                    }}
                   >
                     <LiveStage
                       draft={liveDraft}
                       update={liveUpdate}
-                      segments={segments}
+                      segments={liveSegments}
                       view={liveView}
                       onViewChange={setLiveView}
                       // Every Live page sits over the timeline; on the Court board games are moved between courts.
                       dock={docked}
-                      courtBoard={<CourtBoard draft={liveDraft} update={liveUpdate} segments={segments} />}
+                      courtBoard={<CourtBoard draft={liveDraft} update={liveUpdate} segments={liveSegments} />}
                       filter={liveFilter}
                       onFilter={filterLive}
                     />
@@ -994,7 +1137,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     draft={liveDraft}
                     update={liveUpdate}
                     inputs={parsed.ok ? parsed.inputs : null}
-                    segments={segments}
+                    segments={liveSegments}
                     tab={liveTab}
                     onTab={setLiveTab}
                     filter={liveFilter}
@@ -1123,6 +1266,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             </TeamOpenContext>
           </div>
         </CourtSizeContext>
+        </LiveAttentionContext>
         </WatchOnlyContext>
         </MoneyHiddenContext>
         </IssuesContext>

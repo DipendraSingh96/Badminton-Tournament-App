@@ -440,6 +440,10 @@ export function Timeline({
     onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }) => void;
     /** Nothing can be moved (a simulated day is being watched). */
     frozen?: boolean;
+    /** A waiting game that can't start (a player hasn't checked in): greyed out. */
+    held?: (matchId: string) => boolean;
+    /** A game on court: how far through its slot it is. */
+    timing?: (matchId: string) => "ok" | "near" | "over" | null;
   };
   /** The cursor is the real clock: it can't be played or moved. */
   locked?: boolean;
@@ -1395,7 +1399,12 @@ export function Timeline({
                                         : live?.state(s.id) === "onCourt" && s.id !== picked
                                           ? "cursor-default outline-2 -outline-offset-2 outline-shuttle active:cursor-default"
                                           : ""
-                                    } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} transition-transform duration-150 motion-reduce:transition-none`}
+                                    } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} ${
+                                      live?.held?.(s.id) ? "opacity-40 grayscale" : ""
+                                    } ${
+                                      // Near the end of its slot it is yellow; past it, red.
+                                      live?.timing?.(s.id) === "near" ? "!bg-tight" : live?.timing?.(s.id) === "over" ? "!bg-over-strong" : ""
+                                    } transition-transform duration-150 motion-reduce:transition-none`}
                                     style={{
                                       left: pct(s.from),
                                       width: width(s.from, s.to),

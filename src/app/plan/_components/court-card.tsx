@@ -1,5 +1,7 @@
 "use client";
 
+import type { Timing } from "@/lib/tournament/live";
+import { TIMING_BADGE, useLiveAttention } from "./attention";
 import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useState, type KeyboardEvent } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -154,10 +156,17 @@ export interface CourtLive {
   state: "onCourt" | "upNext" | "free" | "done";
   /** The games' scores as entered ("21–15  18–"); null before any. */
   score: string | null;
+  /** On court: how far through its slot the game is. */
+  timing?: Timing;
+}
+
+/** The chip's fill: a game on court goes from neutral to yellow to red as its slot runs out. */
+function liveChip(live: CourtLive): string {
+  return live.state === "onCourt" ? TIMING_BADGE[live.timing ?? "ok"] : LIVE_CHIP[live.state].className;
 }
 
 const LIVE_CHIP: Record<CourtLive["state"], { label: string; className: string }> = {
-  onCourt: { label: "On court", className: "bg-shuttle text-shuttle-foreground" },
+  onCourt: { label: "On court", className: TIMING_BADGE.ok },
   upNext: { label: "Up next", className: "bg-black/30 text-white" },
   free: { label: "Free", className: "bg-black/30 text-white" },
   done: { label: "Done for today", className: "bg-black/30 text-white" },
@@ -346,6 +355,7 @@ export function CourtCard({
   const descriptionId = `court-${court.id}-about`;
   const selection = useContext(CourtSelectionContext);
   const selected = selection?.selected === court.id;
+  const flash = useLiveAttention()?.flashing.has(court.id) ? "court-flash" : "";
   const fixed = useContext(VenueFixedContext);
   const venueSize = useContext(CourtSizeContext).size;
   const size = sizeProp ?? venueSize;
@@ -400,7 +410,7 @@ export function CourtCard({
           aria-label={`${about}. Show in the panel`}
           onClick={() => selection.onSelect(court.id)}
           data-court-card
-          className={`${shell} cursor-pointer ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
+          className={`${shell} ${flash} cursor-pointer ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
         >
           {card}
         </button>
@@ -437,7 +447,7 @@ export function CourtCard({
       data-court-card
       className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-[opacity,box-shadow] ${
         status?.kind === "notBooked" ? "opacity-60" : ""
-      } ${selection ? "cursor-pointer" : ""} ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
+      } ${flash} ${selection ? "cursor-pointer" : ""} ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
     >
       {selection ? (
         <button
@@ -487,7 +497,7 @@ export function CourtCard({
         </button>
         )}
         {live ? (
-          <span className={`truncate rounded-full px-2 text-xs leading-5 font-semibold ${LIVE_CHIP[live.state].className}`}>
+          <span className={`truncate rounded-full px-2 text-xs leading-5 font-semibold ${liveChip(live)}`}>
             {LIVE_CHIP[live.state].label}
           </span>
         ) : groups ? (
