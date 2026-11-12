@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
-import { boardSections, callUp, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
+import { callUp, courtBoard, courtQueues, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
 import { normaliseDraft } from "./storage";
 
 const games = [
@@ -71,27 +71,27 @@ describe("live play", () => {
     expect(normaliseDraft(saved).results).toEqual({});
   });
 
-  it("sorts the desk's games: on court, then free courts with their next game, then the rest", () => {
+  it("keeps every court in its place with its game, and frees only a court with none", () => {
     const draft = emptyDraft("Europe/London");
     const order = ["c1", "c2", "c3"];
-    // Nothing started: every court is free with its first game; a court with no games has none.
-    let board = boardSections(games, draft.results, order);
-    expect(board.started).toBe(false);
-    expect(board.onCourt).toEqual([]);
-    expect(board.free.map((f) => [f.courtId, f.next?.id ?? null])).toEqual([["c1", "a"], ["c2", "b"], ["c3", null]]);
-    expect(board.upNext.map((g) => g.id)).toEqual(["c", "d", "e"]);
+    const shape = () => {
+      const board = courtBoard(games, draft.results, order);
+      return { courts: board.courts.map((c) => [c.courtId, c.game?.id ?? null]), upNext: board.upNext.map((g) => g.id) };
+    };
+    // Nothing started: each court has its first game; a court with no games is free.
+    expect(shape()).toEqual({ courts: [["c1", "a"], ["c2", "b"], ["c3", null]], upNext: ["c", "d", "e"] });
 
+    // A game on court stays where it is.
     startGame(draft, "b", NOW);
-    board = boardSections(games, draft.results, order);
-    expect(board.started).toBe(true);
-    expect(board.onCourt.map((g) => g.id)).toEqual(["b"]);
-    expect(board.free.map((f) => f.courtId)).toEqual(["c1", "c3"]);
+    expect(shape().courts).toEqual([["c1", "a"], ["c2", "b"], ["c3", null]]);
 
-    // A court that finishes is free again, with the game it is due next.
+    // A court that finishes shows the game it is due next: it isn't free while it has one.
     finishGame(draft, "b", LATER);
-    board = boardSections(games, draft.results, order);
-    expect(board.onCourt).toEqual([]);
-    expect(board.free.map((f) => [f.courtId, f.next?.id ?? null])).toEqual([["c1", "a"], ["c2", "d"], ["c3", null]]);
-    expect(board.upNext.map((g) => g.id)).toEqual(["c", "e"]);
+    expect(shape()).toEqual({ courts: [["c1", "a"], ["c2", "d"], ["c3", null]], upNext: ["c", "e"] });
+
+    // Its last game finished, it is free.
+    startGame(draft, "d", LATER);
+    finishGame(draft, "d", LATER);
+    expect(shape().courts).toEqual([["c1", "a"], ["c2", null], ["c3", null]]);
   });
 });

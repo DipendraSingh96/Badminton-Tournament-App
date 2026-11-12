@@ -11,8 +11,7 @@ import { groupLetter, matchOutcome, rulesFor, type TournamentInputs } from "@/en
 import { entryName, type PlanDraft } from "@/lib/tournament/draft";
 import { finishMatch, moveGame } from "@/lib/tournament/changes";
 import { entryForSlot, matchPlayers, sidesChanged } from "@/lib/tournament/entries";
-import { boardSections, courtQueues, gameState, reopenGame, scoreText, setScore, startGame } from "@/lib/tournament/live";
-import { clock } from "@/lib/tournament/time";
+import { courtBoard, courtQueues, gameState, reopenGame, scoreText, setScore, startGame } from "@/lib/tournament/live";
 import { cn } from "@/lib/utils";
 import { PlayerCheckIn } from "./attendance";
 import { TeamDetail, TeamList, TeamName, TeamOpenContext, courtOf } from "./draw-panel";
@@ -45,48 +44,18 @@ function sidesOf(draft: PlanDraft, segment: LocalSegment): [string, string] | nu
   return home && away ? [home, away] : null;
 }
 
-/** A game's when and what, on one line: "09:15 · Court 3" and "Group A · Wave 2 · Mixed doubles". */
-function GameLine({ draft, segment, court = true }: { draft: PlanDraft; segment: LocalSegment; court?: boolean }) {
+/** What a game is, without its court or time: "Group A · Wave 2 · Rubber 1 of 2 · Mixed doubles". */
+function whatOf(draft: PlanDraft, segment: LocalSegment): string {
   const { where, rubber } = matchText(draft, segment.match);
-  return (
-    <span className="flex min-w-0 flex-1 justify-between gap-2 text-xs text-muted-foreground tabular-nums">
-      <span className="shrink-0">
-        {clock(segment.from)}
-        {court ? ` · Court ${courtOf(draft, segment.courtId) ?? "?"}` : ""}
-      </span>
-      <span className="truncate">
-        {[where, rubber?.replace(/: .*/, ""), draft.categories.length > 1 ? categoryName(draft, segment.match.categoryId) : null]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
-    </span>
-  );
-}
-
-/** "Ann Lee / Raj Shah v Mo Ali / Li Wei": each side opens its entry under the card. */
-function Sides({ draft, segment }: { draft: PlanDraft; segment: LocalSegment }) {
-  const side = (slot: string) => {
-    const label = sideLabel(draft, segment.match, slot);
-    return (
-      <TeamName entryId={entryForSlot(draft, segment.match.categoryId, slot)?.id} className="truncate">
-        <span title={label}>{label}</span>
-      </TeamName>
-    );
-  };
-  return (
-    <span className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-baseline gap-2 text-sm font-semibold">
-      {side(segment.match.home)}
-      <span className="text-xs font-normal text-muted-foreground">v</span>
-      {side(segment.match.away)}
-    </span>
-  );
+  return [where, rubber?.replace(/: .*/, ""), draft.categories.length > 1 ? categoryName(draft, segment.match.categoryId) : null].filter(Boolean).join(" · ");
 }
 
 /**
- * The Live stage's side panel, on every Live page. Games: what is on court,
- * the courts standing free and what is up next, each game opening in place to
- * be started, scored and finished; narrowed to a court or a group when one is
- * chosen in the main area. Entries: everyone entered, by group.
+ * The Live stage's side panel, on every Live page. Games: every court with
+ * the game on it (or due on it next), then what is up next, each game
+ * opening in place to be started, scored and finished; narrowed to a court or
+ * a group when one is chosen in the main area. Entries: everyone entered, by
+ * group. The clock (the timeline cursor's time) sits beside the tabs.
  */
 export function LivePanel({
   draft,
@@ -100,6 +69,7 @@ export function LivePanel({
   entryId,
   onEntry,
   canMove,
+  time,
   onFold,
 }: {
   draft: PlanDraft;
@@ -115,21 +85,28 @@ export function LivePanel({
   entryId: string | null;
   onEntry: (entryId: string | null) => void;
   canMove: CanMove;
+  /** The time now, "11:44": the real clock, or a simulated day's. */
+  time: string | null;
   onFold: () => void;
 }) {
   return (
     <Tabs value={tab} onValueChange={(value) => onTab(value as LiveTab)} className="min-h-0 flex-1 gap-0">
-      {/* The soft divider runs under the tabs and the fold button alike. */}
+      {/* The soft divider runs under the tabs, the clock and the fold button alike. */}
       <div className="mx-4 flex shrink-0 items-center gap-2 shadow-[inset_0_-1px_0_var(--border)]">
         <TabsList variant="line" className="min-w-0 flex-1 justify-start shadow-none">
           <TabsTrigger value="games">Games</TabsTrigger>
           <TabsTrigger value="entries">{draft.unit === "team" ? "Teams" : "Entries"}</TabsTrigger>
         </TabsList>
+        {time ? (
+          <span role="timer" aria-label={`The time is ${time}`} className="font-display text-2xl leading-none font-bold tabular-nums">
+            {time}
+          </span>
+        ) : null}
         <IconButton label="Hide panel" side="left" aria-expanded onClick={onFold}>
           <XIcon />
         </IconButton>
       </div>
-      <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4">
+      <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
         <TabsContent value="games">
           <GamesTab
             // A court or a group chosen in the main area starts its own list.
@@ -177,8 +154,9 @@ function GamesTab({
   onFilter: (filter: LiveFilter) => void;
   canMove: CanMove;
 }) {
+  const watch = useWatchOnly();
   const order = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
-  const board = useMemo(() => boardSections(segments, draft.results, order), [segments, draft.results, order]);
+  const board = useMemo(() => courtBoard(segments, draft.results, order), [segments, draft.results, order]);
   const queue = filter?.kind === "court" ? (courtQueues(segments, draft.results).get(filter.id) ?? null) : null;
   // The game opened to run it; a chosen court opens on its current game.
   const [openId, setOpenId] = useState<string | null>((filter?.kind === "court" ? filter.game : undefined) ?? queue?.current?.id ?? null);
@@ -191,31 +169,32 @@ function GamesTab({
   // The waiting game being dragged to a free court.
   const [dragging, setDragging] = useState<LocalSegment | null>(null);
 
-  const move = (segment: LocalSegment, courtId: string) => {
-    const before = board.free.find((f) => f.courtId === courtId)?.next?.id ?? null;
-    update((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before }, now: new Date().toISOString() }));
-  };
-  /** The free courts a waiting game could go to (not the one it is already next on). */
+  // A free court has no game of its own, so the game moved there is its only one.
+  const move = (segment: LocalSegment, courtId: string) =>
+    update((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before: null }, now: new Date().toISOString() }));
+  /** The free courts a waiting game could be played on instead. */
   const courtsFor = (segment: LocalSegment) =>
-    board.free
-      .filter((f) => f.next?.id !== segment.id && canMove(segment, f.courtId))
-      .map((f) => ({ id: f.courtId, number: courtOf(draft, f.courtId) ?? 0 }));
+    watch || gameState(draft.results, segment.id) !== "waiting"
+      ? []
+      : board.courts.filter((c) => c.game === null && canMove(segment, c.courtId)).map((c) => ({ id: c.courtId, number: courtOf(draft, c.courtId) ?? 0 }));
 
-  const card = (s: LocalSegment, court = true) => (
+  const card = (s: LocalSegment, label: string | null) => (
     <GameCard
       draft={draft}
       update={update}
       inputs={inputs}
       segments={segments}
       segment={s}
-      court={court}
+      label={label}
       open={s.id === openId}
       onToggle={() => setOpenId(s.id === openId ? null : s.id)}
-      freeCourts={gameState(draft.results, s.id) === "waiting" ? courtsFor(s) : []}
+      freeCourts={courtsFor(s)}
       onMove={(courtId) => move(s, courtId)}
       onDrag={setDragging}
     />
   );
+  /** A card on its own (not in a court's frame) says which court and what it is. */
+  const labelled = (s: LocalSegment, court = true) => card(s, [court ? `Court ${courtOf(draft, s.courtId) ?? "?"}` : null, whatOf(draft, s)].filter(Boolean).join(" · "));
   const list = (title: string, games: LocalSegment[], court = true, more = 0) =>
     games.length === 0 ? null : (
       <div className="flex flex-col gap-2">
@@ -224,7 +203,7 @@ function GamesTab({
         </h3>
         <ol className="flex flex-col gap-1">
           {games.map((s) => (
-            <li key={s.id}>{card(s, court)}</li>
+            <li key={s.id}>{labelled(s, court)}</li>
           ))}
         </ol>
         {more > 0 ? <p className="text-xs text-muted-foreground tabular-nums">And {more} more after these.</p> : null}
@@ -284,64 +263,70 @@ function GamesTab({
     );
   }
 
-  const done = board.onCourt.length === 0 && board.upNext.length === 0 && board.free.every((f) => f.next === null);
-  if (done) return <p className="text-sm text-muted-foreground">Every game has been played.</p>;
   return (
     <section aria-label="Games" className="flex flex-col gap-4">
-      {list("On court", board.onCourt)}
-      <div className={cn("flex flex-col gap-2", board.free.length === 0 && "hidden")}>
-        <h3 className="text-sm font-semibold">
-          {board.started ? "Free courts" : "First games"}{" "}
-          <span className="font-normal text-muted-foreground tabular-nums">({board.free.length})</span>
-        </h3>
-        {board.started && board.upNext.length > 0 ? (
-          <p className="text-xs text-muted-foreground">Drag a game from Up next onto a free court to play it there. The move is logged.</p>
-        ) : null}
-        <ol className="flex flex-col gap-1">
-          {board.free.map((f) => {
-            const takes = dragging !== null && f.next?.id !== dragging.id && canMove(dragging, f.courtId);
-            return (
-              <li
-                key={f.courtId}
-                data-free-court={f.courtId}
-                onDragOver={(e) => {
-                  if (!takes) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(e) => {
-                  if (!takes || !dragging) return;
-                  e.preventDefault();
-                  move(dragging, f.courtId);
-                  setDragging(null);
-                }}
-                // The court is the green frame; the game on it keeps the card's colour.
-                className={cn(
-                  "flex flex-col gap-1 rounded-lg bg-court p-1 text-white transition-[opacity,box-shadow]",
-                  takes && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
-                  dragging !== null && !takes && "opacity-50",
-                )}
-              >
-                <span className="px-2 pt-1 text-xs font-semibold tabular-nums">
-                  Court {courtOf(draft, f.courtId) ?? "?"}
-                  {board.started ? <span className="font-normal"> · Free</span> : null}
-                </span>
-                {f.next ? <div className="text-foreground">{card(f.next, false)}</div> : <p className="px-2 pb-1 text-xs">No game waiting.</p>}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+      {/* Every court in its own place: the game on it or due on it next, or nothing (a free court). */}
+      <ol aria-label="Courts" className="flex flex-col gap-1">
+        {board.courts.map(({ courtId, game }) => {
+          const takes = dragging !== null && game === null && canMove(dragging, courtId);
+          const playing = game !== null && gameState(draft.results, game.id) === "onCourt";
+          return (
+            <li
+              key={courtId}
+              data-court-frame={courtId}
+              data-free={game === null || undefined}
+              onDragOver={(e) => {
+                if (!takes) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(e) => {
+                if (!takes || !dragging) return;
+                e.preventDefault();
+                move(dragging, courtId);
+                setDragging(null);
+              }}
+              // The court is the green frame; the game on it keeps the card's colour.
+              className={cn(
+                "flex flex-col gap-1 rounded-lg bg-court p-1 text-white transition-[opacity,box-shadow]",
+                takes && "ring-[3px] ring-primary ring-offset-2 ring-offset-background",
+                dragging !== null && !takes && "opacity-50",
+              )}
+            >
+              <span className="flex items-center gap-2 px-2 pt-0.5 text-xs leading-4 tabular-nums">
+                <span className="shrink-0 font-semibold">Court {courtOf(draft, courtId) ?? "?"}</span>
+                <span className="min-w-0 flex-1 truncate">{game ? whatOf(draft, game) : "Free"}</span>
+                {playing ? <Badge className="bg-shuttle text-shuttle-foreground">On court</Badge> : null}
+              </span>
+              {game ? (
+                <div className="text-foreground">{card(game, null)}</div>
+              ) : (
+                // The same height as a card, so the list doesn't jump when a court empties.
+                <div className="grid h-9 place-items-center rounded-md border border-dashed border-white/50 text-xs">
+                  {dragging ? (takes ? "Drop here" : "Can't be played here") : "No game waiting"}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {board.upNext.length === 0 && board.courts.every((c) => c.game === null) ? (
+        <p className="text-sm text-muted-foreground">Every game has been played.</p>
+      ) : null}
+      {board.upNext.length > 0 && board.courts.some((c) => c.game === null) && !watch ? (
+        <p className="text-xs text-muted-foreground">Drag a game from Up next onto a free court to play it there. The move is logged.</p>
+      ) : null}
       {list("Up next", board.upNext.slice(0, UP_NEXT), true, Math.max(0, board.upNext.length - UP_NEXT))}
     </section>
   );
 }
 
 /**
- * One game. Closed: when, where, who, and its score. Open: started (or a
- * score typed, which starts it), scored and finished there, with everyone
- * playing it and their check-in. A game can't start until all of them have
- * arrived. A side's name opens that entry underneath.
+ * One game. Closed, it is one line: the two sides, with "vs" (or the score)
+ * between them; yellow while a player it needs hasn't checked in. A click
+ * anywhere on it opens it: started (or a score typed, which starts it),
+ * scored and finished there, with everyone playing it and their check-in.
+ * Once open, a side's name opens that entry underneath.
  */
 function GameCard({
   draft,
@@ -349,7 +334,7 @@ function GameCard({
   inputs,
   segments,
   segment,
-  court,
+  label,
   open,
   onToggle,
   freeCourts,
@@ -361,8 +346,8 @@ function GameCard({
   inputs: TournamentInputs | null;
   segments: LocalSegment[];
   segment: LocalSegment;
-  /** Say which court (not where the list is one court's). */
-  court: boolean;
+  /** Which court and what it is, for a card that isn't in a court's frame; null inside one. */
+  label: string | null;
   open: boolean;
   onToggle: () => void;
   /** The free courts this waiting game could be moved to. */
@@ -372,19 +357,33 @@ function GameCard({
 }) {
   // The entry opened under the card from one of its names.
   const [peek, setPeek] = useState<string | null>(null);
-  const peeked = peek ? draft.entries.find((e) => e.id === peek) : undefined;
-  const { id } = segment;
+  const peeked = open && peek ? draft.entries.find((e) => e.id === peek) : undefined;
+  const { id, match } = segment;
   const result = draft.results[id];
   const state = gameState(draft.results, id);
   const score = scoreText(result?.games, result?.award);
-  const waiting = matchPlayers(draft, segment.match).filter((p) => p.attendance !== "arrived").length;
-  const watch = useWatchOnly();
-  const movable = state === "waiting" && freeCourts.length > 0 && !watch;
+  const waiting = matchPlayers(draft, match).filter((p) => p.attendance !== "arrived").length;
+  const movable = state === "waiting" && freeCourts.length > 0;
+  // Closed and waiting on a player: the whole card is yellow. Opened, it says who.
+  const held = !open && state === "waiting" && waiting > 0;
+  const side = (slot: string, align: string) => {
+    const name = sideLabel(draft, match, slot);
+    return open ? (
+      <TeamName entryId={entryForSlot(draft, match.categoryId, slot)?.id} className={cn("truncate", align)}>
+        <span title={name}>{name}</span>
+      </TeamName>
+    ) : (
+      <span className={cn("truncate", align)} title={name}>
+        {name}
+      </span>
+    );
+  };
   return (
     <TeamOpenContext value={(entryId) => setPeek((now) => (now === entryId ? null : entryId))}>
       <div
         data-game={id}
         data-state={state}
+        data-held={held || undefined}
         draggable={movable || undefined}
         onDragStart={(e) => {
           e.dataTransfer.setData("text/plain", id);
@@ -392,35 +391,33 @@ function GameCard({
           onDrag(segment);
         }}
         onDragEnd={() => onDrag(null)}
-        className={cn("flex flex-col gap-3 rounded-lg bg-card-system p-3", movable && "cursor-grab active:cursor-grabbing")}
+        title={held ? `${waiting} ${waiting === 1 ? "player" : "players"} not checked in` : undefined}
+        className={cn("flex flex-col gap-3 rounded-md px-2 py-2", held ? "bg-tight text-tight-foreground" : "bg-card-system", movable && "active:cursor-grabbing")}
       >
-        <div className={cn("flex flex-col gap-1", !movable && "cursor-pointer")} onClick={onToggle}>
-          <span className="flex items-center gap-2">
-            <GameLine draft={draft} segment={segment} court={court} />
+        {/* The whole of the closed card opens it; opened, this line folds it away (the names open their entries). */}
+        <div className="flex cursor-pointer flex-col gap-1" onClick={onToggle}>
+          {label ? <span className={cn("truncate text-xs tabular-nums", held ? "" : "text-muted-foreground")}>{label}</span> : null}
+          <span className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 font-semibold", open ? "text-xl" : "text-sm")}>
+            {side(match.home, "text-left")}
+            <span className={cn("shrink-0 text-center tabular-nums", score ? "font-display text-xl leading-none font-bold" : "text-xs font-normal", !score && !held && "text-muted-foreground")}>
+              {score ?? "vs"}
+            </span>
+            {side(match.away, "text-right")}
             <button
               type="button"
               aria-expanded={open}
               aria-label={open ? "Close this game" : "Open this game"}
-              className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-(--field-raised) hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                "grid size-5 shrink-0 cursor-pointer place-items-center rounded-md outline-none hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-ring",
+                !held && "text-muted-foreground hover:text-foreground",
+              )}
             >
               <CaretDownIcon weight="bold" className={cn("size-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
             </button>
           </span>
-          <Sides draft={draft} segment={segment} />
-          {state !== "waiting" || (waiting > 0 && !open) ? (
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {state === "onCourt" ? <Badge className="bg-shuttle text-shuttle-foreground">On court</Badge> : null}
-              {score ? <span className="font-display text-xl leading-none font-bold tabular-nums">{score}</span> : null}
-              {state === "waiting" && waiting > 0 && !open ? (
-                <span className="text-xs font-semibold text-tight-text tabular-nums">
-                  {waiting} {waiting === 1 ? "player" : "players"} not checked in
-                </span>
-              ) : null}
-            </span>
-          ) : null}
         </div>
         {peeked ? (
-          <div className="flex flex-col gap-3 rounded-md bg-card-inset p-3">
+          <div className="flex flex-col gap-2 rounded-md bg-card-inset p-3">
             <div className="flex items-center justify-between gap-2">
               <h4 className="min-w-0 truncate text-sm font-semibold">{entryName(peeked) ?? "Unnamed entry"}</h4>
               <IconButton label="Close this entry" side="left" onClick={() => setPeek(null)}>
@@ -438,7 +435,7 @@ function GameCard({
   );
 }
 
-/** An open game's working part: its scores, its one action, and its players. */
+/** An open game's working part: its scores (home's under home, away's under away), its one action, and its players. */
 function GameBody({
   draft,
   update,
@@ -500,12 +497,6 @@ function GameBody({
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-2">
-        <span className="truncate text-xs text-muted-foreground" title={home}>
-          {home}
-        </span>
-        <span className="truncate text-xs text-muted-foreground" title={away}>
-          {away}
-        </span>
         {outcome.games.map((game, g) => {
           const score = result?.games[g] ?? [null, null];
           // A game after the match is won, or after one still open, isn't played.
@@ -614,7 +605,7 @@ function GameBody({
         ) : null}
       </div>
       {players.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <h4 className="text-sm font-semibold">Players in this match</h4>
           <PlayerCheckIn players={players} update={update} />
         </div>

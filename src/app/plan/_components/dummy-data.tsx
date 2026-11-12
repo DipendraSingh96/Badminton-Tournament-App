@@ -1,6 +1,6 @@
 "use client";
 
-import { EraserIcon, MagicWandIcon, PlayCircleIcon, StopCircleIcon } from "@phosphor-icons/react";
+import { EraserIcon, MagicWandIcon, PauseIcon, PlayIcon, StopIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
 
@@ -44,24 +44,60 @@ export function SampleDataButtons({
 }
 
 /**
- * Developer tools: runs a simulated day on the Live stage, or ends the one
- * running. It sits where the sample-data buttons are on Plan and Draw.
+ * Developer mode: a simulated day on the Live stage, where the sample-data
+ * buttons are on Plan and Draw. Play starts it (or carries on) and becomes
+ * Pause while it plays; Stop ends it and puts the tournament back as it was.
+ * Green, yellow and red, as the rest of the product's statuses are.
  */
-export function SimulationButton({ running, blocked, onRun, onEnd }: { running: boolean; blocked: string | null; onRun: () => void; onEnd: () => void }) {
+export function SimulationControls({
+  state,
+  blocked,
+  onPlay,
+  onPause,
+  onStop,
+}: {
+  /** No simulation; one playing; or one paused (its cursor can still be moved). */
+  state: "none" | "playing" | "paused";
+  /** Why a simulation can't be run; null when it can. */
+  blocked: string | null;
+  onPlay: () => void;
+  onPause: () => void;
+  onStop: () => void;
+}) {
   const off = "opacity-50 cursor-not-allowed hover:bg-transparent";
-  return running ? (
-    <IconButton label="End simulation: the tournament goes back to how it was" side="bottom" onClick={onEnd}>
-      <StopCircleIcon />
-    </IconButton>
-  ) : (
-    <IconButton
-      label={blocked ? `Run simulation: ${blocked}` : "Run simulation: plays the whole day through, to watch. Nothing is saved"}
-      side="bottom"
-      className={cn(blocked && off)}
-      aria-disabled={blocked !== null}
-      onClick={() => (blocked ? undefined : onRun())}
-    >
-      <PlayCircleIcon />
-    </IconButton>
+  const stopped = state === "none";
+  return (
+    <>
+      {state === "playing" ? (
+        <IconButton label="Pause the simulation: the timeline can still be moved" side="bottom" className="text-tight-text" onClick={onPause}>
+          <PauseIcon weight="fill" />
+        </IconButton>
+      ) : (
+        <IconButton
+          label={
+            blocked && stopped
+              ? `Run simulation: ${blocked}`
+              : stopped
+                ? "Run simulation: plays the whole day through, to watch. Nothing is saved"
+                : "Carry on with the simulation"
+          }
+          side="bottom"
+          className={cn("text-fits-text", blocked && stopped && off)}
+          aria-disabled={Boolean(blocked) && stopped}
+          onClick={() => (blocked && stopped ? undefined : onPlay())}
+        >
+          <PlayIcon weight="fill" />
+        </IconButton>
+      )}
+      <IconButton
+        label={stopped ? "Stop: no simulation is running" : "Stop the simulation: the tournament goes back to how it was"}
+        side="bottom"
+        className={cn("text-over-text", stopped && off)}
+        aria-disabled={stopped}
+        onClick={() => (stopped ? undefined : onStop())}
+      >
+        <StopIcon weight="fill" />
+      </IconButton>
+    </>
   );
 }

@@ -52,7 +52,7 @@ export function TeamName({
         open(entryId);
       }}
       className={cn(
-        "max-w-full rounded-sm text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
+        "max-w-full cursor-pointer rounded-sm text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
     >
@@ -261,8 +261,9 @@ export function TeamList({
       {visible.length === 0 ? <p className="text-sm text-muted-foreground">Nothing matches “{query}”.</p> : null}
       <ul className="flex flex-col gap-2">
         {groups.map((group) => (
-          <li key={group.key} className="flex flex-col gap-1 rounded-lg bg-card-system p-1">
-            <div className="flex items-baseline justify-between gap-2 px-2 pt-2">
+          // 8px all round: a row (hovered or opened) sits the same distance from every edge of its group's card.
+          <li key={group.key} className="flex flex-col gap-2 rounded-lg bg-card-system p-2">
+            <div className="flex items-baseline justify-between gap-2 px-2 pt-1">
               <h3 className="min-w-0 truncate text-sm font-semibold">{entryGroupTitle(draft, group)}</h3>
               {live ? (
                 <AttendanceTally counts={group.counts} />
@@ -286,11 +287,12 @@ export function TeamList({
                       aria-expanded={entry.id === openId}
                       onClick={() => onToggle(entry.id)}
                       className={cn(
-                        "grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "grid w-full cursor-pointer grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         entry.id !== openId && "hover:bg-(--field-raised)",
                       )}
                     >
-                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">{placeOf(draft, entry) ?? "–"}</span>
+                      {/* Where it sits in the draw: as tall as the two lines beside it. */}
+                      <span className="font-display text-xl leading-none font-bold tabular-nums">{(placeOf(draft, entry) ?? "–").replace(/^Seed /, "")}</span>
                       <span className="flex min-w-0 flex-col">
                         <span
                           className={cn("truncate text-sm font-semibold", draft.withdrawn[entry.id] && "text-muted-foreground line-through")}
@@ -359,7 +361,28 @@ export function TeamDetail({
   // Live: what it is playing now, what it has to come, then what it has played.
   const matches = live ? [...inTime].sort((a, b) => rank[stateOf(a)] - rank[stateOf(b)] || a.from - b.from) : inTime;
   const rubbers = team && category ? rubbersOf(category) : [];
-  const nameOf = (id: string) => entry.players.find((p) => p.id === id)?.name || "Unnamed player";
+  // While Live a name carries its check-in: absent in red, not yet in yellow, arrived as it is.
+  const attendanceText = (p: PlayerDraft) => (!live ? "" : p.attendance === "absent" ? "text-over-text" : p.attendance === "notYet" ? "text-tight-text" : "");
+  const inRubber = new Set(rubbers.flatMap((r) => entry.lineUp[String(r.number)] ?? []));
+  const spare = entry.players.filter((p) => !inRubber.has(p.id));
+  /** A team's player: a click shows only the matches that player is in. */
+  const playerButton = (p: PlayerDraft | undefined) =>
+    p ? (
+      <button
+        key={p.id}
+        type="button"
+        aria-pressed={p.id === playerId}
+        title={`${p.id === playerId ? "Show the whole team's matches" : "Show only this player's matches"}${live && p.attendance !== "arrived" ? (p.attendance === "absent" ? " · Absent" : " · Not checked in") : ""}`}
+        onClick={() => setPlayerId(p.id === playerId ? null : p.id)}
+        className={cn(
+          "max-w-full cursor-pointer truncate rounded-md px-1 py-1 text-left text-sm font-medium outline-none hover:bg-(--field) focus-visible:ring-2 focus-visible:ring-ring",
+          p.id === playerId && "bg-(--field) font-semibold",
+          attendanceText(p),
+        )}
+      >
+        {p.name || "Unnamed player"}
+      </button>
+    ) : null;
   const draw = draft.draw[entry.categoryId];
   // Swapping from the keyboard: everyone else drawn in the category.
   const others =
@@ -372,7 +395,7 @@ export function TeamDetail({
       : [];
 
   return (
-    <section aria-label={entryName(entry) ?? "Entry"} className="flex flex-col gap-4">
+    <section aria-label={entryName(entry) ?? "Entry"} className="flex flex-col gap-3">
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground tabular-nums">
         {[
           categoryName(draft, entry.categoryId),
@@ -409,58 +432,43 @@ export function TeamDetail({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <h3 className="text-sm font-semibold">{team ? "Squad" : entry.players.length === 1 ? "Player" : "Players"}</h3>
         {live && !team ? (
           <PlayerCheckIn players={entry.players} update={update} />
-        ) : (
-        <ul className="flex flex-col gap-1">
-          {entry.players.map((p) =>
-            team ? (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  aria-pressed={p.id === playerId}
-                  title={p.id === playerId ? "Show the whole team's matches" : "Show only this player's matches"}
-                  onClick={() => setPlayerId(p.id === playerId ? null : p.id)}
-                  className={cn(
-                    "-mx-2 max-w-full truncate rounded-md px-2 py-1 text-left text-sm outline-none hover:bg-(--field) focus-visible:ring-2 focus-visible:ring-ring",
-                    p.id === playerId && "bg-(--field) font-semibold",
-                  )}
-                >
-                  {p.name || "Unnamed player"}
-                </button>
-              </li>
-            ) : (
-              <li key={p.id} className="truncate text-sm">
-                {p.name || "Unnamed player"}
-              </li>
-            ),
-          )}
-        </ul>
-        )}
-      </div>
-
-      {team && rubbers.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Line-up, every tie</h3>
-          <ul className="flex flex-col gap-1 text-sm">
+        ) : team ? (
+          // A team: who plays each rubber, on a line each; then anyone in no rubber.
+          <ul className="flex flex-col text-sm">
             {rubbers.map((r) => {
               const ids = entry.lineUp[String(r.number)] ?? [];
               return (
-                <li key={r.number} className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">
+                <li key={r.number} className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     Rubber {r.number} · {EVENT_LABELS[r.event]}
                   </span>
-                  <span className="truncate font-medium">{ids.length > 0 ? ids.map(nameOf).join(" & ") : "Not set"}</span>
+                  {ids.length > 0 ? ids.map((id) => playerButton(entry.players.find((p) => p.id === id))) : <span className="text-muted-foreground">Not set</span>}
                 </li>
               );
             })}
+            {spare.length > 0 ? (
+              <li className="flex flex-wrap items-baseline gap-x-2">
+                <span className="shrink-0 text-xs text-muted-foreground">{rubbers.length > 0 ? "Not in a rubber" : "Players"}</span>
+                {spare.map(playerButton)}
+              </li>
+            ) : null}
           </ul>
-        </div>
-      ) : null}
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {entry.players.map((p) => (
+              <li key={p.id} className={cn("truncate text-sm", attendanceText(p))}>
+                {p.name || "Unnamed player"}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <h3 className="text-sm font-semibold">
           {player ? `${player.name || "This player"}'s matches` : "Matches"} ({matches.length})
         </h3>

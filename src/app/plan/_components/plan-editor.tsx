@@ -16,12 +16,12 @@ import { applyLever } from "@/lib/tournament/levers";
 import { canGoLive, courtNumber, duplicateDraft, emptyDraft, type PlanDraft, type TournamentStage } from "@/lib/tournament/draft";
 import { fillStage } from "@/lib/tournament/dummy/fill";
 import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type SampleStage } from "@/lib/tournament/dummy/marks";
-import { minutesOfDay } from "@/lib/tournament/time";
+import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { useDeveloperTools } from "@/lib/developer";
 import { SIMULATION } from "@/lib/tournament/dummy/values";
 import { dayAfter, eventsBy, simulateDay, type SimEvent } from "@/lib/tournament/simulate";
 import { Button } from "@/components/ui/button";
-import { SimulationButton } from "./dummy-data";
+import { SimulationControls } from "./dummy-data";
 import { WatchOnlyContext } from "./watch-only";
 import { ResourcesView } from "./resources-view";
 import type { FixAt } from "@/lib/tournament/resources";
@@ -583,11 +583,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   }
   // Without a simulation the Live cursor is the real time in the tournament's time zone, held inside the day.
   const clockTick = useSyncExternalStore(subscribeClock, clockMinuteNow, () => 0);
-  const clockLocked = onLive && !watching;
+  // With developer mode on the cursor is free to be moved and played, as on Plan and Draw.
+  const clockLocked = onLive && !watching && !developer;
   const clockMinute = useMemo(() => {
     const minute = minutesOfDay(formatClock(new Date(clockTick * 60000).toISOString(), draft.frame.timeZone));
     return minute === null || !range ? null : Math.min(Math.max(minute, range.start), range.end);
   }, [clockTick, draft.frame.timeZone, range?.start, range?.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The time shown beside the Live panel's tabs: the cursor's.
+  const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
+  const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
   /** A game chosen on the timeline: its court in the side panel, with the game opened (Live) or marked (Draw). */
   function pickGame(segment: LocalSegment) {
     if (onLive) filterLive({ kind: "court", id: segment.courtId, game: segment.id });
@@ -840,7 +844,20 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         isLive ? (
           // Developer tools: a simulated day to watch, on the Live stage only.
           developer && onLive ? (
-            <SimulationButton running={watching} blocked={simBlocked} onRun={runSimulation} onEnd={endSimulation} />
+            <SimulationControls
+              state={!watching ? "none" : playing ? "playing" : "paused"}
+              blocked={simBlocked}
+              // Play starts a day, or carries on with the one loaded (from the start again once it has reached the end).
+              onPlay={() => {
+                if (!watching) runSimulation();
+                else {
+                  if (range && playhead !== null && playhead >= range.end) setPlayhead(range.start);
+                  setPlaying(true);
+                }
+              }}
+              onPause={() => setPlaying(false)}
+              onStop={endSimulation}
+            />
           ) : null
         ) : (
           <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
@@ -957,6 +974,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
+                  {liveTime ? <span className="font-display text-xl leading-none font-bold tabular-nums">{liveTime}</span> : null}
                   <span className={RAIL_TEXT}>Games</span>
                 </Rail>
               ) : (
@@ -983,6 +1001,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     entryId={liveEntry}
                     onEntry={setLiveEntry}
                     canMove={canMove}
+                    time={liveTime}
                     onFold={() => foldWorkbench(true)}
                   />
                 </aside>

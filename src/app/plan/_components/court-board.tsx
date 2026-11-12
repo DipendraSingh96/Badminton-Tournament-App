@@ -15,7 +15,6 @@ import {
 import { CourtStrip } from "./court-strip";
 import { IconButton } from "./fields";
 import type { Update } from "./plan-editor";
-import { ScoreSheetsButton } from "./score-sheets";
 import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
 
 export { awardMark, scoreText };
@@ -48,7 +47,6 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <ScoreSheetsButton draft={draft} segments={segments} />
             <IconButton label="Smaller courts, to see more halls" disabled={sizeStep === 0} onClick={() => setSize(COURT_SIZES[sizeStep - 1]!)}>
               <MagnifyingGlassMinusIcon />
             </IconButton>

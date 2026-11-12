@@ -11,13 +11,14 @@ import type { Update } from "./plan-editor";
 import { StandingsView } from "./standings-view";
 import type { LocalSegment } from "./timeline";
 
-export type LiveStageView = "checkin" | "board" | "standings" | "changes";
+export type LiveStageView = "checkin" | "board" | "standings" | "knockout" | "changes";
 
 /** The Live stage's pages, in the order the day uses them; those not built yet say so. */
 export const LIVE_VIEWS: { value: LiveStageView; label: string; comingIn?: string }[] = [
   { value: "checkin", label: "Check-in" },
   { value: "board", label: "Court board" },
-  { value: "standings", label: "Standings and bracket" },
+  { value: "standings", label: "Group stage standings" },
+  { value: "knockout", label: "Knockout stage" },
   { value: "changes", label: "Changes" },
 ];
 
@@ -91,8 +92,9 @@ export function LiveStage({
             <>
           {view === "checkin" ? <CheckInView draft={draft} update={update} segments={segments} /> : null}
           {view === "changes" ? <ChangesView draft={draft} update={update} /> : null}
-          {view === "standings" ? (
+          {view === "standings" || view === "knockout" ? (
             <StandingsView
+              part={view === "standings" ? "groups" : "knockout"}
               draft={draft}
               update={update}
               segments={segments}

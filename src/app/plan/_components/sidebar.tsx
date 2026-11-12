@@ -85,8 +85,8 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
           </button>
         ))}
         <p className="mt-1 border-t px-2 pt-2 pb-1 text-xs font-semibold text-muted-foreground">For developers</p>
-        <label className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-medium" title="Adds Run simulation to the Live stage. Remembered on this device only.">
-          Developer tools
+        <label className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-medium" title="Adds a simulated day to the Live stage, and lets its timeline be moved by hand. Remembered on this device only.">
+          Developer mode
           <Switch checked={developer} onCheckedChange={setDeveloperTools} />
         </label>
       </PopoverContent>

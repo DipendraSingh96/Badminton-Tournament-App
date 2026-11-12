@@ -21,7 +21,7 @@ import {
   type PlanDraft,
   type PrizeDraft,
 } from "@/lib/tournament/draft";
-import { NumberField, Section, SegmentedField, SelectField, StepperField, TextField, pathKey } from "./fields";
+import { NumberField, Section, SegmentedField, StepperField, TextField, pathKey } from "./fields";
 import { categoryName, entryNoun, formatMoney } from "./labels";
 import type { Update } from "./plan-editor";
 

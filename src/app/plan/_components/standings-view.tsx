@@ -71,6 +71,7 @@ function progress(draft: PlanDraft, category: CategoryDraft): string {
  * places and each match's winner, to the champion.
  */
 export function StandingsView({
+  part,
   draft,
   update,
   segments,
@@ -86,6 +87,8 @@ export function StandingsView({
   /** The group whose games the side panel shows. */
   group: { categoryId: string; group: number } | null;
   onGroup: (categoryId: string, group: number) => void;
+  /** Which page: the group tables, or the knockout bracket. */
+  part: "groups" | "knockout";
 }) {
   const [categoryId, setCategoryId] = useState<string | null>(draft.categories[0]?.id ?? null);
   const category = draft.categories.find((c) => c.id === categoryId) ?? draft.categories[0];
@@ -95,6 +98,7 @@ export function StandingsView({
       <CategoryTabs draft={draft} value={category.id} onChange={setCategoryId} count={(id) => progress(draft, draft.categories.find((c) => c.id === id)!)} />
       <CategoryStandings
         key={category.id}
+        part={part}
         draft={draft}
         update={update}
         category={category}
@@ -108,6 +112,7 @@ export function StandingsView({
 }
 
 function CategoryStandings({
+  part,
   draft,
   update,
   category,
@@ -123,6 +128,7 @@ function CategoryStandings({
   onCourt: (courtId: string) => void;
   group: number | null;
   onGroup: (group: number) => void;
+  part: "groups" | "knockout";
 }) {
   // "If it ended now": the knockout shows who would go through as the tables stand.
   const [endedNow, setEndedNow] = useState(false);
@@ -139,7 +145,7 @@ function CategoryStandings({
     draft.format === "groups" ? null : knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
 
   return (
-    <section aria-label={`${name} standings`} className="flex flex-col gap-4">
+    <section aria-label={`${name} ${part === "groups" ? "standings" : "knockout"}`} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="heading-card">{name}</h2>
@@ -152,7 +158,7 @@ function CategoryStandings({
                 ].join(" · ")}
           </p>
         </div>
-        {bracket && tables.length > 0 ? (
+        {part === "knockout" && bracket && tables.length > 0 ? (
           <label
             className="flex items-center gap-2 text-sm text-muted-foreground"
             title={allDone ? "Every group has finished: the knockout shows who went through." : "Fills the knockout with who would go through as the tables stand now."}
@@ -163,7 +169,13 @@ function CategoryStandings({
         ) : null}
       </div>
 
-      {tables.length > 0 ? (
+      {part === "groups" && tables.length === 0 ? (
+        <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">Knockout only: there are no groups. See the Knockout stage page.</p>
+      ) : null}
+      {part === "knockout" && !bracket ? (
+        <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">Groups only: each group&apos;s table decides it. There is no knockout.</p>
+      ) : null}
+      {part === "groups" && tables.length > 0 ? (
         // Two across where there's room; one across beside the open side panel, so names stay readable.
         <div className="grid grid-cols-1 gap-4 @[800px]:grid-cols-2">
           {tables.map((table) => (
@@ -181,7 +193,7 @@ function CategoryStandings({
         </div>
       ) : null}
 
-      {bracket ? (
+      {part === "knockout" && bracket ? (
         <BracketCard draft={draft} category={category} segments={segments} bracket={bracket} provisional={provisional} onCourt={onCourt} />
       ) : null}
     </section>

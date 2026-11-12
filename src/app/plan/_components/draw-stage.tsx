@@ -7,7 +7,6 @@ import { BracketView } from "./bracket-view";
 import { DrawView } from "./draw-view";
 import { EntriesView } from "./entries-view";
 import type { Update } from "./plan-editor";
-import { ScoreSheetsButton } from "./score-sheets";
 import type { LocalSegment } from "./timeline";
 
 export type DrawStageView = "entries" | "draw" | "courts" | "bracket" | "resources";
@@ -77,11 +76,7 @@ export function DrawStage({
               No draw yet: courts show draw slots (A1, B2…) until the draw places teams.
             </p>
           ) : null}
-          <div className="shrink-0 px-(--pane-x)">
-            <div className="mx-auto flex w-full max-w-[960px] justify-end pt-3 pb-1">
-              <ScoreSheetsButton draft={draft} segments={segments} />
-            </div>
-          </div>
+          <div className="shrink-0 pt-4" />
           {courts}
         </>
       ) : (
