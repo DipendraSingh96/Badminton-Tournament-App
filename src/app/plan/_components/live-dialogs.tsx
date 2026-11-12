@@ -109,7 +109,7 @@ export function AwardDialog({
     <FormDialog
       open
       onOpenChange={(open) => (open ? undefined : onClose())}
-      title="Award this match"
+      title="Walkover"
       description={`${ref.label}: ${home} v ${away}`}
       footer={
         <>
@@ -123,7 +123,7 @@ export function AwardDialog({
               onClose();
             }}
           >
-            Award match
+            Give the match
           </Button>
         </>
       }
