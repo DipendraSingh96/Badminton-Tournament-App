@@ -46,9 +46,9 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
-import { goLive, holding, moveGame, playingNow, startReadyGames, startTournament } from "@/lib/tournament/changes";
-import { entryForSlot } from "@/lib/tournament/entries";
-import { courtQueues, gameState, projectDay, timingOf } from "@/lib/tournament/live";
+import { goLive, moveGame, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { liveDay } from "@/lib/tournament/live-day";
+import { gameState, timingOf } from "@/lib/tournament/live";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
@@ -599,17 +599,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
   // The day as it is really going: every Live page reads its times from this, not from the plan.
-  const started = liveDraft.startedAt ? minuteOf(liveDraft.startedAt) : null;
-  const projection = useMemo(
-    () =>
-      projectDay(segments, liveDraft.results, {
-        started,
-        now: liveMinute,
-        minuteOf,
-        known: (g) => Boolean(entryForSlot(liveDraft, g.match.categoryId, g.match.home) && entryForSlot(liveDraft, g.match.categoryId, g.match.away)),
-      }),
-    [segments, liveDraft, started, liveMinute, minuteOf],
-  );
+  const courtIds = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
+  const day = useMemo(() => liveDay(liveDraft, segments, { now: liveMinute, minuteOf, courtIds }), [liveDraft, segments, liveMinute, minuteOf, courtIds]);
+  const projection = day.projection;
   const liveSegments = useMemo(
     () =>
       segments.map((s) => {
@@ -650,28 +642,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   }
 
   // What the desk's eye is drawn to: courts whose game can't start, games that have just come onto a court, and games running out of time.
-  const courtIds = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
   const [attended, setAttended] = useState<ReadonlySet<string>>(new Set());
   const [arrived, setArrived] = useState<readonly string[]>([]);
-  const watch = useMemo(() => {
-    const held = new Set<string>();
-    const stuck = new Map<string, string>();
-    const byCourt = new Map<string, string>();
-    if (started !== null && onLive) {
-      const playing = playingNow(liveDraft, segments);
-      const queues = courtQueues(segments, liveDraft.results);
-      for (const s of segments) {
-        if (gameState(liveDraft.results, s.id) === "waiting" && holding(liveDraft, s, playing) === "missing") held.add(s.id);
-      }
-      for (const courtId of courtIds) {
-        const game = queues.get(courtId)?.current;
-        if (!game) continue;
-        byCourt.set(courtId, game.id);
-        if (held.has(game.id)) stuck.set(courtId, game.id);
-      }
-    }
-    return { held, stuck, byCourt };
-  }, [liveDraft, segments, started, onLive, courtIds]);
+  const watch = useMemo(
+    () => (onLive ? day : { held: new Set<string>(), stuck: new Map<string, string>(), byCourt: new Map<string, string>() }),
+    [day, onLive],
+  );
   // A new game on a court (the next one moving up): the court flashes for a few seconds.
   const lastOn = useRef<Map<string, string> | null>(null);
   const currentKey = [...watch.byCourt].map(([c, g]) => `${c}=${g}`).join("|");
@@ -964,7 +940,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onLive ? (
             <>
               {liveDraft.startedAt ? (
-                <span className="text-sm text-muted-foreground tabular-nums">Started {clock(started ?? 0)}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span>
               ) : developer ? (
                 <Button
                   size="sm"
