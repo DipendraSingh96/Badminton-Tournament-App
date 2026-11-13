@@ -249,3 +249,9 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Opening and closing a game:** a click anywhere on a court's frame, its header band included, opens or closes its game. Inside an open game a click anywhere closes it, except on a name, a score field, a button or the check-in controls. A name is clickable on its own text only.
 - **Smallest courts:** the game-time dot is in the card's top right corner, outside the court's lines.
 - **Simulation banner** (side panel): what it is waiting for ("Waiting for a score: Court 2…", "Waiting for you: Court 5 can't start…"), End simulation, and the **I enter the scores** switch.
+
+### A level knockout tie, 13 Nov 2026
+- **Side panel, Games tab:** a knockout tie that has ended level is listed at the top, above the courts, with a warning mark, its two sides and a **Decide…** button ("Semi-final 1 ended level. Hairpins v Court Jesters: decide who goes through."). It stays until it is decided.
+- **Standings, Knockout stage:** the tie's box says "Ended level: decide by hand." with the same **Decide…** button; once decided, "Ended level: decided by hand (see Changes)." and the side put through is in bold.
+- **Decide dialog:** the two sides as choices ("Who goes through"; "Who wins it" for the final; "Who takes third place" for the bronze match), and a note for the log. Nothing is chosen to begin with.
+- **Simulation banner:** "Waiting for you: Semi-final 1 ended level. Decide who goes through."
