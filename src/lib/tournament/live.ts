@@ -106,6 +106,15 @@ export function reopenGame(draft: PlanDraft, id: string): void {
   result.finishedAt = null;
 }
 
+/**
+ * The game a court shows: the first it hasn't finished, once its sides are
+ * known (a game already started is always shown). Null for a free court.
+ */
+export function courtGame<G extends ScheduledGame>(queue: CourtQueue<G> | undefined, results: PlanDraft["results"], known: (game: G) => boolean): G | null {
+  const current = queue?.current ?? null;
+  return current && (results[current.id] !== undefined || known(current)) ? current : null;
+}
+
 /** The desk's view of the day as it stands: every court in its place, and what is waiting behind them. */
 export interface CourtBoard<G extends ScheduledGame> {
   /**
@@ -117,9 +126,20 @@ export interface CourtBoard<G extends ScheduledGame> {
   upNext: G[];
 }
 
-export function courtBoard<G extends ScheduledGame>(games: G[], results: PlanDraft["results"], courtOrder: string[]): CourtBoard<G> {
+/**
+ * `known` says whether a game's two sides are known. A court never shows a
+ * game that can't be played yet because they aren't (a knockout game while
+ * the groups are still going): until then the court is free, and that game
+ * waits with the others.
+ */
+export function courtBoard<G extends ScheduledGame>(
+  games: G[],
+  results: PlanDraft["results"],
+  courtOrder: string[],
+  known: (game: G) => boolean = () => true,
+): CourtBoard<G> {
   const queues = courtQueues(games, results);
-  const courts = courtOrder.map((courtId) => ({ courtId, game: queues.get(courtId)?.current ?? null }));
+  const courts = courtOrder.map((courtId) => ({ courtId, game: courtGame(queues.get(courtId), results, known) }));
   const shown = new Set(courts.map((c) => c.game?.id));
   return { courts, upNext: callUp(games, results, courtOrder).filter((g) => !shown.has(g.id)) };
 }

@@ -4,7 +4,8 @@ import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from "@phosphor-ico
 import { useContext, useMemo } from "react";
 import { courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
 import type { CourtGroups } from "@/engine";
-import { awardMark, courtQueues, gameState, scoreText } from "@/lib/tournament/live";
+import { awardMark, courtGame, courtQueues, gameState, scoreText } from "@/lib/tournament/live";
+import { sidesKnown } from "@/lib/tournament/live-day";
 import { clock } from "@/lib/tournament/time";
 import {
   COURT_SIZES,
@@ -18,7 +19,7 @@ import { useLiveAttention } from "./attention";
 import { CourtStrip } from "./court-strip";
 import { IconButton } from "./fields";
 import type { Update } from "./plan-editor";
-import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
+import { matchText, playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
 
 export { awardMark, scoreText };
 
@@ -83,15 +84,18 @@ export function CourtBoard({
               {(hall.flipped ? [...hall.courts.keys()].reverse() : [...hall.courts.keys()]).map((c) => {
                 const court = hall.courts[c]!;
                 const queue = queues.get(court.id);
-                const current = queue?.current ?? null;
+                // A game whose sides aren't known yet (a knockout game while the groups are going) isn't shown: the court is free.
+                const current = courtGame(queue, draft.results, (g) => sidesKnown(draft, g));
                 const status: CourtStatus = current ? playingStatus(draft, current) : { kind: "free" };
+                // The top of the court says what is on it: a game from another group changes it.
+                const top = current ? (current.match.stage === "group" ? `Group ${current.match.group ?? ""}`.trim() : matchText(draft, current.match).where) : undefined;
                 const live: CourtLive = !current
-                  ? { state: queue && queue.played.length > 0 ? "done" : "free" }
+                  ? { state: queue && queue.played.length > 0 && !queue.current ? "done" : "free" }
                   : gameState(draft.results, current.id) === "onCourt"
-                    ? { state: "onCourt", timing: attention?.timing(current.id) ?? undefined }
-                    : attention?.stuck.has(court.id)
-                      ? { state: "waiting" }
-                      : { state: "next", next: clock(Math.round(current.from)) };
+                    ? { state: "onCourt", top, timing: attention?.timing(current.id) ?? undefined }
+                    : attention?.held.has(current.id)
+                      ? { state: "waiting", top }
+                      : { state: "next", top, next: clock(Math.round(current.from)) };
                 return (
                   <CourtCard
                     key={court.id}

@@ -77,6 +77,8 @@
   --time-near: #F0D089;
   --time-over: #E8A398;
   --time-fg: #2A1A00;
+  /* A court waiting for its players, and a game that can't start, on the timeline: one neutral grey, clear of the greens around it. White text on it. */
+  --held: #7A7672;
 
   /* Timeline and match blocks */
   --tl-group: #A9C3A0;
@@ -143,6 +145,7 @@
   --color-time-near: var(--time-near);
   --color-time-over: var(--time-over);
   --color-time-foreground: var(--time-fg);
+  --color-held: var(--held);
 
   --color-tl-group: var(--tl-group);
   --color-tl-knockout: var(--tl-knockout);

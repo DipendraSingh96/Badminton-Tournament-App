@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
-import { callUp, courtBoard, courtQueues, projectDay, timingOf, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
+import { callUp, courtBoard, courtGame, courtQueues, projectDay, timingOf, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
 import { normaliseDraft } from "./storage";
 
 const games = [
@@ -146,5 +146,31 @@ describe("live play", () => {
     it("says when a game is near the end of its slot, and when it is over it", () => {
       expect([11, 12, 14, 15, 30].map((minutes) => timingOf(540, 15, 540 + minutes))).toEqual(["ok", "near", "near", "over", "over"]);
     });
+  });
+});
+
+describe("what a court shows", () => {
+  const games = [
+    { id: "g", courtId: "c1", from: 540 },
+    { id: "k", courtId: "c1", from: 600 },
+    { id: "b", courtId: "c2", from: 540 },
+  ];
+  // The knockout game "k" has no sides yet.
+  const known = (game: { id: string }) => game.id !== "k";
+  const done = { state: "finished" as const, games: [[21, 10]] as [number, number][], startedAt: "x", finishedAt: "y" };
+
+  it("is its first unfinished game once that game's sides are known; a free court until then", () => {
+    expect(courtBoard(games, {}, ["c1", "c2"], known).courts.map((c) => c.game?.id ?? null)).toEqual(["g", "b"]);
+    const board = courtBoard(games, { g: done }, ["c1", "c2"], known);
+    expect(board.courts.map((c) => c.game?.id ?? null)).toEqual([null, "b"]);
+    // The game it can't show yet waits with the others.
+    expect(board.upNext.map((g) => g.id)).toEqual(["k"]);
+    // Once its sides are known it comes onto the court.
+    expect(courtBoard(games, { g: done }, ["c1", "c2"]).courts[0]!.game?.id).toBe("k");
+  });
+
+  it("always shows a game that has been started", () => {
+    const queue = courtQueues(games, { g: done, k: { state: "onCourt", games: [], startedAt: "x", finishedAt: null } }).get("c1");
+    expect(courtGame(queue, { k: { state: "onCourt", games: [], startedAt: "x", finishedAt: null } }, known)?.id).toBe("k");
   });
 });

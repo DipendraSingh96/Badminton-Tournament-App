@@ -37,8 +37,13 @@ export type SimEvent = { at: number } & (
   /** The match's games so far, as they stand once another game of it has ended. */
   | { kind: "score"; matchId: string; games: [number, number][] }
   | { kind: "finish"; matchId: string }
-  /** A court's game can't start: a player hasn't checked in. Always the last event: the day waits here for the desk. */
-  | { kind: "hold"; courtId: string; matchId: string }
+  /**
+   * The day waits here for the desk; always the last event. Either a court's
+   * game can't start because a player who isn't coming hasn't checked in
+   * ("players"), or, when the desk enters the scores, a game has ended and
+   * needs its score ("score").
+   */
+  | { kind: "hold"; reason: "players" | "score"; courtId: string; matchId: string }
 );
 
 /** A repeatable random number from 0 up to 1 (mulberry32): the same seed gives the same day. */
@@ -135,8 +140,13 @@ export function simulateDay(
   rulesOf: (game: SimGame) => StageRules | undefined,
   seed: number,
   from?: number,
+  /** `deskScores`: the simulation starts games but doesn't score or finish them; the day stops when a game's time is up, for the desk to enter its score. */
+  options: { deskScores?: boolean } = {},
 ): SimEvent[] {
   const rand = random(seed);
+  type Hold = { at: number; reason: "players" | "score"; courtId: string; matchId: string };
+  // Games whose time will be up, waiting for the desk's score.
+  const scoreDue: Hold[] = [];
   const span = ([a, b]: readonly [number, number], share: number) => a + share * (b - a);
   const events: SimEvent[] = [];
   const planned = games.reduce((min, g) => Math.min(min, g.from), Infinity);
@@ -197,6 +207,13 @@ export function simulateDay(
   };
   /** A game played from `start` to `end`: scored a game at a time, then finished. */
   const play = (game: SimGame, sides: [string, string], held: string[], start: number, end: number, rules: StageRules) => {
+    if (options.deskScores) {
+      // The desk scores it: its court and its players stay taken until the desk has.
+      scoreDue.push({ at: end, reason: "score", courtId: game.courtId, matchId: game.id });
+      for (const id of held) busy.set(id, Infinity);
+      courtFree.set(game.courtId, Infinity);
+      return;
+    }
     const odds = strength.get(sides[0])! / (strength.get(sides[0])! + strength.get(sides[1])!);
     const needed = Math.ceil(rules.bestOf / 2);
     const played: [number, number][] = [];
@@ -250,13 +267,14 @@ export function simulateDay(
     }
   };
 
-  let hold: { at: number; courtId: string; matchId: string } | null = null;
+  let hold: Hold | null = null;
   for (;;) {
     let pick: { game: SimGame; start: number; sides: [string, string]; held: string[] } | null = null;
-    let stuck: { at: number; courtId: string; matchId: string } | null = null;
+    // The first thing the day would stop for: a game needing its score, or a court that can't go on.
+    let stuck: Hold | null = scoreDue.reduce<Hold | null>((first, d) => (!first || d.at < first.at ? d : first), null);
     for (const [courtId, queue] of queues) {
       const game = queue[0];
-      if (!game) continue;
+      if (!game || courtFree.get(courtId) === Infinity) continue;
       const home = entryForSlot(day, game.match.categoryId, game.match.home)?.id;
       const away = entryForSlot(day, game.match.categoryId, game.match.away)?.id;
       if (!home || !away) continue;
@@ -268,10 +286,12 @@ export function simulateDay(
       const due = Math.max(now, courtFree.get(courtId) ?? now, knownFrom(game, game.match.home), knownFrom(game, game.match.away));
       const awaited = players.filter((id) => missing.has(id));
       if (awaited.some((id) => !arrival.has(id)) || !rulesOf(game)) {
-        if (!stuck || due < stuck.at) stuck = { at: due, courtId, matchId: game.id };
+        if (!stuck || due < stuck.at) stuck = { at: due, reason: "players", courtId, matchId: game.id };
         continue;
       }
       const start = Math.max(due, ...held.map((id) => busy.get(id) ?? now), ...awaited.map((id) => arrival.get(id)!));
+      // A player still on a game the desk hasn't scored: not yet.
+      if (!Number.isFinite(start)) continue;
       if (!pick || start < pick.start) pick = { game, start, sides: [home, away], held };
     }
     // The day stops at the first court that can't go on (once everything else due by that minute has started).
@@ -288,7 +308,7 @@ export function simulateDay(
   }
   if (hold) {
     arriveBy(hold.at);
-    events.push({ at: hold.at, kind: "hold", courtId: hold.courtId, matchId: hold.matchId });
+    events.push({ at: hold.at, kind: "hold", reason: hold.reason, courtId: hold.courtId, matchId: hold.matchId });
   } else arriveBy(Infinity);
   // Stable: events made at the same minute keep the order they were made in. Nothing happens after a hold.
   return events
@@ -296,6 +316,30 @@ export function simulateDay(
     .map((event, i) => ({ event, i }))
     .sort((a, b) => a.event.at - b.event.at || (a.event.kind === "hold" ? 1 : b.event.kind === "hold" ? -1 : a.i - b.i))
     .map((x) => x.event);
+}
+
+/** What a day stops for, if it does: the last event, when it is a hold. */
+export function holdEvent(events: SimEvent[]): Extract<SimEvent, { kind: "hold" }> | null {
+  const last = events.at(-1);
+  return last?.kind === "hold" ? last : null;
+}
+
+/**
+ * What the desk does during a simulated day happens at the simulated minute,
+ * not on the real clock: every start and finish time and every log entry
+ * that the change made or altered is given that time.
+ */
+export function restamp(before: PlanDraft, after: PlanDraft, minute: number): PlanDraft {
+  const iso = isoAt(after, minute);
+  return produce(after, (d) => {
+    for (const [id, result] of Object.entries(d.results)) {
+      const was = before.results[id];
+      if (result.startedAt && result.startedAt !== was?.startedAt) result.startedAt = iso;
+      if (result.finishedAt && result.finishedAt !== was?.finishedAt) result.finishedAt = iso;
+    }
+    const known = new Set(before.log.map((entry) => entry.id));
+    for (const entry of d.log) if (!known.has(entry.id)) entry.at = iso;
+  });
 }
 
 /** The minute a day stops to wait for the desk; null for a day that plays to its end. */

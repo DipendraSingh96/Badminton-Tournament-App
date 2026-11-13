@@ -118,6 +118,8 @@
   --court: #0F6B45;
   --time-near: #D9BC7A;
   --time-over: #D4928A;
+  /* A neutral grey, clear of the greens around it. */
+  --held: #6E6A66;
 }
 
 @layer base {
@@ -365,7 +367,8 @@
 }
 
 /* A court waiting for the desk (its game can't start): it fades slowly out
-   and back, with no colour, until the desk has dealt with it. */
+   and back, with no colour, until the desk has dealt with it. Its fill is the
+   held colour, the same as a held game's block on the timeline. */
 @keyframes court-wait {
   0%,
   100% {

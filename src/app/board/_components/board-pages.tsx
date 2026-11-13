@@ -95,7 +95,7 @@ function CourtTile({ court, group, news }: { court: BoardCourt; group: string | 
       data-board-court={court.number}
       data-waiting={waiting || undefined}
       aria-label={`Court ${court.number}: ${waiting ? "waiting for players" : STATE_TEXT[court.state]}`}
-      className={cn("min-h-0 min-w-0 rounded-[0.6em] bg-court text-white [container-type:size]", waiting && "court-wait grayscale", news && "court-news")}
+      className={cn("min-h-0 min-w-0 rounded-[0.6em] bg-court text-white [container-type:size]", waiting && "court-wait !bg-held", news && "court-news")}
     >
       <div className="flex h-full flex-col gap-[0.3em] px-[0.8em] pt-[0.4em] pb-[0.5em]" style={{ fontSize: "min(1.6em, 7.3cqh, 6cqw)" }}>
         {/* The surround, top: the court, and what is on it (or the group it is kept for). */}

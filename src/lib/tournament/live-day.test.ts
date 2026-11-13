@@ -37,13 +37,15 @@ const at = (hhmm: string) => `2026-07-04T${hhmm}:00.000Z`;
 const courtIds = ["c1", "c2"];
 
 describe("the day as it is really going", () => {
-  it("is the plan, with nothing held, until play begins", () => {
+  it("is the plan until play begins, with the games that are missing a player already known and no court calling for the desk", () => {
     const { draft, games } = tournament();
+    // Entry 1 plays court 1's first two games.
     draft.entries[0]!.players[0]!.attendance = "notYet";
     const day = liveDay(draft, games, { now: 545, minuteOf, courtIds });
     expect(day.started).toBeNull();
-    expect([...day.held]).toEqual([]);
+    expect([...day.held].sort()).toEqual([games[0]!.id, games[1]!.id].sort());
     expect(day.byCourt.size).toBe(0);
+    expect(day.stuck.size).toBe(0);
     expect(projectedGames(games, day.projection)).toEqual(games);
   });
 
@@ -80,5 +82,20 @@ describe("the day as it is really going", () => {
     day = liveDay(draft, games, { now: 550, minuteOf, courtIds });
     expect(day.held.size).toBe(0);
     expect(day.stuck.size).toBe(0);
+  });
+
+  it("says which courts have nothing left that can be played now", () => {
+    const { draft, games } = tournament();
+    draft.startedAt = at("09:00");
+    // Nothing started yet, everyone there: no court is open to another hall's game.
+    expect([...liveDay(draft, games, { now: 540, minuteOf, courtIds }).open]).toEqual([]);
+    // Entry 6 isn't there: court 2's last two games (B1 v B3, B2 v B3) can't be played; its first can.
+    draft.entries[5]!.players[0]!.attendance = "absent";
+    expect([...liveDay(draft, games, { now: 540, minuteOf, courtIds }).open]).toEqual([]);
+    startReadyGames(draft, games, at("09:00"));
+    finishGame(draft, games[3]!.id, at("09:10"));
+    expect([...liveDay(draft, games, { now: 550, minuteOf, courtIds }).open]).toEqual(["c2"]);
+    // A court with no games at all is open too.
+    expect(liveDay(draft, games, { now: 550, minuteOf, courtIds: ["c1", "c2", "c9"] }).open.has("c9")).toBe(true);
   });
 });

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/components/ui/native-select";
 import { awardMatch, decideTie, planWithdrawal, withdrawEntry } from "@/lib/tournament/changes";
 import { entryName, type PlanDraft } from "@/lib/tournament/draft";
-import { categoryLabel, entryIdOn, groupTable, matchRef, type GroupTable } from "@/lib/tournament/entries";
+import { categoryLabel, entryIdOn, groupTable, matchRef, sidePlayers, type GroupTable } from "@/lib/tournament/entries";
 import { WALKOVER_LABELS } from "@/lib/tournament/events";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
@@ -98,8 +98,18 @@ export function AwardDialog({
   onClose: () => void;
 }) {
   const ref = matchRef(draft, matchId);
+  // Who isn't checked in on each side: it says which side can't play.
+  const rubber = draft.unit === "team" ? Number(/:r(\d+)$/.exec(matchId)?.[1] ?? 1) : undefined;
+  const missing = (slot: string | undefined) =>
+    !ref || !slot
+      ? []
+      : sidePlayers(draft, ref.categoryId, slot, rubber)
+          .filter((p) => p.attendance !== "arrived")
+          .map((p) => p.name.trim() || "A player");
+  const out: [string[], string[]] = [missing(ref?.home), missing(ref?.away)];
   const [reason, setReason] = useState<"walkover" | "retired">(started ? "retired" : "walkover");
-  const [winner, setWinner] = useState<"0" | "1" | "">("");
+  // With players missing from one side only, the other side is the likely winner: picked to begin with, and still the desk's to change.
+  const [winner, setWinner] = useState<"0" | "1" | "">(out[0].length > 0 && out[1].length === 0 ? "1" : out[1].length > 0 && out[0].length === 0 ? "0" : "");
   const [note, setNote] = useState("");
   if (!ref) return null;
   const home = sideOf(draft, ref.categoryId, ref.home);
@@ -133,8 +143,16 @@ export function AwardDialog({
         value={winner}
         onChange={setWinner}
         options={[
-          { value: "0", label: home, detail: `${away} ${reason === "walkover" ? "didn't play" : "retired"}` },
-          { value: "1", label: away, detail: `${home} ${reason === "walkover" ? "didn't play" : "retired"}` },
+          {
+            value: "0",
+            label: home,
+            detail: `${away} ${reason === "walkover" ? "didn't play" : "retired"}${out[1].length > 0 ? `. Not checked in from ${away}: ${out[1].join(", ")}` : ""}`,
+          },
+          {
+            value: "1",
+            label: away,
+            detail: `${home} ${reason === "walkover" ? "didn't play" : "retired"}${out[0].length > 0 ? `. Not checked in from ${home}: ${out[0].join(", ")}` : ""}`,
+          },
         ]}
       />
       <Choices

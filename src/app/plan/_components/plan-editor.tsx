@@ -19,8 +19,9 @@ import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type S
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { useDeveloperTools } from "@/lib/developer";
 import { SIMULATION } from "@/lib/tournament/dummy/values";
-import { dayAfter, eventsBy, holdOf, simulateDay, type SimEvent } from "@/lib/tournament/simulate";
+import { dayAfter, eventsBy, holdEvent, holdOf, restamp, simulateDay, type SimEvent } from "@/lib/tournament/simulate";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { SimulationControls } from "./dummy-data";
 import { WatchOnlyContext } from "./watch-only";
 import { LiveAttentionContext, type LiveAttention } from "./attention";
@@ -50,7 +51,8 @@ import { goLive, moveGame, startReadyGames, startTournament } from "@/lib/tourna
 import { liveDay } from "@/lib/tournament/live-day";
 import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
 import { AudienceBoardButton } from "./audience-button";
-import { gameState, timingOf } from "@/lib/tournament/live";
+import { courtQueues, gameState, timingOf } from "@/lib/tournament/live";
+import { LiveMovesContext, type LiveMoves } from "./live-moves";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
@@ -77,6 +79,17 @@ interface Simulation {
   events: SimEvent[];
   from: number;
   seed: number;
+  /** "I enter the scores": the simulation starts games and waits for the desk to score and finish them. */
+  deskScores: boolean;
+}
+
+/** A court's number from its id; null if it is no longer in the venue. */
+function courtNumberOf(draft: PlanDraft, courtId: string): number | null {
+  for (const [h, hall] of draft.frame.halls.entries()) {
+    const c = hall.courts.findIndex((court) => court.id === courtId);
+    if (c !== -1) return courtNumber(draft.frame.halls, h, c);
+  }
+  return null;
 }
 
 /** A draft's schedule as the timeline's games, with the plan as the engine reads it (null if it can't be read). */
@@ -88,7 +101,7 @@ function scheduleOf(draft: PlanDraft) {
 }
 
 /** The rest of a simulated day from a minute; null if the plan can't be read. */
-function simulateFrom(draft: PlanDraft, seed: number, from: number): SimEvent[] | null {
+function simulateFrom(draft: PlanDraft, seed: number, from: number, deskScores: boolean): SimEvent[] | null {
   const { inputs, segments } = scheduleOf(draft);
   if (!inputs) return null;
   return simulateDay(
@@ -100,6 +113,7 @@ function simulateFrom(draft: PlanDraft, seed: number, from: number): SimEvent[] 
     },
     seed,
     from,
+    { deskScores },
   );
 }
 
@@ -607,6 +621,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const developer = useDeveloperTools();
   const watching = sim !== null;
   const simHold = sim ? holdOf(sim.events) : null;
+  // What the simulation is waiting for the desk to do, once the cursor has reached it.
+  const simStop = sim && simHold !== null && playhead !== null && playhead >= simHold ? holdEvent(sim.events) : null;
+  const simWaiting = !simStop
+    ? null
+    : simStop.reason === "score"
+      ? `Waiting for a score: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"}. Enter it and finish the match`
+      : `Waiting for you: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"} can't start. Check its players in, give a walkover, or put another game on it`;
   const simCount = sim ? eventsBy(sim.events, playhead === null ? -Infinity : range && playhead >= range.end ? Infinity : playhead) : 0;
   const liveDraft = useMemo(() => (sim ? dayAfter(sim.base, sim.events, simCount) : draft), [sim, draft, simCount]);
   /** The desk acting during a simulation: the change is made to the day as it stands at the cursor, and the rest of the day is worked out again from there. */
@@ -623,8 +644,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       return;
     }
     if (next === dayNow) return;
-    const events = simulateFrom(next, now.seed, at) ?? [];
-    putSim({ base: next, events, from: at, seed: now.seed });
+    // What the desk did happened at the simulated minute, not on the real clock.
+    next = restamp(dayNow, next, at);
+    const events = simulateFrom(next, now.seed, at, now.deskScores) ?? [];
+    putSim({ ...now, base: next, events, from: at });
     setPlayhead(at);
     // It was waiting for the desk: it plays on once no court is.
     const waited = hold !== null && at >= hold;
@@ -632,6 +655,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     if (waited) setPlaying(again === null || again > at);
   };
   const liveUpdate: Update = watching ? simUpdate : update;
+  const simulation = useMemo(() => ({ on: watching && onLive, deskScores: Boolean(sim?.deskScores) }), [watching, onLive, sim?.deskScores]);
   const simBlocked = !parsed.ok ? "the plan can't be read" : segments.length === 0 ? "there are no games on the schedule" : null;
   /** Starts a simulated day at a time (the cursor's); a tournament that has really started carries on from now. */
   function runSimulation(cursor: number | null) {
@@ -639,12 +663,27 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const from = began !== null ? Math.max(began, clockMinute ?? began) : (cursor ?? range?.start ?? null);
     if (from === null) return;
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const events = simulateFrom(draft, seed, from);
+    const events = simulateFrom(draft, seed, from, false);
     if (!events) return;
-    putSim({ base: draft, events, from, seed });
+    putSim({ base: draft, events, from, seed, deskScores: false });
     setPlayhead(from);
     const hold = holdOf(events);
     setPlaying(hold === null || hold > from);
+  }
+  /** "I enter the scores", on or off: the rest of the day is worked out again from the cursor, the other way. */
+  function setDeskScores(deskScores: boolean) {
+    const now = simNow.current;
+    if (!now || now.deskScores === deskScores) return;
+    const hold = holdOf(now.events);
+    const at = Math.max(now.from, Math.min(playhead ?? now.from, hold ?? Infinity));
+    const base = dayAfter(now.base, now.events, eventsBy(now.events, at));
+    const events = simulateFrom(base, now.seed, at, deskScores) ?? [];
+    putSim({ ...now, base, events, from: at, deskScores });
+    setPlayhead(at);
+    const again = holdOf(events);
+    if (again !== null && again <= at) setPlaying(false);
+    // It was waiting for a score the simulation now gives itself: it plays on.
+    else if (hold !== null && at >= hold) setPlaying(true);
   }
   function endSimulation() {
     putSim(null);
@@ -776,7 +815,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [attended, setAttended] = useState<ReadonlySet<string>>(new Set());
   const [arrived, setArrived] = useState<readonly string[]>([]);
   const watch = useMemo(
-    () => (onLive ? day : { held: new Set<string>(), stuck: new Map<string, string>(), byCourt: new Map<string, string>() }),
+    () => (onLive ? day : { held: new Set<string>(), stuck: new Map<string, string>(), byCourt: new Map<string, string>(), open: new Set<string>() }),
     [day, onLive],
   );
   // New information on a court, shown for a few seconds: a new game has come onto it, or it was
@@ -790,8 +829,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const changed = [...watch.byCourt]
       .filter(([court, game]) => (before.byCourt.has(court) && before.byCourt.get(court) !== game) || (before.stuck.has(court) && !watch.stuck.has(court)))
       .map(([court]) => court);
-    // A court whose last game was dealt with and has none left has news too.
-    for (const court of before.stuck.keys()) if (!watch.byCourt.has(court) && !changed.includes(court)) changed.push(court);
+    // A court that has just become free (nothing left on it that can be played yet) has news too.
+    for (const court of before.byCourt.keys()) if (!watch.byCourt.has(court) && !changed.includes(court)) changed.push(court);
     if (changed.length === 0) return;
     const on = window.setTimeout(() => {
       setArrived((list) => [...list, ...changed]);
@@ -1058,12 +1097,37 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </ResizablePanelGroup>
     </div>
   );
-  // Where a waiting game may be played: a group game in its own hall, a knockout game in a hall that has its stage.
+  // Where a waiting game may be played: a group game in its own hall, or on any court with nothing left
+  // that can be played now; a knockout game in a hall that has its stage.
   const canMove: CanMove = (segment, courtId) => {
     const hallOf = (id: string) => draft.frame.halls.find((h) => h.courts.some((c) => c.id === id))?.id;
     const hall = hallOf(courtId);
     if (!hall) return false;
-    return segment.stage === "group" ? hall === hallOf(segment.courtId) : zones.some((z) => z.hallId === hall && z.zone === zoneOf(segment.stage));
+    return segment.stage === "group"
+      ? hall === hallOf(segment.courtId) || day.open.has(courtId)
+      : zones.some((z) => z.hallId === hall && z.zone === zoneOf(segment.stage));
+  };
+  // Putting a waiting game on a court, from the side panel or onto the Court board.
+  const [liveDragging, setLiveDragging] = useState<LocalSegment | null>(null);
+  const liveQueues = courtQueues(liveSegments, liveDraft.results);
+  const liveMoves: LiveMoves = {
+    dragging: liveDragging,
+    setDragging: setLiveDragging,
+    takes: (segment, courtId) => {
+      const current = liveQueues.get(courtId)?.current ?? null;
+      return (
+        current?.id !== segment.id &&
+        gameState(liveDraft.results, segment.id) === "waiting" &&
+        (current === null || gameState(liveDraft.results, current.id) === "waiting") &&
+        canMove(segment, courtId)
+      );
+    },
+    // It goes first there: ahead of whatever was waiting on the court.
+    move: (segment, courtId) => {
+      const before = liveQueues.get(courtId)?.current?.id ?? null;
+      attention.attend(courtId);
+      liveUpdate((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before }, now: new Date().toISOString() }));
+    },
   };
   // The Plan stage's working area, and the Draw stage's Schedule page.
   const workingArea = docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />);
@@ -1095,12 +1159,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   }}
                 />
               ) : null}
-              {liveDraft.startedAt ? <span className="text-sm text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span> : null}
+              {liveDraft.startedAt ? <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span> : null}
               {watching ? (
                 <SimulationControls
                   state={playing ? "playing" : "paused"}
                   // A court is waiting for the desk: the day plays on once it has been dealt with.
-                  waiting={simHold !== null && playhead !== null && playhead >= simHold}
+                  waiting={simWaiting}
                   onPlay={() => setPlaying(true)}
                   onPause={() => setPlaying(false)}
                   onStop={endSimulation}
@@ -1137,8 +1201,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
         <MoneyHiddenContext value={isLive}>
-        <WatchOnlyContext value={watching && onLive}>
+        <WatchOnlyContext value={simulation}>
         <LiveAttentionContext value={onLive ? attention : null}>
+        <LiveMovesContext value={onLive ? liveMoves : null}>
         <CourtSizeContext value={courtSizing}>
           <div className="relative flex h-dvh min-w-[1024px] overflow-hidden overscroll-none bg-background text-sm">
             <Sidebar
@@ -1258,13 +1323,21 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               ) : (
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
                   {watching ? (
-                    <div className="mx-4 mb-3 flex shrink-0 items-center justify-between gap-2 rounded-lg bg-card-system py-2 pr-2 pl-3">
-                      <p className="text-sm">
-                        <span className="font-semibold">Simulation.</span> Nothing is saved. It pauses when a court needs you.
-                      </p>
-                      <Button variant="outline" size="sm" onClick={endSimulation}>
-                        End simulation
-                      </Button>
+                    <div className="mx-4 mb-3 flex shrink-0 flex-col gap-2 rounded-lg bg-card-system py-2 pr-2 pl-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm">
+                          <span className="font-semibold">Simulation.</span> {simWaiting ? `${simWaiting}.` : "Nothing is saved. It pauses when a court needs you."}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={endSimulation}>
+                          End simulation
+                        </Button>
+                      </div>
+                      <label
+                        className="flex w-fit items-center gap-2 text-sm"
+                        title="On: each game that ends pauses the day until you enter its score and finish it. Off: the simulation scores games itself"
+                      >
+                        <Switch checked={Boolean(sim?.deskScores)} onCheckedChange={setDeskScores} />I enter the scores
+                      </label>
                     </div>
                   ) : null}
                   <LivePanel
@@ -1278,7 +1351,6 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     onFilter={filterLive}
                     entryId={liveEntry}
                     onEntry={setLiveEntry}
-                    canMove={canMove}
                     time={liveTime}
                     onFold={() => foldWorkbench(true)}
                   />
@@ -1400,6 +1472,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             </TeamOpenContext>
           </div>
         </CourtSizeContext>
+        </LiveMovesContext>
         </LiveAttentionContext>
         </WatchOnlyContext>
         </MoneyHiddenContext>

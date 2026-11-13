@@ -6,7 +6,9 @@ import { emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
 import { knockoutOutcome, matchPlayers } from "./entries";
 import { gameState } from "./live";
-import { SIMULATED_BY, dayAfter, eventsBy, holdOf, simulateDay, type SimEvent, type SimGame } from "./simulate";
+import { finishMatch } from "./changes";
+import { setScore } from "./live";
+import { SIMULATED_BY, dayAfter, eventsBy, holdEvent, holdOf, restamp, simulateDay, type SimEvent, type SimGame } from "./simulate";
 
 const GROUP: StageRules = { pointsPerGame: 21, deuce: { type: "standard", max: 30 }, bestOf: 1 };
 const FINAL: StageRules = { ...GROUP, bestOf: 3 };
@@ -202,7 +204,7 @@ describe("a simulated day waits for the desk", () => {
     const events = simulateDay(draft, games, rulesOf, 3);
     expect(JSON.stringify(draft)).toBe(before);
     const last = events.at(-1)!;
-    expect(last).toMatchObject({ kind: "hold", courtId: "c1", matchId: games[1]!.id });
+    expect(last).toMatchObject({ kind: "hold", reason: "players", courtId: "c1", matchId: games[1]!.id });
     expect(holdOf(events)).toBe(last.at);
     // It stops the moment the court's first game ends, and nothing happens after that.
     const firstEnds = events.find((e) => e.kind === "finish" && e.matchId === games[0]!.id)!;
@@ -306,6 +308,62 @@ describe("a simulated day waits for the desk", () => {
     expect(events.some((e) => e.kind === "finish" && e.matchId === games[0]!.id)).toBe(true);
     const end = whole(draft, events);
     expect(end.results[games[3]!.id]!.games).toEqual([[21, 10]]);
+    expect(games.every((g) => gameState(end.results, g.id) === "finished")).toBe(true);
+  });
+});
+
+describe("a simulated day where the desk enters the scores", () => {
+  it("starts games but never scores or finishes them: it stops when a game's time is up", () => {
+    const { draft, games } = tournament();
+    const events = simulateDay(draft, games, rulesOf, 8, undefined, { deskScores: true });
+    expect(events.some((e) => e.kind === "score" || e.kind === "finish")).toBe(false);
+    // Both courts' first games are on; the day stops at the first of them to end.
+    expect(events.filter((e) => e.kind === "start").map((e) => (e as { matchId: string }).matchId).sort()).toEqual([games[0]!.id, games[3]!.id].sort());
+    const hold = holdEvent(events)!;
+    expect(hold.reason).toBe("score");
+    expect([games[0]!.id, games[3]!.id]).toContain(hold.matchId);
+    expect(hold.at).toBeGreaterThan(540);
+    const day = dayAfter(draft, events, events.length);
+    expect(day.results[hold.matchId]).toMatchObject({ state: "onCourt", games: [] });
+  });
+
+  it("plays on once the desk has scored and finished the game, with the next game coming onto that court", () => {
+    const { draft, games } = tournament();
+    const first = simulateDay(draft, games, rulesOf, 8, undefined, { deskScores: true });
+    const hold = holdEvent(first)!;
+    const before = dayAfter(draft, first, first.length);
+    // The desk types 21–15 and finishes the match; it is stamped with the simulated minute.
+    const scored = restamp(
+      before,
+      produce(before, (d) => {
+        setScore(d, hold.matchId, 0, 0, 21, "2030-01-01T00:00:00.000Z");
+        setScore(d, hold.matchId, 0, 1, 15, "2030-01-01T00:00:00.000Z");
+        finishMatch(d, hold.matchId, "2030-01-01T00:00:00.000Z");
+      }),
+      hold.at,
+    );
+    expect(scored.results[hold.matchId]).toMatchObject({ state: "finished", games: [[21, 15]] });
+    expect(scored.results[hold.matchId]!.finishedAt).not.toBe("2030-01-01T00:00:00.000Z");
+    expect(new Date(scored.results[hold.matchId]!.finishedAt!).getUTCFullYear()).toBe(2026);
+
+    const next = simulateDay(scored, games, rulesOf, 8, hold.at, { deskScores: true });
+    const court = games.find((g) => g.id === hold.matchId)!.courtId;
+    const follows = games.filter((g) => g.courtId === court)[1]!;
+    // The next game on that court starts at once; the other court's game is still on and is the next to need a score.
+    expect(next.find((e) => e.kind === "start" && e.matchId === follows.id)).toMatchObject({ at: hold.at });
+    expect(holdEvent(next)).toMatchObject({ reason: "score" });
+    expect(holdEvent(next)!.matchId).not.toBe(hold.matchId);
+    expect(next.some((e) => e.kind === "finish")).toBe(false);
+  });
+
+  it("goes back to scoring by itself when the desk hands the scores back", () => {
+    const { draft, games } = tournament();
+    const first = simulateDay(draft, games, rulesOf, 8, undefined, { deskScores: true });
+    const at = holdOf(first)!;
+    const day = dayAfter(draft, first, first.length);
+    const rest = simulateDay(day, games, rulesOf, 8, at);
+    expect(holdOf(rest)).toBeNull();
+    const end = dayAfter(day, rest, rest.length);
     expect(games.every((g) => gameState(end.results, g.id) === "finished")).toBe(true);
   });
 });

@@ -1400,7 +1400,7 @@ export function Timeline({
                                           ? "cursor-default outline-2 -outline-offset-2 outline-shuttle active:cursor-default"
                                           : ""
                                     } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} ${
-                                      live?.held?.(s.id) ? "opacity-40 grayscale" : ""
+                                      live?.held?.(s.id) ? "!bg-held" : ""
                                     } ${
                                       // Near the end of its slot it is a soft amber; past it, a soft red.
                                       live?.timing?.(s.id) === "near"

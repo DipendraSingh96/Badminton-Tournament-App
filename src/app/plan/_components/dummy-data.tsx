@@ -57,8 +57,8 @@ export function SimulationControls({
   onStop,
 }: {
   state: "playing" | "paused";
-  /** Stopped at a court that needs the desk. */
-  waiting: boolean;
+  /** Stopped for the desk: what it is waiting for, in words. Null when it isn't. */
+  waiting: string | null;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -71,10 +71,10 @@ export function SimulationControls({
         </IconButton>
       ) : (
         <IconButton
-          label={waiting ? "Waiting for you: a court can't start. Check its players in, give a walkover, or put another game on it" : "Carry on with the simulation"}
+          label={waiting ?? "Carry on with the simulation"}
           side="bottom"
           className={cn("text-fits-text", waiting && "cursor-not-allowed opacity-50 hover:bg-transparent")}
-          aria-disabled={waiting}
+          aria-disabled={Boolean(waiting)}
           onClick={() => (waiting ? undefined : onPlay())}
         >
           <PlayIcon weight="fill" />

@@ -4,6 +4,7 @@ import type { Timing } from "@/lib/tournament/live";
 import { TimingDot, courtAttention, useLiveAttention } from "./attention";
 import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useState, type KeyboardEvent } from "react";
+import type React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CourtGroups } from "@/engine";
 import {
@@ -21,6 +22,7 @@ import {
 import { pathKey } from "./fields";
 import { TeamName } from "./draw-panel";
 import type { Update } from "./plan-editor";
+import { useLiveMoves } from "./live-moves";
 import type { CourtStatus } from "./timeline";
 
 /** Where each umpire spot sits on the court, and what it's called. */
@@ -161,6 +163,8 @@ export interface CourtLive {
   state: "onCourt" | "next" | "waiting" | "free" | "done";
   /** Due next: when, "09:35". */
   next?: string;
+  /** What is on the court, for its top line: the game's group ("Group A") or round. Without it, the group the court is kept for. */
+  top?: string;
   /** On court: how far through its slot the game is, shown as a dot. */
   timing?: Timing;
 }
@@ -348,7 +352,30 @@ export function CourtCard({
   const descriptionId = `court-${court.id}-about`;
   const selection = useContext(CourtSelectionContext);
   const selected = selection?.selected === court.id;
-  const flash = `${courtAttention(useLiveAttention(), court.id)} ${live?.state === "waiting" ? "grayscale" : ""}`;
+  const attention = useLiveAttention();
+  // A game dragged from the side panel: this court takes it, or stands back.
+  const moves = useLiveMoves();
+  const dragged = live ? (moves?.dragging ?? null) : null;
+  const takesIt = dragged !== null && Boolean(moves?.takes(dragged, court.id));
+  const drop = dragged
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          if (!takesIt) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        },
+        onDrop: (e: React.DragEvent) => {
+          if (!takesIt) return;
+          e.preventDefault();
+          moves?.move(dragged, court.id);
+          moves?.setDragging(null);
+        },
+      }
+    : {};
+  const flash = `${dragged ? "" : courtAttention(attention, court.id)} ${live?.state === "waiting" ? "!bg-held" : ""} ${
+    takesIt ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : dragged ? "opacity-50" : ""
+  }`;
+  const top = live ? (live.top ?? (groups ? groupText(groups) : null)) : null;
   // Due but not on yet: the names are there, quieter.
   const dim = live?.state === "next" ? "opacity-60" : "";
   const foot = live?.state === "next" ? `Next ${live.next ?? ""}`.trim() : live?.state === "waiting" ? "Waiting for players" : live?.state === "done" ? "Done for today" : null;
@@ -362,8 +389,10 @@ export function CourtCard({
   if (size === "small") {
     const card = (
       <>
+        {/* The game's time: a dot in the card's own corner, outside the court's lines. */}
+        {live?.timing ? <TimingDot timing={live.timing} className="absolute top-1.5 right-1.5 z-20" /> : null}
         <span className="h-5 truncate text-center text-xs leading-5 font-semibold">
-          {groups ? groupText(groups) : null}
+          {live ? top : groups ? groupText(groups) : null}
         </span>
         <span className="relative flex min-h-20 flex-col border-2 border-white/90">
           <span
@@ -379,7 +408,6 @@ export function CourtCard({
           <span className={`flex flex-1 flex-col ${dim}`}>
             <Half size="small" code={face?.away ?? null} players={face?.awayPlayers ?? []} />
           </span>
-          {live?.timing ? <TimingDot timing={live.timing} className="absolute top-1 right-1 z-20" /> : null}
           {spots.map((spot) => (
             <span
               key={spot}
@@ -400,7 +428,7 @@ export function CourtCard({
     ]
       .filter(Boolean)
       .join(", ");
-    const shell = `flex flex-col gap-1 rounded-lg bg-court px-2 pt-1 pb-2 text-left text-white outline-none transition-[opacity,box-shadow] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+    const shell = `relative flex flex-col gap-1 rounded-lg bg-court px-2 pt-1 pb-2 text-left text-white outline-none transition-[opacity,box-shadow] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
       status?.kind === "notBooked" ? "opacity-60" : ""
     }`;
     // Where a click picks the court for a side panel (the Draw stage), it still does.
@@ -412,6 +440,7 @@ export function CourtCard({
           aria-label={`${about}. Show in the panel`}
           onClick={() => selection.onSelect(court.id)}
           data-court-card
+          {...drop}
           className={`${shell} ${flash} cursor-pointer ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
         >
           {card}
@@ -447,6 +476,7 @@ export function CourtCard({
       aria-describedby={descriptionId}
       onClick={selection ? () => selection.onSelect(court.id) : undefined}
       data-court-card
+      {...drop}
       className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-[opacity,box-shadow] ${
         status?.kind === "notBooked" ? "opacity-60" : ""
       } ${flash} ${selection ? "cursor-pointer" : ""} ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
@@ -501,7 +531,7 @@ export function CourtCard({
         )}
         {live ? (
           // While Live the court's group is shown, not changed.
-          <span className="truncate text-xs font-semibold">{groups ? groupText(groups) : null}</span>
+          <span className="truncate text-xs font-semibold">{top}</span>
         ) : groups ? (
           <GroupMenu
             number={number}

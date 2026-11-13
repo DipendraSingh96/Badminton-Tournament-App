@@ -14,8 +14,8 @@ import {
   sidePlayers,
 } from "./entries";
 import { EVENT_LABELS } from "./events";
-import { awardMark, courtQueues, gameState } from "./live";
-import type { DayGame, LiveDay } from "./live-day";
+import { awardMark, courtGame, courtQueues, gameState } from "./live";
+import { sidesKnown, type DayGame, type LiveDay } from "./live-day";
 import { clock } from "./time";
 
 // What the audience board shows: the hall's screen, read by players and
@@ -146,7 +146,8 @@ function boardGame(draft: PlanDraft, game: BoardSource, day: LiveDay, numbers: M
     time: clock(Math.round(from)),
     from,
     state: gameState(draft.results, game.id),
-    held: day.held.has(game.id),
+    // Nobody is waited for until play has begun.
+    held: day.started !== null && day.held.has(game.id),
     category: categoryLabel(draft, m.categoryId),
     where: m.stage === "group" ? `Group ${m.group ?? ""}`.trim() : knockoutRoundName(m.code ?? ""),
     rubber: m.rubber ? `Rubber ${m.rubber.number} of ${m.rubber.of} · ${EVENT_LABELS[m.rubber.event]}` : null,
@@ -180,12 +181,13 @@ export function boardCourts(draft: PlanDraft, games: BoardSource[], day: LiveDay
   return draft.frame.halls.map((hall, h) => {
     const courts = hall.courts.map((court): BoardCourt => {
       const queue = queues.get(court.id);
-      const current = queue?.current ?? null;
+      // A game whose sides aren't known yet isn't shown on its court: the court is free until they are.
+      const current = courtGame(queue, draft.results, (g) => sidesKnown(draft, g));
       const game = current ? boardGame(draft, current, day, numbers) : null;
       return {
         courtId: court.id,
         number: numbers.get(court.id)!,
-        state: game ? (game.state === "onCourt" ? "onCourt" : "upNext") : queue && queue.played.length > 0 ? "done" : "free",
+        state: game ? (game.state === "onCourt" ? "onCourt" : "upNext") : queue && queue.played.length > 0 && !queue.current ? "done" : "free",
         game,
       };
     });
