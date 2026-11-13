@@ -48,6 +48,8 @@ import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
 import { goLive, moveGame, startReadyGames, startTournament } from "@/lib/tournament/changes";
 import { liveDay } from "@/lib/tournament/live-day";
+import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
+import { AudienceBoardButton } from "./audience-button";
 import { gameState, timingOf } from "@/lib/tournament/live";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
@@ -602,6 +604,37 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const courtIds = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
   const day = useMemo(() => liveDay(liveDraft, segments, { now: liveMinute, minuteOf, courtIds }), [liveDraft, segments, liveMinute, minuteOf, courtIds]);
   const projection = day.projection;
+
+  // The audience board, in a window of its own: it is sent the day as the desk sees it (a simulated
+  // day included) each time something changes. Nothing sent is saved.
+  const boardClock = watching || developer ? liveTime : null;
+  const boardDay = useRef<BoardDay>({ draft: liveDraft, now: liveMinute, clock: boardClock });
+  const boardSend = useRef<(() => void) | null>(null);
+  const boardOn = draft.stage === "live";
+  useEffect(() => {
+    if (!boardOn) return;
+    const channel = boardChannel(id);
+    if (!channel) return;
+    const send = () => channel.postMessage({ type: "day", ...boardDay.current } satisfies BoardMessage);
+    channel.onmessage = (event: MessageEvent<BoardMessage>) => {
+      if (event.data.type === "hello") send();
+    };
+    boardSend.current = send;
+    send();
+    const timer = window.setInterval(
+      () => channel.postMessage({ type: "ping", now: boardDay.current.now, clock: boardDay.current.clock } satisfies BoardMessage),
+      BOARD_PING_MS,
+    );
+    return () => {
+      window.clearInterval(timer);
+      boardSend.current = null;
+      channel.close();
+    };
+  }, [id, boardOn]);
+  useEffect(() => {
+    boardDay.current = { draft: liveDraft, now: liveMinute, clock: boardClock };
+    boardSend.current?.();
+  }, [liveDraft, liveMinute, boardClock]);
   const liveSegments = useMemo(
     () =>
       segments.map((s) => {
@@ -939,6 +972,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           // Developer tools: a simulated day to watch, on the Live stage only.
           onLive ? (
             <>
+              {draft.stage === "live" ? <AudienceBoardButton id={id} draft={draft} update={update} /> : null}
               {liveDraft.startedAt ? (
                 <span className="text-sm text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span>
               ) : developer ? (
