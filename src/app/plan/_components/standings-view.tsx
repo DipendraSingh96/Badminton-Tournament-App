@@ -12,6 +12,7 @@ import {
   entryForSlot,
   groupStatus,
   groupTables,
+  knockoutLevel,
   knockoutOutcome,
   sidesChanged,
   type GroupStatus,
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
 import { awardMark } from "./court-board";
 import { TeamName, courtOf } from "./draw-panel";
-import { DecideDialog } from "./live-dialogs";
+import { DecideDialog, DecideKnockoutDialog } from "./live-dialogs";
 import type { Update } from "./plan-editor";
 import { categoryName } from "./labels";
 import type { LocalSegment } from "./timeline";
@@ -193,7 +194,7 @@ function CategoryStandings({
       ) : null}
 
       {part === "knockout" && bracket ? (
-        <BracketCard draft={draft} category={category} segments={segments} bracket={bracket} provisional={provisional} onCourt={onCourt} />
+        <BracketCard draft={draft} update={update} category={category} segments={segments} bracket={bracket} provisional={provisional} onCourt={onCourt} />
       ) : null}
     </section>
   );
@@ -355,6 +356,7 @@ function GroupCard({
 
 function BracketCard({
   draft,
+  update,
   category,
   segments,
   bracket,
@@ -362,6 +364,7 @@ function BracketCard({
   onCourt,
 }: {
   draft: PlanDraft;
+  update: Update;
   category: CategoryDraft;
   segments: LocalSegment[];
   bracket: ReturnType<typeof knockoutBracket>;
@@ -373,7 +376,7 @@ function BracketCard({
   const champion = knockoutOutcome(draft, category, "Final");
   const championEntry = champion ? draft.entries.find((e) => e.id === champion.winner) : undefined;
   const box = (match: KnockoutMatch, isFinal = false) => (
-    <MatchBox draft={draft} category={category} segments={segments} match={match} final={isFinal} provisional={provisional} onCourt={onCourt} />
+    <MatchBox draft={draft} update={update} category={category} segments={segments} match={match} final={isFinal} provisional={provisional} onCourt={onCourt} />
   );
   if (!final) return null;
   return (
@@ -426,6 +429,7 @@ function BracketCard({
 
 function MatchBox({
   draft,
+  update,
   category,
   segments,
   match,
@@ -434,6 +438,7 @@ function MatchBox({
   onCourt,
 }: {
   draft: PlanDraft;
+  update: Update;
   category: CategoryDraft;
   segments: LocalSegment[];
   match: KnockoutMatch;
@@ -446,6 +451,9 @@ function MatchBox({
   const first = own[0];
   const court = first ? courtOf(draft, first.courtId) : null;
   const outcome = knockoutOutcome(draft, category, match.code);
+  // A tie that ended level on rubbers, games and points: the desk says who goes through.
+  const level = knockoutLevel(draft, category, match.code);
+  const [deciding, setDeciding] = useState(false);
   const onCourtNow = own.some((s) => gameState(draft.results, s.id) === "onCourt");
   const changed = own.some((s) => sidesChanged(draft, category.id, s.id, match.home, match.away));
   // Who played it, as kept when it started; otherwise who the results put there.
@@ -519,6 +527,20 @@ function MatchBox({
           The sides have changed since this was played.
         </p>
       ) : null}
+      {level && !level.decided ? (
+        <div className="flex items-center justify-between gap-2 border-t py-1 pr-1 pl-3">
+          <p className="flex items-start gap-2 text-xs text-over-text">
+            <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+            Ended level: decide by hand.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setDeciding(true)}>
+            Decide…
+          </Button>
+        </div>
+      ) : level ? (
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">Ended level: decided by hand (see Changes).</p>
+      ) : null}
+      {deciding ? <DecideKnockoutDialog draft={draft} update={update} categoryId={category.id} code={match.code} onClose={() => setDeciding(false)} /> : null}
     </div>
   );
 }

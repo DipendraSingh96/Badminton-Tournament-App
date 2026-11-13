@@ -17,7 +17,7 @@ import { PlayerCheckIn } from "./attendance";
 import { TimingDot, courtAttention, useLiveAttention } from "./attention";
 import { TeamDetail, TeamList, TeamName, TeamOpenContext, courtOf } from "./draw-panel";
 import { IconButton } from "./fields";
-import { AwardDialog } from "./live-dialogs";
+import { AwardDialog, LevelTies } from "./live-dialogs";
 import { categoryName } from "./labels";
 import { useLiveMoves } from "./live-moves";
 import type { Update } from "./plan-editor";
@@ -108,6 +108,8 @@ export function LivePanel({
       </div>
       <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
         <TabsContent value="games">
+          {/* A knockout tie that ended level holds up the next round until the desk decides it. */}
+          <LevelTies draft={draft} update={update} />
           <GamesTab
             // A court or a group chosen in the main area starts its own list.
             key={filter ? JSON.stringify(filter) : "all"}

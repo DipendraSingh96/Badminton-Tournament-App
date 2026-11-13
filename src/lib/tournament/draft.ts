@@ -346,7 +346,11 @@ export interface PlanDraft {
   results: Record<string, MatchResultDraft>;
   /** Live: entries that withdrew, by entry id. */
   withdrawn: Record<string, WithdrawalDraft>;
-  /** Live: groups level on every tiebreak, decided by hand: the entries in order, by "categoryId:groupIndex". */
+  /**
+   * Live: what the desk decided by hand. A group level on every tiebreak: its
+   * entries in order, by "categoryId:groupIndex". A knockout tie level on
+   * rubbers, games and points: the entry that goes through, by "categoryId:ko:code".
+   */
   decided: Record<string, string[]>;
   /** Live: every controlled change, oldest first. */
   log: LogEntryDraft[];

@@ -219,11 +219,12 @@ function knockoutIds(draft: PlanDraft, category: CategoryDraft, code: string): s
 }
 
 /**
- * A finished knockout match's winner and loser, as entry ids: the two entries
- * that played it (as kept when it was started), by its scores. Null until
- * every rubber is finished, or if a tie ended level on rubbers, games and points.
+ * A finished knockout match as its scores leave it: the two entries that
+ * played it (as kept when it was started) and who the scores give it to
+ * (null when a tie ended level on rubbers, games and points). Null until
+ * every rubber is finished and both sides are known.
  */
-export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code: string): { winner: string; loser: string } | null {
+function knockoutPlayed(draft: PlanDraft, category: CategoryDraft, code: string): { home: string; away: string; winner: "home" | "away" | null } | null {
   const match = knockoutMatchOf(draft, category, code);
   if (!match) return null;
   const played = finishedFixture(draft, `${category.id}:ko:${code}`, rubberCount(draft, category));
@@ -233,9 +234,54 @@ export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code:
     .find(Boolean);
   const home = kept?.[0] ?? entryIdForSlot(draft, category.id, match.home);
   const away = kept?.[1] ?? entryIdForSlot(draft, category.id, match.away);
-  const winner = fixtureWinner(played.rubbers, played.awards);
-  if (!home || !away || !winner) return null;
-  return winner === "home" ? { winner: home, loser: away } : { winner: away, loser: home };
+  if (!home || !away) return null;
+  return { home, away, winner: fixtureWinner(played.rubbers, played.awards) };
+}
+
+/** Where a level knockout tie's decision by hand is kept in `decided`: the entry that goes through. */
+export function knockoutDecisionKey(categoryId: string, code: string): string {
+  return `${categoryId}:ko:${code}`;
+}
+
+/**
+ * A finished knockout tie that its scores leave level on rubbers, games and
+ * points: its two entries, and the one the desk has put through by hand (null
+ * until it has). Null for a match the scores decide, or one not finished.
+ */
+export function knockoutLevel(draft: PlanDraft, category: CategoryDraft, code: string): { home: string; away: string; decided: string | null } | null {
+  const played = knockoutPlayed(draft, category, code);
+  if (!played || played.winner) return null;
+  const by = draft.decided[knockoutDecisionKey(category.id, code)]?.[0];
+  return { home: played.home, away: played.away, decided: by === played.home || by === played.away ? by : null };
+}
+
+/** Every finished knockout tie that ended level and hasn't been decided by hand: each holds up the round after it. */
+export function levelKnockoutTies(draft: PlanDraft): { categoryId: string; code: string; home: string; away: string }[] {
+  if (draft.format === "groups") return [];
+  return draft.categories.flatMap((category) => {
+    const format = categoryFormatOf(draft, category);
+    if (!format.ok) return [];
+    const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
+    return [...bracket.rounds.flatMap((r) => r.matches), ...(bracket.bronze ? [bracket.bronze] : [])].flatMap((m) => {
+      const level = knockoutLevel(draft, category, m.code);
+      return level && !level.decided ? [{ categoryId: category.id, code: m.code, home: level.home, away: level.away }] : [];
+    });
+  });
+}
+
+/**
+ * A finished knockout match's winner and loser, as entry ids: the two entries
+ * that played it (as kept when it was started), by its scores. A tie that
+ * ended level on rubbers, games and points goes to the side the desk decided
+ * by hand. Null until every rubber is finished, or while a level tie is undecided.
+ */
+export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code: string): { winner: string; loser: string } | null {
+  const played = knockoutPlayed(draft, category, code);
+  if (!played) return null;
+  const { home, away } = played;
+  if (played.winner) return played.winner === "home" ? { winner: home, loser: away } : { winner: away, loser: home };
+  const by = draft.decided[knockoutDecisionKey(category.id, code)]?.[0];
+  return by === home ? { winner: home, loser: away } : by === away ? { winner: away, loser: home } : null;
 }
 
 /**

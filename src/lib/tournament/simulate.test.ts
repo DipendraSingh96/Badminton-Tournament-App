@@ -1,10 +1,10 @@
 import { produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { gameWinner, knockoutBracket, type StageRules } from "@/engine";
-import { awardMatch } from "./changes";
+import { awardMatch, decideKnockout } from "./changes";
 import { emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { knockoutOutcome, matchPlayers } from "./entries";
+import { knockoutOutcome, levelKnockoutTies, matchPlayers } from "./entries";
 import { gameState } from "./live";
 import { finishMatch } from "./changes";
 import { setScore } from "./live";
@@ -365,5 +365,58 @@ describe("a simulated day where the desk enters the scores", () => {
     expect(holdOf(rest)).toBeNull();
     const end = dayAfter(day, rest, rest.length);
     expect(games.every((g) => gameState(end.results, g.id) === "finished")).toBe(true);
+  });
+});
+
+describe("a simulated day with a knockout tie that ends level", () => {
+  /** The same tournament as teams, two rubbers a tie, one after the other on the tie's court. */
+  function teams(): { draft: PlanDraft; games: SimGame[] } {
+    const { draft, games } = tournament();
+    draft.unit = "team";
+    const category = draft.categories[0]!;
+    category.lineUp = { ...category.lineUp, MD: 1, XD: 1 };
+    return {
+      draft,
+      games: games.flatMap((g) =>
+        [1, 2].map((number) => ({
+          ...g,
+          id: g.id.replace(/:r1$/, `:r${number}`),
+          from: g.from + (number - 1) * 0.5 * (g.to - g.from),
+          to: g.from + number * 0.5 * (g.to - g.from),
+          match: { ...g.match, rubber: { number } },
+        })),
+      ),
+    };
+  }
+  const levelSeed = (() => {
+    const { draft, games } = teams();
+    for (let seed = 1; seed < 200; seed++) if (holdEvent(simulateDay(draft, games, rulesOf, seed))?.reason === "tie") return seed;
+    throw new Error("No seed gives a level tie");
+  })();
+
+  it("stops for the desk to say who goes through, and plays on to a champion once it has", () => {
+    const { draft, games } = teams();
+    const first = simulateDay(draft, games, rulesOf, levelSeed);
+    const hold = holdEvent(first)!;
+    expect(hold.reason).toBe("tie");
+    const stopped = whole(draft, first);
+    const [tie] = levelKnockoutTies(stopped);
+    expect(hold.matchId.startsWith(`c1:ko:${tie!.code}:`)).toBe(true);
+    // Every rubber of the tie has ended by then: nothing of it is still on court.
+    expect(games.filter((g) => g.match.code === tie!.code).map((g) => gameState(stopped.results, g.id))).toEqual(["finished", "finished"]);
+    // Left alone, it is still waiting when the day is worked out again.
+    expect(holdEvent(simulateDay(stopped, games, rulesOf, levelSeed, hold.at))).toMatchObject({ reason: "tie", at: hold.at });
+
+    let ties = 0;
+    const { end } = dayWithDesk(draft, games, levelSeed, (day, stop) => {
+      expect(stop.reason).toBe("tie");
+      ties += 1;
+      const level = levelKnockoutTies(day)[0]!;
+      decideKnockout(day, { categoryId: level.categoryId, code: level.code, winnerId: level.home, now: "2026-07-04T09:00:00.000Z" });
+    });
+    expect(ties).toBeGreaterThan(0);
+    expect(games.every((g) => gameState(end.results, g.id) === "finished")).toBe(true);
+    expect(knockoutOutcome(end, end.categories[0]!, "Final")).not.toBeNull();
+    expect(levelKnockoutTies(end)).toEqual([]);
   });
 });

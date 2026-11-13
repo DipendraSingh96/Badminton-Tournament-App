@@ -4,7 +4,7 @@ import { gameWinner, type GameScore, type StageRules } from "@/engine";
 import { startTournament } from "./changes";
 import type { Attendance, PlanDraft } from "./draft";
 import { SIMULATION } from "./dummy/values";
-import { entryForSlot, matchPlayers } from "./entries";
+import { entryForSlot, levelKnockoutTies, matchPlayers } from "./entries";
 import { finishGame, gameState, startGame } from "./live";
 
 // A simulated day, for trying the Live stage with a day's worth of data (a
@@ -40,10 +40,11 @@ export type SimEvent = { at: number } & (
   /**
    * The day waits here for the desk; always the last event. Either a court's
    * game can't start because a player who isn't coming hasn't checked in
-   * ("players"), or, when the desk enters the scores, a game has ended and
-   * needs its score ("score").
+   * ("players"); or, when the desk enters the scores, a game has ended and
+   * needs its score ("score"); or a knockout tie has ended level and the desk
+   * has to say who goes through ("tie": `matchId` is the tie's last rubber).
    */
-  | { kind: "hold"; reason: "players" | "score"; courtId: string; matchId: string }
+  | { kind: "hold"; reason: "players" | "score" | "tie"; courtId: string; matchId: string }
 );
 
 /** A repeatable random number from 0 up to 1 (mulberry32): the same seed gives the same day. */
@@ -126,7 +127,8 @@ function gameScore(rules: StageRules, homeWins: boolean, rand: () => number): [n
  * who stay "not yet"). Each game starts as soon as its court and its players
  * are free and its sides are known, without waiting for its planned minute,
  * and runs a little short of or past its planned length; a game already on
- * court plays on to its end. Nothing is given as a walkover: the first time
+ * court plays on to its end. A knockout tie that ends level stops the day
+ * with a `hold`, for the desk to say who goes through. Nothing is given as a walkover: the first time
  * a court's game can't start because a player who isn't coming hasn't
  * checked in, the day ends with a `hold`, for the desk to deal with (a
  * player who is only late is waited for: the court is held until they come). Who is late, who never
@@ -144,9 +146,20 @@ export function simulateDay(
   options: { deskScores?: boolean } = {},
 ): SimEvent[] {
   const rand = random(seed);
-  type Hold = { at: number; reason: "players" | "score"; courtId: string; matchId: string };
-  // Games whose time will be up, waiting for the desk's score.
+  type Hold = { at: number; reason: "players" | "score" | "tie"; courtId: string; matchId: string };
+  // Games whose time will be up, waiting for the desk's score; and knockout ties that ended level, waiting for its decision.
   const scoreDue: Hold[] = [];
+  // When each game played in this run ends: a tie is level only once its last rubber has.
+  const ended = new Map<string, number>();
+  /** The level ties the desk hasn't decided, as the day stands: each stops the day once its last rubber has ended (no earlier than `at`). */
+  const levelTies = (at: number): Hold[] =>
+    levelKnockoutTies(day).flatMap((tie) => {
+      const own = games.filter((g) => g.match.categoryId === tie.categoryId && g.match.code === tie.code);
+      // Its last rubber to end, where this run played them; otherwise its last on the schedule.
+      const last = [...own].sort((a, b) => (ended.get(b.id) ?? -Infinity) - (ended.get(a.id) ?? -Infinity) || b.from - a.from)[0];
+      if (!last || scoreDue.some((d) => d.reason === "tie" && own.some((g) => g.id === d.matchId))) return [];
+      return [{ at: Math.max(at, ended.get(last.id) ?? at), reason: "tie" as const, courtId: last.courtId, matchId: last.id }];
+    });
   const span = ([a, b]: readonly [number, number], share: number) => a + share * (b - a);
   const events: SimEvent[] = [];
   const planned = games.reduce((min, g) => Math.min(min, g.from), Infinity);
@@ -227,6 +240,7 @@ export function simulateDay(
     }
     played.forEach((_, g) => emit({ at: start + ((end - start) * (g + 1)) / played.length, kind: "score", matchId: game.id, games: played.slice(0, g + 1) }));
     emit({ at: end, kind: "finish", matchId: game.id });
+    ended.set(game.id, end);
     for (const id of held) busy.set(id, end);
     courtFree.set(game.courtId, Math.max(courtFree.get(game.courtId) ?? now, end));
     if (game.match.stage === "group") {
@@ -234,8 +248,13 @@ export function simulateDay(
     } else if (game.match.code) {
       const key = `${game.match.categoryId}:${game.match.code}`;
       codeDone.set(key, Math.max(codeDone.get(key) ?? now, end));
+      // A tie that ends level is nobody's until the desk says who goes through.
+      scoreDue.push(...levelTies(end));
     }
   };
+
+  // A tie already level when the day is taken up (the desk scored its last rubber, or hasn't decided it yet).
+  scoreDue.push(...levelTies(now));
 
   const queues = new Map<string, SimGame[]>();
   for (const g of [...games].sort((a, b) => a.from - b.from)) {

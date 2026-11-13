@@ -1,15 +1,25 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react";
+import { ArrowDownIcon, ArrowUpIcon, WarningIcon } from "@phosphor-icons/react";
 import { produce } from "immer";
 import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/components/ui/native-select";
-import { awardMatch, decideTie, planWithdrawal, withdrawEntry } from "@/lib/tournament/changes";
+import { awardMatch, decideKnockout, decideTie, planWithdrawal, withdrawEntry } from "@/lib/tournament/changes";
 import { entryName, type PlanDraft } from "@/lib/tournament/draft";
-import { categoryLabel, entryIdOn, groupTable, matchRef, sidePlayers, type GroupTable } from "@/lib/tournament/entries";
+import {
+  categoryLabel,
+  entryIdOn,
+  groupTable,
+  knockoutLevel,
+  knockoutRoundName,
+  levelKnockoutTies,
+  matchRef,
+  sidePlayers,
+  type GroupTable,
+} from "@/lib/tournament/entries";
 import { WALKOVER_LABELS } from "@/lib/tournament/events";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./fields";
@@ -388,5 +398,111 @@ export function DecideDialog({
       </ol>
       <Note value={note} onChange={setNote} placeholder="Coin toss" />
     </FormDialog>
+  );
+}
+
+/** An entry's name by its id. */
+function nameOf(draft: PlanDraft, id: string): string {
+  const entry = draft.entries.find((e) => e.id === id);
+  return (entry && entryName(entry)) ?? "Unnamed entry";
+}
+
+/**
+ * Decide a knockout tie that ended level on rubbers, games and points: the
+ * desk says who goes through (after a deciding game, a coin toss, the
+ * referee's ruling). The scores stand as entered.
+ */
+export function DecideKnockoutDialog({
+  draft,
+  update,
+  categoryId,
+  code,
+  onClose,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  categoryId: string;
+  code: string;
+  onClose: () => void;
+}) {
+  const [winner, setWinner] = useState("");
+  const [note, setNote] = useState("");
+  const category = draft.categories.find((c) => c.id === categoryId);
+  const level = category ? knockoutLevel(draft, category, code) : null;
+  if (!level) return null;
+  const home = nameOf(draft, level.home);
+  const away = nameOf(draft, level.away);
+  const round = knockoutRoundName(code);
+  return (
+    <FormDialog
+      open
+      onOpenChange={(open) => (open ? undefined : onClose())}
+      title={`Decide ${round === "Final" || round === "Bronze match" ? `the ${round.toLowerCase()}` : round} by hand`}
+      description={`${home} v ${away} ended level on rubbers, games and points. The scores stand as entered; this only says who it goes to.`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={winner === ""}
+            onClick={() => {
+              update((d) => void decideKnockout(d, { categoryId, code, winnerId: winner, note, now: now() }));
+              onClose();
+            }}
+          >
+            Decide
+          </Button>
+        </>
+      }
+    >
+      <Choices
+        label={code === "Final" ? "Who wins it" : code === "Bronze" ? "Who takes third place" : "Who goes through"}
+        value={winner}
+        onChange={setWinner}
+        options={[
+          { value: level.home, label: home },
+          { value: level.away, label: away },
+        ]}
+      />
+      <Note value={note} onChange={setNote} placeholder="Deciding game, 21–18" />
+    </FormDialog>
+  );
+}
+
+/**
+ * The knockout ties that ended level and are waiting for the desk, each with
+ * its Decide button: the round after can't be filled until it has. Nothing
+ * when there are none.
+ */
+export function LevelTies({ draft, update }: { draft: PlanDraft; update: Update }) {
+  const [deciding, setDeciding] = useState<{ categoryId: string; code: string } | null>(null);
+  const ties = levelKnockoutTies(draft);
+  if (ties.length === 0 && !deciding) return null;
+  return (
+    <>
+      {ties.length > 0 ? (
+        <ul aria-label="Level ties to decide" className="mb-4 flex flex-col gap-1">
+          {ties.map((tie) => (
+            <li key={`${tie.categoryId}:${tie.code}`} data-level-tie={tie.code} className="flex items-center justify-between gap-3 rounded-lg bg-card-system py-2 pr-2 pl-3">
+              <p className="flex min-w-0 items-start gap-2 text-sm">
+                <WarningIcon className="mt-1 size-3 shrink-0 text-over-text" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="font-semibold">
+                    {draft.categories.length > 1 ? `${categoryLabel(draft, tie.categoryId)}, ` : ""}
+                    {knockoutRoundName(tie.code)} ended level.
+                  </span>{" "}
+                  {nameOf(draft, tie.home)} v {nameOf(draft, tie.away)}: decide who {tie.code === "Final" ? "wins it" : tie.code === "Bronze" ? "takes third place" : "goes through"}.
+                </span>
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setDeciding({ categoryId: tie.categoryId, code: tie.code })}>
+                Decide…
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {deciding ? <DecideKnockoutDialog draft={draft} update={update} categoryId={deciding.categoryId} code={deciding.code} onClose={() => setDeciding(null)} /> : null}
+    </>
   );
 }

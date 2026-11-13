@@ -7,5 +7,5 @@ export function minutesOfDay(hhmm: string | null | undefined): number | null {
 
 /** "HH:mm" for minutes since midnight. */
 export function clock(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(Math.floor(minutes % 60)).padStart(2, "0")}`;
 }

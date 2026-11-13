@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { awardMatch, canReverse, decideTie, finishMatch, goLive, holding, moveGame, planWithdrawal, playingNow, reversalBlockedBy, reverseChange, startReadyGames, startTournament, withdrawEntry } from "./changes";
+import { awardMatch, canReverse, decideKnockout, decideTie, finishMatch, goLive, holding, moveGame, planWithdrawal, playingNow, reversalBlockedBy, reverseChange, startReadyGames, startTournament, withdrawEntry } from "./changes";
 import { emptyDraft, emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { entryForSlot, groupStatus, groupTable, knockoutOutcome, matchRef, sidesChanged } from "./entries";
+import { entryForSlot, groupStatus, groupTable, knockoutLevel, knockoutOutcome, levelKnockoutTies, matchRef, sidesChanged } from "./entries";
 import { finishGame, reopenGame, setScore } from "./live";
 import { normaliseDraft } from "./storage";
 
@@ -367,5 +367,74 @@ describe("starting the tournament, and games starting by themselves", () => {
     const saved: Partial<PlanDraft> = live();
     delete saved.startedAt;
     expect(normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]).startedAt).toBeNull();
+  });
+});
+
+describe("a level knockout tie decided by hand", () => {
+  /** A team tournament, two rubbers a tie: the groups played, then the first semi-final (e1 v e5) left one rubber each on the same scores. */
+  function levelSemi(): PlanDraft {
+    const draft = live();
+    const category = draft.categories[0]!;
+    draft.unit = "team";
+    category.lineUp = { ...category.lineUp, MD: 1, XD: 1 };
+    const tie = (base: string, first: [number, number], second: [number, number]) => {
+      play(draft, `${base}:r1`, first);
+      play(draft, `${base}:r2`, second);
+    };
+    const groupTie = (letter: string, a: number, b: number, score: [number, number]) => tie(`c1:group:${letter}:${letter}${a}-${letter}${b}`, score, score);
+    groupTie("A", 1, 2, [21, 15]);
+    groupTie("A", 1, 3, [21, 10]);
+    groupTie("A", 2, 3, [21, 19]);
+    groupTie("B", 1, 2, [12, 21]);
+    groupTie("B", 1, 3, [9, 21]);
+    groupTie("B", 2, 3, [18, 21]);
+    tie("c1:ko:SF1", [21, 15], [15, 21]);
+    return draft;
+  }
+
+  it("is nobody's until the desk puts a side through; then the next round fills, and it can be reversed", () => {
+    const draft = levelSemi();
+    const category = draft.categories[0]!;
+    expect(knockoutLevel(draft, category, "SF1")).toEqual({ home: "e1", away: "e5", decided: null });
+    expect(levelKnockoutTies(draft)).toEqual([{ categoryId: "c1", code: "SF1", home: "e1", away: "e5" }]);
+    expect(knockoutOutcome(draft, category, "SF1")).toBeNull();
+    expect(entryForSlot(draft, "c1", "Winner SF1")).toBeNull();
+    // Only one of its two sides can be put through.
+    expect(decideKnockout(draft, { categoryId: "c1", code: "SF1", winnerId: "e2", now: LATER })).toBe(false);
+    expect(decideKnockout(draft, { categoryId: "c1", code: "SF1", winnerId: "e5", note: "deciding game", now: LATER })).toBe(true);
+    expect(draft.log.at(-1)).toMatchObject({
+      kind: "decision",
+      text: "Semi-final 1, Entry 1 v Entry 5: ended level; Entry 5 put through by hand",
+      note: "deciding game",
+    });
+    expect(knockoutOutcome(draft, category, "SF1")).toEqual({ winner: "e5", loser: "e1" });
+    expect(entryForSlot(draft, "c1", "Winner SF1")?.id).toBe("e5");
+    expect(entryForSlot(draft, "c1", "Loser SF1")?.id).toBe("e1");
+    expect(levelKnockoutTies(draft)).toEqual([]);
+    expect(knockoutLevel(draft, category, "SF1")).toMatchObject({ decided: "e5" });
+    reverseChange(draft, draft.log.at(-1)!.id, LATER);
+    expect(draft.decided).toEqual({});
+    expect(knockoutOutcome(draft, category, "SF1")).toBeNull();
+  });
+
+  it("gives way to the scores once a correction means the tie is no longer level", () => {
+    const draft = levelSemi();
+    const category = draft.categories[0]!;
+    decideKnockout(draft, { categoryId: "c1", code: "SF1", winnerId: "e5", now: LATER });
+    reopenGame(draft, "c1:ko:SF1:r2");
+    setScore(draft, "c1:ko:SF1:r2", 0, 0, 16, NOW);
+    finishGame(draft, "c1:ko:SF1:r2", NOW);
+    // 21–15 and 16–21: level on rubbers and games, e1 ahead by a point.
+    expect(knockoutLevel(draft, category, "SF1")).toBeNull();
+    expect(knockoutOutcome(draft, category, "SF1")).toEqual({ winner: "e1", loser: "e5" });
+  });
+
+  it("can't decide a match the scores decide, or one not finished", () => {
+    const draft = levelSemi();
+    expect(decideKnockout(draft, { categoryId: "c1", code: "SF2", winnerId: "e6", now: LATER })).toBe(false);
+    play(draft, "c1:ko:SF2:r1", [21, 10]);
+    play(draft, "c1:ko:SF2:r2", [21, 10]);
+    expect(decideKnockout(draft, { categoryId: "c1", code: "SF2", winnerId: "e2", now: LATER })).toBe(false);
+    expect(draft.decided).toEqual({});
   });
 });

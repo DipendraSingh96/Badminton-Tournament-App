@@ -48,6 +48,7 @@ import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
 import { goLive, moveGame, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { matchRef } from "@/lib/tournament/entries";
 import { liveDay } from "@/lib/tournament/live-day";
 import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
 import { AudienceBoardButton } from "./audience-button";
@@ -625,7 +626,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const simStop = sim && simHold !== null && playhead !== null && playhead >= simHold ? holdEvent(sim.events) : null;
   const simWaiting = !simStop
     ? null
-    : simStop.reason === "score"
+    : simStop.reason === "tie"
+      ? `Waiting for you: ${matchRef(draft, simStop.matchId)?.label.replace(/, rubber \d+$/, "") ?? "a knockout tie"} ended level. Decide who goes through`
+      : simStop.reason === "score"
       ? `Waiting for a score: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"}. Enter it and finish the match`
       : `Waiting for you: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"} can't start. Check its players in, give a walkover, or put another game on it`;
   const simCount = sim ? eventsBy(sim.events, playhead === null ? -Infinity : range && playhead >= range.end ? Infinity : playhead) : 0;

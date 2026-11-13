@@ -16,6 +16,9 @@ import {
   entryForSlot,
   entryIdOn,
   groupTable,
+  knockoutDecisionKey,
+  knockoutLevel,
+  knockoutRoundName,
   matchPlayers,
   matchRef,
   sidesChanged,
@@ -449,6 +452,41 @@ export function decideTie(
       draft.decided[key] = change.order;
     },
   );
+}
+
+/**
+ * Puts one side of a level knockout tie through by hand (after a deciding
+ * game, a coin toss, the referee's ruling), and logs it. The scores stand as
+ * entered. False unless the tie is finished and level on rubbers, games and
+ * points, and the entry is one of its two.
+ */
+export function decideKnockout(
+  draft: PlanDraft,
+  change: { categoryId: string; code: string; winnerId: string; note?: string; now: string },
+): boolean {
+  const category = draft.categories.find((c) => c.id === change.categoryId);
+  const level = category ? knockoutLevel(draft, category, change.code) : null;
+  if (!level || (change.winnerId !== level.home && change.winnerId !== level.away)) return false;
+  const nameOf = (id: string) => {
+    const entry = draft.entries.find((e) => e.id === id);
+    return (entry && entryName(entry)) ?? "Unnamed entry";
+  };
+  const key = knockoutDecisionKey(change.categoryId, change.code);
+  const of = draft.categories.length > 1 ? `${categoryLabel(draft, change.categoryId)}, ` : "";
+  logged(
+    draft,
+    {
+      kind: "decision",
+      text: `${of}${knockoutRoundName(change.code)}, ${nameOf(level.home)} v ${nameOf(level.away)}: ended level; ${nameOf(change.winnerId)} put through by hand`,
+      note: change.note,
+      now: change.now,
+    },
+    [`decided/${key}`],
+    () => {
+      draft.decided[key] = [change.winnerId];
+    },
+  );
+  return true;
 }
 
 /**
