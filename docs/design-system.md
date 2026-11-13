@@ -268,9 +268,10 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Clock.** The time in the Live panel's tab row: 24px display bold, tabular.
 - **Simulation controls.** Icon buttons on the stage row with filled icons in status text colours: Play `fits-text`, Pause `tight-text`, Stop `over-text`; unavailable at 50%.
 - **Tick rows (prizes).** In a `card-system` box: a tick box, the place at 14px (secondary when unticked), and a 128px amount field at the right, disabled when unticked.
-- **Waiting court.** A court whose game can't start: greyscale, and a slow fade to 40% opacity and back (1.8s, ease in and out) until the desk has looked at it. No colour. Reduced motion: no fade (it is grey already).
+- **Held.** One neutral grey, `held` (Light #7A7672, Dark #6E6A66), for a thing that can't go ahead because a player isn't checked in. It is the fill of a waiting court (white text on it) and of a held game's block on the timeline, so the two read as the same thing. Neutral, not green, so it stays clear of the group and knockout greens.
+- **Waiting court.** A court whose game can't start: the `held` fill, and (once the tournament has started) a slow fade to 40% opacity and back (1.8s, ease in and out) until the desk has looked at it. Reduced motion: no fade.
 - **Court news.** New information on a court: a soft pulse of a 3px outline in `primary` (the accent: green in Light, yellow in Dark), 2px off the court, three pulses of 1s. Reduced motion: the outline, steady, for the 3 seconds.
-- **Held game.** A waiting game that can't start: its card and its timeline block at 50% and 40% opacity, in greyscale.
+- **Held game.** A waiting game that can't start: its card in the lists at 50% opacity in greyscale; its timeline block in the `held` fill.
 - **Game time.** Two colours of its own, softer than Tight and Over (which stay for the plan's statuses): `time-near` (Light #F0D089, Dark #D9BC7A) from 80% of the slot and `time-over` (Light #E8A398, Dark #D4928A) past it, with `time-foreground` (#2A1A00) for text on either. Shown as a 10px dot (top right of a court; right of a game's header line, with a 1px ring on a pale card) and as the timeline block's fill. Never a whole card, and never a badge.
 - **No state badges on Live.** A court or a game says where it has got to by how it is drawn: full strength (on), 60% with "Next" (due), grey (waiting), empty (free).
 - **V/S.** Between a game's two sides: 20px regular (the lightest weight in use) in the secondary colour. A score in its place is 20px display bold.
