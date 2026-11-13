@@ -47,6 +47,7 @@ export function normaliseDraft(
     | "log"
     | "startedAt"
     | "resources"
+    | "publicNames"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
@@ -58,6 +59,7 @@ export function normaliseDraft(
     log?: PlanDraft["log"];
     startedAt?: PlanDraft["startedAt"];
     resources?: PlanDraft["resources"];
+    publicNames?: PlanDraft["publicNames"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
     stage?: PlanDraft["stage"];
@@ -95,6 +97,8 @@ export function normaliseDraft(
     startedAt: saved.startedAt ?? null,
     // Saved before the Resources page: nothing prepared yet.
     resources: { ...emptyResources(), ...saved.resources },
+    // Saved before the audience board: names in full.
+    publicNames: saved.publicNames ?? "full",
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},

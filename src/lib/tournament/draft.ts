@@ -312,6 +312,10 @@ export interface ZoneMoveDraft {
   hallId: string | null;
 }
 
+/** How a person's name is shown in public: in full, "Asha P.", or "A.P.". */
+export const PUBLIC_NAMES = ["full", "firstInitial", "initials"] as const;
+export type PublicNames = (typeof PUBLIC_NAMES)[number];
+
 export interface PlanDraft {
   name: string;
   /** Chosen once per tournament. */
@@ -350,6 +354,8 @@ export interface PlanDraft {
   startedAt: string | null;
   /** Getting ready for the day: house rules, the organiser's own checklist and kit. */
   resources: ResourcesDraft;
+  /** How people's names appear on the audience board (and, later, a shared link). The desk always sees full names. */
+  publicNames: PublicNames;
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
@@ -972,6 +978,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     log: [],
     startedAt: null,
     resources: emptyResources(),
+    publicNames: "full",
     groupCourts: "own",
     courtGroups: {},
     stage: "plan",
