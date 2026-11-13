@@ -3,7 +3,9 @@
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from "@phosphor-icons/react";
 import { useContext, useMemo } from "react";
 import { courtNumber, hallName, type PlanDraft } from "@/lib/tournament/draft";
+import type { CourtGroups } from "@/engine";
 import { awardMark, courtQueues, gameState, scoreText } from "@/lib/tournament/live";
+import { clock } from "@/lib/tournament/time";
 import {
   COURT_SIZES,
   COURT_WIDTH,
@@ -21,12 +23,24 @@ import { playingStatus, type CourtStatus, type LocalSegment } from "./timeline";
 export { awardMark, scoreText };
 
 /**
- * The Live stage's Court board: every court with the game on it now (the
- * first it hasn't finished), its score so far, and whether it's on court, up
- * next, free or done. The venue is as planned and can't be changed here; a
- * click on a court opens it in the side panel, where scores are entered.
+ * The Live stage's Court board: every court with who is on it now (or due on
+ * it next, dimmed), and the group it is assigned to. No badges and no scores:
+ * a court waiting for its players is greyed; a free court is empty. The
+ * venue is as planned and can't be changed here; a click on a court opens it
+ * in the side panel, where scores are entered.
  */
-export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; update: Update; segments: LocalSegment[] }) {
+export function CourtBoard({
+  draft,
+  update,
+  segments,
+  courtGroups,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  segments: LocalSegment[];
+  /** Each court's groups when groups keep their own courts; null when courts are shared. */
+  courtGroups: Map<string, CourtGroups> | null;
+}) {
   const queues = useMemo(() => courtQueues(segments, draft.results), [segments, draft.results]);
   const attention = useLiveAttention();
   const { size, setSize } = useContext(CourtSizeContext);
@@ -71,13 +85,13 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
                 const queue = queues.get(court.id);
                 const current = queue?.current ?? null;
                 const status: CourtStatus = current ? playingStatus(draft, current) : { kind: "free" };
-                const live: CourtLive = current
-                  ? {
-                      state: gameState(draft.results, current.id) === "onCourt" ? "onCourt" : "upNext",
-                      timing: attention?.timing(current.id) ?? undefined,
-                      score: scoreText(draft.results[current.id]?.games, draft.results[current.id]?.award),
-                    }
-                  : { state: queue && queue.played.length > 0 ? "done" : "free", score: null };
+                const live: CourtLive = !current
+                  ? { state: queue && queue.played.length > 0 ? "done" : "free" }
+                  : gameState(draft.results, current.id) === "onCourt"
+                    ? { state: "onCourt", timing: attention?.timing(current.id) ?? undefined }
+                    : attention?.stuck.has(court.id)
+                      ? { state: "waiting" }
+                      : { state: "next", next: clock(Math.round(current.from)) };
                 return (
                   <CourtCard
                     key={court.id}
@@ -86,7 +100,7 @@ export function CourtBoard({ draft, update, segments }: { draft: PlanDraft; upda
                     courtIndex={c}
                     number={courtNumber(draft.frame.halls, h, c)}
                     status={status}
-                    groups={null}
+                    groups={courtGroups?.get(court.id) ?? null}
                     allGroups={[]}
                     update={update}
                     live={live}

@@ -1,16 +1,20 @@
 import { TZDate } from "@date-fns/tz";
 import { produce } from "immer";
 import { gameWinner, type GameScore, type StageRules } from "@/engine";
-import { awardMatch, startTournament } from "./changes";
+import { startTournament } from "./changes";
 import type { Attendance, PlanDraft } from "./draft";
 import { SIMULATION } from "./dummy/values";
 import { entryForSlot, matchPlayers } from "./entries";
 import { finishGame, gameState, startGame } from "./live";
 
-// A simulated day, for looking at the Live stage with a day's worth of data
-// (a developer tool: Settings, Developer tools). The whole day is worked out
-// up front as a list of timed events; the day "at" a time is the saved
-// tournament with the events up to then applied. Nothing here is ever saved.
+// A simulated day, for trying the Live stage with a day's worth of data (a
+// developer tool: Settings, Developer tools). The day is worked out as a list
+// of timed events; the day "at" a time is the tournament it began from with
+// the events up to then applied. The simulation does what the hall does
+// (people arrive, games start, are scored and finish) and nothing the desk
+// does: when a court's game can't start because a player hasn't checked in,
+// the day stops there, for the desk to deal with, and is worked out again
+// from that minute once it has. Nothing here is ever saved.
 
 /** Who a simulated change is logged as made by. */
 export const SIMULATED_BY = "Simulation";
@@ -33,7 +37,8 @@ export type SimEvent = { at: number } & (
   /** The match's games so far, as they stand once another game of it has ended. */
   | { kind: "score"; matchId: string; games: [number, number][] }
   | { kind: "finish"; matchId: string }
-  | { kind: "walkover"; matchId: string; winner: 0 | 1 }
+  /** A court's game can't start: a player hasn't checked in. Always the last event: the day waits here for the desk. */
+  | { kind: "hold"; courtId: string; matchId: string }
 );
 
 /** A repeatable random number from 0 up to 1 (mulberry32): the same seed gives the same day. */
@@ -46,6 +51,19 @@ function random(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** A repeatable number from 0 up to 1 for a thing (a player, an entry, a game): the same for the same seed, however often the day is worked out again. */
+function chance(seed: number, key: string): number {
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193) >>> 0;
+  return random(h)();
+}
+
+/** A stored time as a minute of the day in the tournament's time zone. */
+function minuteAt(draft: PlanDraft, iso: string): number {
+  const local = new TZDate(iso, draft.frame.timeZone || "UTC");
+  return local.getHours() * 60 + local.getMinutes() + local.getSeconds() / 60;
 }
 
 /** A minute of the tournament's day as a UTC time. */
@@ -71,9 +89,8 @@ function apply(draft: PlanDraft, event: SimEvent): void {
     if (result) result.games = event.games.map(([home, away]) => [home, away]);
   } else if (event.kind === "finish") {
     finishGame(draft, event.matchId, now);
-  } else if (awardMatch(draft, { matchId: event.matchId, winner: event.winner, reason: "walkover", note: "Simulated: a player was absent", now })) {
-    draft.log.at(-1)!.by = SIMULATED_BY;
   }
+  // A hold changes nothing: the day waits there.
 }
 
 /** A finished game's score under the rules, won by the given side. */
@@ -98,28 +115,35 @@ function gameScore(rules: StageRules, homeWins: boolean, rand: () => number): [n
 }
 
 /**
- * The whole day, from the tournament as it stands: play begins at `startAt`
- * (the planned first game unless given, or when it really began if it
- * already has); players not yet marked check in (a few late, a few never);
- * each game starts as soon as its court and its players are free and its
- * sides are known, without waiting for its planned minute, and runs a little
- * short of or past its planned length; a game with an absent player is a
- * walkover. The draft is not changed. Events come back in time order.
+ * The day from a minute on, from the tournament as it stands. Play begins at
+ * `from` if it hasn't already (the planned first game unless given). Players
+ * not yet marked check in before their first game (a few late; a few never,
+ * who stay "not yet"). Each game starts as soon as its court and its players
+ * are free and its sides are known, without waiting for its planned minute,
+ * and runs a little short of or past its planned length; a game already on
+ * court plays on to its end. Nothing is given as a walkover: the first time
+ * a court's game can't start because a player who isn't coming hasn't
+ * checked in, the day ends with a `hold`, for the desk to deal with (a
+ * player who is only late is waited for: the court is held until they come). Who is late, who never
+ * comes, how strong each entry is and how long each game takes are fixed by
+ * the seed, so working the day out again after the desk has acted carries
+ * on the same day. The draft is not changed. Events come back in time order.
  */
 export function simulateDay(
   draft: PlanDraft,
   games: SimGame[],
   rulesOf: (game: SimGame) => StageRules | undefined,
   seed: number,
-  startAt?: number,
+  from?: number,
 ): SimEvent[] {
   const rand = random(seed);
-  const between = ([a, b]: readonly [number, number]) => a + rand() * (b - a);
+  const span = ([a, b]: readonly [number, number], share: number) => a + share * (b - a);
   const events: SimEvent[] = [];
   const planned = games.reduce((min, g) => Math.min(min, g.from), Infinity);
   if (!Number.isFinite(planned)) return [];
-  // Nothing is played before the day begins; everything planned moves with it.
-  const dayStart = startAt ?? planned;
+  // Nothing happens before `now`; everything planned moves with the day's real start.
+  const dayStart = draft.startedAt ? minuteAt(draft, draft.startedAt) : (from ?? planned);
+  const now = Math.max(from ?? dayStart, draft.startedAt ? -Infinity : dayStart);
   const late = dayStart - planned;
   // The day as simulated so far: results are applied as they are made, so later sides can be read from it.
   let day = draft;
@@ -138,47 +162,98 @@ export function simulateDay(
       if (entry && !firstGame.has(entry.id)) firstGame.set(entry.id, g.from + late);
     }
   }
+  // When each player not yet checked in arrives; none for one who never does.
   const arrival = new Map<string, number>();
-  const absent = new Set<string>();
+  const missing = new Set<string>();
+  const arrivals: { at: number; playerId: string }[] = [];
   for (const entry of draft.entries) {
     const first = firstGame.get(entry.id) ?? dayStart;
     for (const p of entry.players) {
-      if (p.attendance === "absent") absent.add(p.id);
-      if (p.attendance !== "notYet" || draft.withdrawn[entry.id]) continue;
-      const draw = rand();
-      if (draw < SIMULATION.absentShare) {
-        absent.add(p.id);
-        emit({ at: dayStart, kind: "attendance", playerId: p.id, attendance: "absent" });
-        continue;
-      }
-      const lead = between(draw < SIMULATION.absentShare + SIMULATION.lateShare ? SIMULATION.lateBefore : SIMULATION.arriveBefore);
-      const at = Math.max(dayStart, first - lead);
+      if (p.attendance === "arrived") continue;
+      missing.add(p.id);
+      if (p.attendance === "absent" || draft.withdrawn[entry.id]) continue;
+      const draw = chance(seed, `player:${p.id}`);
+      if (draw < SIMULATION.absentShare) continue;
+      const lead = span(draw < SIMULATION.absentShare + SIMULATION.lateShare ? SIMULATION.lateBefore : SIMULATION.arriveBefore, chance(seed, `lead:${p.id}`));
+      const at = Math.max(now, first - lead);
       arrival.set(p.id, at);
-      emit({ at, kind: "attendance", playerId: p.id, attendance: "arrived" });
+      arrivals.push({ at, playerId: p.id });
     }
   }
 
   // How strong each entry is on the day, so results hang together.
-  const strength = new Map(draft.entries.map((e) => [e.id, 0.5 + rand()]));
-  const queues = new Map<string, SimGame[]>();
-  for (const g of [...games].sort((a, b) => a.from - b.from)) {
-    if (gameState(draft.results, g.id) === "finished") continue;
-    queues.set(g.courtId, [...(queues.get(g.courtId) ?? []), g]);
-  }
+  const strength = new Map(draft.entries.map((e) => [e.id, 0.5 + chance(seed, `entry:${e.id}`)]));
+  const lengthOf = (game: SimGame) => Math.max(1, (game.to - game.from) * span(SIMULATION.pace, chance(seed, `pace:${game.id}`)));
   const courtFree = new Map<string, number>();
   const busy = new Map<string, number>();
   // When a category's groups were all played, and when each knockout match was: a later game's sides are known from then.
   const groupsDone = new Map<string, number>();
   const codeDone = new Map<string, number>();
   const knownFrom = (g: SimGame, slot: string) => {
-    if (g.match.stage === "group") return dayStart;
+    if (g.match.stage === "group") return now;
     const feeder = /^(?:Winner|Loser) (.+)$/.exec(slot)?.[1];
     const key = `${g.match.categoryId}:${feeder}`;
-    return feeder && codeDone.has(key) ? codeDone.get(key)! : (groupsDone.get(g.match.categoryId) ?? dayStart);
+    return feeder && codeDone.has(key) ? codeDone.get(key)! : (groupsDone.get(g.match.categoryId) ?? now);
+  };
+  /** A game played from `start` to `end`: scored a game at a time, then finished. */
+  const play = (game: SimGame, sides: [string, string], held: string[], start: number, end: number, rules: StageRules) => {
+    const odds = strength.get(sides[0])! / (strength.get(sides[0])! + strength.get(sides[1])!);
+    const needed = Math.ceil(rules.bestOf / 2);
+    const played: [number, number][] = [];
+    let home = 0;
+    let away = 0;
+    while (home < needed && away < needed) {
+      const homeWins = rand() < odds;
+      played.push(gameScore(rules, homeWins, rand));
+      if (homeWins) home += 1;
+      else away += 1;
+    }
+    played.forEach((_, g) => emit({ at: start + ((end - start) * (g + 1)) / played.length, kind: "score", matchId: game.id, games: played.slice(0, g + 1) }));
+    emit({ at: end, kind: "finish", matchId: game.id });
+    for (const id of held) busy.set(id, end);
+    courtFree.set(game.courtId, Math.max(courtFree.get(game.courtId) ?? now, end));
+    if (game.match.stage === "group") {
+      groupsDone.set(game.match.categoryId, Math.max(groupsDone.get(game.match.categoryId) ?? now, end));
+    } else if (game.match.code) {
+      const key = `${game.match.categoryId}:${game.match.code}`;
+      codeDone.set(key, Math.max(codeDone.get(key) ?? now, end));
+    }
   };
 
+  const queues = new Map<string, SimGame[]>();
+  for (const g of [...games].sort((a, b) => a.from - b.from)) {
+    const state = gameState(draft.results, g.id);
+    if (state === "finished") continue;
+    if (state === "onCourt") {
+      // Already being played: it plays on to its end.
+      const result = draft.results[g.id]!;
+      const rules = rulesOf(g);
+      const home = result.sides?.[0] ?? entryForSlot(draft, g.match.categoryId, g.match.home)?.id;
+      const away = result.sides?.[1] ?? entryForSlot(draft, g.match.categoryId, g.match.away)?.id;
+      if (rules && home && away) {
+        const began = result.startedAt ? minuteAt(draft, result.startedAt) : now;
+        const players = matchPlayers(draft, g.match).map((p) => p.id);
+        play(g, [home, away], players.length > 0 ? players : [home, away], now, Math.max(now, began + lengthOf(g)), rules);
+      }
+      continue;
+    }
+    queues.set(g.courtId, [...(queues.get(g.courtId) ?? []), g]);
+  }
+
+  // Arrivals happen in their own time, whatever the courts are doing; they are applied to the day as the games reach them.
+  arrivals.sort((a, b) => a.at - b.at);
+  let arrived = 0;
+  const arriveBy = (minute: number) => {
+    while (arrived < arrivals.length && arrivals[arrived]!.at <= minute) {
+      const next = arrivals[arrived++]!;
+      emit({ at: next.at, kind: "attendance", playerId: next.playerId, attendance: "arrived" });
+    }
+  };
+
+  let hold: { at: number; courtId: string; matchId: string } | null = null;
   for (;;) {
     let pick: { game: SimGame; start: number; sides: [string, string]; held: string[] } | null = null;
+    let stuck: { at: number; courtId: string; matchId: string } | null = null;
     for (const [courtId, queue] of queues) {
       const game = queue[0];
       if (!game) continue;
@@ -188,60 +263,45 @@ export function simulateDay(
       const players = matchPlayers(day, game.match).map((p) => p.id);
       // A side with no named players (a line-up not set) is held by its entry.
       const held = players.length > 0 ? players : [home, away];
-      const start = Math.max(
-        dayStart,
-        courtFree.get(courtId) ?? dayStart,
-        knownFrom(game, game.match.home),
-        knownFrom(game, game.match.away),
-        ...held.map((id) => busy.get(id) ?? dayStart),
-        ...players.filter((id) => !absent.has(id)).map((id) => arrival.get(id) ?? dayStart),
-      );
+      // Its court is free and its sides are known from here. A player who is only late is waited for (the court
+      // stands held until they come); one who is never coming leaves the court waiting for the desk.
+      const due = Math.max(now, courtFree.get(courtId) ?? now, knownFrom(game, game.match.home), knownFrom(game, game.match.away));
+      const awaited = players.filter((id) => missing.has(id));
+      if (awaited.some((id) => !arrival.has(id)) || !rulesOf(game)) {
+        if (!stuck || due < stuck.at) stuck = { at: due, courtId, matchId: game.id };
+        continue;
+      }
+      const start = Math.max(due, ...held.map((id) => busy.get(id) ?? now), ...awaited.map((id) => arrival.get(id)!));
       if (!pick || start < pick.start) pick = { game, start, sides: [home, away], held };
     }
+    // The day stops at the first court that can't go on (once everything else due by that minute has started).
+    if (stuck && (!pick || stuck.at < pick.start)) {
+      hold = stuck;
+      break;
+    }
     if (!pick) break;
-    const { game, start, sides } = pick;
+    const { game, start, sides, held } = pick;
     queues.get(game.courtId)!.shift();
-    const out = (slot: string) => matchPlayers(day, { ...game.match, home: slot, away: slot }).some((p) => absent.has(p.id));
-    const homeOut = out(game.match.home);
-    const awayOut = out(game.match.away);
-    const rules = rulesOf(game);
-    let end = start;
-    if (homeOut || awayOut || !rules) {
-      // A player never turned up (or the stage has no rules to score by): given to the other side.
-      emit({ at: start, kind: "walkover", matchId: game.id, winner: homeOut && !awayOut ? 1 : 0 });
-    } else {
-      end = start + Math.max(1, (game.to - game.from) * between(SIMULATION.pace));
-      const odds = strength.get(sides[0])! / (strength.get(sides[0])! + strength.get(sides[1])!);
-      const needed = Math.ceil(rules.bestOf / 2);
-      const played: [number, number][] = [];
-      let home = 0;
-      let away = 0;
-      while (home < needed && away < needed) {
-        const homeWins = rand() < odds;
-        played.push(gameScore(rules, homeWins, rand));
-        if (homeWins) home += 1;
-        else away += 1;
-      }
-      emit({ at: start, kind: "start", matchId: game.id, sides });
-      played.forEach((_, g) =>
-        emit({ at: start + ((end - start) * (g + 1)) / played.length, kind: "score", matchId: game.id, games: played.slice(0, g + 1) }),
-      );
-      emit({ at: end, kind: "finish", matchId: game.id });
-      for (const id of pick.held) busy.set(id, end);
-    }
-    courtFree.set(game.courtId, end);
-    if (game.match.stage === "group") {
-      groupsDone.set(game.match.categoryId, Math.max(groupsDone.get(game.match.categoryId) ?? dayStart, end));
-    } else if (game.match.code) {
-      const key = `${game.match.categoryId}:${game.match.code}`;
-      codeDone.set(key, Math.max(codeDone.get(key) ?? dayStart, end));
-    }
+    arriveBy(start);
+    emit({ at: start, kind: "start", matchId: game.id, sides });
+    play(game, sides, held, start, start + lengthOf(game), rulesOf(game)!);
   }
-  // Stable: events made at the same minute keep the order they were made in.
+  if (hold) {
+    arriveBy(hold.at);
+    events.push({ at: hold.at, kind: "hold", courtId: hold.courtId, matchId: hold.matchId });
+  } else arriveBy(Infinity);
+  // Stable: events made at the same minute keep the order they were made in. Nothing happens after a hold.
   return events
+    .filter((event) => !hold || event.at <= hold.at)
     .map((event, i) => ({ event, i }))
-    .sort((a, b) => a.event.at - b.event.at || a.i - b.i)
+    .sort((a, b) => a.event.at - b.event.at || (a.event.kind === "hold" ? 1 : b.event.kind === "hold" ? -1 : a.i - b.i))
     .map((x) => x.event);
+}
+
+/** The minute a day stops to wait for the desk; null for a day that plays to its end. */
+export function holdOf(events: SimEvent[]): number | null {
+  const last = events.at(-1);
+  return last?.kind === "hold" ? last.at : null;
 }
 
 /** How many of a day's events have happened by a minute. */

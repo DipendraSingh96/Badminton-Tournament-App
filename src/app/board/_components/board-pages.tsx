@@ -18,14 +18,6 @@ import { cn } from "@/lib/utils";
 // scale (it grows with the window): this screen is read from across a hall,
 // so the app's fixed text sizes don't apply to it (docs/design-system.md).
 
-const STATE_LABEL: Record<BoardCourtState, string> = { onCourt: "On court", upNext: "Up next", free: "Free", done: "Done for the day" };
-const STATE_CHIP: Record<BoardCourtState, string> = {
-  onCourt: "bg-fits text-fits-foreground",
-  upNext: "bg-off text-off-foreground",
-  free: "border border-border text-muted-foreground",
-  done: "border border-border text-muted-foreground",
-};
-
 /** A status word in its colour, sized by the board's scale. */
 function Chip({ className, children }: { className: string; children: string }) {
   return (
@@ -40,7 +32,7 @@ function lines(name: string): string[] {
   return name.split(" / ");
 }
 
-/** How many columns the courts are laid out in: as few as keep the page to three rows of tiles. */
+/** How many columns the courts are laid out in: as few as keep the page to three rows of courts. */
 export function courtColumns(halls: BoardHall[]): number {
   const most = Math.max(1, ...halls.map((h) => h.courts.length));
   for (let columns = Math.min(2, most); columns <= 6; columns++) {
@@ -50,8 +42,23 @@ export function courtColumns(halls: BoardHall[]): number {
   return 6;
 }
 
-/** Every court: the game on it and its score, or the game it is due next. */
-export function CourtsPage({ halls, arrived }: { halls: BoardHall[]; arrived: readonly string[] }) {
+const STATE_TEXT: Record<BoardCourtState, string> = { onCourt: "on court", upNext: "next", free: "free", done: "no more games" };
+
+/**
+ * Every court, hall by hall, drawn as the product draws a court: who is on
+ * it is simply on it. No badge, no time and no score.
+ */
+export function CourtsPage({
+  halls,
+  groups,
+  news,
+}: {
+  halls: BoardHall[];
+  /** The group each court is assigned to ("Group A"), by court id: shown on a court with no game. */
+  groups: Map<string, string>;
+  /** Courts with something new on them, for a few seconds. */
+  news: readonly string[];
+}) {
   const columns = courtColumns(halls);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[0.75em]">
@@ -59,13 +66,15 @@ export function CourtsPage({ halls, arrived }: { halls: BoardHall[]; arrived: re
         const rows = Math.ceil(hall.courts.length / columns);
         return (
           <section key={hall.id} aria-label={hall.name} className="flex min-h-0 flex-col gap-[0.4em]" style={{ flex: `${rows} 1 0%` }}>
-            {halls.length > 1 ? <h3 className="shrink-0 font-display text-[0.9em] font-semibold text-muted-foreground">{hall.name}</h3> : null}
+            <h2 data-board-hall className="shrink-0 font-display text-[1.3em] leading-none font-bold">
+              {hall.name}
+            </h2>
             <div
               className="grid min-h-0 flex-1 gap-[0.75em]"
               style={{ gridTemplateColumns: `repeat(${Math.min(columns, hall.courts.length)}, minmax(0, 1fr))`, gridAutoRows: "minmax(0, 1fr)" }}
             >
               {hall.courts.map((court) => (
-                <CourtTile key={court.courtId} court={court} flash={arrived.includes(court.courtId)} />
+                <CourtTile key={court.courtId} court={court} group={groups.get(court.courtId) ?? null} news={news.includes(court.courtId)} />
               ))}
             </div>
           </section>
@@ -75,70 +84,63 @@ export function CourtsPage({ halls, arrived }: { halls: BoardHall[]; arrived: re
   );
 }
 
-function CourtTile({ court, flash }: { court: BoardCourt; flash: boolean }) {
+function CourtTile({ court, group, news }: { court: BoardCourt; group: string | null; news: boolean }) {
   const game = court.game;
+  // Waiting for a game's players: greyed, and fading until the desk has dealt with it.
+  const waiting = Boolean(game?.held);
+  const next = court.state === "upNext" && !waiting;
   return (
-    // The tile sizes its own text: it shrinks when there are many courts, so nothing is cut off.
+    // The court sizes its own text: it shrinks when there are many courts, so names aren't cut off.
     <article
       data-board-court={court.number}
-      aria-label={`Court ${court.number}: ${STATE_LABEL[court.state]}`}
-      className={cn("min-h-0 min-w-0 overflow-hidden rounded-[0.6em] bg-card-system [container-type:size]", flash && "court-flash")}
+      data-waiting={waiting || undefined}
+      aria-label={`Court ${court.number}: ${waiting ? "waiting for players" : STATE_TEXT[court.state]}`}
+      className={cn("min-h-0 min-w-0 rounded-[0.6em] bg-court text-white [container-type:size]", waiting && "court-wait grayscale", news && "court-news")}
     >
-      <div className="flex h-full flex-col gap-[0.5em] p-[0.9em]" style={{ fontSize: "min(1.6em, 9.5cqh, 5.4cqw)" }}>
-        <header className="flex shrink-0 items-center gap-[0.6em]">
-          <span className="font-display text-[2.2em] leading-none font-bold tabular-nums">{court.number}</span>
-          <Chip className={STATE_CHIP[court.state]}>{STATE_LABEL[court.state]}</Chip>
-          {game ? (
-            <span className="ml-auto min-w-0 truncate text-right text-[0.8em] text-muted-foreground">
-              {court.state === "upNext" ? `${game.time} · ` : ""}
-              {game.where}
-            </span>
-          ) : null}
-        </header>
-        {game ? (
-          <>
-            <div className="flex min-h-0 flex-1 flex-col justify-center gap-[0.35em]">
-              <TileSide game={game} index={0} />
-              <span className="h-px shrink-0 bg-border" aria-hidden="true" />
-              <TileSide game={game} index={1} />
-            </div>
-            <p className="shrink-0 truncate text-[0.75em] text-muted-foreground">
-              {[game.category, game.rubber, game.tie ? `Tie ${game.tie[0]}–${game.tie[1]}` : null].filter(Boolean).join(" · ")}
+      <div className="flex h-full flex-col gap-[0.3em] px-[0.8em] pt-[0.4em] pb-[0.5em]" style={{ fontSize: "min(1.6em, 7.3cqh, 6cqw)" }}>
+        {/* The surround, top: the court, and what is on it (or the group it is kept for). */}
+        <p className="flex shrink-0 items-baseline justify-between gap-[0.6em] leading-[1.3]">
+          <span className="font-display text-[1.1em] font-bold whitespace-nowrap">Court {court.number}</span>
+          <span className="min-w-0 truncate text-[0.8em] font-semibold">{game ? game.where : group}</span>
+        </p>
+        {/* The court: its outer lines, the net across the middle, its number behind. */}
+        <div className="relative flex min-h-0 flex-1 flex-col border-[0.12em] border-white/90">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-0 grid place-items-center overflow-hidden font-display text-[7em] leading-none font-bold text-black/18 mix-blend-multiply select-none"
+          >
+            {court.number}
+          </span>
+          <TileSide game={game} index={0} dim={next} />
+          <div className="relative z-10 flex shrink-0 flex-col">
+            <span aria-hidden="true" className="h-[0.15em] bg-white" />
+            <p className="truncate px-[0.5em] text-center text-[0.7em] leading-[1.7] font-semibold">
+              {game ? [game.category, game.rubber].filter(Boolean).join(" · ") : court.state === "done" ? "No more games" : "Free"}
             </p>
-          </>
-        ) : (
-          <p className="flex flex-1 items-center text-[0.9em] text-muted-foreground">{court.state === "done" ? "No more games on this court." : "No game on this court."}</p>
-        )}
+            <span aria-hidden="true" className="h-px bg-white/50" />
+          </div>
+          <TileSide game={game} index={1} dim={next} />
+        </div>
+        {/* The surround, bottom: a game due but not on yet says so. */}
+        {next || waiting ? <p className="shrink-0 text-center text-[0.75em] leading-[1.3] font-semibold">{waiting ? "Waiting for players" : "Next"}</p> : null}
       </div>
     </article>
   );
 }
 
-function TileSide({ game, index }: { game: BoardGame; index: 0 | 1 }) {
-  const side = game.sides[index];
-  // A team's rubber: the team's name, then who is playing it.
-  const names = side.players.length > 0 ? [side.name, side.players.join(" / ")] : lines(side.name);
+/** A side in its half of the court, as large as it will go: a pair's two players one to a line; a team's name with the rubber's players under it. */
+function TileSide({ game, index, dim }: { game: BoardGame | null; index: 0 | 1; dim: boolean }) {
+  const side = game?.sides[index];
+  const team = side ? side.players.length > 0 : false;
+  const names = !side ? [] : team ? [side.name] : lines(side.name);
   return (
-    <div className="flex min-w-0 items-center gap-[0.6em]">
-      <div className="flex min-w-0 flex-1 flex-col">
-        {names.map((name, i) => (
-          <span
-            key={i}
-            className={cn(
-              "truncate leading-[1.25]",
-              side.players.length > 0 && i > 0 ? "text-[0.8em] text-muted-foreground" : "font-semibold",
-              !side.known && "font-normal text-muted-foreground",
-            )}
-          >
-            {name}
-          </span>
-        ))}
-      </div>
-      {game.games.map(([home, away], g) => (
-        <span key={g} className="w-[1.3em] shrink-0 text-right font-display text-[1.9em] leading-none font-bold tabular-nums">
-          {(index === 0 ? home : away) ?? ""}
+    <div className={cn("relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-[0.5em] text-center", dim && "opacity-60")}>
+      {names.map((name, i) => (
+        <span key={i} data-board-name className={cn("max-w-full truncate leading-[1.15]", side?.known ? "text-[1.5em] font-bold" : "font-display text-[1.5em] font-bold uppercase")}>
+          {name}
         </span>
       ))}
+      {team && side ? <span className="max-w-full truncate text-[0.95em] leading-[1.3] font-medium">{side.players.join(" / ")}</span> : null}
     </div>
   );
 }

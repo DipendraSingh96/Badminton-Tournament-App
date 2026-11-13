@@ -3,9 +3,9 @@
 import { createContext, useContext } from "react";
 
 /**
- * True while a simulated day is being watched: every control that would
- * change the tournament is off. Looking around (opening a game, a court, an
- * entry) still works.
+ * True during a simulated day: the simulation starts, scores and finishes
+ * the games, so those controls are off. Everything the desk does (check-in,
+ * walkovers, moving a game, withdrawals) still works, on the simulated day.
  */
 export const WatchOnlyContext = createContext(false);
 

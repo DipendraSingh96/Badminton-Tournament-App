@@ -44,58 +44,43 @@ export function SampleDataButtons({
 }
 
 /**
- * Developer mode: a simulated day on the Live stage, where the sample-data
- * buttons are on Plan and Draw. Play starts it (or carries on) and becomes
- * Pause while it plays; Stop ends it and puts the tournament back as it was.
- * Green, yellow and red, as the rest of the product's statuses are.
+ * Developer mode: a simulated day's controls on the Live stage, while one is
+ * running. Play carries it on and becomes Pause while it plays; Stop ends it
+ * and puts the tournament back as it was. While a court is waiting for the
+ * desk the day can't be played on: dealing with the court does that.
  */
 export function SimulationControls({
   state,
-  blocked,
+  waiting,
   onPlay,
   onPause,
   onStop,
 }: {
-  /** No simulation; one playing; or one paused (its cursor can still be moved). */
-  state: "none" | "playing" | "paused";
-  /** Why a simulation can't be run; null when it can. */
-  blocked: string | null;
+  state: "playing" | "paused";
+  /** Stopped at a court that needs the desk. */
+  waiting: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
 }) {
-  const off = "opacity-50 cursor-not-allowed hover:bg-transparent";
-  const stopped = state === "none";
   return (
     <>
       {state === "playing" ? (
-        <IconButton label="Pause the simulation: the timeline can still be moved" side="bottom" className="text-tight-text" onClick={onPause}>
+        <IconButton label="Pause the simulation" side="bottom" className="text-tight-text" onClick={onPause}>
           <PauseIcon weight="fill" />
         </IconButton>
       ) : (
         <IconButton
-          label={
-            blocked && stopped
-              ? `Run simulation: ${blocked}`
-              : stopped
-                ? "Run simulation: plays the whole day through, to watch. Nothing is saved"
-                : "Carry on with the simulation"
-          }
+          label={waiting ? "Waiting for you: a court can't start. Check its players in, give a walkover, or put another game on it" : "Carry on with the simulation"}
           side="bottom"
-          className={cn("text-fits-text", blocked && stopped && off)}
-          aria-disabled={Boolean(blocked) && stopped}
-          onClick={() => (blocked && stopped ? undefined : onPlay())}
+          className={cn("text-fits-text", waiting && "cursor-not-allowed opacity-50 hover:bg-transparent")}
+          aria-disabled={waiting}
+          onClick={() => (waiting ? undefined : onPlay())}
         >
           <PlayIcon weight="fill" />
         </IconButton>
       )}
-      <IconButton
-        label={stopped ? "Stop: no simulation is running" : "Stop the simulation: the tournament goes back to how it was"}
-        side="bottom"
-        className={cn("text-over-text", stopped && off)}
-        aria-disabled={stopped}
-        onClick={() => (stopped ? undefined : onStop())}
-      >
+      <IconButton label="Stop the simulation: the tournament goes back to how it was" side="bottom" className="text-over-text" onClick={onStop}>
         <StopIcon weight="fill" />
       </IconButton>
     </>

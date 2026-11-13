@@ -72,6 +72,12 @@
   --status-live: #F4C430;      --status-live-fg: #1A1400;
   --status-off: #E4E7E5;       --status-off-fg: #2B343C;
 
+  /* A game's time on the Live pages: near the end of its slot, and over it. Softer than Tight and Over,
+     which stay for the plan's own statuses. Dark text on both. */
+  --time-near: #F0D089;
+  --time-over: #E8A398;
+  --time-fg: #2A1A00;
+
   /* Timeline and match blocks */
   --tl-group: #A9C3A0;
   --tl-knockout: #3F5D4B;
@@ -133,6 +139,10 @@
   --color-tight: var(--status-tight);
   --color-over: var(--status-over);
   --color-live: var(--status-live);
+
+  --color-time-near: var(--time-near);
+  --color-time-over: var(--time-over);
+  --color-time-foreground: var(--time-fg);
 
   --color-tl-group: var(--tl-group);
   --color-tl-knockout: var(--tl-knockout);

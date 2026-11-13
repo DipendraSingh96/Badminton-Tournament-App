@@ -28,7 +28,6 @@ import { DecideDialog } from "./live-dialogs";
 import type { Update } from "./plan-editor";
 import { categoryName } from "./labels";
 import type { LocalSegment } from "./timeline";
-import { useWatchOnly } from "./watch-only";
 
 /** The tiebreaks that are a number in the table (wins have their own column; head-to-head and lots aren't one number). */
 const NUMERIC: TiebreakCriterion[] = ["gameDifference", "pointDifference", "pointsWon", "rubbersWon"];
@@ -219,7 +218,6 @@ function GroupCard({
   onSelect: () => void;
 }) {
   const [deciding, setDeciding] = useState(false);
-  const watch = useWatchOnly();
   // Entries still sharing a place once the group has finished: their order can be decided by hand.
   const shared = table.complete ? table.rows.filter((r) => r.shared && !table.withdrawn.includes(r.id)).map((r) => r.id) : [];
   const decided = Boolean(draft.decided[`${categoryId}:${table.index}`]);
@@ -332,7 +330,7 @@ function GroupCard({
           <Button
             variant="outline"
             size="sm"
-            disabled={watch}
+           
             onClick={(e) => {
               e.stopPropagation();
               setDeciding(true);

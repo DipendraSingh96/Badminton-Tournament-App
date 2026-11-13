@@ -13,7 +13,6 @@ import type { LogEntryDraft, LogKind, PlanDraft } from "@/lib/tournament/draft";
 import { cn } from "@/lib/utils";
 import { WithdrawDialog } from "./live-dialogs";
 import type { Update } from "./plan-editor";
-import { useWatchOnly } from "./watch-only";
 
 /** A log time in the tournament's time zone: "14:32". */
 function timeOf(draft: PlanDraft, iso: string): string {
@@ -35,7 +34,6 @@ const KINDS = Object.keys(LOG_KIND_LABELS) as LogKind[];
  */
 export function ChangesView({ draft, update }: { draft: PlanDraft; update: Update }) {
   const confirm = useConfirm();
-  const watch = useWatchOnly();
   const [withdrawing, setWithdrawing] = useState(false);
   const [kind, setKind] = useState<LogKind | "">("");
   const [query, setQuery] = useState("");
@@ -92,7 +90,7 @@ export function ChangesView({ draft, update }: { draft: PlanDraft; update: Updat
           <Button variant="outline" size="sm" disabled={draft.log.length === 0} onClick={() => setPrinting(true)}>
             <PrinterIcon /> Print log
           </Button>
-          <Button size="sm" disabled={watch} onClick={() => setWithdrawing(true)}>
+          <Button size="sm" onClick={() => setWithdrawing(true)}>
             <UserMinusIcon /> Withdraw an entry…
           </Button>
         </div>
@@ -145,7 +143,7 @@ export function ChangesView({ draft, update }: { draft: PlanDraft; update: Updat
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={watch || !canReverse(draft, entry.id)}
+                    disabled={!canReverse(draft, entry.id)}
                     title={blocker ? `Reverse the later change first: “${blocker.text}”` : undefined}
                     onClick={() => reverse(entry)}
                   >

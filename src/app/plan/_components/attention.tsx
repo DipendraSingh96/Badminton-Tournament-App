@@ -2,21 +2,31 @@
 
 import { createContext, useContext } from "react";
 import type { Timing } from "@/lib/tournament/live";
+import { cn } from "@/lib/utils";
 
 /**
  * What the Live pages draw the desk's eye to, shared by the Court board, the
  * side panel and the timeline:
- * - courts to flash (softly): one whose game can't start, until the desk
- *   deals with it; and for a few seconds, one a new game has just come onto;
+ * - courts waiting for the desk: their game can't start because a player
+ *   hasn't checked in. They are greyed, and fade in and out until the desk
+ *   has looked at them;
+ * - courts with something new on them, for a few seconds: the desk has dealt
+ *   with a waiting court, or a new game has come onto it. A soft outline in
+ *   the accent colour;
  * - games held back by a player who hasn't checked in (greyed out);
- * - how far through its slot each game on court is (yellow near its end,
- *   red past it).
+ * - how far through its slot each game on court is: a small dot, soft amber
+ *   near its end and soft red past it.
  */
 export interface LiveAttention {
-  flashing: ReadonlySet<string>;
+  /** Courts whose game can't start. */
+  stuck: ReadonlySet<string>;
+  /** Of those, the ones the desk hasn't looked at yet: they fade in and out. */
+  fading: ReadonlySet<string>;
+  /** Courts with new information, for about three seconds. */
+  news: ReadonlySet<string>;
   held: ReadonlySet<string>;
   timing: (matchId: string) => Timing | null;
-  /** The desk has looked at a court: it stops flashing for the game it has now. */
+  /** The desk has looked at a court: it stops fading for the game it has now. */
   attend: (courtId: string) => void;
 }
 
@@ -26,9 +36,29 @@ export function useLiveAttention(): LiveAttention | null {
   return useContext(LiveAttentionContext);
 }
 
-/** The fill of an On court badge by how its game's time is going: neutral, then yellow, then red. */
-export const TIMING_BADGE: Record<Timing, string> = {
-  ok: "bg-black/30 text-white",
-  near: "bg-tight text-tight-foreground",
-  over: "bg-over-strong text-over-foreground",
-};
+/** The classes a court takes from what is happening on it: fading while it waits, the accent outline for news. */
+export function courtAttention(attention: LiveAttention | null, courtId: string): string {
+  if (!attention) return "";
+  return cn(attention.fading.has(courtId) && "court-wait", attention.news.has(courtId) && "court-news");
+}
+
+const TIMING_TEXT: Record<Timing, string | null> = { ok: null, near: "Near the end of its slot", over: "Over its slot" };
+
+/**
+ * A game's time as a dot: nothing while it is on time, soft amber from 80%
+ * of its slot, soft red past it. `ringed` on a pale surface, where the soft
+ * colours need an edge to be seen.
+ */
+export function TimingDot({ timing, ringed = false, className }: { timing: Timing | null | undefined; ringed?: boolean; className?: string }) {
+  const text = timing ? TIMING_TEXT[timing] : null;
+  if (!text) return null;
+  return (
+    <span
+      role="img"
+      aria-label={text}
+      title={text}
+      data-timing={timing}
+      className={cn("size-2.5 shrink-0 rounded-full", timing === "over" ? "bg-time-over" : "bg-time-near", ringed && "ring-1 ring-foreground/40", className)}
+    />
+  );
+}

@@ -1402,8 +1402,12 @@ export function Timeline({
                                     } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} ${
                                       live?.held?.(s.id) ? "opacity-40 grayscale" : ""
                                     } ${
-                                      // Near the end of its slot it is yellow; past it, red.
-                                      live?.timing?.(s.id) === "near" ? "!bg-tight" : live?.timing?.(s.id) === "over" ? "!bg-over-strong" : ""
+                                      // Near the end of its slot it is a soft amber; past it, a soft red.
+                                      live?.timing?.(s.id) === "near"
+                                        ? "!bg-time-near !text-time-foreground"
+                                        : live?.timing?.(s.id) === "over"
+                                          ? "!bg-time-over !text-time-foreground"
+                                          : ""
                                     } transition-transform duration-150 motion-reduce:transition-none`}
                                     style={{
                                       left: pct(s.from),

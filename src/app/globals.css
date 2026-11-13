@@ -116,6 +116,8 @@
   --status-tight-text: #FFB020;
   --status-over-text: #FF7A6E;
   --court: #0F6B45;
+  --time-near: #D9BC7A;
+  --time-over: #D4928A;
 }
 
 @layer base {
@@ -362,25 +364,43 @@
   font-size: 0 !important;
 }
 
-/* A court that needs the desk (its game can't start, or a new game has just
-   come onto it): a slow, soft pulse of a yellow outline. Still, for anyone
-   who has asked for less motion. */
-@keyframes court-flash {
+/* A court waiting for the desk (its game can't start): it fades slowly out
+   and back, with no colour, until the desk has dealt with it. */
+@keyframes court-wait {
   0%,
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 4px var(--status-tight);
+    opacity: 0.4;
   }
 }
-.court-flash {
-  animation: court-flash 1.8s ease-in-out infinite;
+.court-wait {
+  animation: court-wait 1.8s ease-in-out infinite;
 }
+/* New information on a court (the desk has dealt with it, or a new game has
+   come onto it): a soft outline in the accent colour, for about 3 seconds. */
+@keyframes court-news {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px transparent, 0 0 0 5px transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 5px var(--primary);
+  }
+}
+.court-news {
+  animation: court-news 1s ease-in-out 3;
+}
+/* Still, for anyone who has asked for less motion: a waiting court is grey
+   already; new information gets a steady outline. */
 @media (prefers-reduced-motion: reduce) {
-  .court-flash {
+  .court-wait {
     animation: none;
-    box-shadow: 0 0 0 3px var(--status-tight);
+  }
+  .court-news {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 5px var(--primary);
   }
 }
 

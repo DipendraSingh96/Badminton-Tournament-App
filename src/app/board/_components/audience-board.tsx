@@ -106,22 +106,29 @@ function useSize<T extends HTMLElement>(): [React.RefObject<T | null>, { width: 
   return [ref, size];
 }
 
-/** Courts a new game has just come onto: each for about three seconds. */
-function useArrivals(byCourt: Map<string, string>): readonly string[] {
-  const [arrived, setArrived] = useState<readonly string[]>([]);
-  const last = useRef<Map<string, string> | null>(null);
-  const key = [...byCourt].map(([court, game]) => `${court}=${game}`).join("|");
+/**
+ * Courts with something new on them, each for about three seconds: a new
+ * game has come onto the court, or it was waiting for the desk and the desk
+ * has dealt with it.
+ */
+function useCourtNews(byCourt: Map<string, string>, stuck: Map<string, string>): readonly string[] {
+  const [news, setNews] = useState<readonly string[]>([]);
+  const last = useRef<{ byCourt: Map<string, string>; stuck: Map<string, string> } | null>(null);
+  const key = [...byCourt].map(([court, game]) => `${court}=${game}${stuck.has(court) ? "!" : ""}`).join("|");
   useEffect(() => {
     const before = last.current;
-    last.current = byCourt;
-    if (!before || before.size === 0) return;
-    const changed = [...byCourt].filter(([court, game]) => before.has(court) && before.get(court) !== game).map(([court]) => court);
+    last.current = { byCourt, stuck };
+    if (!before || before.byCourt.size === 0) return;
+    const changed = [...byCourt]
+      .filter(([court, game]) => (before.byCourt.has(court) && before.byCourt.get(court) !== game) || (before.stuck.has(court) && !stuck.has(court)))
+      .map(([court]) => court);
+    for (const court of before.stuck.keys()) if (!byCourt.has(court) && !changed.includes(court)) changed.push(court);
     if (changed.length === 0) return;
-    const on = window.setTimeout(() => setArrived((list) => [...list, ...changed]), 0);
-    window.setTimeout(() => setArrived((list) => list.filter((c) => !changed.includes(c))), 3000);
+    const on = window.setTimeout(() => setNews((list) => [...list, ...changed]), 0);
+    window.setTimeout(() => setNews((list) => list.filter((c) => !changed.includes(c))), 3000);
     return () => window.clearTimeout(on);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  return arrived;
+  return news;
 }
 
 function Notice({ children }: { children: ReactNode }) {
@@ -190,11 +197,17 @@ function LiveBoard({ draft, desk, beat }: { draft: PlanDraft; desk: BoardDay | n
   const clockText = desk?.clock ?? realClock;
 
   // The schedule, worked out as the desk works it out.
-  const segments = useMemo(() => {
+  const { segments, groups } = useMemo(() => {
     const parsed = parsePlan(draft);
     const analysis = parsed.ok ? analyseTournament(parsed.inputs) : null;
     const schedule = parsed.ok && analysis?.ok ? estimateSchedule(parsed.inputs, analysis.analysis) : null;
-    return localSegments(draft, schedule);
+    // The group each court is kept for, where groups have their own courts.
+    const groups = new Map(
+      (schedule?.courtGroups ?? [])
+        .filter((c) => c.groups.length > 0)
+        .map((c) => [c.courtId, `${c.groups.length > 1 ? "Groups" : "Group"} ${c.groups.map((g) => g.group).join(", ")}`]),
+    );
+    return { segments: localSegments(draft, schedule), groups };
   }, [draft]);
   const day = useMemo(() => {
     const courtIds = draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id));
@@ -207,7 +220,7 @@ function LiveBoard({ draft, desk, beat }: { draft: PlanDraft; desk: BoardDay | n
   const tables = useMemo(() => boardTables(draft), [draft]);
   const brackets = useMemo(() => draft.categories.flatMap((c) => boardBracket(draft, segments, day, c) ?? []), [draft, segments, day]);
   const progress = boardProgress(draft, segments, day);
-  const arrived = useArrivals(day.byCourt);
+  const news = useCourtNews(day.byCourt, day.stuck);
 
   // What fits: the main area's tables to a page, and the rows of Up next.
   const [mainRef, mainSize] = useSize<HTMLDivElement>();
@@ -285,11 +298,10 @@ function LiveBoard({ draft, desk, beat }: { draft: PlanDraft; desk: BoardDay | n
       <CallBand calls={calls} turn={callTurn} />
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,27%)] gap-[0.75em]">
-        <section aria-label={pageTitle(page)} className="flex min-h-0 min-w-0 flex-col gap-[0.6em]">
-          <div className="flex shrink-0 items-center justify-between gap-[1em]">
-            <h2 data-board-page={page.kind} className="truncate font-display text-[1.3em] leading-none font-bold">
-              {pageTitle(page)}
-            </h2>
+        <section aria-label={pageTitle(page)} className="relative flex min-h-0 min-w-0 flex-col gap-[0.6em]">
+          {/* The courts page has no heading of its own: each hall's name heads its courts. The dots sit over them, at the right. */}
+          <div data-board-page={page.kind} className={cn("flex shrink-0 items-center justify-between gap-[1em]", page.kind === "courts" && "absolute top-0 right-0 z-10 h-[1.3em]")}>
+            {page.kind === "courts" ? null : <h2 className="truncate font-display text-[1.3em] leading-none font-bold">{pageTitle(page)}</h2>}
             {pages.length > 1 ? (
               <ol aria-label={`Page ${at + 1} of ${pages.length}`} className="flex shrink-0 items-center gap-[0.35em]">
                 {pages.map((_, i) => (
@@ -299,7 +311,7 @@ function LiveBoard({ draft, desk, beat }: { draft: PlanDraft; desk: BoardDay | n
             ) : null}
           </div>
           <div ref={mainRef} className="flex min-h-0 flex-1 flex-col">
-            {page.kind === "courts" ? <CourtsPage halls={halls} arrived={arrived} /> : null}
+            {page.kind === "courts" ? <CourtsPage halls={halls} groups={groups} news={news} /> : null}
             {page.kind === "tables" ? (
               <TablesPage
                 tables={tables.filter((t) => t.categoryId === page.categoryId).slice(page.from, page.from + page.count)}

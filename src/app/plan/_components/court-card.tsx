@@ -1,7 +1,7 @@
 "use client";
 
 import type { Timing } from "@/lib/tournament/live";
-import { TIMING_BADGE, useLiveAttention } from "./attention";
+import { TimingDot, courtAttention, useLiveAttention } from "./attention";
 import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
 import { createContext, useContext, useState, type KeyboardEvent } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -151,26 +151,19 @@ function shortNet(text: string): string {
  */
 export const VenueFixedContext = createContext(false);
 
-/** A court on the Live stage's board: where its current game has got to, and its score so far. */
+/**
+ * A court on the Live stage's board. There is no badge and no score: who is
+ * on the court is simply on it. A game due but not yet on is dimmed, with
+ * when it is due; a court waiting for its players is greyed (and fades until
+ * the desk has looked); a free court has nobody on it.
+ */
 export interface CourtLive {
-  state: "onCourt" | "upNext" | "free" | "done";
-  /** The games' scores as entered ("21–15  18–"); null before any. */
-  score: string | null;
-  /** On court: how far through its slot the game is. */
+  state: "onCourt" | "next" | "waiting" | "free" | "done";
+  /** Due next: when, "09:35". */
+  next?: string;
+  /** On court: how far through its slot the game is, shown as a dot. */
   timing?: Timing;
 }
-
-/** The chip's fill: a game on court goes from neutral to yellow to red as its slot runs out. */
-function liveChip(live: CourtLive): string {
-  return live.state === "onCourt" ? TIMING_BADGE[live.timing ?? "ok"] : LIVE_CHIP[live.state].className;
-}
-
-const LIVE_CHIP: Record<CourtLive["state"], { label: string; className: string }> = {
-  onCourt: { label: "On court", className: TIMING_BADGE.ok },
-  upNext: { label: "Up next", className: "bg-black/30 text-white" },
-  free: { label: "Free", className: "bg-black/30 text-white" },
-  done: { label: "Done for today", className: "bg-black/30 text-white" },
-};
 
 /** Picking a court to show in a side panel (the Draw and Live stages); absent while planning. */
 export const CourtSelectionContext = createContext<{ selected: string | null; onSelect: (courtId: string) => void } | null>(
@@ -355,7 +348,10 @@ export function CourtCard({
   const descriptionId = `court-${court.id}-about`;
   const selection = useContext(CourtSelectionContext);
   const selected = selection?.selected === court.id;
-  const flash = useLiveAttention()?.flashing.has(court.id) ? "court-flash" : "";
+  const flash = `${courtAttention(useLiveAttention(), court.id)} ${live?.state === "waiting" ? "grayscale" : ""}`;
+  // Due but not on yet: the names are there, quieter.
+  const dim = live?.state === "next" ? "opacity-60" : "";
+  const foot = live?.state === "next" ? `Next ${live.next ?? ""}`.trim() : live?.state === "waiting" ? "Waiting for players" : live?.state === "done" ? "Done for today" : null;
   const fixed = useContext(VenueFixedContext);
   const venueSize = useContext(CourtSizeContext).size;
   const size = sizeProp ?? venueSize;
@@ -367,7 +363,7 @@ export function CourtCard({
     const card = (
       <>
         <span className="h-5 truncate text-center text-xs leading-5 font-semibold">
-          {live ? LIVE_CHIP[live.state].label : groups ? groupText(groups) : null}
+          {groups ? groupText(groups) : null}
         </span>
         <span className="relative flex min-h-20 flex-col border-2 border-white/90">
           <span
@@ -376,9 +372,14 @@ export function CourtCard({
           >
             {number}
           </span>
-          <Half size="small" code={face?.home ?? null} players={face?.homePlayers ?? []} />
+          <span className={`flex flex-1 flex-col ${dim}`}>
+            <Half size="small" code={face?.home ?? null} players={face?.homePlayers ?? []} />
+          </span>
           <span aria-hidden="true" className="relative z-10 h-0.5 bg-white" />
-          <Half size="small" code={face?.away ?? null} players={face?.awayPlayers ?? []} />
+          <span className={`flex flex-1 flex-col ${dim}`}>
+            <Half size="small" code={face?.away ?? null} players={face?.awayPlayers ?? []} />
+          </span>
+          {live?.timing ? <TimingDot timing={live.timing} className="absolute top-1 right-1 z-20" /> : null}
           {spots.map((spot) => (
             <span
               key={spot}
@@ -395,6 +396,7 @@ export function CourtCard({
       hours.from && hours.to ? `${hours.from} to ${hours.to}` : "hours not set",
       umpireText(court.umpires),
       status?.kind === "playing" ? status.label : idle,
+      foot,
     ]
       .filter(Boolean)
       .join(", ");
@@ -467,6 +469,7 @@ export function CourtCard({
           hours.from && hours.to ? `${hours.from} to ${hours.to}` : "Hours not set",
           umpireText(court.umpires),
           status?.kind === "playing" ? status.label : idle,
+          foot,
         ]
           .filter(Boolean)
           .join(". ")}
@@ -497,9 +500,8 @@ export function CourtCard({
         </button>
         )}
         {live ? (
-          <span className={`truncate rounded-full px-2 text-xs leading-5 font-semibold ${liveChip(live)}`}>
-            {LIVE_CHIP[live.state].label}
-          </span>
+          // While Live the court's group is shown, not changed.
+          <span className="truncate text-xs font-semibold">{groups ? groupText(groups) : null}</span>
         ) : groups ? (
           <GroupMenu
             number={number}
@@ -512,7 +514,10 @@ export function CourtCard({
             {court.umpires === null ? "Umpires not set" : null}
           </span>
         )}
-        {fixed ? <span className="size-6 shrink-0" aria-hidden="true" /> : (
+        {fixed ? (
+          // The game's time, as a dot in the corner: nothing while it is on time.
+          <span className="grid size-6 shrink-0 place-items-center">{live?.timing ? <TimingDot timing={live.timing} /> : null}</span>
+        ) : (
         <button
           type="button"
           aria-label={`Delete court ${number}`}
@@ -547,7 +552,7 @@ export function CourtCard({
           {number}
         </span>
 
-        <div className="relative flex flex-1 flex-col">
+        <div className={`relative flex flex-1 flex-col ${dim}`}>
           {medium ? null : <CentreLine />}
           {medium ? null : <NameBand edge="top" text={face?.homeLabel ?? null} />}
           <Half size={size} code={face?.home ?? null} players={face?.homePlayers ?? []} entryId={face?.homeEntryId} />
@@ -558,16 +563,9 @@ export function CourtCard({
             <span className="truncate">{face ? (medium ? shortNet(face.net) : face.net) : (idle ?? (medium ? "No estimate" : "No estimate yet"))}</span>
           </p>
           <span aria-hidden="true" className="h-[3px] bg-white" />
-          {live?.score ? (
-            // The score so far, in the space under the net.
-            <p className={`flex items-center justify-center font-display leading-none font-bold tabular-nums ${medium ? "h-5 text-sm" : "h-7 text-xl"}`}>
-              {live.score}
-            </p>
-          ) : (
-            <span aria-hidden="true" className={medium ? "h-5" : "h-7"} />
-          )}
+          <span aria-hidden="true" className={medium ? "h-5" : "h-7"} />
         </div>
-        <div className="relative flex flex-1 flex-col">
+        <div className={`relative flex flex-1 flex-col ${dim}`}>
           {medium ? null : <CentreLine />}
           <Half size={size} code={face?.away ?? null} players={face?.awayPlayers ?? []} entryId={face?.awayEntryId} />
           {medium ? null : <NameBand edge="bottom" text={face?.awayLabel ?? null} />}
@@ -606,7 +604,10 @@ export function CourtCard({
         })}
       </div>
 
-      {/* Surround, bottom: the court's hours. */}
+      {/* Surround, bottom: the court's hours; while Live, what the court is waiting for instead. */}
+      {foot ? (
+        <p className="mx-1 pt-1 text-center text-xs font-medium tabular-nums">{foot}</p>
+      ) : (
       <div className="mx-1 flex items-center justify-between gap-1 pt-1">
         <CourtTime
           hall={hall}
@@ -632,6 +633,7 @@ export function CourtCard({
           onChange={(v) => edit((c) => setCourtTime(hall, c, "to", v))}
         />
       </div>
+      )}
     </div>
   );
 }
