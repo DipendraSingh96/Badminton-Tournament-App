@@ -168,6 +168,11 @@ describe("withdrawals", () => {
       ["e3", "through"],
       ["e1", "withdrawn"],
     ]);
+    // The knockout's sides are known once the whole group stage has been played.
+    expect(entryForSlot(draft, "c1", "Runner-up A")).toBeNull();
+    play(draft, group("B", 1, 2), [12, 21]);
+    play(draft, group("B", 1, 3), [9, 21]);
+    play(draft, group("B", 2, 3), [18, 21]);
     expect(entryForSlot(draft, "c1", "Runner-up A")?.id).toBe("e3");
   });
 
@@ -286,6 +291,9 @@ describe("a tie decided by hand", () => {
     play(draft, group("A", 1, 2), [21, 15]);
     play(draft, group("A", 2, 3), [21, 15]);
     play(draft, group("A", 1, 3), [15, 21]);
+    play(draft, group("B", 1, 2), [12, 21]);
+    play(draft, group("B", 1, 3), [9, 21]);
+    play(draft, group("B", 2, 3), [18, 21]);
     expect(entryForSlot(draft, "c1", "Winner A")).toBeNull();
     decideTie(draft, { categoryId: "c1", group: 0, order: ["e3", "e1", "e2"], note: "coin toss", now: LATER });
     expect(draft.log.at(-1)).toMatchObject({

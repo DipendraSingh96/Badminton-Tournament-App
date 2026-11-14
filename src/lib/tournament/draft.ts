@@ -741,19 +741,15 @@ export function setHallWindow(hall: HallDraft, from: string, to: string): void {
 }
 
 /**
- * A zone's dragged start when it still fits inside its hall's hours. Zones
- * come from the structure, so a start that no longer fits (say the hall's
- * hours changed) is simply ignored; it never stops the plan.
+ * A zone's dragged start. It holds the stage back in every hall, and may be
+ * any time of the day: matches it pushes past closing are flagged, never
+ * refused. Null when there is none (or it can't be read).
  */
 export function zoneStart(draft: PlanDraft, key: string): string | null {
   const start = draft.zoneMoves[key]?.start ?? null;
   const match = /^(.+):(group|knockout)$/.exec(key);
-  const hall = match ? draft.frame.halls.find((h) => h.id === match[1]) : undefined;
-  const at = minutesOfDay(start);
-  const open = minutesOfDay(hall?.from);
-  const close = minutesOfDay(hall?.to);
-  if (at === null || open === null || close === null) return null;
-  return at >= open && at < close ? start : null;
+  if (!match || !draft.frame.halls.some((h) => h.id === match[1])) return null;
+  return minutesOfDay(start) === null ? null : start;
 }
 
 type ZoneName = "group" | "knockout";
@@ -769,11 +765,20 @@ function tidy(draft: PlanDraft, key: string) {
   if (move && !move.start && !move.hallId) delete draft.zoneMoves[key];
 }
 
-/** Starts a hall's zone no earlier than `start` ("HH:mm"), or as the estimate when null. */
+/**
+ * Starts a stage no earlier than `start` ("HH:mm"), or as the estimate when
+ * null. The stage moves as one in every hall, so the start is kept once (on
+ * the hall it was dragged in) and any other hall's is dropped.
+ */
 export function shiftZone(draft: PlanDraft, hallId: string, zone: ZoneName, start: string | null): void {
+  for (const hall of draft.frame.halls) {
+    const key = `${hall.id}:${zone}`;
+    if (hall.id !== hallId && !draft.zoneMoves[key]) continue;
+    draft.zoneMoves[key] = { start: hall.id === hallId ? start : null, hallId: draft.zoneMoves[key]?.hallId ?? null };
+    tidy(draft, key);
+  }
   const key = `${hallId}:${zone}`;
-  draft.zoneMoves[key] = { start, hallId: draft.zoneMoves[key]?.hallId ?? null };
-  tidy(draft, key);
+  if (!draft.zoneMoves[key] && start) draft.zoneMoves[key] = { start, hallId: null };
 }
 
 /** Moves the zone shown in one hall, with everything played there, to another hall. */
@@ -787,13 +792,13 @@ export function moveZone(draft: PlanDraft, fromHallId: string, toHallId: string,
   }
 }
 
-/** Puts the zone shown in a hall back to the estimate: its own start, and any zone moved into it goes home. */
+/** Puts the zone shown in a hall back to the estimate: the stage's start (in every hall), and any zone moved into it goes home. */
 export function resetZone(draft: PlanDraft, hallId: string, zone: ZoneName): void {
   for (const hall of draft.frame.halls) {
     const key = `${hall.id}:${zone}`;
     const move = draft.zoneMoves[key];
     if (!move) continue;
-    if (hall.id === hallId) move.start = null;
+    move.start = null;
     if (move.hallId === hallId) move.hallId = null;
     tidy(draft, key);
   }

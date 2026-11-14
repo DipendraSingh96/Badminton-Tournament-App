@@ -678,6 +678,8 @@ export function Timeline({
     .filter((h) => minutesOfDay(h.to) !== null)
     .sort((a, b) => minutesOfDay(b.to)! - minutesOfDay(a.to)!)[0];
   const bufferUnit = lastHall?.unitMinutes ?? null;
+  // The buffer is for seeing the time kept spare, not a wall: it is red when it no longer ends by the last closing.
+  const bufferLate = bufferWindow !== null && bufferWindow.to > end;
 
   /** Frame the matches: the first start to the worst case or the buffer's end. */
   function fitPlay() {
@@ -1097,9 +1099,12 @@ export function Timeline({
       <div className="flex shrink-0 flex-col gap-1 px-4 pt-2 empty:hidden">
         {schedule && schedule.late > 0 ? (
           <p className="text-sm text-over-text">
-            {schedule.late} {schedule.late === 1 ? "match runs" : "matches run"} past their court&apos;s hours (outlined in
-            red).
+            {schedule.late} {schedule.late === 1 ? "match runs" : "matches run"} past their court&apos;s closing time
+            (outlined in red).
           </p>
+        ) : null}
+        {schedule && bufferLate ? (
+          <p className="text-sm text-over-text">The buffer runs past closing, until {clock(Math.min(bufferWindow!.to, 24 * 60 - 1))}.</p>
         ) : null}
         {schedule && schedule.unplaced > 0 ? (
           <p className="text-sm text-over-text">
@@ -1525,7 +1530,8 @@ export function Timeline({
             {bufferWindow ? (
               <span
                 aria-hidden="true"
-                className={`hatch pointer-events-none absolute top-7 opacity-60 ${thin ? "bottom-5" : "bottom-6"}`}
+                data-buffer-late={bufferLate || undefined}
+                className={`hatch pointer-events-none absolute top-7 opacity-60 ${thin ? "bottom-5" : "bottom-6"} ${bufferLate ? "bg-tl-worst/30 ring-1 ring-tl-worst ring-inset" : ""}`}
                 style={{ left: pct(bufferWindow.from), width: width(bufferWindow.from, bufferWindow.to) }}
               />
             ) : null}

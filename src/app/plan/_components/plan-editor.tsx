@@ -494,11 +494,20 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   }
 
   // The strips' shared view of the day, held still while a drag is under way.
-  const liveRange = viewRangeOf(
-    draft.frame.halls
+  // The view takes in the halls' hours and everything played, with the buffer after it and the worst case,
+  // so a stage dragged late (or a day running late) is never off the end.
+  const playedSpan = useMemo(() => {
+    if (segments.length === 0) return [];
+    const worst = schedule?.worstFinish ? minutesOfDay(formatClock(schedule.worstFinish, shown.frame.timeZone)) : null;
+    const last = Math.max(...segments.map((s) => s.to));
+    return [{ from: Math.min(...segments.map((s) => s.from)), to: Math.min(24 * 60, Math.max(last + (shown.frame.bufferMinutes ?? 0), worst ?? 0)) }];
+  }, [segments, schedule, shown.frame.timeZone, shown.frame.bufferMinutes]);
+  const liveRange = viewRangeOf([
+    ...draft.frame.halls
       .map((h) => ({ from: minutesOfDay(h.from), to: minutesOfDay(h.to) }))
       .filter((s): s is { from: number; to: number } => s.from !== null && s.to !== null && s.to > s.from),
-  );
+    ...playedSpan,
+  ]);
   const [frozenRange, setFrozenRange] = useState<ViewRange | null>(null);
   const viewRange = frozenRange ?? liveRange;
   const view = useMemo(
@@ -785,6 +794,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   );
   // A walkover with nothing played took no time: it isn't on the timeline.
   const timelineSegments = useMemo(() => liveSegments.filter((s) => !projection.get(s.id)?.gone), [liveSegments, projection]);
+  // On the day the zones follow the games as they are really going, not the plan.
+  const liveZones = useMemo(() => {
+    const spanOf = (zone: "group" | "knockout") => {
+      const own = timelineSegments.filter((s) => zoneOf(s.stage) === zone);
+      return own.length > 0 ? { from: Math.min(...own.map((s) => s.from)), to: Math.max(...own.map((s) => s.to)) } : null;
+    };
+    const spans = { group: spanOf("group"), knockout: spanOf("knockout") };
+    return zones.map((z) => (spans[z.zone] ? { ...z, window: spans[z.zone]! } : z));
+  }, [zones, timelineSegments]);
 
   // Once started, games start by themselves; and a first game started by hand starts the tournament.
   useEffect(() => {
@@ -1067,7 +1085,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           update={update}
           schedule={schedule}
           segments={onLive ? timelineSegments : segments}
-          zones={zones}
+          zones={onLive ? liveZones : zones}
           fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
           playhead={clockLocked ? clockMinute : playhead}
           onSeek={clockLocked ? noSeek : seek}

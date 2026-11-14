@@ -165,9 +165,10 @@ export interface Projected {
  * game follows straight on from the one before (never before now), though
  * one whose sides aren't known yet doesn't move ahead of its planned time
  * shifted by how late the day began; and a walkover with nothing played
- * takes no time at all.
+ * takes no time at all. A competition's knockout games wait for its last
+ * group game, wherever that is being played.
  */
-export function projectDay<G extends TimedGame>(
+export function projectDay<G extends TimedGame & { match?: { categoryId: string; stage?: string } }>(
   games: G[],
   results: PlanDraft["results"],
   day: {
@@ -189,33 +190,43 @@ export function projectDay<G extends TimedGame>(
   const offset = Number.isFinite(first) ? day.started - first : 0;
   const byCourt = new Map<string, G[]>();
   for (const g of [...games].sort((a, b) => a.from - b.from)) byCourt.set(g.courtId, [...(byCourt.get(g.courtId) ?? []), g]);
-  for (const list of byCourt.values()) {
-    let cursor = day.started;
-    for (const g of list) {
-      const length = Math.max(1, g.to - g.from);
-      const result = results[g.id];
-      const began = result?.startedAt ? day.minuteOf(result.startedAt) : null;
-      if (result?.state === "finished") {
-        const played = result.games.some(([home, away]) => home !== null || away !== null);
-        if (result.award && (result.award.reason === "walkover" || !played)) {
-          out.set(g.id, { from: cursor, to: cursor, gone: true });
-          continue;
+  // Each court's group games first; then its knockout games, which wait for their competition's last group game on any court.
+  const isGroup = (g: G) => !g.match || g.match.stage === undefined || g.match.stage === "group";
+  const cursors = new Map<string, number>();
+  const groupsEnd = new Map<string, number>();
+  for (const pass of ["group", "knockout"] as const) {
+    for (const [courtId, list] of byCourt) {
+      let cursor = cursors.get(courtId) ?? day.started;
+      for (const g of list) {
+        if (isGroup(g) !== (pass === "group")) continue;
+        const length = Math.max(1, g.to - g.from);
+        const result = results[g.id];
+        const began = result?.startedAt ? day.minuteOf(result.startedAt) : null;
+        if (result?.state === "finished") {
+          const played = result.games.some(([home, away]) => home !== null || away !== null);
+          if (result.award && (result.award.reason === "walkover" || !played)) {
+            out.set(g.id, { from: cursor, to: cursor, gone: true });
+            continue;
+          }
+          const from = began ?? cursor;
+          const ended = result.finishedAt ? day.minuteOf(result.finishedAt) : null;
+          const to = Math.max(from + 1, ended ?? from + length);
+          out.set(g.id, { from, to, gone: false });
+          cursor = Math.max(cursor, to);
+        } else if (result) {
+          const from = began ?? cursor;
+          const to = Math.max(from + length, day.now ?? -Infinity);
+          out.set(g.id, { from, to, gone: false });
+          cursor = Math.max(cursor, to);
+        } else {
+          const after = pass === "knockout" && g.match ? (groupsEnd.get(g.match.categoryId) ?? -Infinity) : -Infinity;
+          const from = Math.max(cursor, day.now ?? -Infinity, after, day.known(g) ? -Infinity : g.from + offset);
+          out.set(g.id, { from, to: from + length, gone: false });
+          cursor = from + length;
         }
-        const from = began ?? cursor;
-        const ended = result.finishedAt ? day.minuteOf(result.finishedAt) : null;
-        const to = Math.max(from + 1, ended ?? from + length);
-        out.set(g.id, { from, to, gone: false });
-        cursor = Math.max(cursor, to);
-      } else if (result) {
-        const from = began ?? cursor;
-        const to = Math.max(from + length, day.now ?? -Infinity);
-        out.set(g.id, { from, to, gone: false });
-        cursor = Math.max(cursor, to);
-      } else {
-        const from = Math.max(cursor, day.now ?? -Infinity, day.known(g) ? -Infinity : g.from + offset);
-        out.set(g.id, { from, to: from + length, gone: false });
-        cursor = from + length;
+        if (pass === "group" && g.match) groupsEnd.set(g.match.categoryId, Math.max(groupsEnd.get(g.match.categoryId) ?? -Infinity, out.get(g.id)!.to));
       }
+      cursors.set(courtId, cursor);
     }
   }
   return out;

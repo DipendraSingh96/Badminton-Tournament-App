@@ -68,7 +68,8 @@ function entryIdForSlot(draft: PlanDraft, categoryId: string, slot: string, opti
     if (!table) return null;
     const place = placed[1] === "Winner" ? 1 : placed[1] === "Runner-up" ? 2 : Number(placed[2]);
     if (options?.provisional) return table.rows[place - 1]?.id ?? null;
-    return table.complete ? entryInPlace(table.rows, place) : null;
+    // The knockout waits for the whole group stage of its competition, not only the group it draws from.
+    return table.complete && groupStagePlayed(draft, category) ? entryInPlace(table.rows, place) : null;
   }
   // A knockout match's winner or loser: "Winner QF1", "Loser SF2".
   const fed = /^(Winner|Loser) (\S+)$/.exec(slot);
@@ -181,6 +182,28 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
     qualify: draft.format === "groupsKnockout" ? (category.qualifiersPerGroup ?? 0) : 0,
     withdrawn,
   };
+}
+
+/**
+ * Every group match of a competition has been played (matches of an entry
+ * whose results were voided aren't played at all). Its knockout starts only
+ * then, so until then no knockout side is known.
+ */
+export function groupStagePlayed(draft: PlanDraft, category: CategoryDraft): boolean {
+  if (draft.format === "knockout") return true;
+  const rubbers = rubberCount(draft, category);
+  return (draft.draw[category.id]?.groups ?? []).every((ids, g) => {
+    const letter = groupLetter(g);
+    const voided = (id: string | undefined) => Boolean(id && draft.withdrawn[id]?.stage === "group" && draft.withdrawn[id]!.results === "void");
+    return groupFixtures(ids.length)
+      .flat()
+      .every(([a, b]) => {
+        if (voided(ids[a - 1]) || voided(ids[b - 1])) return true;
+        const base = `${category.id}:group:${letter}:${letter}${a}-${letter}${b}`;
+        for (let r = 1; r <= rubbers; r++) if (draft.results[`${base}:r${r}`]?.state !== "finished") return false;
+        return true;
+      });
+  });
 }
 
 /** Every group's table in a category; empty before the draw or for knockout only. */

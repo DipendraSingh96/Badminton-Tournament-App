@@ -84,6 +84,10 @@ describe("knockout sides from results", () => {
     play(draft, group("A", 1, 2), [21, 15]);
     play(draft, group("A", 2, 3), [21, 15]);
     play(draft, group("A", 1, 3), [15, 21]);
+    // Group B is played too: the knockout's sides are known once the whole group stage is.
+    play(draft, group("B", 1, 2), [12, 21]);
+    play(draft, group("B", 1, 3), [9, 21]);
+    play(draft, group("B", 2, 3), [18, 21]);
     const byLots = groupTable(draft, category, 0)!;
     expect(byLots.rows.every((r) => !r.shared)).toBe(true);
     expect(groupTable(draft, category, 0)!.rows.map((r) => r.id)).toEqual(byLots.rows.map((r) => r.id));
@@ -93,6 +97,21 @@ describe("knockout sides from results", () => {
     const level = groupTable(draft, category, 0)!;
     expect(level.rows.map((r) => groupStatus(level, r))).toEqual(["level", "level", "level"]);
     expect(entryForSlot(draft, "c1", "Winner A")).toBeNull();
+  });
+
+  it("knows no knockout side until every group game of the competition has been played", () => {
+    const draft = drawn();
+    play(draft, group("A", 1, 2), [21, 15]);
+    play(draft, group("A", 1, 3), [21, 10]);
+    play(draft, group("A", 2, 3), [21, 19]);
+    // Group A is finished, group B isn't: the knockout waits.
+    expect(entryForSlot(draft, "c1", "Winner A")).toBeNull();
+    expect(entryForSlot(draft, "c1", "Winner A", { provisional: true })?.id).toBe("e1");
+    play(draft, group("B", 1, 2), [12, 21]);
+    play(draft, group("B", 1, 3), [9, 21]);
+    expect(entryForSlot(draft, "c1", "Winner A")).toBeNull();
+    play(draft, group("B", 2, 3), [18, 21]);
+    expect(entryForSlot(draft, "c1", "Winner A")?.id).toBe("e1");
   });
 
   it("plays a whole tournament through: groups, semi-finals, bronze and final", () => {

@@ -411,6 +411,19 @@ describe("zone moves", () => {
     shiftZone(draft, "h1", "group", null);
     expect(draft.zoneMoves).toEqual({});
   });
+
+  it("keeps one start for a stage, whichever hall it is dragged in", () => {
+    const draft = threeHalls();
+    shiftZone(draft, "h1", "knockout", "13:00");
+    shiftZone(draft, "h2", "knockout", "14:00");
+    expect(draft.zoneMoves).toEqual({ "h2:knockout": { start: "14:00", hallId: null } });
+    // A zone moved to another hall keeps that; only the start is the stage's.
+    moveZone(draft, "h3", "h1", "knockout");
+    shiftZone(draft, "h1", "knockout", "15:00");
+    expect(draft.zoneMoves).toEqual({ "h1:knockout": { start: "15:00", hallId: null }, "h3:knockout": { start: null, hallId: "h1" } });
+    resetZone(draft, "h2", "knockout");
+    expect(draft.zoneMoves).toEqual({ "h3:knockout": { start: null, hallId: "h1" } });
+  });
 });
 
 describe("prizes by place", () => {

@@ -125,6 +125,24 @@ describe("live play", () => {
       expect(at(560, 560, {})).toEqual({ a: "560-575", c: "575-590", e: "590-605", b: "560-575", k: "620-635" });
     });
 
+    it("keeps a competition's knockout games until its last group game has ended, wherever that is played", () => {
+      // Court 2 has one group game and then a knockout game whose sides are known; court 1 still has group games to 09:45.
+      const staged = [
+        { id: "a", courtId: "c1", from: 540, to: 555, match: { categoryId: "x", stage: "group" } },
+        { id: "c", courtId: "c1", from: 555, to: 570, match: { categoryId: "x", stage: "group" } },
+        { id: "e", courtId: "c1", from: 570, to: 585, match: { categoryId: "x", stage: "group" } },
+        { id: "b", courtId: "c2", from: 540, to: 555, match: { categoryId: "x", stage: "group" } },
+        { id: "k", courtId: "c2", from: 585, to: 600, match: { categoryId: "x", stage: "knockout" } },
+        // Another competition's knockout game doesn't wait for this one's groups.
+        { id: "o", courtId: "c3", from: 540, to: 555, match: { categoryId: "y", stage: "knockout" } },
+      ];
+      const out = projectDay(staged, { a: played(540, 560), b: played(540, 550) }, { started: 540, now: 562, minuteOf: (iso) => Number(iso), known: () => true });
+      // "a" ran late: court 1's group games now end at 09:50 (562 + 15 + 15).
+      expect(out.get("e")).toMatchObject({ from: 577, to: 592 });
+      expect(out.get("k")).toMatchObject({ from: 592, to: 607 });
+      expect(out.get("o")).toMatchObject({ from: 562 });
+    });
+
     it("pulls the next game forward after an early finish, and pushes it back after a late one", () => {
       // "a" ran 09:00 to 09:09: "c" follows straight on.
       expect(at(540, 549, { a: played(540, 549) })).toMatchObject({ a: "540-549", c: "549-564", e: "564-579" });

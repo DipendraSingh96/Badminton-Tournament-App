@@ -453,10 +453,10 @@ describe("parsePlan", () => {
     ]);
     expect(result.inputs.matchMoves).toEqual([{ matchId: "c1:group:A:A1-A2:r1", courtId: "c2", before: null }]);
 
-    // A start outside the hall's hours is ignored: never an item to fill in.
+    // A stage may be dragged to any time of the day: what runs past closing is flagged, never refused.
     draft.zoneMoves = { "h1:group": { start: "18:30", hallId: null } };
     const late = parsePlan(draft);
     if (!late.ok) throw new Error(JSON.stringify(late.issues));
-    expect(late.inputs.zoneMoves).toEqual([]);
+    expect(late.inputs.zoneMoves).toEqual([{ key: "h1:group", start: "2026-07-04T17:30:00.000Z" }]);
   });
 });
