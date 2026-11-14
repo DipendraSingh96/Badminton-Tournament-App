@@ -333,6 +333,26 @@ describe("estimateSchedule", () => {
     expect(estimate(plan).schedule.late).toBeGreaterThan(0);
   });
 
+  it("brings a tie's rubbers together when they are on one court, at the earliest one's place", () => {
+    const plan = tournament();
+    plan.unit = "team";
+    plan.categories[0] = { ...plan.categories[0]!, entry: { type: "team", lineUp: [{ event: "MD", count: 2 }] }, expectedEntries: 8 };
+    const base = estimate(plan).schedule;
+    const all = (schedule: ReturnType<typeof estimateSchedule>) => schedule.courts.flatMap((c) => c.segments.map((s) => ({ ...s.details[0]!, courtId: c.courtId })));
+    // A tie whose two rubbers are on different courts: the second is put last on the first one's court.
+    const first = all(base).find((d) => d.id.endsWith(":r1") && all(base).find((x) => x.id === d.id.replace(/:r1$/, ":r2"))!.courtId !== d.courtId)!;
+    const second = first.id.replace(/:r1$/, ":r2");
+    plan.matchMoves = [{ matchId: second, courtId: first.courtId, before: null }];
+    const after = estimate(plan).schedule;
+    const court = after.courts.find((c) => c.courtId === first.courtId)!.segments.map((s) => s.details[0]!);
+    const at = court.findIndex((d) => d.id === first.id);
+    // Back to back, the second straight after the first, not at the end of the court's day.
+    expect(court[at + 1]!.id).toBe(second);
+    expect(court[at + 1]!.from).toBe(court[at]!.to);
+    expect(at + 1).toBeLessThan(court.length - 1);
+    expect(after.unplaced).toBe(0);
+  });
+
   it("never leaves a court empty while another of its matches could be played", () => {
     const base = estimate(tournament()).schedule;
     // A later-wave match of a group is put first on its court: its sides are still playing wave 1 elsewhere.

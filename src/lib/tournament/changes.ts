@@ -403,16 +403,25 @@ function courtNo(draft: PlanDraft, courtId: string): number | null {
   return null;
 }
 
-/** Moves a game to a court, before another game there (or last), and logs it. A finished game or one on court stays put. */
+/**
+ * Moves a game to a court, before another game there (or last), and logs it.
+ * `with`: the tie's other rubbers stapled to it, which go with it, in order,
+ * as the one change. A finished game or one on court stays put.
+ */
 export function moveGame(
   draft: PlanDraft,
-  change: { matchId: string; fromCourtId: string; target: { courtId: string; before: string | null }; note?: string; now: string },
+  change: { matchId: string; with?: string[]; fromCourtId: string; target: { courtId: string; before: string | null }; note?: string; now: string },
 ): boolean {
   const ref = matchRef(draft, change.matchId);
   if (!ref || draft.results[change.matchId]) return false;
+  // Rubbers that have started stay where they are.
+  const ids = [change.matchId, ...(change.with ?? []).filter((id) => id !== change.matchId && matchRef(draft, id) && !draft.results[id])];
+  if (change.target.before && ids.includes(change.target.before)) return false;
   const from = courtNo(draft, change.fromCourtId);
   const to = courtNo(draft, change.target.courtId);
-  const what = `${ref.label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}`;
+  const rubbers = ids.map((id) => /:r(\d+)$/.exec(id)?.[1]).filter(Boolean);
+  const label = ids.length > 1 ? `${ref.label.replace(/, rubber \d+$/, "")}, rubbers ${rubbers.slice(0, -1).join(", ")} and ${rubbers.at(-1)}` : ref.label;
+  const what = `${label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}`;
   const next = change.target.before ? matchRef(draft, change.target.before) : null;
   logged(
     draft,
@@ -427,7 +436,11 @@ export function moveGame(
     },
     [MOVES],
     () => {
-      draft.matchMoves[change.matchId] = change.target;
+      // Moves are applied in the order they were made: these go in together, in their order.
+      for (const id of ids) {
+        delete draft.matchMoves[id];
+        draft.matchMoves[id] = { ...change.target };
+      }
     },
   );
   return true;

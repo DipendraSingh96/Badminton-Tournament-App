@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
-import { callUp, courtBoard, courtGame, courtQueues, projectDay, timingOf, finishGame, gameState, reopenGame, setScore, startGame } from "./live";
+import { callUp, courtBoard, courtGame, courtQueues, projectDay, timingOf, finishGame, gameState, reopenGame, setScore, stapledWith, startGame, tieOf } from "./live";
 import { normaliseDraft } from "./storage";
 
 const games = [
@@ -190,5 +190,16 @@ describe("what a court shows", () => {
   it("always shows a game that has been started", () => {
     const queue = courtQueues(games, { g: done, k: { state: "onCourt", games: [], startedAt: "x", finishedAt: null } }).get("c1");
     expect(courtGame(queue, { k: { state: "onCourt", games: [], startedAt: "x", finishedAt: null } }, known)?.id).toBe("k");
+  });
+});
+
+describe("stapled rubbers", () => {
+  it("finds the tie's rubbers played back to back with a game on its court", () => {
+    const list = ["t1:r1", "t2:r1", "t2:r2", "t3:r1", "t2:r3"].map((id) => ({ id }));
+    expect(stapledWith(list, "t2:r2").map((g) => g.id)).toEqual(["t2:r1", "t2:r2"]);
+    expect(stapledWith(list, "t2:r3").map((g) => g.id)).toEqual(["t2:r3"]);
+    expect(stapledWith(list, "t1:r1").map((g) => g.id)).toEqual(["t1:r1"]);
+    expect(stapledWith(list, "gone")).toEqual([]);
+    expect(tieOf("c1:ko:SF1:r2")).toBe("c1:ko:SF1");
   });
 });

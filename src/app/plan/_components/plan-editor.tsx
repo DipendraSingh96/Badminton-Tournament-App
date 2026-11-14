@@ -52,7 +52,7 @@ import { matchRef } from "@/lib/tournament/entries";
 import { liveDay } from "@/lib/tournament/live-day";
 import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
 import { AudienceBoardButton } from "./audience-button";
-import { courtQueues, gameState, timingOf } from "@/lib/tournament/live";
+import { courtQueues, gameState, stapledWith, timingOf } from "@/lib/tournament/live";
 import { LiveMovesContext, type LiveMoves } from "./live-moves";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
@@ -1124,8 +1124,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   state: (matchId) => gameState(liveDraft.results, matchId),
                   held: (matchId) => attention.held.has(matchId),
                   timing: (matchId) => attention.timing(matchId),
-                  onMove: (segment, target) =>
-                    liveUpdate((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target, now: new Date().toISOString() })),
+                  onMove: (segment, target, stapled) =>
+                    liveUpdate((d) => void moveGame(d, { matchId: segment.id, with: stapled.map((s) => s.id), fromCourtId: segment.courtId, target, now: new Date().toISOString() })),
                 }
               : undefined
           }
@@ -1164,7 +1164,22 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     move: (segment, courtId) => {
       const before = liveQueues.get(courtId)?.current?.id ?? null;
       attention.attend(courtId);
-      liveUpdate((d) => void moveGame(d, { matchId: segment.id, fromCourtId: segment.courtId, target: { courtId, before }, now: new Date().toISOString() }));
+      // The tie's rubbers stapled to it on its court (still waiting) go with it, as the one move.
+      const queue = liveQueues.get(segment.courtId);
+      const waiting = queue ? [...(queue.current ? [queue.current] : []), ...queue.next].filter((g) => gameState(liveDraft.results, g.id) === "waiting") : [];
+      const block = segment.match.rubber ? stapledWith(waiting, segment.id) : [];
+      const first = block[0] ?? segment;
+      if (before && block.some((g) => g.id === before)) return;
+      liveUpdate(
+        (d) =>
+          void moveGame(d, {
+            matchId: first.id,
+            with: block.slice(1).map((g) => g.id),
+            fromCourtId: segment.courtId,
+            target: { courtId, before },
+            now: new Date().toISOString(),
+          }),
+      );
     },
   };
   // The Plan stage's working area, and the Draw stage's Schedule page.

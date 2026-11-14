@@ -88,6 +88,7 @@
   --tl-outline: rgba(0, 0, 0, 0.25);
   --tl-worst: #D8402F;
   --tl-now: #0F2A1F;
+  --tl-link: #071F15;              /* a tie's staples and threads: the Dark theme's ground */
   --gauge-on: #58C27D;
   --gauge-warn: #FF7A6E;
   --gauge-off: #0F3E27;            /* gauge sits on the deep feature card */
@@ -151,6 +152,7 @@
   --color-tl-knockout: var(--tl-knockout);
   --color-tl-bronze: var(--tl-bronze);
   --color-tl-final: var(--tl-final);
+  --color-tl-link: var(--tl-link);
 
   --font-display: var(--font-display);
   --font-sans: var(--font-body);

@@ -446,3 +446,30 @@ describe("a level knockout tie decided by hand", () => {
     expect(draft.decided).toEqual({});
   });
 });
+
+describe("a tie's stapled rubbers move as one", () => {
+  it("moves them together, in order, as one logged change that reverses whole", () => {
+    const draft = live();
+    draft.unit = "team";
+    draft.categories[0]!.lineUp = { ...draft.categories[0]!.lineUp, MD: 1, XD: 1 };
+    const tie = "c1:group:A:A1-A2";
+    const before = draft.log.length;
+    expect(moveGame(draft, { matchId: `${tie}:r1`, with: [`${tie}:r2`], fromCourtId: "c1", target: { courtId: "c2", before: null }, now: NOW })).toBe(true);
+    expect(draft.log).toHaveLength(before + 1);
+    expect(draft.log.at(-1)!.text).toBe("Group A, rubbers 1 and 2, Entry 1 v Entry 2: moved from Court 1 to Court 2");
+    expect(Object.entries(draft.matchMoves)).toEqual([
+      [`${tie}:r1`, { courtId: "c2", before: null }],
+      [`${tie}:r2`, { courtId: "c2", before: null }],
+    ]);
+    // Dropped before one of its own rubbers: nothing to do.
+    expect(moveGame(draft, { matchId: `${tie}:r1`, with: [`${tie}:r2`], fromCourtId: "c2", target: { courtId: "c2", before: `${tie}:r2` }, now: NOW })).toBe(false);
+    // A rubber that has started stays where it is; the other still moves.
+    setScore(draft, "c1:group:A:A1-A3:r2", 0, 0, 3, NOW);
+    moveGame(draft, { matchId: "c1:group:A:A1-A3:r1", with: ["c1:group:A:A1-A3:r2"], fromCourtId: "c1", target: { courtId: "c2", before: null }, now: NOW });
+    expect(draft.matchMoves["c1:group:A:A1-A3:r2"]).toBeUndefined();
+    expect(draft.log.at(-1)!.text).toBe("Group A, rubber 1, Entry 1 v Entry 3: moved from Court 1 to Court 2");
+    reverseChange(draft, draft.log.at(-1)!.id, LATER);
+    reverseChange(draft, draft.log[before]!.id, LATER);
+    expect(draft.matchMoves).toEqual({});
+  });
+});

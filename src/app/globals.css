@@ -109,6 +109,8 @@
   --tl-group: #62B584;
   --tl-knockout: #D3EEDB;
   --tl-now: #EFE8D1;
+  /* A tie's staples and threads: the Light theme's ground. */
+  --tl-link: #F2EFE9;
   --tl-worst: #FF7A6E;
   --status-off: #2A6B4C;
   --status-off-fg: #EFE8D1;

@@ -48,6 +48,7 @@ import {
 } from "@/lib/tournament/draft";
 import { entryForSlot, sideName, sidePlayers } from "@/lib/tournament/entries";
 import { EVENT_LABELS } from "@/lib/tournament/events";
+import { stapledWith, tieOf } from "@/lib/tournament/live";
 import { GRID_MINUTES } from "@/lib/tournament/snap";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { IconButton, InfoTip } from "./fields";
@@ -437,7 +438,8 @@ export function Timeline({
    */
   live?: {
     state: (matchId: string) => "waiting" | "onCourt" | "finished";
-    onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }) => void;
+    /** `stapled`: the tie's other rubbers that go with it (played back to back with it on its court). */
+    onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }, stapled: LocalSegment[]) => void;
     /** Nothing can be moved (a simulated day is being watched). */
     frozen?: boolean;
     /** A waiting game that can't start (a player hasn't checked in): greyed out. */
@@ -473,6 +475,10 @@ export function Timeline({
   const [pillDrag, setPillDrag] = useState<PillDrag | null>(null);
   const [zoneDrag, setZoneDrag] = useState<ZoneDrag | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // A tie's rubbers on different courts are joined by a thread, measured from where their pills are drawn.
+  const tracks = useRef<HTMLDivElement>(null);
+  const [threads, setThreads] = useState<{ key: string; tie: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
+  const pickedTie = picked && segments.some((s) => s.id === picked && s.match.rubber) ? tieOf(picked) : null;
   // One tab stop per court's matches: the one last focused there, or its first.
   const [activePill, setActivePill] = useState<Record<string, string>>({});
   /** A match moved from the keyboard keeps the focus, even on another court. */
@@ -525,6 +531,49 @@ export function Timeline({
   }, [range.start, range.end, axisWidth]);
 
   const span = Math.max(1, range.end - range.start);
+
+  // Threads: between a tie's rubbers on different courts, from each pill to the tie's next pill down the page.
+  const threadKey = segments
+    .filter((s) => s.match.rubber)
+    .map((s) => `${s.id}@${s.courtId}:${s.from}-${s.to}`)
+    .join("|");
+  useEffect(() => {
+    const root = tracks.current;
+    if (!root) return;
+    const measure = () => {
+      const box = root.getBoundingClientRect();
+      const byTie = new Map<string, { id: string; courtId: string; rect: DOMRect }[]>();
+      for (const el of root.querySelectorAll<HTMLElement>("[data-tie]")) {
+        const tie = el.dataset.tie!;
+        byTie.set(tie, [...(byTie.get(tie) ?? []), { id: el.dataset.segmentId!, courtId: el.dataset.onCourt!, rect: el.getBoundingClientRect() }]);
+      }
+      const lines: typeof threads = [];
+      for (const [tie, pills] of byTie) {
+        const sorted = pills.sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
+        sorted.slice(1).forEach((b, i) => {
+          const a = sorted[i]!;
+          // Rubbers on one court are stapled, not threaded.
+          if (a.courtId === b.courtId) return;
+          lines.push({
+            key: `${a.id}>${b.id}`,
+            tie,
+            x1: a.rect.left + a.rect.width / 2 - box.left,
+            y1: a.rect.bottom - box.top,
+            x2: b.rect.left + b.rect.width / 2 - box.left,
+            y2: b.rect.top - box.top,
+          });
+        });
+      }
+      setThreads((before) => (JSON.stringify(before) === JSON.stringify(lines) ? before : lines));
+    };
+    const frame = requestAnimationFrame(measure);
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(root);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [threadKey, range.start, range.end, collapsed]);
 
   // How far the rows are scrolled, for the fades under the labels and the axis.
   useEffect(() => {
@@ -819,15 +868,32 @@ export function Timeline({
     return { target: { courtId, before: next?.id ?? null }, refusal: null };
   }
 
-  function moveMatch(segment: LocalSegment, target: { courtId: string; before: string | null }) {
-    // Dropped where it already is: nothing to do.
+  /** A tie's rubbers stapled to a match (back to back with it on its court) that can still be moved: they go where it goes. */
+  function blockOf(segment: LocalSegment): LocalSegment[] {
     const own = segments.filter((s) => s.courtId === segment.courtId).sort((a, b) => a.from - b.from);
-    const at = own.findIndex((s) => s.id === segment.id);
-    if (target.courtId === segment.courtId && (target.before === own[at + 1]?.id || (target.before === null && at === own.length - 1))) {
+    const block = segment.match.rubber ? stapledWith(own, segment.id).filter((s) => s.id === segment.id || !stuck(s)) : [segment];
+    return block.length > 0 ? block : [segment];
+  }
+
+  function moveMatch(segment: LocalSegment, target: { courtId: string; before: string | null }) {
+    const block = blockOf(segment);
+    const ids = new Set(block.map((s) => s.id));
+    // Dropped where it already is (on itself, or just before what already follows it): nothing to do.
+    const own = segments.filter((s) => s.courtId === segment.courtId).sort((a, b) => a.from - b.from);
+    const after = own[own.findIndex((s) => s.id === block.at(-1)!.id) + 1];
+    if (target.before && ids.has(target.before)) return;
+    if (target.courtId === segment.courtId && (target.before === after?.id || (target.before === null && !after))) {
       return;
     }
-    if (live) live.onMove(segment, target);
-    else update((d) => void (d.matchMoves[segment.id] = target));
+    if (live) live.onMove(block[0]!, target, block.slice(1));
+    else
+      update((d) => {
+        // Moves are applied in the order they were made: the stapled rubbers go in together, in their order.
+        for (const s of block) {
+          delete d.matchMoves[s.id];
+          d.matchMoves[s.id] = { ...target };
+        }
+      });
   }
 
   function resetMatch(segment: LocalSegment) {
@@ -1155,6 +1221,7 @@ export function Timeline({
           </div>
 
           <div
+            ref={tracks}
             className={`relative ${tracksWidth ? "shrink-0" : "min-w-0 flex-1"}`}
             // The labels have no fill (the timeline is one sheet of glass): what scrolls under them fades out.
             style={{ ...(tracksWidth ? { width: tracksWidth } : null), ...fade("to right", "--sx") }}
@@ -1388,6 +1455,8 @@ export function Timeline({
                                   <span
                                     key={s.id}
                                     data-segment-id={s.id}
+                                    data-tie={s.match.rubber ? tieOf(s.id) : undefined}
+                                    data-on-court={court.id}
                                     tabIndex={
                                       s.id === (own.some((x) => x.id === activePill[court.id]) ? activePill[court.id] : own[0]!.id)
                                         ? 0
@@ -1405,7 +1474,14 @@ export function Timeline({
                                         : live?.state(s.id) === "onCourt" && s.id !== picked
                                           ? "cursor-default outline-2 -outline-offset-2 outline-shuttle active:cursor-default"
                                           : ""
-                                    } ${s.id === picked ? "z-10 outline-[3px] outline-offset-1 outline-primary" : ""} ${
+                                    } ${
+                                      s.id === picked
+                                        ? "z-10 outline-[3px] outline-offset-1 outline-primary"
+                                        : // The chosen game's tie: its other rubbers are marked with it.
+                                          pickedTie !== null && s.match.rubber && tieOf(s.id) === pickedTie
+                                          ? "z-10 !outline-2 !outline-offset-1 !outline-primary"
+                                          : ""
+                                    } ${
                                       live?.held?.(s.id) ? "!bg-held" : ""
                                     } ${
                                       // Near the end of its slot it is a soft amber; past it, a soft red.
@@ -1477,6 +1553,16 @@ export function Timeline({
                                     {s.moved ? (
                                       <span aria-hidden="true" className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-background ring-1 ring-foreground" />
                                     ) : null}
+                                    {/* Stapled to the tie's next rubber on this court: a staple across the two. */}
+                                    {s.match.rubber && own[i + 1]?.match.rubber && tieOf(own[i + 1]!.id) === tieOf(s.id) ? (
+                                      <span
+                                        aria-hidden="true"
+                                        data-staple
+                                        className={`pointer-events-none absolute top-1/2 right-0 z-10 h-1 w-2.5 translate-x-1/2 -translate-y-1/2 rounded-full ${
+                                          pickedTie === tieOf(s.id) ? "bg-primary" : "bg-tl-link"
+                                        }`}
+                                      />
+                                    ) : null}
                                   </span>
                                 ))}
                             </>
@@ -1526,6 +1612,25 @@ export function Timeline({
             </div>
             </div>
 
+            {/* A tie's rubbers on different courts, joined by a thread. */}
+            {threads.length > 0 ? (
+              <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 size-full overflow-visible">
+                {threads.map((t) => (
+                  <line
+                    key={t.key}
+                    data-thread={t.tie}
+                    x1={t.x1}
+                    y1={t.y1}
+                    x2={t.x2}
+                    y2={t.y2}
+                    strokeLinecap="round"
+                    className={pickedTie === t.tie ? "stroke-primary" : "stroke-tl-link"}
+                    strokeWidth={pickedTie === t.tie ? 2.5 : 1.5}
+                    opacity={pickedTie === null || pickedTie === t.tie ? 1 : 0.7}
+                  />
+                ))}
+              </svg>
+            ) : null}
             {/* The buffer zone, the worst-case line and the playhead over every lane. */}
             {bufferWindow ? (
               <span

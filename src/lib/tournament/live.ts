@@ -144,6 +144,27 @@ export function courtBoard<G extends ScheduledGame>(
   return { courts, upNext: callUp(games, results, courtOrder).filter((g) => !shown.has(g.id)) };
 }
 
+/** The tie a game belongs to: a team tie's rubbers share one (their ids differ only in ":r1", ":r2"…). */
+export function tieOf(matchId: string): string {
+  return matchId.replace(/:r\d+$/, "");
+}
+
+/**
+ * The rubbers stapled with a game on its court: those of the same tie played
+ * back to back with it there, in order, the game itself included. `list` is
+ * the court's games in the order they are played.
+ */
+export function stapledWith<G extends { id: string }>(list: G[], id: string): G[] {
+  const at = list.findIndex((g) => g.id === id);
+  if (at === -1) return [];
+  const tie = tieOf(id);
+  let from = at;
+  let to = at;
+  while (from > 0 && tieOf(list[from - 1]!.id) === tie) from -= 1;
+  while (to < list.length - 1 && tieOf(list[to + 1]!.id) === tie) to += 1;
+  return list.slice(from, to + 1);
+}
+
 /** A game on the schedule with its planned end, to work out where it really falls. */
 export interface TimedGame extends ScheduledGame {
   /** Scheduled end, in minutes since midnight. */
