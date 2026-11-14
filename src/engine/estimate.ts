@@ -9,10 +9,15 @@ import type { EventType, Stage, TournamentInputs, WindowKey, Zone } from "./type
 // 1. Assignment: matches go in play order onto the first court that can
 //    start them (groups in their hall, on their own courts when the plan
 //    keeps groups to their courts; the knockout in the halls allowed),
-//    then any matches moved by hand change court or order.
-// 2. Timing: each court keeps its order, and every match starts at the
-//    earliest time its court, its zone, its feeders and its sides allow.
-// Rest between matches isn't modelled.
+//    then any matches moved by hand change court or order, and a tie's
+//    rubbers on one court are brought together.
+// 2. Timing: every match starts at the earliest time its court, its zone,
+//    its feeders and its sides allow. A court keeps its order, except that
+//    it never stands empty while another of its matches could be played:
+//    that one goes first, and the one that was waiting follows.
+// A competition's knockout waits for all of its group matches. A zone
+// dragged later holds every hall's matches of that stage back, and never
+// changes the court a match is on. Rest between matches isn't modelled.
 
 /** Where a match sits in its stage: a group wave or a knockout round. */
 export type Round = { type: "wave"; wave: number } | { type: "knockout"; size: number } | null;
@@ -38,6 +43,8 @@ export interface MatchInfo {
 export type Wait =
   | { type: "feeder"; code: string }
   | { type: "group"; group: string }
+  /** A knockout match waiting for its competition's group stage to finish. */
+  | { type: "groups" }
   | { type: "side"; side: string; courtId: string; until: string }
   | { type: "zone"; until: string };
 
@@ -59,7 +66,7 @@ export interface Segment {
     /** A group match played on a court that isn't its group's own, once that court had nothing of its own left. */
     borrowed?: boolean;
     wait?: Wait;
-    /** Runs past its court's hours. */
+    /** Runs past its court's closing time. */
     late: boolean;
   }[];
 }
@@ -70,9 +77,9 @@ export interface CourtSchedule {
   segments: Segment[];
 }
 
-/** A hall's stage zone in the estimate. */
+/** A stage zone as shown in a hall. A stage's zone is the same in every hall that plays it. */
 export interface WindowSpan {
-  /** UTC ISO: the first match's start and the last match's end. */
+  /** UTC ISO: the stage's first match's start and its last match's end, across every hall. */
   from: string;
   to: string;
   /** Categories playing in the zone, in category order. */
@@ -81,7 +88,7 @@ export interface WindowSpan {
   moved: boolean;
   /** Dragged to start before what it depends on has finished: when that is. */
   earliest?: string;
-  /** Matches in the zone that run past their court's hours. */
+  /** Matches of the zone in this hall that run past their court's closing time. */
   late: number;
 }
 
@@ -113,7 +120,7 @@ export interface EstimatedSchedule {
   worstFinish: string | null;
   /** Matches with no court they may use (e.g. a hall with no courts). */
   unplaced: number;
-  /** Matches that run past their court's hours: still placed, flagged. */
+  /** Matches that run past their court's closing time: still placed, flagged. */
   late: number;
   /** Each court's groups when groups keep their own courts; empty when courts are shared. */
   courtGroups: CourtGroups[];
@@ -231,6 +238,8 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
   const hallOfCourt = new Map(inputs.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
 
   const steps: Planned[][] = [];
+  // Every group match of a category: its knockout waits for them all.
+  const groupIds = new Map<string, string[]>();
   const byGroup = new Map<string, string[]>();
   const byCode = new Map<string, string[]>();
   const make = (
@@ -295,6 +304,7 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
           ).map((m) => (courts && courts.size > 0 ? { ...m, courts } : m));
           const key = `${c.categoryId}:${letter}`;
           byGroup.set(key, [...(byGroup.get(key) ?? []), ...matches.map((m) => m.id)]);
+          groupIds.set(c.categoryId, [...(groupIds.get(c.categoryId) ?? []), ...matches.map((m) => m.id)]);
           return matches;
         }),
       ),
@@ -313,7 +323,12 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
   const levels = Math.max(0, ...categories.map((c) => beforeFinal(c.categoryId).length));
   const knockoutMatch = (categoryId: string, code: string, base: Omit<MatchInfo, "rubber" | "categoryId">, round: Round) => {
     const tie = `${categoryId}:ko:${code}`;
-    const deps = [...sideDeps(categoryId, base.home), ...sideDeps(categoryId, base.away)];
+    const groups = groupIds.get(categoryId) ?? [];
+    const deps: Planned["deps"] = [
+      ...(groups.length > 0 ? [{ ids: groups, wait: { type: "groups" } as Wait }] : []),
+      ...sideDeps(categoryId, base.home),
+      ...sideDeps(categoryId, base.away),
+    ];
     const matches = make({ ...base, categoryId }, round, tie, knockoutHalls, deps, dayStart);
     byCode.set(`${categoryId}:${code}`, matches.map((m) => m.id));
     return matches;
@@ -356,28 +371,34 @@ function plan(inputs: TournamentInputs, analysis: Analysis, dayStart: number) {
 
 /** Places the day at one slot length: assignment, moves by hand, then timing. */
 function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" | "worst") {
+  // A court's closing time as hired: the buffer is not a wall, so a match is late only past this.
+  const closes = new Map(inputs.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, Date.parse(c.to)] as const)));
   const courts = available(inputs.frame).courts.map((c) => ({
     ...c,
     start: Date.parse(c.from),
-    end: Date.parse(c.to),
+    end: closes.get(c.courtId) ?? Date.parse(c.to),
   }));
   const dayStart = Date.parse(available(inputs.frame).start);
   // Each category's own slot length in each stage.
   const slots = new Map(analysis.slots.map((s) => [`${s.categoryId}:${s.stage}`, s.minutes[length] * MS_PER_MINUTE]));
   const slot = { get: (info: MatchInfo) => slots.get(`${info.categoryId}:${info.stage}`) };
-  const zoneStarts = new Map(
-    (inputs.zoneMoves ?? []).filter((m) => m.start).map((m) => [m.key, Date.parse(m.start!)]),
-  );
-  const zoneStart = (court: number, stage: Stage) =>
-    zoneStarts.get(zoneKey(courts[court]!.hallId, zoneOf(stage))) ?? -Infinity;
+  // A zone dragged later starts no earlier than that in every hall: the stage moves as one.
+  const zoneStarts = new Map<Zone, number>();
+  for (const m of inputs.zoneMoves ?? []) {
+    if (!m.start) continue;
+    const zone: Zone = m.key.endsWith(":group") ? "group" : "knockout";
+    zoneStarts.set(zone, Math.max(zoneStarts.get(zone) ?? -Infinity, Date.parse(m.start)));
+  }
+  const zoneStart = (stage: Stage) => zoneStarts.get(zoneOf(stage)) ?? -Infinity;
   const { steps, courtGroups, homeless } = plan(inputs, analysis, dayStart);
   // Groups on their own courts move on group by group; otherwise a category waits for its whole step.
   const own = inputs.groupCourts === "own";
   const gate = (info: MatchInfo) => (own && info.stage === "group" ? `${info.categoryId}:${info.group}` : info.categoryId);
 
   // 1. Assignment: play order onto the first court that can start each match.
-  // Closing times play no part, so changing a hall's or court's hours never
-  // moves matches between courts; a match that runs past closing is flagged.
+  // Closing times and dragged zones play no part, so changing a hall's or
+  // court's hours or dragging a zone never moves matches between courts; a
+  // match that runs past closing is flagged.
   //
   // Groups on their own courts are placed twice. First on their own courts only, which says
   // when each court's own groups have finished there. Then again, now free to borrow a court
@@ -410,7 +431,7 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
           // A group match on its own court keeps to the court's own clock; a borrowed one to the lent
           // clock; anything else (the knockout) waits for both.
           const free = !own ? lentFreeAt[i]! : match.courts || !lendFrom ? freeAt[i]! : Math.max(freeAt[i]!, lentFreeAt[i]!);
-          const start = Math.max(free, release, court.start, zoneStart(i, match.info.stage));
+          const start = Math.max(free, release, court.start);
           // Its own court wins a tie with a borrowed one.
           if (start < bestStart || (start === bestStart && own && !bestOwn)) {
             best = i;
@@ -436,6 +457,8 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
         placed[best]!.push({ match, start: bestStart, order: order++ });
         const id = gate(match.info);
         ends.set(id, Math.max(ends.get(id) ?? -Infinity, end));
+        // A category's knockout waits for all its groups, whichever way its groups move on.
+        if (match.info.stage === "group") ends.set(match.info.categoryId, Math.max(ends.get(match.info.categoryId) ?? -Infinity, end));
       }
       // A category's next step waits for this one.
       for (const [id, end] of ends) ready.set(id, Math.max(ready.get(id) ?? -Infinity, end));
@@ -467,101 +490,115 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   // Wherever matches were moved, a court plays its group-stage matches before its knockout
   // matches. (A move is kept as "before that match"; when that match is no longer on the court,
   // the moved one goes last, which must not mean after the knockout.)
+  // And a tie's rubbers on one court are played back to back: they come together at the
+  // earliest one's place, and the court's other matches follow.
   queues.forEach((queue, i) => {
-    queues[i] = [...queue.filter((m) => zoneOf(m.info.stage) === "group"), ...queue.filter((m) => zoneOf(m.info.stage) !== "group")];
+    const staged = [...queue.filter((m) => zoneOf(m.info.stage) === "group"), ...queue.filter((m) => zoneOf(m.info.stage) !== "group")];
+    const together: Planned[] = [];
+    const seen = new Set<string>();
+    for (const m of staged) {
+      if (seen.has(m.tie)) continue;
+      seen.add(m.tie);
+      together.push(...staged.filter((x) => x.tie === m.tie));
+    }
+    queues[i] = together;
   });
 
-  // 2. Timing: every court in its order; each match at the earliest time allowed.
+  // 2. Timing: each match at the earliest time allowed. A court takes its matches in order,
+  // but never stands empty while a later one of its matches could be played.
   const ends = new Map<string, number>();
   const busy = new Map<string, { tie: string; from: number; to: number; court: number }[]>();
   const timed: Timed[] = [];
-  const head = courts.map(() => 0);
+  const left = queues.map((q) => [...q]);
+  // The court is part-way through a tie's rubbers: the next one follows, whatever else could be played.
+  const stapled = courts.map(() => false);
   const courtFree = courts.map((c) => c.start);
   const known = new Set(queues.flat().map((m) => m.id));
-  let guard = queues.flat().length * (courts.length + 2) + 10;
   /** Feeders of a match not yet timed. */
-  const pendingOf = (match: Planned) =>
-    match.deps.flatMap((d) => d.ids.filter((id) => known.has(id) && !ends.has(id)));
-  while (head.some((h, i) => h < queues[i]!.length) && guard-- > 0) {
-    let best: { court: number; start: number; wait?: Wait } | null = null;
-    const blocked: number[] = [];
-    for (let i = 0; i < courts.length; i++) {
-      const match = queues[i]![head[i]!];
-      if (!match) continue;
-      // Feeders not yet timed: this court waits.
-      if (pendingOf(match).length > 0) {
-        blocked.push(i);
-        continue;
+  const pending = (match: Planned) => match.deps.some((d) => d.ids.some((id) => known.has(id) && !ends.has(id)));
+  /** When a match could start on a court, given everything timed so far, and what it waits for. */
+  const startOf = (i: number, match: Planned): { start: number; floor: number; wait?: Wait } => {
+    const minutes = slot.get(match.info)!;
+    let start = Math.max(courtFree[i]!, courts[i]!.start, dayStart);
+    let wait: Wait | undefined;
+    const zone = zoneStart(match.info.stage);
+    if (zone > start) {
+      start = zone;
+      wait = { type: "zone", until: new Date(zone).toISOString() };
+    }
+    // The earliest the court itself allows: a match starting then is not waiting for anything.
+    const floor = start;
+    for (const dep of match.deps) {
+      const done = Math.max(-Infinity, ...dep.ids.map((id) => ends.get(id) ?? -Infinity));
+      if (done > start) {
+        start = done;
+        wait = dep.wait;
       }
-      const minutes = slot.get(match.info)!;
-      let start = Math.max(courtFree[i]!, courts[i]!.start, dayStart);
-      let wait: Wait | undefined;
-      const zone = zoneStart(i, match.info.stage);
-      if (zone > start) {
-        start = zone;
-        wait = { type: "zone", until: new Date(zone).toISOString() };
-      }
-      for (const dep of match.deps) {
-        const done = Math.max(-Infinity, ...dep.ids.map((id) => ends.get(id) ?? -Infinity));
-        if (done > start) {
-          start = done;
-          wait = dep.wait;
-        }
-      }
-      // A side can't be in two ties at once: wait until it's free.
-      for (let clash = true; clash; ) {
-        clash = false;
-        for (const side of match.sides) {
-          for (const b of busy.get(side) ?? []) {
-            if (b.tie !== match.tie && b.from < start + minutes && start < b.to) {
-              start = b.to;
-              wait = { type: "side", side: side.slice(match.info.categoryId.length + 1), courtId: courts[b.court]!.courtId, until: new Date(b.to).toISOString() };
-              clash = true;
-            }
+    }
+    // A side can't be in two ties at once: wait until it's free.
+    for (let clash = true; clash; ) {
+      clash = false;
+      for (const side of match.sides) {
+        for (const b of busy.get(side) ?? []) {
+          if (b.tie !== match.tie && b.from < start + minutes && start < b.to) {
+            start = b.to;
+            wait = { type: "side", side: side.slice(match.info.categoryId.length + 1), courtId: courts[b.court]!.courtId, until: new Date(b.to).toISOString() };
+            clash = true;
           }
         }
       }
-      if (!best || start < best.start) best = { court: i, start, wait };
     }
-    if (!best) {
-      // Every court is waiting on matches queued behind a waiting match (a match moved
-      // ahead of what it waits for). Unblock a court holding one of those matches: its
-      // waiting match goes just after the last match it waits for there, or to the back.
-      if (blocked.length === 0) break;
-      const needed = new Set(blocked.flatMap((i) => pendingOf(queues[i]![head[i]!]!)));
-      const court = blocked.find((i) => queues[i]!.slice(head[i]! + 1).some((m) => needed.has(m.id))) ?? blocked[0]!;
-      const queue = queues[court]!;
-      const [stuck] = queue.splice(head[court]!, 1);
-      const own = new Set(pendingOf(stuck!));
-      const last = queue.findLastIndex((m, k) => k >= head[court]! && own.has(m.id));
-      if (last === -1) queue.push(stuck!);
-      else queue.splice(last + 1, 0, stuck!);
-      continue;
+    return { start, floor, wait };
+  };
+  for (;;) {
+    let best: { court: number; at: number; start: number; wait?: Wait } | null = null;
+    for (let i = 0; i < courts.length; i++) {
+      const queue = left[i]!;
+      // The court's pick: its first match that can start as soon as the court allows; failing that, the one that can start soonest.
+      let pick: { at: number; start: number; wait?: Wait } | null = null;
+      for (let k = 0; k < queue.length; k++) {
+        const match = queue[k]!;
+        // A tie's later rubbers follow its first: they are never picked ahead of it.
+        if (k > 0 && queue[k - 1]!.tie === match.tie) continue;
+        if (!pending(match)) {
+          const { start, floor, wait } = startOf(i, match);
+          if (!pick || start < pick.start) pick = { at: k, start, wait };
+          if (start <= floor) break;
+        }
+        if (stapled[i]) break;
+      }
+      if (pick && (!best || pick.start < best.start)) best = { court: i, ...pick };
     }
+    // Nothing left that can be timed: what remains waits on matches that were never placed.
+    if (!best) break;
     const i = best.court;
-    const match = queues[i]![head[i]!]!;
-    head[i]! += 1;
-    const minutes = slot.get(match.info)!;
+    const queue = left[i]!;
+    const [match] = queue.splice(best.at, 1);
+    // The rest of its tie's rubbers there come next.
+    const rest = queue.filter((m) => m.tie === match!.tie);
+    if (rest.length > 0) left[i] = [...rest, ...queue.filter((m) => m.tie !== match!.tie)];
+    stapled[i] = rest.length > 0;
+    const minutes = slot.get(match!.info)!;
     courtFree[i] = best.start + minutes;
-    ends.set(match.id, best.start + minutes);
-    for (const side of match.sides) {
-      busy.set(side, [...(busy.get(side) ?? []), { tie: match.tie, from: best.start, to: best.start + minutes, court: i }]);
+    ends.set(match!.id, best.start + minutes);
+    for (const side of match!.sides) {
+      busy.set(side, [...(busy.get(side) ?? []), { tie: match!.tie, from: best.start, to: best.start + minutes, court: i }]);
     }
     timed.push({
-      planned: match,
+      planned: match!,
       court: i,
       from: best.start,
       to: best.start + minutes,
-      moved: moved.has(match.id),
-      borrowed: borrowed.has(match.id) && !moved.has(match.id),
+      moved: moved.has(match!.id),
+      borrowed: borrowed.has(match!.id) && !moved.has(match!.id),
       wait: best.wait,
-      // Runs past its court's hours (or the playing time): still shown, flagged.
+      // Runs past its court's closing time: still shown, flagged. (The buffer is not a wall.)
       late: best.start + minutes > courts[i]!.end,
     });
   }
 
   // Anything that still couldn't be timed is reported, never dropped silently.
-  unplaced += queues.reduce((n, queue, i) => n + queue.length - head[i]!, 0);
+  unplaced += left.reduce((n, queue) => n + queue.length, 0);
   return { timed, unplaced, courts, courtGroups, homeless };
 }
 
@@ -606,41 +643,52 @@ export function estimateSchedule(inputs: TournamentInputs, analysis: Analysis): 
     };
   }
 
-  // Each hall's zones, from where their matches were played.
+  // A stage's zone runs from its first match to its last, across every hall, and is shown
+  // in each hall that plays it: the stage starts and ends together.
   const order = new Map(analysis.categories.map((c, i) => [c.categoryId, i]));
-  const zoneMoves = new Map((inputs.zoneMoves ?? []).map((m) => [m.key, m]));
+  const zoneStarts = new Map<Zone, number>();
+  for (const m of inputs.zoneMoves ?? []) {
+    if (!m.start) continue;
+    const zone: Zone = m.key.endsWith(":group") ? "group" : "knockout";
+    zoneStarts.set(zone, Math.max(zoneStarts.get(zone) ?? -Infinity, Date.parse(m.start)));
+  }
   const movedInto = new Set(
     (inputs.zoneMoves ?? []).filter((m) => m.hallId).map((m) => zoneKey(m.hallId!, m.key.endsWith(":group") ? "group" : "knockout")),
   );
-  const spans = new Map<WindowKey, { from: number; to: number; categories: Set<string>; dependsOn: number; late: number }>();
+  const whole = new Map<Zone, { from: number; to: number; dependsOn: number }>();
+  const halls = new Map<WindowKey, { categories: Set<string>; late: number }>();
   for (const t of typical.timed) {
-    const key = zoneKey(courts[t.court]!.hallId, zoneOf(t.planned.info.stage));
-    const span = spans.get(key) ?? { from: Infinity, to: -Infinity, categories: new Set<string>(), dependsOn: -Infinity, late: 0 };
-    if (t.late) span.late += 1;
+    const zone = zoneOf(t.planned.info.stage);
+    const span = whole.get(zone) ?? { from: Infinity, to: -Infinity, dependsOn: -Infinity };
     span.from = Math.min(span.from, t.from);
     span.to = Math.max(span.to, t.to);
-    span.categories.add(t.planned.info.categoryId);
-    spans.set(key, span);
+    whole.set(zone, span);
+    const key = zoneKey(courts[t.court]!.hallId, zone);
+    const hall = halls.get(key) ?? { categories: new Set<string>(), late: 0 };
+    if (t.late) hall.late += 1;
+    hall.categories.add(t.planned.info.categoryId);
+    halls.set(key, hall);
   }
   // When a zone's first matches could start, had it not been held back.
   const ends = new Map(typical.timed.map((t) => [t.planned.id, t.to]));
   for (const t of typical.timed) {
-    const key = zoneKey(courts[t.court]!.hallId, zoneOf(t.planned.info.stage));
-    const ready = Math.max(-Infinity, ...t.planned.deps.flatMap((d) => d.ids.map((id) => ends.get(id) ?? -Infinity)));
-    const span = spans.get(key)!;
-    span.dependsOn = span.from === t.from ? Math.max(span.dependsOn, ready) : span.dependsOn;
+    const span = whole.get(zoneOf(t.planned.info.stage))!;
+    if (span.from !== t.from) continue;
+    span.dependsOn = Math.max(span.dependsOn, ...t.planned.deps.flatMap((d) => d.ids.map((id) => ends.get(id) ?? -Infinity)));
   }
   const windows: EstimatedSchedule["windows"] = {};
-  for (const [key, span] of spans) {
-    const move = zoneMoves.get(key);
+  for (const [key, hall] of halls) {
+    const zone: Zone = key.endsWith(":group") ? "group" : "knockout";
+    const span = whole.get(zone)!;
+    const start = zoneStarts.get(zone);
     const window: WindowSpan = {
       from: iso(span.from),
       to: iso(span.to),
-      categoryIds: [...span.categories].sort((a, b) => order.get(a)! - order.get(b)!),
-      moved: Boolean(move?.start) || movedInto.has(key),
-      late: span.late,
+      categoryIds: [...hall.categories].sort((a, b) => order.get(a)! - order.get(b)!),
+      moved: start !== undefined || movedInto.has(key),
+      late: hall.late,
     };
-    if (move?.start && span.dependsOn > Date.parse(move.start)) window.earliest = iso(span.dependsOn);
+    if (start !== undefined && span.dependsOn > start) window.earliest = iso(span.dependsOn);
     windows[key] = window;
   }
 

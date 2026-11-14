@@ -743,6 +743,7 @@ export function Timeline({
     if (!wait) return null;
     if (wait.type === "feeder") return `Waits for ${knockoutName(wait.code)}`;
     if (wait.type === "group") return `Waits for Group ${wait.group} to finish`;
+    if (wait.type === "groups") return "Waits for the group stage to finish";
     if (wait.type === "zone") return `Waits for its zone to start at ${clock(local(wait.until)!)}`;
     return `${wait.side} is playing on ${courtLabelOf(wait.courtId)} until ${clock(local(wait.until)!)}`;
   }

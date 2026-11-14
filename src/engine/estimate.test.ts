@@ -266,7 +266,7 @@ describe("estimateSchedule", () => {
   const hallsPlaying = (schedule: ReturnType<typeof estimateSchedule>, stage: string) =>
     new Set(schedule.courts.filter((c) => c.segments.some((s) => s.stage === stage)).map((c) => c.hallId));
 
-  it("keeps each group in its hall, and halls can start their groups at different times", () => {
+  it("keeps each group in its hall, and a stage dragged later starts together in every hall", () => {
     const plan = twoHalls();
     plan.zoneMoves = [{ key: "h2:group", start: at("10:00") }];
     const { analysis, schedule } = estimate(plan);
@@ -283,8 +283,71 @@ describe("estimateSchedule", () => {
       );
     expect(groupsIn("h1")).toEqual(suggested("h1"));
     expect(groupsIn("h2")).toEqual(suggested("h2"));
-    expect(schedule.windows["h1:group"]!.from).toBe(at("09:00"));
+    expect(schedule.windows["h1:group"]!.from).toBe(at("10:00"));
     expect(schedule.windows["h2:group"]!.from).toBe(at("10:00"));
+  });
+
+  it("keeps the knockout until every group match of its competition has finished, in every hall", () => {
+    const plan = twoHalls();
+    // Hall 2 has fewer courts for its groups, so its groups end later than Hall 1's.
+    const { schedule } = estimate(plan);
+    const all = schedule.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    const lastGroup = Math.max(...all.filter((d) => d.match.stage === "group").map((d) => Date.parse(d.to)));
+    const firstKnockout = Math.min(...all.filter((d) => d.match.stage !== "group").map((d) => Date.parse(d.from)));
+    expect(firstKnockout).toBeGreaterThanOrEqual(lastGroup);
+    // One zone a stage, the same in every hall that plays it, the knockout flush after the groups.
+    expect(schedule.windows["h1:group"]).toMatchObject({ from: schedule.windows["h2:group"]!.from, to: schedule.windows["h2:group"]!.to });
+    expect(Date.parse(schedule.windows["h1:group"]!.to)).toBe(lastGroup);
+    expect(Date.parse(schedule.windows["h1:knockout"]!.from)).toBe(lastGroup);
+  });
+
+  it("never changes a match's court when a zone is dragged later, however far", () => {
+    const courtOf = (schedule: ReturnType<typeof estimateSchedule>) =>
+      new Map(schedule.courts.flatMap((c) => c.segments.map((s) => [s.details[0]!.id, c.courtId] as const)));
+    const base = courtOf(estimate(twoHalls()).schedule);
+    for (const start of ["12:00", "16:30"]) {
+      const plan = twoHalls();
+      plan.zoneMoves = [{ key: "h1:knockout", start: at(start) }];
+      const { schedule } = estimate(plan);
+      expect(courtOf(schedule)).toEqual(base);
+      expect(schedule.unplaced).toBe(0);
+      const knockout = schedule.courts.flatMap((c) => c.segments).filter((s) => s.stage !== "group");
+      expect(Math.min(...knockout.map((s) => Date.parse(s.from)))).toBe(Date.parse(at(start)));
+      expect(schedule.windows["h1:knockout"]).toMatchObject({ from: at(start), moved: true });
+    }
+    // Dragged to half an hour before closing, its later rounds run past closing: flagged, not moved.
+    const plan = twoHalls();
+    plan.zoneMoves = [{ key: "h1:knockout", start: at("16:30") }];
+    expect(estimate(plan).schedule.late).toBeGreaterThan(0);
+  });
+
+  it("counts a match as late only past its court's closing time: the buffer is not a wall", () => {
+    const plan = tournament();
+    // The day ends 11:15; closing at 12:00 with a 60-minute buffer, so the last match sits inside the buffer.
+    plan.frame.halls = [hall("h1", "09:00", "12:00", { courtCount: 4 })];
+    plan.frame.bufferMinutes = 60;
+    const { schedule } = estimate(plan);
+    expect(schedule.finish).toBe(at("11:15"));
+    expect(schedule.late).toBe(0);
+    plan.frame.halls = [hall("h1", "09:00", "11:00", { courtCount: 4 })];
+    expect(estimate(plan).schedule.late).toBeGreaterThan(0);
+  });
+
+  it("never leaves a court empty while another of its matches could be played", () => {
+    const base = estimate(tournament()).schedule;
+    // A later-wave match of a group is put first on its court: its sides are still playing wave 1 elsewhere.
+    const later = matchesOn(base, 0).find((d) => d.match.wave === 2)!;
+    const first = matchesOn(base, 0)[0]!;
+    const plan = tournament();
+    plan.matchMoves = [{ matchId: later.id, courtId: "h1-c1", before: first.id }];
+    const { schedule } = estimate(plan);
+    for (const court of schedule.courts) {
+      const list = court.segments.map((s) => s.details[0]!).filter((d) => d.match.stage === "group");
+      expect(list[0]!.from).toBe(at("09:00"));
+      // Back to back: no empty time anywhere in a court's group stage.
+      list.slice(1).forEach((d, i) => expect(d.from).toBe(list[i]!.to));
+    }
+    expect(schedule.finish).toBe(base.finish);
   });
 
   it("moves a whole zone to another hall", () => {
