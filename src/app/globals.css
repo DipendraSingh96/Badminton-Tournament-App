@@ -226,6 +226,11 @@
   background-color: color-mix(in srgb, var(--tl-knockout) 50%, transparent);
 }
 
+/* In Dark the knockout wash is pale, so its label takes the dark ground to stay readable. */
+.dark [data-hall-stages] .zone-ko {
+  color: var(--background);
+}
+
 /* The buffer: a see-through grey. */
 .zone-buffer {
   background-color: color-mix(in srgb, var(--foreground) 22%, transparent);

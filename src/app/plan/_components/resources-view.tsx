@@ -49,7 +49,7 @@ function Block({ title, about, children }: { title: string; about: string; child
 /** One document: what it is, what it holds, and its actions. */
 function DocumentCard({ title, about, count, notes, children }: { title: string; about: string; count: ReactNode; notes: string[]; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-card-system p-3">
+    <div className="@container/doc flex flex-col gap-3 rounded-lg bg-card-system p-3">
       <div className="flex flex-col gap-1">
         <h4 className="text-sm font-semibold">{title}</h4>
         <p className="text-xs text-muted-foreground">{about}</p>
@@ -294,7 +294,8 @@ export function ResourcesView({
       </Block>
 
       <Block title="Documents" about="Print them, or choose “Save as PDF” in the print dialog to get a file to send. None carries a phone number or any money.">
-        <div className="grid grid-cols-1 gap-3 @[640px]:grid-cols-3">
+        {/* The score sheets card has three actions in its one row, so it is the widest. */}
+        <div className="grid grid-cols-1 gap-3 @[640px]:grid-cols-[1.5fr_1fr_1fr]">
           <DocumentCard
             title="Score sheets"
             about={
@@ -345,7 +346,12 @@ export function ResourcesView({
               title="A PDF or an image of your own score sheet, used in place of ours. Kept on this device."
               onClick={() => upload.current?.click()}
             >
-              <UploadSimpleIcon /> {own ? "Replace score sheet" : "Upload score sheet"}
+              <UploadSimpleIcon />
+              {/* In full where the card has room; the first word alone where it hasn't, so the three stay in one row. */}
+              <span aria-label={own ? "Replace score sheet" : "Upload score sheet"}>
+                {own ? "Replace" : "Upload"}
+                <span className="hidden @[340px]/doc:inline"> score sheet</span>
+              </span>
             </Button>
             {own ? (
               <Button

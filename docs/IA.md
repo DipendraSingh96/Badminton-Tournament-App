@@ -273,3 +273,13 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Under the bar (team events):** "A tie is 2 rubbers: each player plays 1 rubber a tie."
 - **Hover and screen readers:** each section in full ("Round of 16: 16 teams play; 8 finish here (33%) having played 3 ties").
 - **Numbers not filled in yet:** "Fill in the entries and groups above to see this."
+
+### Third review round, 14 Nov 2026 (these replace anything above that says otherwise)
+- **Schedule tab, Stages:** "Overspill (%)" beside "Best-of-3 allowance (%)".
+- **Worst-case tag on the timeline:** hover or focus shows what it allows for: every match at its longest, the best-of-3 allowance it already covers, and the overspill added (or that none is set).
+- **Matches-played bar with a bronze match:** Group, rounds, "SF", "Final + bronze".
+- **Add buttons** (Other costs, Other money in, Competitions): beside the heading while the list is empty; under the last card once there is one.
+- **Live side panel banner ("Needs you"):** shown only when something needs the desk, or a simulation is running. In order: why the simulation paused; "Court 4, Court 6 can't start: players not checked in" (each court a link that opens it); each level knockout tie with its Decide button; each level group with a link to the group tables. During a simulation its last line is "Simulation. Nothing is saved." with the "I enter the scores" switch. End simulation is the Stop button beside Play in the main area, not here. The level ties are no longer listed at the top of the Games tab.
+- **Score sheets card:** Preview, Print and "Upload score sheet" in one row ("Upload" alone where the card is narrow; "Replace score sheet" once one is uploaded), then "Use ours again". The score sheets card is the widest of the three.
+- **Entries, pairs:** the row is aligned to the top: the number, the name field, the external tick, the seed and the delete button are level with the first player's name.
+- **Keys:** Space plays and pauses the timeline; Left and Right move it by 5 seconds of playback (not while a field, a tab, a choice, or a match or zone on the timeline has the keyboard).
