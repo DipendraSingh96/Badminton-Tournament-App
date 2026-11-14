@@ -85,6 +85,10 @@
   --tl-knockout: #3F5D4B;
   --tl-bronze: #C97B2E;
   --tl-final: #E9B949;
+  /* Text on a stage's colour (the matches-played bar). */
+  --tl-group-fg: #0F2A1F;
+  --tl-knockout-fg: #FFFFFF;
+  --tl-final-fg: #0F2A1F;
   --tl-outline: rgba(0, 0, 0, 0.25);
   --tl-worst: #D8402F;
   --tl-now: #0F2A1F;
@@ -152,6 +156,9 @@
   --color-tl-knockout: var(--tl-knockout);
   --color-tl-bronze: var(--tl-bronze);
   --color-tl-final: var(--tl-final);
+  --color-tl-group-foreground: var(--tl-group-fg);
+  --color-tl-knockout-foreground: var(--tl-knockout-fg);
+  --color-tl-final-foreground: var(--tl-final-fg);
   --color-tl-link: var(--tl-link);
 
   --font-display: var(--font-display);

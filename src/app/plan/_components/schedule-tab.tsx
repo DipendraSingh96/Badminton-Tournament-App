@@ -7,14 +7,18 @@ import {
   EVENT_TYPES,
   STAGES,
   categoryFormat,
+  matchesPlayed,
   playersPerEntry,
+  type FormatResult,
   type FormatType,
   type GroupMode,
+  type PlayedStep,
   type Stage,
   type Unit,
 } from "@/engine";
 import {
   categoryRules,
+  effectiveCategory,
   ownRules,
   stagesInPlay,
   usesBestOfThree,
@@ -92,6 +96,8 @@ export function ScheduleTab({
 
         <StagesSection draft={draft} update={update} />
       </ReadOnly>
+
+      <PlayedSection draft={draft} />
 
       <Section
         title="Buffer"
@@ -213,8 +219,8 @@ function nextPowerOfTwo(n: number): number {
   return size;
 }
 
-/** Live summary of the structure the current entries produce. */
-function FormatPreview({ category, unit, format }: { category: CategoryDraft; unit: Unit; format: FormatType }) {
+/** The structure a category's numbers produce; null while the numbers it needs aren't filled in. */
+function formatOf(category: CategoryDraft, format: FormatType): FormatResult | null {
   if (category.expectedEntries === null) return null;
   const groups: GroupMode | undefined =
     category.groupMode === "fixed" && category.groupCount
@@ -224,8 +230,7 @@ function FormatPreview({ category, unit, format }: { category: CategoryDraft; un
         : undefined;
   if (format !== "knockout" && !groups) return null;
   if (format === "groupsKnockout" && category.qualifiersPerGroup === null) return null;
-
-  const result = categoryFormat(
+  return categoryFormat(
     {
       expectedEntries: category.expectedEntries,
       groups,
@@ -234,6 +239,12 @@ function FormatPreview({ category, unit, format }: { category: CategoryDraft; un
     },
     format,
   );
+}
+
+/** Live summary of the structure the current entries produce. */
+function FormatPreview({ category, unit, format }: { category: CategoryDraft; unit: Unit; format: FormatType }) {
+  const result = formatOf(category, format);
+  if (!result) return null;
   if (!result.ok) {
     return <p className="text-sm text-over-text">{result.errors.map(formatErrorMessage).join(". ")}</p>;
   }
@@ -315,6 +326,99 @@ function BracketLine({ draft, index }: { draft: PlanDraft; index: number }) {
       <FormatPreview category={category} unit={draft.unit!} format={draft.format!} />
       {notice ? <p className="text-xs text-muted-foreground">{notice}</p> : null}
     </div>
+  );
+}
+
+/** A section of the matches-played bar: its short name above it, its full name for the hover and screen readers, and its stage's colour. */
+function playedStep(step: PlayedStep): { short: string; full: string; colour: string } {
+  const knockout = "bg-tl-knockout text-tl-knockout-foreground";
+  const final = "bg-tl-final text-tl-final-foreground";
+  if (step.type === "group") return { short: "Group", full: "Group stage", colour: "bg-tl-group text-tl-group-foreground" };
+  if (step.type === "semi") return { short: "SF", full: "Semi-finals", colour: knockout };
+  if (step.type === "final") return { short: "Final", full: "Final", colour: final };
+  if (step.type === "finalBronze") return { short: "Final + bronze", full: "Final and bronze match", colour: final };
+  return step.size === 8
+    ? { short: "QF", full: "Quarter-finals", colour: knockout }
+    : { short: `R${step.size}`, full: `Round of ${step.size}`, colour: knockout };
+}
+
+/**
+ * How much badminton an entry gets: one bar per competition, everyone
+ * entered, split by how far they go. A section's width is the share whose
+ * day ends there; the number in it is the matches they have played by then;
+ * above it, the stage or round and how many play it.
+ */
+function PlayedSection({ draft }: { draft: PlanDraft }) {
+  const { unit, format } = draft;
+  const team = unit === "team";
+  const matchNoun = (n: number) => (team ? (n === 1 ? "tie" : "ties") : n === 1 ? "match" : "matches");
+  const empty = <p className="text-sm text-muted-foreground">Fill in the entries and groups above to see this.</p>;
+  return (
+    <Section
+      title="Matches played by a player"
+      description={`How much badminton each ${team ? "team" : "entry"} gets. The bar is everyone entered, split by how far they get: each section's width is the share whose day ends there, and the number in it is the ${team ? "ties" : "matches"} they will have played by then. Above each section is the stage or round and how many play in it. Use it to balance a good day for players against the size of the tournament.`}
+    >
+      {unit === null || format === null || draft.categories.length === 0
+        ? empty
+        : draft.categories.map((raw) => {
+            const category = effectiveCategory(draft, raw);
+            const result = formatOf(category, format);
+            const sections = result?.ok ? matchesPlayed(result.format) : [];
+            const total = sections.reduce((sum, s) => sum + s.ending, 0);
+            const nouns = entryNoun(unit, category.event, true);
+            const noun = entryNoun(unit, category.event);
+            const rubbers = team ? EVENT_TYPES.reduce((sum, e) => sum + (category.lineUp[e] ?? 0), 0) : 0;
+            const range = (m: { min: number; max: number }) => (m.min === m.max ? `${m.min}` : `${m.min}–${m.max}`);
+            const said = sections.map((s) => {
+              const step = playedStep(s.step);
+              return `${step.full}: ${s.playing} ${s.playing === 1 ? noun : nouns} play; ${s.ending} finish here (${Math.round((s.ending / total) * 100)}%) having played ${range(s.matches)} ${matchNoun(s.matches.max)}`;
+            });
+            return (
+              <div key={category.id} data-played={category.id} className="flex flex-col gap-2">
+                <CategoryHeading draft={draft} category={raw} />
+                {sections.length === 0 ? (
+                  empty
+                ) : (
+                  <>
+                    <div
+                      role="img"
+                      aria-label={`${said.join(". ")}.`}
+                      // Each section is as wide as its share of the entries, but never too narrow for its number and its name.
+                      className="grid gap-x-0.5 gap-y-1"
+                      style={{ gridTemplateColumns: sections.map((s) => `minmax(3.5rem, ${s.ending}fr)`).join(" ") }}
+                    >
+                      {sections.map((s, i) => (
+                        <span key={`name-${i}`} aria-hidden="true" className="flex min-w-0 flex-col self-end text-xs leading-4">
+                          <span className="font-semibold">{playedStep(s.step).short}</span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {s.playing} {s.playing === 1 ? noun : nouns}
+                          </span>
+                        </span>
+                      ))}
+                      {sections.map((s, i) => (
+                        <span
+                          key={`bar-${i}`}
+                          aria-hidden="true"
+                          title={said[i]}
+                          className={`grid h-10 min-w-0 place-items-center font-display text-xl leading-none font-bold tabular-nums ${playedStep(s.step).colour} ${
+                            i === 0 ? "rounded-l-md" : ""
+                          } ${i === sections.length - 1 ? "rounded-r-md" : ""}`}
+                        >
+                          {range(s.matches)}
+                        </span>
+                      ))}
+                    </div>
+                    {team && rubbers > 0 ? (
+                      <p className="text-sm text-muted-foreground tabular-nums">
+                        {rubbers === 1 ? "A tie is 1 rubber." : `A tie is ${rubbers} rubbers: each player plays 1 rubber a tie.`}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            );
+          })}
+    </Section>
   );
 }
 

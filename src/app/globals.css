@@ -108,6 +108,10 @@
   --turf-2: #A6E6B6;
   --tl-group: #62B584;
   --tl-knockout: #D3EEDB;
+  /* Text on a stage's colour (the matches-played bar): the dark ground on all three here. */
+  --tl-group-fg: #071F15;
+  --tl-knockout-fg: #071F15;
+  --tl-final-fg: #071F15;
   --tl-now: #EFE8D1;
   /* A tie's staples and threads: the Light theme's ground. */
   --tl-link: #F2EFE9;
