@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
  * - courts waiting for the desk: their game can't start because a player
  *   hasn't checked in. They are greyed, and fade in and out until the desk
  *   has looked at them;
- * - courts with something new on them, for a few seconds: the desk has dealt
- *   with a waiting court, or a new game has come onto it. A soft outline in
- *   the accent colour;
+ * - courts a new game has come onto: the accent outline pulses until the
+ *   desk touches that court (so a game called onto a court is never missed);
+ * - courts with other news, for a few seconds: the desk has dealt with a
+ *   waiting court, or the court has become free. The same outline, briefly;
  * - games held back by a player who hasn't checked in (greyed out);
  * - how far through its slot each game on court is: a small dot, soft amber
  *   near its end and soft red past it.
@@ -24,9 +25,11 @@ export interface LiveAttention {
   fading: ReadonlySet<string>;
   /** Courts with new information, for about three seconds. */
   news: ReadonlySet<string>;
+  /** Courts a new game has come onto, until the desk touches the court. */
+  calls: ReadonlySet<string>;
   held: ReadonlySet<string>;
   timing: (matchId: string) => Timing | null;
-  /** The desk has looked at a court: it stops fading for the game it has now. */
+  /** The desk has touched a court: it stops fading, and stops calling, for the game it has now. */
   attend: (courtId: string) => void;
 }
 
@@ -36,10 +39,13 @@ export function useLiveAttention(): LiveAttention | null {
   return useContext(LiveAttentionContext);
 }
 
-/** The classes a court takes from what is happening on it: fading while it waits, the accent outline for news. */
+/** The classes a court takes from what is happening on it: fading while it waits, the accent outline for a new game (until touched) or other news (briefly). */
 export function courtAttention(attention: LiveAttention | null, courtId: string): string {
   if (!attention) return "";
-  return cn(attention.fading.has(courtId) && "court-wait", attention.news.has(courtId) && "court-news");
+  return cn(
+    attention.fading.has(courtId) && "court-wait",
+    attention.calls.has(courtId) ? "court-call" : attention.news.has(courtId) && "court-news",
+  );
 }
 
 const TIMING_TEXT: Record<Timing, string | null> = { ok: null, near: "Near the end of its slot", over: "Over its slot" };

@@ -28,7 +28,7 @@ import {
   type TournamentInputs,
 } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
-import type { ParseResult } from "@/lib/tournament/schema";
+import { timingInputs, type ParseResult } from "@/lib/tournament/schema";
 import { InfoTip, NumberField } from "./fields";
 import {
   STAGE_LABELS,
@@ -779,17 +779,20 @@ export function DerivedCards({
   /** The draw is locked: levers that change the structure are left out. */
   locked: boolean;
 }) {
-  if (!parsed.ok || !analysis?.ok) return null;
+  // The timing is worked out while only money is missing; the money cards wait for the whole plan.
+  const timing = timingInputs(parsed);
+  if (!timing || !analysis?.ok) return null;
   if (tab === "schedule") {
     return (
       <>
-        <CapacityCard analysis={analysis.analysis} inputs={parsed.inputs} />
+        <CapacityCard analysis={analysis.analysis} inputs={timing} />
         <GroupStageCard draft={draft} analysis={analysis.analysis} />
-        <GroupsPerHallCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />
-        <MatchesCard draft={draft} analysis={analysis.analysis} format={parsed.inputs.format} />
+        <GroupsPerHallCard draft={draft} analysis={analysis.analysis} inputs={timing} />
+        <MatchesCard draft={draft} analysis={analysis.analysis} format={timing.format} />
       </>
     );
   }
+  if (!parsed.ok) return null;
   return (
     <>
       <FinanceCard draft={draft} analysis={analysis.analysis} inputs={parsed.inputs} />

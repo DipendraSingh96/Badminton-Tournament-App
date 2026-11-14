@@ -106,7 +106,7 @@ export function LivePanel({
           <XIcon />
         </IconButton>
       </div>
-      <div className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
+      <div data-live-pane className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
         <TabsContent value="games">
           {/* A knockout tie that ended level holds up the next round until the desk decides it. */}
           <LevelTies draft={draft} update={update} />
@@ -536,6 +536,9 @@ function GameBody({
   const watch = sim.on && !sim.deskScores;
   const [awarding, setAwarding] = useState(false);
   const { match, id } = segment;
+  // Working on a court's game is touching the court: it stops calling for the desk.
+  const attention = useLiveAttention();
+  const touch = () => attention?.attend(segment.courtId);
   const category = inputs?.categories.find((c) => c.id === match.categoryId);
   const rules = inputs && category ? rulesFor(inputs, category, match.stage) : undefined;
   const result = draft.results[id];
@@ -598,6 +601,7 @@ function GameBody({
                   onChange={(e) => {
                     const raw = e.target.value;
                     const value = raw === "" ? null : Number(raw);
+                    touch();
                     // The first score typed puts the game on court.
                     update((d) => setScore(d, id, g, side, value !== null && Number.isNaN(value) ? null : value, now(), playing ?? undefined));
                   }}
@@ -637,7 +641,10 @@ function GameBody({
             size="sm"
             disabled={blocked || sim.on}
             title={sim.on ? "The simulation starts the games" : blocked ? "Every player has to be checked in first; or give a walkover" : undefined}
-            onClick={() => update((d) => startGame(d, id, now(), playing ?? undefined))}
+            onClick={() => {
+              touch();
+              update((d) => startGame(d, id, now(), playing ?? undefined));
+            }}
           >
             <PlayIcon /> Start game
           </Button>
@@ -646,7 +653,10 @@ function GameBody({
             size="sm"
             disabled={!outcome.finished || watch}
             title={outcome.finished ? undefined : "Enter the scores first"}
-            onClick={() => update((d) => finishMatch(d, id, now()))}
+            onClick={() => {
+              touch();
+              update((d) => finishMatch(d, id, now()));
+            }}
           >
             Finish match
           </Button>
@@ -672,7 +682,7 @@ function GameBody({
           </Button>
         )}
         {finished ? null : (
-          <Button variant="ghost" size="sm" title="Give the match to a side: the other didn't play, or retired" onClick={() => setAwarding(true)}>
+          <Button variant="ghost" size="sm" title="Give the match to a side: the other didn't play, or retired" onClick={() => (touch(), setAwarding(true))}>
             Walkover…
           </Button>
         )}

@@ -205,13 +205,14 @@ export function Summary({
         </div>
         {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
       </div>
-      {missing.length === 0 && result ? (
+      {result ? (
+        // With only money still to fill in, the timing is already known; the profit isn't.
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tabular-nums">
           <span>
             {formatMinutesShort(result.capacity.needed.typical)} of {formatMinutesShort(result.capacity.available.courtMinutes)}
           </span>
           <span>{result.totalMatches} matches</span>
-          {hideMoney ? null : (
+          {hideMoney || missing.length > 0 ? null : (
             <span className={cn("font-semibold", loss ? "text-over-text" : "text-fits-text")}>
               {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
             </span>

@@ -28,7 +28,7 @@ import {
 import { BOARD_LOST_MS, BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { liveDay } from "@/lib/tournament/live-day";
-import { parsePlan } from "@/lib/tournament/schema";
+import { parsePlan, timingInputs } from "@/lib/tournament/schema";
 import { loadTournament } from "@/lib/tournament/storage";
 import { minutesOfDay } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
@@ -198,9 +198,9 @@ function LiveBoard({ draft, desk, beat }: { draft: PlanDraft; desk: BoardDay | n
 
   // The schedule, worked out as the desk works it out.
   const { segments, groups } = useMemo(() => {
-    const parsed = parsePlan(draft);
-    const analysis = parsed.ok ? analyseTournament(parsed.inputs) : null;
-    const schedule = parsed.ok && analysis?.ok ? estimateSchedule(parsed.inputs, analysis.analysis) : null;
+    const inputs = timingInputs(parsePlan(draft));
+    const analysis = inputs ? analyseTournament(inputs) : null;
+    const schedule = inputs && analysis?.ok ? estimateSchedule(inputs, analysis.analysis) : null;
     // The group each court is kept for, where groups have their own courts.
     const groups = new Map(
       (schedule?.courtGroups ?? [])

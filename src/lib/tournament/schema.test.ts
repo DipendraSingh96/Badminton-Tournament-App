@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { parsePlan } from "./schema";
+import { parsePlan, timingInputs } from "./schema";
 
 describe("parsePlan", () => {
   it("lists what's missing from an empty draft", () => {
@@ -430,6 +430,31 @@ describe("parsePlan", () => {
     const none = parsePlan(draft);
     if (!none.ok) throw new Error(JSON.stringify(none.issues));
     expect(none.inputs.courtGroups).toEqual([{ courtId: "c1", group: null }]);
+  });
+
+  it("can still be timed when only money is missing, and not when the timing itself is", () => {
+    const draft = completeDraft();
+    expect(parsePlan(draft).ok).toBe(true);
+    // A prize ticked with no amount yet, a fee and a hire rate cleared.
+    draft.finance.prizes.push({ id: "p2", categoryId: draft.categories[0]!.id, position: "2nd", amount: null });
+    draft.categories[0]!.feeAmount = null;
+    draft.frame.halls[0]!.bands[0]!.rate = null;
+    const money = parsePlan(draft);
+    expect(money.ok).toBe(false);
+    if (money.ok) return;
+    expect(money.issues.map((i) => i.message)).toEqual(expect.arrayContaining(["Prize amount is required", "Entry fee is required", "Rate is required"]));
+    expect(timingInputs(money)).not.toBeNull();
+    // The timing is the complete plan's: the same halls, categories and rules.
+    const whole = parsePlan(completeDraft());
+    if (!whole.ok) throw new Error("complete");
+    expect(timingInputs(money)!.frame.halls.map((h) => [h.from, h.to, h.courts.length])).toEqual(whole.inputs.frame.halls.map((h) => [h.from, h.to, h.courts.length]));
+    expect(timingInputs(money)!.stageTiming).toEqual(whole.inputs.stageTiming);
+
+    // Something the timing needs is missing: nothing to time from.
+    draft.categories[0]!.expectedEntries = null;
+    const structural = parsePlan(draft);
+    expect(structural.ok).toBe(false);
+    expect(timingInputs(structural)).toBeNull();
   });
 
   it("passes zone and match moves on, ignoring any that no longer fit", () => {

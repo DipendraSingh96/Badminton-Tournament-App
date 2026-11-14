@@ -29,7 +29,7 @@ import { ResourcesView } from "./resources-view";
 import type { FixAt } from "@/lib/tournament/resources";
 import { formatClock } from "./workings";
 import type { LocalSegment } from "./timeline";
-import { parsePlan, type PlanIssue } from "@/lib/tournament/schema";
+import { parsePlan, timingInputs, type PlanIssue } from "@/lib/tournament/schema";
 import {
   createTournament,
   deleteTournament,
@@ -95,10 +95,10 @@ function courtNumberOf(draft: PlanDraft, courtId: string): number | null {
 
 /** A draft's schedule as the timeline's games, with the plan as the engine reads it (null if it can't be read). */
 function scheduleOf(draft: PlanDraft) {
-  const parsed = parsePlan(draft);
-  const analysis = parsed.ok ? analyseTournament(parsed.inputs) : null;
-  const schedule = parsed.ok && analysis?.ok ? estimateSchedule(parsed.inputs, analysis.analysis) : null;
-  return { inputs: parsed.ok ? parsed.inputs : null, segments: localSegments(draft, schedule) };
+  const inputs = timingInputs(parsePlan(draft));
+  const analysis = inputs ? analyseTournament(inputs) : null;
+  const schedule = inputs && analysis?.ok ? estimateSchedule(inputs, analysis.analysis) : null;
+  return { inputs, segments: localSegments(draft, schedule) };
 }
 
 /** The rest of a simulated day from a minute; null if the plan can't be read. */
@@ -414,10 +414,11 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const source = sim?.base ?? draft;
   const parsed = useMemo(() => parsePlan(source), [source]);
   const issues = useMemo(() => issueMap(parsed.ok ? [] : parsed.issues), [parsed]);
-  const analysis = useMemo(
-    () => (parsed.ok ? analyseTournament(parsed.inputs) : null),
-    [parsed],
-  );
+  // With only money missing the day is still timed (from the plan without its money): the timeline doesn't go blank.
+  const analysis = useMemo(() => {
+    const inputs = timingInputs(parsed);
+    return inputs ? analyseTournament(inputs) : null;
+  }, [parsed]);
 
   // How much the plan itself still needs, on its expected numbers: past the Plan stage the
   // plan is worked out from the real entries, which says nothing about whether planning was finished.
@@ -430,14 +431,17 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const shown = useMemo(() => (preview ? applyLever(source, preview) : source), [source, preview]);
   const shownParsed = useMemo(() => (preview ? parsePlan(shown) : parsed), [preview, shown, parsed]);
   const shownAnalysis = useMemo(
-    () => (!preview ? analysis : shownParsed.ok ? analyseTournament(shownParsed.inputs) : null),
+    () => {
+      if (!preview) return analysis;
+      const inputs = timingInputs(shownParsed);
+      return inputs ? analyseTournament(inputs) : null;
+    },
     [preview, analysis, shownParsed],
   );
-  const schedule = useMemo(
-    () =>
-      shownParsed.ok && shownAnalysis?.ok ? estimateSchedule(shownParsed.inputs, shownAnalysis.analysis) : null,
-    [shownParsed, shownAnalysis],
-  );
+  const schedule = useMemo(() => {
+    const inputs = timingInputs(shownParsed);
+    return inputs && shownAnalysis?.ok ? estimateSchedule(inputs, shownAnalysis.analysis) : null;
+  }, [shownParsed, shownAnalysis]);
   const segments = useMemo(() => localSegments(shown, schedule), [shown, schedule]);
   const zones = useMemo(() => zoneRows(shown, schedule), [shown, schedule]);
   const warnings = useMemo(() => {
@@ -586,6 +590,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     if (filter) {
       setLiveTab("games");
       foldWorkbench(false);
+      // A court or a group chosen is at the top of the side panel, wherever the panel had been scrolled to
+      // (a game chosen on the timeline is brought into view by its own list).
+      if (!(filter.kind === "court" && filter.game)) requestAnimationFrame(() => document.querySelector("[data-live-pane]")?.scrollTo({ top: 0 }));
     }
   }
   /** Opens an entry in the Live panel's Entries tab. */
@@ -668,7 +675,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   };
   const liveUpdate: Update = watching ? simUpdate : update;
   const simulation = useMemo(() => ({ on: watching && onLive, deskScores: Boolean(sim?.deskScores) }), [watching, onLive, sim?.deskScores]);
-  const simBlocked = !parsed.ok ? "the plan can't be read" : segments.length === 0 ? "there are no games on the schedule" : null;
+  const simBlocked = !timingInputs(parsed) ? "the plan can't be read" : segments.length === 0 ? "there are no games on the schedule" : null;
   /** Starts a simulated day at a time (the cursor's); a tournament that has really started carries on from now. */
   function runSimulation(cursor: number | null) {
     const began = draft.startedAt ? minuteOf(draft.startedAt) : null;
@@ -835,29 +842,36 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // What the desk's eye is drawn to: courts whose game can't start, games that have just come onto a court, and games running out of time.
   const [attended, setAttended] = useState<ReadonlySet<string>>(new Set());
   const [arrived, setArrived] = useState<readonly string[]>([]);
+  // Games that have come onto a court and that the desk hasn't touched yet, as "court:game": the court calls for it until it has.
+  const [called, setCalled] = useState<ReadonlySet<string>>(new Set());
   const watch = useMemo(
     () => (onLive ? day : { held: new Set<string>(), stuck: new Map<string, string>(), byCourt: new Map<string, string>(), open: new Set<string>() }),
     [day, onLive],
   );
-  // New information on a court, shown for a few seconds: a new game has come onto it, or it was
-  // waiting for the desk and no longer is (its players checked in, a walkover, another game put on it).
+  // New information on a court. A new game coming onto it calls until the desk touches the court. Shown
+  // for a few seconds only: it was waiting for the desk and no longer is (its players checked in, a
+  // walkover), or it has become free.
   const lastOn = useRef<{ byCourt: Map<string, string>; stuck: Map<string, string> } | null>(null);
   const currentKey = [...watch.byCourt].map(([c, g]) => `${c}=${g}${watch.stuck.has(c) ? "!" : ""}`).join("|");
   useEffect(() => {
     const before = lastOn.current;
     lastOn.current = { byCourt: watch.byCourt, stuck: watch.stuck };
     if (!before || before.byCourt.size === 0) return;
+    // A game the court didn't have before, and that can be played: it has been called onto the court.
+    const fresh = [...watch.byCourt].filter(([court, game]) => before.byCourt.get(court) !== game && !watch.stuck.has(court));
     const changed = [...watch.byCourt]
-      .filter(([court, game]) => (before.byCourt.has(court) && before.byCourt.get(court) !== game) || (before.stuck.has(court) && !watch.stuck.has(court)))
+      .filter(([court, game]) => before.byCourt.get(court) === game && before.stuck.has(court) && !watch.stuck.has(court))
       .map(([court]) => court);
     // A court that has just become free (nothing left on it that can be played yet) has news too.
     for (const court of before.byCourt.keys()) if (!watch.byCourt.has(court) && !changed.includes(court)) changed.push(court);
-    if (changed.length === 0) return;
+    if (changed.length === 0 && fresh.length === 0) return;
     const on = window.setTimeout(() => {
-      setArrived((list) => [...list, ...changed]);
+      if (fresh.length > 0) setCalled((set) => new Set([...set].filter((key) => !fresh.some(([court]) => key.startsWith(`${court}:`))).concat(fresh.map(([court, game]) => `${court}:${game}`))));
+      setArrived((list) => [...list.filter((c) => !changed.includes(c)), ...changed]);
       // A court that waits again later (the held game comes back round) fades again: what the desk had looked at is forgotten.
       setAttended((set) => {
-        const kept = [...set].filter((key) => !changed.some((court) => key.startsWith(`${court}:`)));
+        const touched = [...changed, ...fresh.map(([court]) => court)];
+        const kept = [...set].filter((key) => !touched.some((court) => key.startsWith(`${court}:`)));
         return kept.length === set.size ? set : new Set(kept);
       });
     }, 0);
@@ -874,6 +888,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       stuck: new Set(watch.stuck.keys()),
       fading: new Set([...watch.stuck].filter(([court, game]) => !attended.has(`${court}:${game}`)).map(([court]) => court)),
       news: new Set(arrived),
+      calls: new Set([...watch.byCourt].filter(([court, game]) => called.has(`${court}:${game}`)).map(([court]) => court)),
       held: watch.held,
       timing: (matchId) => {
         const result = liveDraft.results[matchId];
@@ -884,13 +899,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         const game = watch.byCourt.get(courtId);
         if (game) setAttended((set) => (set.has(`${courtId}:${game}`) ? set : new Set(set).add(`${courtId}:${game}`)));
         setArrived((list) => (list.includes(courtId) ? list.filter((c) => c !== courtId) : list));
+        setCalled((set) => ([...set].some((key) => key.startsWith(`${courtId}:`)) ? new Set([...set].filter((key) => !key.startsWith(`${courtId}:`))) : set));
       },
     }),
-    [watch, attended, arrived, liveDraft, liveMinute, minuteOf, slots],
+    [watch, attended, arrived, called, liveDraft, liveMinute, minuteOf, slots],
   );
 
   /** A game chosen on the timeline: its court in the side panel, with the game opened (Live) or marked (Draw). */
   function pickGame(segment: LocalSegment) {
+    if (onLive) attention.attend(segment.courtId);
     if (onLive) filterLive({ kind: "court", id: segment.courtId, game: segment.id });
     else openInPanel({ kind: "court", id: segment.courtId, game: segment.id });
   }
@@ -1364,7 +1381,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   <LivePanel
                     draft={liveDraft}
                     update={liveUpdate}
-                    inputs={parsed.ok ? parsed.inputs : null}
+                    inputs={timingInputs(parsed)}
                     segments={liveSegments}
                     tab={liveTab}
                     onTab={setLiveTab}

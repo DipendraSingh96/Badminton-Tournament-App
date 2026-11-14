@@ -396,7 +396,30 @@ export interface PlanIssue {
 
 export type ParseResult =
   | { ok: true; inputs: TournamentInputs }
-  | { ok: false; issues: PlanIssue[] };
+  /**
+   * `timing`: the plan with its money left out, when money is all that is
+   * missing (a prize amount, a fee, a price, a rate). The day can still be
+   * timed from it; nothing about money may be read from it.
+   */
+  | { ok: false; issues: PlanIssue[]; timing?: TournamentInputs };
+
+/** The inputs a plan can be timed from: the plan itself, or the plan without its money while only money is missing. */
+export function timingInputs(parsed: ParseResult): TournamentInputs | null {
+  return parsed.ok ? parsed.inputs : (parsed.timing ?? null);
+}
+
+/** A draft with every money field filled or dropped, so that only what the timing needs is left to check. */
+function withoutMoney(draft: PlanDraft): PlanDraft {
+  return {
+    ...draft,
+    frame: {
+      ...draft.frame,
+      halls: draft.frame.halls.map((hall) => ({ ...hall, bands: hall.bands.map((band) => ({ ...band, rate: band.rate ?? 0 })) })),
+    },
+    categories: draft.categories.map((c) => ({ ...c, feeBasis: c.feeBasis ?? "entry", feeAmount: c.feeAmount ?? 0, externalFeeAmount: null, expectedExternal: null })),
+    finance: { shuttlesPerGame: 0, shuttlePriceBasis: "shuttle", shuttlePrice: 0, shuttlesPerTube: null, prizes: [], otherCosts: [], otherIncome: [] },
+  };
+}
 
 function isEmptyStage(stage: StageRulesDraft): boolean {
   return Object.values(stage).every((value) => value === null);
@@ -410,6 +433,14 @@ function toUtc(date: string, hhmm: string, timeZone: string): string {
 
 /** Validates the whole draft, collecting every issue, then builds inputs. */
 export function parsePlan(draft: PlanDraft): ParseResult {
+  const parsed = parseWhole(draft);
+  if (parsed.ok) return parsed;
+  // With only money missing, the day can still be timed.
+  const timed = parseWhole(withoutMoney(draft));
+  return timed.ok ? { ...parsed, timing: timed.inputs } : parsed;
+}
+
+function parseWhole(draft: PlanDraft): { ok: true; inputs: TournamentInputs } | { ok: false; issues: PlanIssue[] } {
   const issues: PlanIssue[] = [];
   const collect = <T>(schema: z.ZodType<T>, value: unknown, prefix: PropertyKey[]) => {
     const result = schema.safeParse(value);

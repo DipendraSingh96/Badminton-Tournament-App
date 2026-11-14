@@ -395,13 +395,19 @@
 .court-news {
   animation: court-news 1s ease-in-out 3;
 }
+/* A new game has come onto a court: the same outline, pulsing until the desk
+   touches that court, so a game called onto a court can't be missed. */
+.court-call {
+  animation: court-news 1.4s ease-in-out infinite;
+}
 /* Still, for anyone who has asked for less motion: a waiting court is grey
    already; new information gets a steady outline. */
 @media (prefers-reduced-motion: reduce) {
   .court-wait {
     animation: none;
   }
-  .court-news {
+  .court-news,
+  .court-call {
     animation: none;
     box-shadow: 0 0 0 2px var(--background), 0 0 0 5px var(--primary);
   }
