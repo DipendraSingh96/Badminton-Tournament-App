@@ -268,6 +268,7 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Clock.** The time in the Live panel's tab row: 24px display bold, tabular.
 - **Simulation controls.** Icon buttons on the stage row with filled icons in status text colours: Play `fits-text`, Pause `tight-text`, Stop `over-text`; unavailable at 50%.
 - **Tick rows (prizes).** In a `card-system` box: a tick box, the place at 14px (secondary when unticked), and a 128px amount field at the right, disabled when unticked.
+- **Matches-played bar.** One row, 40px high, its sections 2px apart, the ends rounded. Each section is as wide as its share (`fr`), never under 3.5rem. Fills are the timeline's stage colours: `tl-group`, `tl-knockout` (every knockout round), `tl-final`. The number is the display face, 20px bold, in the stage's text colour (`tl-group-foreground`, `tl-knockout-foreground`, `tl-final-foreground`: dark, white, dark in Light; the dark ground on all three in Dark). Labels above are 12px: the name semibold, the count muted.
 - **Tie links.** `tl-link`: in Light the Dark theme's ground (#071F15), in Dark the Light theme's ground (#F2EFE9). A staple is a 10×4px rounded bar across the join of two pills; a thread is a 1.5px line. Marked (their tie is chosen): `primary`, the thread 2.5px.
 - **Court called.** `court-call`: the accent outline of `court-news`, pulsing every 1.4s until the desk touches the court. Reduced motion: a steady outline.
 - **Buffer past closing.** The buffer block takes a `tl-worst` tint (30%) and a 1px `tl-worst` inset ring.

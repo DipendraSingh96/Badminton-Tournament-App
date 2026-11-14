@@ -264,3 +264,12 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Plan with money missing:** the heading still says "Set up your tournament" with the item to fill in; the bar, the fit badge, hours and matches stay; profit is left out. The Schedule tab's cards stay; the Budget tab's result cards wait.
 - **A court called:** a court that a new game has come onto pulses the accent outline until the desk touches it (the court on the Court board, its frame or its game in the side panel, its game on the timeline, Start game, a score, Finish match, Walkover). A court the desk has just dealt with, or one that has become free, pulses for 3 seconds only. The audience board keeps 3 seconds.
 - **Choosing a court or a group** brings the side panel back to its top.
+
+### Schedule tab: Matches played by a player, 14 Nov 2026
+- A section between **Stages** and **Buffer**, with an info tip. It stays readable when the draw is locked.
+- One bar per competition, under the competition's name and tag.
+- **Above each section, together:** the stage or round in short ("Group", "R32", "R16", "QF", "SF", "Final", "Final + bronze") and, under it, how many play in it ("24 teams", "16 pairs").
+- **In each section:** the matches played by then ("2", or "2–3").
+- **Under the bar (team events):** "A tie is 2 rubbers: each player plays 1 rubber a tie."
+- **Hover and screen readers:** each section in full ("Round of 16: 16 teams play; 8 finish here (33%) having played 3 ties").
+- **Numbers not filled in yet:** "Fill in the entries and groups above to see this."
