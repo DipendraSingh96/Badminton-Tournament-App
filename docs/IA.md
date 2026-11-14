@@ -255,3 +255,12 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Standings, Knockout stage:** the tie's box says "Ended level: decide by hand." with the same **Decide…** button; once decided, "Ended level: decided by hand (see Changes)." and the side put through is in bold.
 - **Decide dialog:** the two sides as choices ("Who goes through"; "Who wins it" for the final; "Who takes third place" for the bronze match), and a note for the log. Nothing is chosen to begin with.
 - **Simulation banner:** "Waiting for you: Semi-final 1 ended level. Decide who goes through."
+
+### Timeline and Live attention, 14 Nov 2026 (these replace anything above that says otherwise)
+- **Zones:** one Group stage zone and one KO stage zone, the same span in every hall that plays the stage, flush one after the other. Dragging either moves it in every hall. The timeline's range grows to take in the last game, the buffer and the worst case.
+- **Warnings above the timeline:** "N matches run past their court's closing time (outlined in red)." and "The buffer runs past closing, until HH:MM." The buffer block is red when it does.
+- **Linked rubbers (team events):** a staple (a short bar across the join) between a tie's rubbers back to back on a court; a thread (a thin line) between a tie's rubbers on different courts. Choosing a game marks every rubber of its tie and its links in the selection colour. Dragging a stapled rubber drags the staple's rubbers together.
+- **Hover card:** a knockout game held back says "Waits for the group stage to finish".
+- **Plan with money missing:** the heading still says "Set up your tournament" with the item to fill in; the bar, the fit badge, hours and matches stay; profit is left out. The Schedule tab's cards stay; the Budget tab's result cards wait.
+- **A court called:** a court that a new game has come onto pulses the accent outline until the desk touches it (the court on the Court board, its frame or its game in the side panel, its game on the timeline, Start game, a score, Finish match, Walkover). A court the desk has just dealt with, or one that has become free, pulses for 3 seconds only. The audience board keeps 3 seconds.
+- **Choosing a court or a group** brings the side panel back to its top.

@@ -268,6 +268,9 @@ Build these once in `src/components/ui` (extend shadcn where it exists) and reus
 - **Clock.** The time in the Live panel's tab row: 24px display bold, tabular.
 - **Simulation controls.** Icon buttons on the stage row with filled icons in status text colours: Play `fits-text`, Pause `tight-text`, Stop `over-text`; unavailable at 50%.
 - **Tick rows (prizes).** In a `card-system` box: a tick box, the place at 14px (secondary when unticked), and a 128px amount field at the right, disabled when unticked.
+- **Tie links.** `tl-link`: in Light the Dark theme's ground (#071F15), in Dark the Light theme's ground (#F2EFE9). A staple is a 10×4px rounded bar across the join of two pills; a thread is a 1.5px line. Marked (their tie is chosen): `primary`, the thread 2.5px.
+- **Court called.** `court-call`: the accent outline of `court-news`, pulsing every 1.4s until the desk touches the court. Reduced motion: a steady outline.
+- **Buffer past closing.** The buffer block takes a `tl-worst` tint (30%) and a 1px `tl-worst` inset ring.
 - **Held.** One neutral grey, `held` (Light #7A7672, Dark #6E6A66), for a thing that can't go ahead because a player isn't checked in. It is the fill of a waiting court (white text on it) and of a held game's block on the timeline, so the two read as the same thing. Neutral, not green, so it stays clear of the group and knockout greens.
 - **Waiting court.** A court whose game can't start: the `held` fill, and (once the tournament has started) a slow fade to 40% opacity and back (1.8s, ease in and out) until the desk has looked at it. Reduced motion: no fade.
 - **Court news.** New information on a court: a soft pulse of a 3px outline in `primary` (the accent: green in Light, yellow in Dark), 2px off the court, three pulses of 1s. Reduced motion: the outline, steady, for the 3 seconds.

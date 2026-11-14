@@ -643,7 +643,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const simWaiting = !simStop
     ? null
     : simStop.reason === "tie"
-      ? `Waiting for you: ${matchRef(draft, simStop.matchId)?.label.replace(/, rubber \d+$/, "") ?? "a knockout tie"} ended level. Decide who goes through`
+      ? `Waiting for you: ${matchRef(draft, simStop.matchId)?.label.replace(/, rubber \d+$/, "") ?? "a knockout tie"} ended level. Decide who ${/:ko:Final:/.test(simStop.matchId) ? "wins it" : /:ko:Bronze:/.test(simStop.matchId) ? "takes third place" : "goes through"}`
       : simStop.reason === "score"
       ? `Waiting for a score: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"}. Enter it and finish the match`
       : `Waiting for you: Court ${courtNumberOf(draft, simStop.courtId) ?? "?"} can't start. Check its players in, give a walkover, or put another game on it`;
