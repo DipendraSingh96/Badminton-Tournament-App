@@ -13,6 +13,7 @@ export * from "./draw";
 export * from "./duration";
 export * from "./entry";
 export * from "./estimate";
+export * from "./experience";
 export * from "./finance";
 export * from "./fixtures";
 export * from "./format";
