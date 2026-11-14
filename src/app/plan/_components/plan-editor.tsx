@@ -40,6 +40,7 @@ import {
   type TournamentIndex,
 } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
+import { NeedsYou } from "./live-dialogs";
 import { COURT_SIZES, CourtSelectionContext, CourtSizeContext, VenueFixedContext, type CourtSize } from "./court-card";
 import { DrawPanel, TeamOpenContext, type DrawFocus } from "./draw-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
@@ -1383,23 +1384,40 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </Rail>
               ) : (
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
-                  {watching ? (
-                    <div className="mx-4 mb-3 flex shrink-0 flex-col gap-2 rounded-lg bg-card-system py-2 pr-2 pl-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm">
-                          <span className="font-semibold">Simulation.</span> {simWaiting ? `${simWaiting}.` : "Nothing is saved. It pauses when a court needs you."}
-                        </p>
-                        <Button variant="outline" size="sm" onClick={endSimulation}>
-                          End simulation
-                        </Button>
-                      </div>
-                      <label
-                        className="flex w-fit items-center gap-2 text-sm"
-                        title="On: each game that ends pauses the day until you enter its score and finish it. Off: the simulation scores games itself"
-                      >
-                        <Switch checked={Boolean(sim?.deskScores)} onCheckedChange={setDeskScores} />I enter the scores
-                      </label>
-                    </div>
+                  {/* What needs the desk: why a simulation has paused, courts waiting, ties and groups to decide. */}
+                  {onLive ? (
+                    <NeedsYou
+                      draft={liveDraft}
+                      update={liveUpdate}
+                      paused={watching ? simWaiting : null}
+                      waiting={
+                        // The court a simulation has paused for is already said, in its own words.
+                        [...attention.stuck]
+                          .filter((courtId) => !(simStop?.reason === "players" && simStop.courtId === courtId))
+                          .map((courtId) => ({ courtId, number: courtNumberOf(draft, courtId) }))
+                          .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+                      }
+                      onCourt={(courtId) => {
+                        attention.attend(courtId);
+                        filterLive({ kind: "court", id: courtId });
+                      }}
+                      onGroups={() => setLiveView("standings")}
+                      footer={
+                        watching ? (
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                            <p className="text-sm">
+                              <span className="font-semibold">Simulation.</span> Nothing is saved.
+                            </p>
+                            <label
+                              className="flex w-fit items-center gap-2 text-sm"
+                              title="On: each game that ends pauses the day until you enter its score and finish it. Off: the simulation scores games itself"
+                            >
+                              <Switch checked={Boolean(sim?.deskScores)} onCheckedChange={setDeskScores} />I enter the scores
+                            </label>
+                          </div>
+                        ) : undefined
+                      }
+                    />
                   ) : null}
                   <LivePanel
                     draft={liveDraft}

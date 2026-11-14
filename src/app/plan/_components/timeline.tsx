@@ -1590,7 +1590,7 @@ export function Timeline({
                 unit={bufferUnit}
                 bounds={hasHours ? { min: start, max: end } : undefined}
                 className={lane}
-                windowClassName={`hatch ${pinnedAt !== null ? "bg-muted" : ""}`}
+                windowClassName={`zone-buffer ${pinnedAt !== null ? "ring-1 ring-foreground/40 ring-inset" : ""}`}
                 emptyHint="Drag to add a buffer"
                 onDraw={
                   hasHours
@@ -1642,7 +1642,7 @@ export function Timeline({
               <span
                 aria-hidden="true"
                 data-buffer-late={bufferLate || undefined}
-                className={`hatch pointer-events-none absolute top-7 opacity-60 ${thin ? "bottom-5" : "bottom-6"} ${bufferLate ? "bg-tl-worst/30 ring-1 ring-tl-worst ring-inset" : ""}`}
+                className={`pointer-events-none absolute top-7 ${thin ? "bottom-5" : "bottom-6"} ${bufferLate ? "bg-tl-worst/30 ring-1 ring-tl-worst ring-inset" : "zone-buffer"}`}
                 style={{ left: pct(bufferWindow.from), width: width(bufferWindow.from, bufferWindow.to) }}
               />
             ) : null}
@@ -1707,7 +1707,7 @@ export function Timeline({
             Court available
           </span>
           <span className="flex items-center gap-2">
-            <span className="hatch size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
+            <span className="zone-buffer size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
             Buffer{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
           </span>
           {worstFinish !== null ? (

@@ -216,21 +216,19 @@
   );
 }
 
-/* Stage zones across a hall's courts: the group stage and the KO stage look different. */
+/* Stage zones across a hall's courts: a see-through wash of the stage's own
+   colour (its matches' colour at half strength), so what is behind shows. */
 .zone-group {
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in oklch, var(--foreground) 14%, transparent) 0 1px,
-    transparent 1px 7px
-  );
+  background-color: color-mix(in srgb, var(--tl-group) 50%, transparent);
 }
 
 .zone-ko {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    color-mix(in oklch, var(--foreground) 22%, transparent) 0 1.5px,
-    transparent 1.5px 4px
-  );
+  background-color: color-mix(in srgb, var(--tl-knockout) 50%, transparent);
+}
+
+/* The buffer: a see-through grey. */
+.zone-buffer {
+  background-color: color-mix(in srgb, var(--foreground) 22%, transparent);
 }
 
 /* Scrollbars: thin, rounded, no arrows, no track. A pane that scrolls keeps the

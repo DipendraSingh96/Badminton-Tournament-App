@@ -97,8 +97,9 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
               ? "Each competition has its own line-up. Entries and structure are on the Schedule tab."
               : "Choose the events you're running. Add an event more than once for separate categories, such as an under-15s draw."
           }
+          // Beside the heading while there is none; under the last one after that.
           action={
-            draft.unit === "team" ? (
+            draft.unit === "team" && draft.categories.length === 0 ? (
               <Button variant="outline" size="sm" onClick={() => update((d) => void d.categories.push(newCategory(d)))}>
                 <PlusIcon /> Add competition
               </Button>
@@ -127,6 +128,11 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
               )}
             </ul>
           )}
+          {draft.unit === "team" && draft.categories.length > 0 ? (
+            <Button variant="outline" size="sm" className="self-start" onClick={() => update((d) => void d.categories.push(newCategory(d)))}>
+              <PlusIcon /> Add competition
+            </Button>
+          ) : null}
         </Section>
       ) : null}
 

@@ -243,6 +243,22 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
   const lines: Line[] = draft.finance[key];
   const noun = kind === "cost" ? "cost" : "income";
   const edit = (i: number, recipe: (line: Line) => void) => update((d) => recipe(d.finance[key][i]!));
+  // Beside the heading while the list is empty; under the last card once there is one, so adding several doesn't mean going back up.
+  const add = (
+    <Button
+      variant="outline"
+      size="sm"
+      className="self-start"
+      onClick={() =>
+        update((d) => {
+          if (kind === "cost") d.finance.otherCosts.push(emptyOtherCost());
+          else d.finance.otherIncome.push(emptyOtherIncome());
+        })
+      }
+    >
+      <PlusIcon /> Add {noun}
+    </Button>
+  );
   return (
     <Section
       title={kind === "cost" ? "Other costs" : "Other money in"}
@@ -251,20 +267,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
           ? "For example trophies, printing or umpire food. Court hire is worked out from the venue."
           : "For example sponsorship, a raffle or spectator tickets."
       }
-      action={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            update((d) => {
-              if (kind === "cost") d.finance.otherCosts.push(emptyOtherCost());
-              else d.finance.otherIncome.push(emptyOtherIncome());
-            })
-          }
-        >
-          <PlusIcon /> Add {noun}
-        </Button>
-      }
+      action={lines.length === 0 ? add : null}
     >
       {lines.length === 0 ? (
         <p className="text-sm text-muted-foreground">{kind === "cost" ? "No other costs yet." : "No other money in yet."}</p>
@@ -328,6 +331,7 @@ function MoneyList({ kind, draft, update }: { kind: "cost" | "income"; draft: Pl
           );
         })
       )}
+      {lines.length > 0 ? add : null}
     </Section>
   );
 }

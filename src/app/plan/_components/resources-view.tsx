@@ -339,6 +339,14 @@ export function ResourcesView({
             >
               <PrinterIcon /> Print
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title="A PDF or an image of your own score sheet, used in place of ours. Kept on this device."
+              onClick={() => upload.current?.click()}
+            >
+              <UploadSimpleIcon /> {own ? "Replace score sheet" : "Upload score sheet"}
+            </Button>
             {own ? (
               <Button
                 variant="ghost"
@@ -351,9 +359,6 @@ export function ResourcesView({
                 Use ours again
               </Button>
             ) : null}
-            <Button variant="ghost" size="sm" title="A PDF or an image of your own score sheet, used in place of ours. Kept on this device." onClick={() => upload.current?.click()}>
-              <UploadSimpleIcon /> {own ? "Replace" : "Use your own"}
-            </Button>
             <input
               ref={upload}
               type="file"

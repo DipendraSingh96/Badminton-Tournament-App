@@ -12,7 +12,9 @@ import { entryName, type PlanDraft } from "@/lib/tournament/draft";
 import {
   categoryLabel,
   entryIdOn,
+  groupStatus,
   groupTable,
+  groupTables,
   knockoutLevel,
   knockoutRoundName,
   levelKnockoutTies,
@@ -471,36 +473,109 @@ export function DecideKnockoutDialog({
 }
 
 /**
- * The knockout ties that ended level and are waiting for the desk, each with
- * its Decide button: the round after can't be filled until it has. Nothing
- * when there are none.
+ * What needs the desk, at the top of the Live side panel: why a simulation
+ * has paused, courts that can't start, knockout ties that ended level (each
+ * with its Decide button) and groups level on every tiebreak that hold the
+ * knockout up. Nothing at all when nothing needs the desk and no simulation
+ * is running. `footer` is the simulation's own line.
  */
-export function LevelTies({ draft, update }: { draft: PlanDraft; update: Update }) {
+export function NeedsYou({
+  draft,
+  update,
+  paused,
+  waiting,
+  onCourt,
+  onGroups,
+  footer,
+}: {
+  draft: PlanDraft;
+  update: Update;
+  /** Why a simulation is waiting for the desk, in words; null when it isn't. */
+  paused: string | null;
+  /** Courts whose game can't start because a player isn't checked in, with their numbers. */
+  waiting: { courtId: string; number: number | null }[];
+  onCourt: (courtId: string) => void;
+  /** Opens the group tables. */
+  onGroups: () => void;
+  footer?: ReactNode;
+}) {
   const [deciding, setDeciding] = useState<{ categoryId: string; code: string } | null>(null);
   const ties = levelKnockoutTies(draft);
-  if (ties.length === 0 && !deciding) return null;
+  // Groups whose places across the qualifying line are level on every tiebreak: the knockout can't be filled until the desk decides.
+  const groups = draft.categories.flatMap((category) =>
+    groupTables(draft, category)
+      .filter((table) => table.rows.some((row) => groupStatus(table, row) === "level"))
+      .map((table) => ({ categoryId: category.id, letter: table.letter })),
+  );
+  const several = draft.categories.length > 1;
+  const link = "rounded-sm font-semibold underline decoration-primary decoration-2 underline-offset-2 outline-none hover:decoration-[3px] focus-visible:ring-2 focus-visible:ring-ring";
+  const item = "flex items-start gap-2 text-sm";
+  const mark = <WarningIcon className="mt-1 size-3 shrink-0 text-over-text" aria-hidden="true" />;
+  const needs = (paused ? 1 : 0) + (waiting.length > 0 ? 1 : 0) + ties.length + groups.length;
+  if (needs === 0 && !footer && !deciding) return null;
   return (
     <>
-      {ties.length > 0 ? (
-        <ul aria-label="Level ties to decide" className="mb-4 flex flex-col gap-1">
-          {ties.map((tie) => (
-            <li key={`${tie.categoryId}:${tie.code}`} data-level-tie={tie.code} className="flex items-center justify-between gap-3 rounded-lg bg-card-system py-2 pr-2 pl-3">
-              <p className="flex min-w-0 items-start gap-2 text-sm">
-                <WarningIcon className="mt-1 size-3 shrink-0 text-over-text" aria-hidden="true" />
-                <span className="min-w-0">
-                  <span className="font-semibold">
-                    {draft.categories.length > 1 ? `${categoryLabel(draft, tie.categoryId)}, ` : ""}
-                    {knockoutRoundName(tie.code)} ended level.
-                  </span>{" "}
-                  {nameOf(draft, tie.home)} v {nameOf(draft, tie.away)}: decide who {tie.code === "Final" ? "wins it" : tie.code === "Bronze" ? "takes third place" : "goes through"}.
-                </span>
-              </p>
-              <Button variant="outline" size="sm" onClick={() => setDeciding({ categoryId: tie.categoryId, code: tie.code })}>
-                Decide…
-              </Button>
-            </li>
-          ))}
-        </ul>
+      {needs > 0 || footer ? (
+        <div data-needs-you={needs} className="mx-4 mb-3 flex shrink-0 flex-col gap-2 rounded-lg bg-card-system py-2 pr-2 pl-3">
+          {needs > 0 ? (
+            <ul aria-label="Needs you" className="flex flex-col gap-2">
+              {paused ? (
+                <li className={item}>
+                  {mark}
+                  <span>{paused}.</span>
+                </li>
+              ) : null}
+              {waiting.length > 0 ? (
+                <li className={item}>
+                  {mark}
+                  <span>
+                    {waiting.map((court, i) => (
+                      <span key={court.courtId}>
+                        {i > 0 ? ", " : ""}
+                        <button type="button" className={link} onClick={() => onCourt(court.courtId)}>
+                          Court {court.number ?? "?"}
+                        </button>
+                      </span>
+                    ))}{" "}
+                    can&apos;t start: players not checked in.
+                  </span>
+                </li>
+              ) : null}
+              {ties.map((tie) => (
+                <li key={`${tie.categoryId}:${tie.code}`} data-level-tie={tie.code} className="flex items-center justify-between gap-3">
+                  <p className={cn(item, "min-w-0")}>
+                    {mark}
+                    <span className="min-w-0">
+                      <span className="font-semibold">
+                        {several ? `${categoryLabel(draft, tie.categoryId)}, ` : ""}
+                        {knockoutRoundName(tie.code)} ended level.
+                      </span>{" "}
+                      {nameOf(draft, tie.home)} v {nameOf(draft, tie.away)}: decide who {tie.code === "Final" ? "wins it" : tie.code === "Bronze" ? "takes third place" : "goes through"}.
+                    </span>
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => setDeciding({ categoryId: tie.categoryId, code: tie.code })}>
+                    Decide…
+                  </Button>
+                </li>
+              ))}
+              {groups.map((group) => (
+                <li key={`${group.categoryId}:${group.letter}`} data-level-group={group.letter} className={item}>
+                  {mark}
+                  <span>
+                    <span className="font-semibold">
+                      {several ? `${categoryLabel(draft, group.categoryId)}, ` : ""}Group {group.letter} is level on every tiebreak.
+                    </span>{" "}
+                    <button type="button" className={link} onClick={onGroups}>
+                      Decide it in the group tables
+                    </button>
+                    : the knockout waits for it.
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {footer}
+        </div>
       ) : null}
       {deciding ? <DecideKnockoutDialog draft={draft} update={update} categoryId={deciding.categoryId} code={deciding.code} onClose={() => setDeciding(null)} /> : null}
     </>

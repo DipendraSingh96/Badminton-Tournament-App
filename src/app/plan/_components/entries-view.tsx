@@ -272,11 +272,12 @@ function EntryRow({
     <div role="row" className="flex flex-col border-b py-2 last:border-b-0">
       <div
         className={cn(
-          "grid items-center gap-2 px-2",
+          // Top-aligned: a pair's two players stand one above the other, and the rest of the row lines up with the first.
+          "grid items-start gap-2 px-2",
           team ? "grid-cols-[40px_minmax(140px,1.4fr)_minmax(180px,1fr)_80px_80px_40px]" : "grid-cols-[40px_minmax(140px,1.4fr)_minmax(180px,1fr)_80px_80px_40px]",
         )}
       >
-        <span role="cell" className="text-sm text-muted-foreground tabular-nums">
+        <span role="cell" className="flex h-(--control-h) items-center text-sm text-muted-foreground tabular-nums">
           {index + 1}
         </span>
         <span role="cell">
@@ -334,7 +335,7 @@ function EntryRow({
             </span>
           )}
         </span>
-        <span role="cell" className="flex justify-center">
+        <span role="cell" className="flex h-(--control-h) items-center justify-center">
           <Checkbox
             aria-label={label("External")}
             checked={entry.external}
@@ -358,7 +359,7 @@ function EntryRow({
             className="text-center"
           />
         </span>
-        <span role="cell">
+        <span role="cell" className="flex h-(--control-h) items-center">
           <IconButton label={label("Remove")} onClick={() => update((d) => void (d.entries = d.entries.filter((e) => e.id !== entry.id)))}>
             <TrashIcon />
           </IconButton>
