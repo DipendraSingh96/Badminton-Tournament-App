@@ -62,13 +62,16 @@ import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { RailSummary, Summary } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
-import { Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
+import { PLAYBACK_SECONDS, Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
 import { VenueCanvas } from "./venue-canvas";
 
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
+
+/** How far the Left and Right arrow keys move the timeline, in seconds of playback. */
+const ARROW_SECONDS = 5;
 
 /**
  * A simulated day (developer tools): the day it was last worked out from,
@@ -727,24 +730,36 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const minute = minutesOfDay(formatClock(new Date(clockTick * 60000).toISOString(), draft.frame.timeZone));
     return minute === null || !range ? null : Math.min(Math.max(minute, range.start), range.end);
   }, [clockTick, draft.frame.timeZone, range?.start, range?.end]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Space plays and pauses the timeline wherever it can be played: not in real Live (the cursor is the
-  // clock), and not while a field, a button or a dialog has the keyboard (Space is theirs there).
+  // Space plays and pauses the timeline wherever it can be played, and Left and Right move it by five
+  // seconds of playback: not in real Live (the cursor is the clock), and not while a field, a button
+  // or a dialog has the keyboard (the keys are theirs there).
   const spaceHeld = simHold !== null && playhead !== null && playhead >= simHold;
+  // Minutes of the day a second of playback: slower with developer tools on, so a simulated day can be followed.
+  const playRate = watching || developer ? SIMULATION.minutesPerSecond : undefined;
   useEffect(() => {
     if (clockLocked || !range) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const arrow = e.code === "ArrowLeft" ? -1 : e.code === "ArrowRight" ? 1 : 0;
+      if ((e.code !== "Space" && arrow === 0) || (e.repeat && arrow === 0) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       const focused = document.activeElement;
       if (
         focused &&
         focused !== document.body &&
         focused.matches(
-          "input, textarea, select, button, a[href], summary, [contenteditable='true'], [role=button], [role=tab], [role=switch], [role=checkbox], [role=radio], [role=spinbutton], [role=slider], [role=separator]",
+          arrow !== 0
+            ? // Arrows belong to whatever moves with them: fields, tabs, choices, sliders, and the timeline's own matches and zones.
+              "input, textarea, select, [contenteditable='true'], [role=tab], [role=radio], [role=spinbutton], [role=slider], [role=separator], [role=menuitem], [role=option], [data-segment-id], [data-hall-stages] *"
+            : "input, textarea, select, button, a[href], summary, [contenteditable='true'], [role=button], [role=tab], [role=switch], [role=checkbox], [role=radio], [role=spinbutton], [role=slider], [role=separator]",
         )
       )
         return;
       if (document.querySelector("[role=dialog], [role=alertdialog]") || !document.querySelector('section[aria-label="Timeline"]')) return;
       e.preventDefault();
+      if (arrow !== 0) {
+        // Five seconds of playback, through the same seek as dragging the cursor: never past where a simulation waits for the desk.
+        const step = ARROW_SECONDS * (playRate ?? (range.end - range.start) / PLAYBACK_SECONDS);
+        return seek(Math.min(range.end, Math.max(range.start, (playhead ?? range.start) + arrow * step)));
+      }
       if (playing) return setPlaying(false);
       // A simulation waiting for the desk plays on when the court is dealt with, not before.
       if (spaceHeld) return;
@@ -753,7 +768,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld, playRate, seek]); // eslint-disable-line react-hooks/exhaustive-deps
   // The time shown beside the Live panel's tabs: the cursor's.
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
@@ -1110,7 +1125,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           playing={clockLocked ? false : playing}
           onPlayingChange={clockLocked ? noPlaying : setPlaying}
           locked={clockLocked}
-          rate={watching ? SIMULATION.minutesPerSecond : undefined}
+          rate={playRate}
           picked={pickedGame}
           onPick={viewing === "plan" ? undefined : pickGame}
           collapsed={timelineFolded}
@@ -1136,16 +1151,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     </ResizablePanelGroup>
     </div>
   );
-  // Where a waiting game may be played: a group game in its own hall, or on any court with nothing left
-  // that can be played now; a knockout game in a hall that has its stage.
-  const canMove: CanMove = (segment, courtId) => {
-    const hallOf = (id: string) => draft.frame.halls.find((h) => h.courts.some((c) => c.id === id))?.id;
-    const hall = hallOf(courtId);
-    if (!hall) return false;
-    return segment.stage === "group"
-      ? hall === hallOf(segment.courtId) || day.open.has(courtId)
-      : zones.some((z) => z.hallId === hall && z.zone === zoneOf(segment.stage));
-  };
+  // Where a waiting game may be played: on any court, in any hall (the desk's choice).
+  const canMove: CanMove = (_segment, courtId) => draft.frame.halls.some((h) => h.courts.some((c) => c.id === courtId));
   // Putting a waiting game on a court, from the side panel or onto the Court board.
   const [liveDragging, setLiveDragging] = useState<LocalSegment | null>(null);
   const liveQueues = courtQueues(liveSegments, liveDraft.results);

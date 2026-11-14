@@ -396,17 +396,24 @@ describe("estimateSchedule", () => {
     expect(after[1]).toMatchObject({ id: first!.id, moved: true, from: at("09:15") });
   });
 
-  it("moves a match to another court of its hall, but not out of its hall", () => {
+  it("moves a match to another court of its hall, or to a court in another hall", () => {
     const base = estimate(twoHalls()).schedule;
     const match = matchesOn(base, 0)[0]!;
     const plan = twoHalls();
     plan.matchMoves = [{ matchId: match.id, courtId: "h1-c4", before: null }];
     expect(matchesOn(estimate(plan).schedule, 3).some((d) => d.id === match.id && d.moved)).toBe(true);
 
+    // To the other hall: it is played there, after that court's own group matches, and nothing is lost.
     plan.matchMoves = [{ matchId: match.id, courtId: "h2-c1", before: null }];
-    const refused = estimate(plan).schedule;
-    const inHall2 = refused.courts.filter((c) => c.hallId === "h2").flatMap((c) => c.segments);
-    expect(inHall2.some((s) => s.details[0]!.id === match.id)).toBe(false);
+    const across = estimate(plan).schedule;
+    const there = across.courts.find((c) => c.courtId === "h2-c1")!.segments.map((s) => s.details[0]!);
+    expect(there.find((d) => d.id === match.id)).toMatchObject({ moved: true });
+    expect(across.unplaced).toBe(0);
+    expect(across.courts.flatMap((c) => c.segments).length).toBe(base.courts.flatMap((c) => c.segments).length);
+    // The group stage is shown in both halls still, and the knockout still waits for every group match.
+    const all = across.courts.flatMap((c) => c.segments.map((s) => s.details[0]!));
+    const lastGroup = Math.max(...all.filter((d) => d.match.stage === "group").map((d) => Date.parse(d.to)));
+    expect(Math.min(...all.filter((d) => d.match.stage !== "group").map((d) => Date.parse(d.from)))).toBeGreaterThanOrEqual(lastGroup);
   });
 
   it("keeps a moved group match in the group stage when the match it was put before has left the court", () => {

@@ -87,7 +87,7 @@ const ZONE_LABELS: Record<Zone, string> = { group: "Group stage", knockout: "KO 
 const ZONE_NAMES: Record<Zone, string> = { group: "group stage", knockout: "KO stage" };
 
 /** Playback runs the whole day in this many seconds: a viewing speed, not a tournament value. */
-const PLAYBACK_SECONDS = 30;
+export const PLAYBACK_SECONDS = 30;
 const KEY_STEP = 5;
 /** Room an hour label needs on the axis. */
 const TICK_LABEL_PX = 44;
@@ -707,7 +707,6 @@ export function Timeline({
     draft.overspill ? `Plus ${draft.overspill}% overspill on every match` : "No overspill added (Schedule tab, Stages)",
   ];
   const hallIndex = new Map(draft.frame.halls.map((h, i) => [h.id, i]));
-  const hallLabel = (id: string) => hallName(draft.frame.halls[hallIndex.get(id)!]!, hallIndex.get(id)!);
   const courtHall = new Map(draft.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
   const courtOrder = draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id));
   const byCourt = new Map<string, LocalSegment[]>();
@@ -845,14 +844,14 @@ export function Timeline({
       .concat(". Arrow keys go between matches; Alt and the arrow keys move it.");
   }
 
-  // ----- Matches: drag onto a court of the same hall, inside its stage's zone.
+  // ----- Matches: drag onto any court, in any hall, inside its stage's zone.
 
-  /** The zone a match may be dropped in, for a hall. */
-  const zoneFor = (hallId: string, stage: Stage) => zones.find((z) => z.hallId === hallId && z.zone === zoneOf(stage));
+  /** The zone a match may be dropped in: its stage's, which is the same span in every hall (a hall that doesn't play the stage yet takes another hall's). */
+  const zoneFor = (hallId: string, stage: Stage) =>
+    zones.find((z) => z.hallId === hallId && z.zone === zoneOf(stage)) ?? zones.find((z) => z.zone === zoneOf(stage));
 
   /** Where a match would land at a point on screen, or why it can't. */
   function landing(segment: LocalSegment, x: number, y: number): Pick<PillDrag, "target" | "refusal"> {
-    const fromHall = courtHall.get(segment.courtId)!;
     const row = document
       .elementsFromPoint(x, y)
       .map((e) => (e as HTMLElement).closest<HTMLElement>("[data-court-id]"))
@@ -862,9 +861,6 @@ export function Timeline({
     const hallId = courtHall.get(courtId)!;
     const zone = zoneFor(hallId, segment.stage);
     const stageName = ZONE_NAMES[zoneOf(segment.stage)];
-    if (hallId !== fromHall && segment.stage === "group") {
-      return { target: null, refusal: `Stays in ${hallLabel(fromHall)}'s ${stageName}` };
-    }
     if (!zone) return { target: null, refusal: `Stays in the ${stageName}` };
     const box = row.getBoundingClientRect();
     const minute = range.start + ((x - box.left) / Math.max(1, box.width)) * span;

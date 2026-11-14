@@ -472,7 +472,8 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
   const { queues, borrowed } = assigned;
   let unplaced = assigned.unplaced;
 
-  // Moves by hand: onto a court of a hall the match may use, before a match there (or last).
+  // Moves by hand: onto any court, in any hall, before a match there (or last). The organiser's
+  // choice overrides where the match would otherwise be played.
   const moved = new Set<string>();
   const courtIndex = new Map(courts.map((c, i) => [c.courtId, i]));
   for (const move of inputs.matchMoves ?? []) {
@@ -480,7 +481,6 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     const from = queues.findIndex((q) => q.some((m) => m.id === move.matchId));
     if (to === undefined || from === -1) continue;
     const match = queues[from]!.find((m) => m.id === move.matchId)!;
-    if (!match.halls.has(courts[to]!.hallId)) continue;
     queues[from] = queues[from]!.filter((m) => m.id !== move.matchId);
     const at = move.before ? queues[to]!.findIndex((m) => m.id === move.before) : -1;
     if (at === -1) queues[to]!.push(match);
