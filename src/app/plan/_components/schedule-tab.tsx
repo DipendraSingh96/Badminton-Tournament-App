@@ -364,14 +364,18 @@ function PlayedSection({ draft }: { draft: PlanDraft }) {
             const category = effectiveCategory(draft, raw);
             const result = formatOf(category, format);
             const sections = result?.ok ? matchesPlayed(result.format) : [];
-            const total = sections.reduce((sum, s) => sum + s.ending, 0);
+            const total = sections.reduce((sum, s) => sum + s.share, 0);
             const nouns = entryNoun(unit, category.event, true);
             const noun = entryNoun(unit, category.event);
             const rubbers = team ? EVENT_TYPES.reduce((sum, e) => sum + (category.lineUp[e] ?? 0), 0) : 0;
             const range = (m: { min: number; max: number }) => (m.min === m.max ? `${m.min}` : `${m.min}–${m.max}`);
             const said = sections.map((s) => {
               const step = playedStep(s.step);
-              return `${step.full}: ${s.playing} ${s.playing === 1 ? noun : nouns} play; ${s.ending} finish here (${Math.round((s.ending / total) * 100)}%) having played ${range(s.matches)} ${matchNoun(s.matches.max)}`;
+              const here = `${s.playing} ${s.playing === 1 ? noun : nouns} play`;
+              const by = `${range(s.matches)} ${matchNoun(s.matches.max)}`;
+              return s.ending > 0
+                ? `${step.full}: ${here}; ${s.ending} finish here (${Math.round((s.ending / total) * 100)}%) having played ${by}`
+                : `${step.full}: ${here}, ${by} played by then; all go on to the final or the bronze match`;
             });
             return (
               <div key={category.id} data-played={category.id} className="flex flex-col gap-2">
@@ -385,7 +389,7 @@ function PlayedSection({ draft }: { draft: PlanDraft }) {
                       aria-label={`${said.join(". ")}.`}
                       // Each section is as wide as its share of the entries, but never too narrow for its number and its name.
                       className="grid gap-x-0.5 gap-y-1"
-                      style={{ gridTemplateColumns: sections.map((s) => `minmax(3.5rem, ${s.ending}fr)`).join(" ") }}
+                      style={{ gridTemplateColumns: sections.map((s) => `minmax(3.5rem, ${s.share}fr)`).join(" ") }}
                     >
                       {sections.map((s, i) => (
                         <span key={`name-${i}`} aria-hidden="true" className="flex min-w-0 flex-col self-end text-xs leading-4">
@@ -437,8 +441,8 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
       title="Stages"
       description="In play order. Each category sets its own groups, scoring and timing for each stage; they apply to every event and rubber it plays there."
     >
-      {usesBestOfThree(draft) ? (
-        <div className="w-[calc(50%-0.25rem)]">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-3">
+        {usesBestOfThree(draft) ? (
           <StepperField
             label="Best-of-3 allowance (%)"
             hint="Extra time added to every best-of-3 match, because some go to a third game. 33% adds a third."
@@ -446,8 +450,15 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
             value={draft.bestOfThreeAllowance}
             onChange={(v) => update((d) => void (d.bestOfThreeAllowance = v))}
           />
-        </div>
-      ) : null}
+        ) : null}
+        <StepperField
+          label="Overspill (%)"
+          hint="Extra time added to every match in the worst case, for matches that run over. Optional; the typical plan doesn't change."
+          path={["overspill"]}
+          value={draft.overspill}
+          onChange={(v) => update((d) => void (d.overspill = v))}
+        />
+      </div>
       {STAGES.map((stage) => {
         // The bronze match is each category's choice, so its stage shows whenever there's a knockout.
         const played = inPlay.includes(stage) || (stage === "bronze" && hasKnockout);

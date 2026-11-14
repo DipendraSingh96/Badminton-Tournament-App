@@ -120,6 +120,7 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
     case "rules":
       return "Rules";
     case "bestOfThreeAllowance":
+    case "overspill":
       return "Stages";
     case "stageRules":
       return `Stage: ${STAGE_LABELS[key as Stage]}`;

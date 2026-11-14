@@ -34,6 +34,7 @@ export const DUMMY_STAGE_RULES: Omit<StageRulesDraft, "bestOf"> = {
   changeoverMinutes: 3,
 };
 export const DUMMY_BEST_OF_THREE_ALLOWANCE = 33;
+export const DUMMY_OVERSPILL = 10;
 
 export const DUMMY_FINANCE = { shuttlesPerGame: 1, tubePrice: 24, shuttlesPerTube: 12, winnersPrize: 50 };
 
@@ -81,7 +82,7 @@ export const DUMMY_CHECK_IN = { arrived: 0.75, absent: 0.1 };
  */
 export const SIMULATION = {
   /** Simulated minutes that pass in one second of watching. */
-  minutesPerSecond: 5,
+  minutesPerSecond: 2,
   /** The share of players not yet checked in who never turn up, and who turn up late. */
   absentShare: 0.04,
   lateShare: 0.12,

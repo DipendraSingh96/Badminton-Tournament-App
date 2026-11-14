@@ -19,6 +19,7 @@ import { drawSizes, playersFor, rubbersOf } from "../entries";
 import { markDummy, type SampleStage } from "./marks";
 import {
   DUMMY_BEST_OF_THREE_ALLOWANCE,
+  DUMMY_OVERSPILL,
   DUMMY_BUFFER_MINUTES,
   DUMMY_CATEGORY,
   DUMMY_CHECK_IN,
@@ -119,6 +120,7 @@ export function fillPlan(draft: PlanDraft, today: Date): PlanDraft {
       }
     });
     if (usesBestOfThree(d)) d.bestOfThreeAllowance ??= DUMMY_BEST_OF_THREE_ALLOWANCE;
+    d.overspill ??= DUMMY_OVERSPILL;
 
     const finance = d.finance;
     finance.shuttlesPerGame ??= DUMMY_FINANCE.shuttlesPerGame;

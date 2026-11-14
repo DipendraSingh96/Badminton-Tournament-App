@@ -44,6 +44,7 @@ import {
   moveZone,
   resetZone,
   shiftZone,
+  usesBestOfThree,
   type PlanDraft,
 } from "@/lib/tournament/draft";
 import { entryForSlot, sideName, sidePlayers } from "@/lib/tournament/entries";
@@ -696,6 +697,15 @@ export function Timeline({
   const pastClosing = (schedule?.late ?? 0) > 0;
   const worstTone: Tone =
     fit === "doesNotFit" || pastClosing ? "bad" : fit === "fitsTypicalOnly" ? "tight" : "fits";
+  // What the worst case allows for, in words, with the organiser's own two numbers.
+  const worstLines = [
+    "The absolute worst case",
+    "Every match at its longest: every best-of-3 goes to three games and every game to its maximum points",
+    ...(usesBestOfThree(draft) && draft.bestOfThreeAllowance !== null
+      ? [`Your ${draft.bestOfThreeAllowance}% best-of-3 allowance is already covered by that`]
+      : []),
+    draft.overspill ? `Plus ${draft.overspill}% overspill on every match` : "No overspill added (Schedule tab, Stages)",
+  ];
   const hallIndex = new Map(draft.frame.halls.map((h, i) => [h.id, i]));
   const hallLabel = (id: string) => hallName(draft.frame.halls[hallIndex.get(id)!]!, hallIndex.get(id)!);
   const courtHall = new Map(draft.frame.halls.flatMap((h) => h.courts.map((c) => [c.id, h.id] as const)));
@@ -1646,7 +1656,19 @@ export function Timeline({
                 style={{ left: pct(worstFinish) }}
               >
                 <span
-                  className={`absolute top-0 rounded-sm px-1 text-xs leading-4 whitespace-nowrap ${WORST_TONES[worstTone].label} ${
+                  // What the worst case allows for, on hover or focus.
+                  tabIndex={0}
+                  data-worst-case
+                  aria-label={`Worst case ${clock(worstFinish)}. ${worstLines.join(". ")}.`}
+                  onPointerEnter={(e) => setHovered({ x: e.clientX, y: e.clientY, lines: worstLines })}
+                  onPointerMove={(e) => setHovered({ x: e.clientX, y: e.clientY, lines: worstLines })}
+                  onPointerLeave={() => setHovered(null)}
+                  onFocus={(e) => {
+                    const box = e.currentTarget.getBoundingClientRect();
+                    setHovered({ x: box.left, y: box.bottom, lines: worstLines });
+                  }}
+                  onBlur={() => setHovered(null)}
+                  className={`pointer-events-auto absolute top-0 cursor-help rounded-sm px-1 text-xs leading-4 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring ${WORST_TONES[worstTone].label} ${
                     (worstFinish - range.start) / span > 0.75 ? "right-1" : "left-1"
                   }`}
                 >

@@ -499,6 +499,12 @@ function parseWhole(draft: PlanDraft): { ok: true; inputs: TournamentInputs } | 
     const percent = collect(amount("Best-of-3 allowance"), draft.bestOfThreeAllowance, ["bestOfThreeAllowance"]);
     if (percent !== null) bestOfThreeAllowance = percent / 100;
   }
+  // Optional: empty is none.
+  let overspill = 0;
+  if (draft.overspill !== null) {
+    const percent = collect(amount("Overspill"), draft.overspill, ["overspill"]);
+    if (percent !== null) overspill = percent / 100;
+  }
 
   if (frame && frame.bufferStart !== null) {
     // A pinned buffer sits inside the day and ends by the last closing.
@@ -654,6 +660,7 @@ function parseWhole(draft: PlanDraft): { ok: true; inputs: TournamentInputs } | 
       stageRules: {},
       stageTiming: {},
       bestOfThreeAllowance,
+      ...(overspill > 0 ? { overspill } : {}),
       finance: {
         shuttlesPerGame: finance.shuttlesPerGame,
         costPerShuttle:

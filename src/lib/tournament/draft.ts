@@ -332,6 +332,8 @@ export interface PlanDraft {
   stageRules: Record<Stage, StageRulesDraft>;
   /** Percentage added to typical best-of-3 matches; needed when any stage is best of 3. */
   bestOfThreeAllowance: N;
+  /** Percentage added to every match in the worst case, for matches that run over. Optional: empty is none. */
+  overspill: N;
   finance: FinanceDraft;
   /** Set once for the tournament. */
   rules: RulesDraft;
@@ -969,6 +971,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
       final: emptyStageRules(),
     },
     bestOfThreeAllowance: null,
+    overspill: null,
     finance: {
       shuttlesPerGame: null,
       shuttlePriceBasis: null,

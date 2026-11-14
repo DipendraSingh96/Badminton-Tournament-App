@@ -74,4 +74,17 @@ describe("matchMinutes", () => {
     const longer: Timing = { minutesPerGame: 15, changeoverMinutes: 5 };
     expect(matchMinutes(rules({ bestOf: 3 }), longer)).toMatchObject({ typical: 35, worst: 50 });
   });
+
+  it("adds the overspill to the worst case only", () => {
+    // Best of 3 to 20, 10 minutes a game, 4 minutes organising: 24 typical, 34 at its longest.
+    const plain = matchMinutes(rules({ bestOf: 3 }), timing);
+    const spilled = matchMinutes(rules({ bestOf: 3 }), timing, 0, 0.1);
+    expect(plain).toMatchObject({ typical: 24, worst: 34 });
+    expect(spilled.typical).toBe(24);
+    expect(spilled.worst).toBeCloseTo(37.4);
+    // The typical length is still capped by the longest match, not by the worst case with overspill.
+    expect(matchMinutes(rules({ bestOf: 3 }), timing, 1, 0.5)).toMatchObject({ typical: 34, capped: true });
+    // Nothing negative: an overspill below zero is none.
+    expect(matchMinutes(rules(), timing, 0, -1).worst).toBe(14);
+  });
 });

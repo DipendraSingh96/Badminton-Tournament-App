@@ -58,6 +58,7 @@ export function normaliseDraft(
     decided?: PlanDraft["decided"];
     log?: PlanDraft["log"];
     startedAt?: PlanDraft["startedAt"];
+    overspill?: PlanDraft["overspill"];
     resources?: PlanDraft["resources"];
     publicNames?: PlanDraft["publicNames"];
     groupCourts?: PlanDraft["groupCourts"];
@@ -95,6 +96,8 @@ export function normaliseDraft(
     log: saved.log ?? [],
     // Saved before the tournament could be started by hand: not started.
     startedAt: saved.startedAt ?? null,
+    // Saved before overspill: none.
+    overspill: saved.overspill ?? null,
     // Saved before the Resources page: nothing prepared yet.
     resources: { ...emptyResources(), ...saved.resources },
     // Saved before the audience board: names in full.

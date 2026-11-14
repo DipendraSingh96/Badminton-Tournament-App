@@ -129,7 +129,7 @@ export function analyseTournament(inputs: TournamentInputs): AnalysisResult {
       const rules = rulesFor(inputs, category, stage);
       const timing = timingFor(inputs, category, stage);
       if (!rules || !timing || analysed.get(category.id)!.matches[stage] === 0) continue;
-      const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance);
+      const slot = matchMinutes(rules, timing, inputs.bestOfThreeAllowance, inputs.overspill ?? 0);
       slots.push({ categoryId: category.id, stage, minutes: slot });
       for (const event of EVENT_TYPES) {
         const count = byEvent.get(key(category.id, stage, event));

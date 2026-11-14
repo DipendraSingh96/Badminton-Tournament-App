@@ -28,8 +28,11 @@ describe("matchesPlayed", () => {
       "group 24>8 @2",
       "r16 16>8 @3",
       "r8 8>4 @4",
+      "semi 4>0 @5",
       "finalBronze 4>4 @6",
     ]);
+    // The last four's share of the bar is split evenly between the semi-finals and the end.
+    expect(played(24, "groupsKnockout", { groups: eightGroups, qualifiers: 2, bronze: true }).map((s) => s.share)).toEqual([8, 8, 4, 2, 2]);
   });
 
   it("splits the end into semi-finals and final without a bronze match", () => {
@@ -46,6 +49,7 @@ describe("matchesPlayed", () => {
     expect(brief(played(24, "groupsKnockout", { groups: eightGroups, qualifiers: 1, bronze: true }))).toEqual([
       "group 24>16 @2",
       "r8 8>4 @3",
+      "semi 4>0 @4",
       "finalBronze 4>4 @5",
     ]);
   });
@@ -62,7 +66,7 @@ describe("matchesPlayed", () => {
 
   it("gives a range past the first round where seeds had a bye", () => {
     // 6 in a bracket of 8: two byes; four play the first round.
-    expect(brief(played(6, "knockout", { bronze: true }))).toEqual(["r8 4>2 @1", "finalBronze 4>4 @2-3"]);
+    expect(brief(played(6, "knockout", { bronze: true }))).toEqual(["r8 4>2 @1", "semi 4>0 @1-2", "finalBronze 4>4 @2-3"]);
     expect(brief(played(6, "knockout"))).toEqual(["r8 4>2 @1", "semi 4>2 @1-2", "final 2>2 @2-3"]);
   });
 
@@ -83,6 +87,7 @@ describe("matchesPlayed", () => {
           if (!result.ok) continue;
           const sections = matchesPlayed(result.format);
           expect(sections.reduce((sum, s) => sum + s.ending, 0)).toBe(entries);
+          expect(sections.reduce((sum, s) => sum + s.share, 0)).toBe(entries);
           expect(sections.every((s) => s.matches.min <= s.matches.max && s.matches.min >= 1)).toBe(true);
         }
       }

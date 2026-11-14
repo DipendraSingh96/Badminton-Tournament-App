@@ -299,6 +299,8 @@ export interface TournamentInputs {
    * (0.33 adds a third), because some go to a third game.
    */
   bestOfThreeAllowance: number;
+  /** A share (0.1 for 10%) added to every match in the worst case, for matches that run over. None when left out. */
+  overspill?: number;
   finance: Finance;
   rules: Rules;
   /** Zones and matches moved by hand on the timeline; the rest follow the estimate. */

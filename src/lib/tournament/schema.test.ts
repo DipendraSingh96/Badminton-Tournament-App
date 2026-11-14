@@ -432,6 +432,18 @@ describe("parsePlan", () => {
     expect(none.inputs.courtGroups).toEqual([{ courtId: "c1", group: null }]);
   });
 
+  it("takes overspill as optional: empty is none", () => {
+    const draft = completeDraft();
+    draft.overspill = null;
+    const none = parsePlan(draft);
+    if (!none.ok) throw new Error(JSON.stringify(none.issues));
+    expect(none.inputs.overspill).toBeUndefined();
+    draft.overspill = 10;
+    const ten = parsePlan(draft);
+    if (!ten.ok) throw new Error(JSON.stringify(ten.issues));
+    expect(ten.inputs.overspill).toBeCloseTo(0.1);
+  });
+
   it("can still be timed when only money is missing, and not when the timing itself is", () => {
     const draft = completeDraft();
     expect(parsePlan(draft).ok).toBe(true);

@@ -218,6 +218,7 @@ function tabFor(issue: PlanIssue): Tab | null {
     }
     case "stageRules":
     case "bestOfThreeAllowance":
+    case "overspill":
       return "schedule";
     case "finance":
       return "finance";

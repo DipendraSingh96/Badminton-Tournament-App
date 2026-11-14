@@ -61,22 +61,26 @@ export interface MatchMinutes {
  * the stage's scoring; minutes and organising time from the stage's timing. A best-of-3 match typically lasts two games plus organising,
  * increased by the organiser's best-of-3 allowance for third games, and never
  * more than the worst case. Worst case plays every game, each as long as
- * possible.
+ * possible, and then adds the organiser's overspill to the whole match (for
+ * matches that run over); the typical length takes no overspill.
  */
 export function matchMinutes(
   rules: StageRules,
   timing: Timing,
   bestOfThreeAllowance = 0,
+  overspill = 0,
 ): MatchMinutes {
   const maxPoints = maxPointsPerGame(rules);
   const longestGameFactor = maxPoints / rules.pointsPerGame;
   const allowance = allowanceFor(rules, bestOfThreeAllowance);
   const typicalBeforeAllowance = baseGames(rules) * timing.minutesPerGame + timing.changeoverMinutes;
-  const worst =
+  // Every game played, each at its longest.
+  const longest =
     worstGames(rules) * timing.minutesPerGame * longestGameFactor + timing.changeoverMinutes;
+  const worst = longest * (1 + Math.max(0, overspill));
   const withAllowance = typicalBeforeAllowance * (1 + allowance);
   return {
-    typical: Math.min(withAllowance, worst),
+    typical: Math.min(withAllowance, longest),
     worst,
     baseGames: baseGames(rules),
     typicalGames: typicalGames(rules, bestOfThreeAllowance),
@@ -87,6 +91,6 @@ export function matchMinutes(
     changeoverMinutes: timing.changeoverMinutes,
     typicalBeforeAllowance,
     allowance,
-    capped: withAllowance > worst,
+    capped: withAllowance > longest,
   };
 }
