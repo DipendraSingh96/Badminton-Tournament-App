@@ -116,19 +116,36 @@ export function normaliseDraft(
   const { costPerShuttle, ...finance } = draft.finance;
   if (finance.shuttlePrice !== undefined) {
     // Saved before rules were set per category: each category gets a copy of the plan's.
-    return withOwnRules({ ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft });
+    return withoutHardCap(withOwnRules({ ...draft, finance: { ...finance, otherIncome: finance.otherIncome ?? [] } as FinanceDraft }));
   }
   const price = costPerShuttle ?? null;
-  return withOwnRules({
+  return withoutHardCap(
+    withOwnRules({
+      ...draft,
+      finance: {
+        ...finance,
+        shuttlePriceBasis: price === null ? null : "shuttle",
+        shuttlePrice: price,
+        shuttlesPerTube: null,
+        otherIncome: finance.otherIncome ?? [],
+      },
+    }),
+  );
+}
+
+/**
+ * Saved when deuce could be a "hard cap": that was win by two with the cap
+ * as its maximum, under another name. It opens as win by two with that
+ * maximum, so nothing about how its games are scored or timed changes.
+ */
+function withoutHardCap(draft: PlanDraft): PlanDraft {
+  const fix = <T extends Record<string, { deuce: string | null }>>(rules: T): T =>
+    Object.fromEntries(Object.entries(rules).map(([stage, r]) => [stage, r.deuce === "cap" ? { ...r, deuce: "standard" } : r])) as T;
+  return {
     ...draft,
-    finance: {
-      ...finance,
-      shuttlePriceBasis: price === null ? null : "shuttle",
-      shuttlePrice: price,
-      shuttlesPerTube: null,
-      otherIncome: finance.otherIncome ?? [],
-    },
-  });
+    stageRules: fix(draft.stageRules),
+    categories: draft.categories.map((c) => (c.stageRules ? { ...c, stageRules: fix(c.stageRules) } : c)),
+  };
 }
 
 /** Storage as the store uses it; tests pass a fake. */

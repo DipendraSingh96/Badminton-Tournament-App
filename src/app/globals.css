@@ -231,9 +231,14 @@
   color: var(--background);
 }
 
-/* The buffer: a see-through grey. */
+/* Prize distribution time (the buffer): a shade that darkens what is behind
+   it, so it reads as a zone under the day and not a highlight laid over it. */
 .zone-buffer {
-  background-color: color-mix(in srgb, var(--foreground) 22%, transparent);
+  background-color: rgb(15 42 31 / 0.2);
+  mix-blend-mode: multiply;
+}
+.dark .zone-buffer {
+  background-color: rgb(0 0 0 / 0.42);
 }
 
 /* Scrollbars: thin, rounded, no arrows, no track. A pane that scrolls keeps the

@@ -182,7 +182,7 @@ const frameSchema = z.object({
   timeZone: z.string().min(1, "Time zone is required"),
   halls: z.array(hallSchema).min(1, "Add at least one hall"),
   bufferMinutes: whole("Buffer", 0),
-  bufferStart: z.string().regex(/^\d{2}:\d{2}$/, "Buffer start must be a time").nullable(),
+  bufferStart: z.string().regex(/^\d{2}:\d{2}$/, "Prize distribution start must be a time").nullable(),
 });
 
 const lineUpCount = whole("Matches", 0).nullable();
@@ -512,9 +512,9 @@ function parseWhole(draft: PlanDraft): { ok: true; inputs: TournamentInputs } | 
     const opens = Math.min(...frame.halls.map((h) => minutesOfDay(h.from)));
     const closes = Math.max(...frame.halls.map((h) => minutesOfDay(h.to)));
     if (start < opens) {
-      issues.push({ path: ["frame", "bufferStart"], message: "Buffer must start after the first hall opens" });
+      issues.push({ path: ["frame", "bufferStart"], message: "Prize distribution must start after the first hall opens" });
     } else if (start + frame.bufferMinutes > closes) {
-      issues.push({ path: ["frame", "bufferStart"], message: "Buffer must end by the last hall's closing time" });
+      issues.push({ path: ["frame", "bufferStart"], message: "Prize distribution must end by the last hall's closing time" });
     }
   }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowDownIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { ArrowDownIcon, ArrowRightIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { AnalysisResult } from "@/engine";
 import type { PlanDraft } from "@/lib/tournament/draft";
 import { bookedCourtMinutes, healthBars } from "@/lib/tournament/health-bar";
@@ -99,6 +100,19 @@ export function RailSummary({
   const missing = !parsed.ok ? parsed.issues.length : 0;
   const loss = result ? result.finance.profit < 0 : false;
   const sideways = "whitespace-nowrap [writing-mode:vertical-rl]";
+  // Not set up yet: only what to do, in the accent colour, so it can't be missed. No bar and no status until the plan is whole.
+  if (missing > 0) {
+    return (
+      <>
+        <span className={cn(sideways, "text-xl font-semibold text-primary")}>
+          <PlanHeading missing={missing} status={status} />
+        </span>
+        <span className={cn(sideways, "text-base text-primary")}>
+          {missing} {missing === 1 ? "item" : "items"} to fill in
+        </span>
+      </>
+    );
+  }
   return (
     <>
       <span className={cn(sideways, "text-xl font-semibold")}>
@@ -112,11 +126,7 @@ export function RailSummary({
           vertical
         />
       </span>
-      {missing > 0 ? (
-        <span className={cn(sideways, "text-sm text-muted-foreground")}>
-          {missing} {missing === 1 ? "item" : "items"} to fill in
-        </span>
-      ) : result && !hideMoney ? (
+      {result && !hideMoney ? (
         <span className={cn(sideways, "text-sm font-semibold tabular-nums", loss ? "text-over-text" : "text-fits-text")}>
           {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
         </span>
@@ -145,10 +155,13 @@ export function Summary({
   sample,
   action,
   onGoTo,
+  onDraws,
   hideMoney = false,
 }: {
   /** The tournament is Live: no profit or loss on screen. */
   hideMoney?: boolean;
+  /** Moves on to the Draw stage. Given while the tournament is still in the Plan stage; offered once the plan is whole and fits (or is tight). */
+  onDraws?: () => void;
   /** The sample data in the plan: how many items, and the first of them to jump to. */
   sample: { count: number; first: PlanIssue | null };
   /** At the right of the heading: the workbench's hide button. */
@@ -166,19 +179,27 @@ export function Summary({
   const problems = analysis && !analysis.ok ? analysis.errors.flatMap((e) => analysisErrorMessages(draft, e)) : [];
   const notes: string[] = problems.length > 0 ? problems.slice(0, 1) : warnings;
   const loss = result ? result.finance.profit < 0 : false;
+  const settingUp = missing.length > 0;
+  const ready = !settingUp && status !== null && status.variant !== "over";
 
   return (
     <section aria-label="Summary" className="flex flex-col gap-2">
       <div className="flex min-h-8 items-center gap-2">
-        <h2 className="heading-card min-w-0 flex-1">
+        {/* Not set up yet: the heading and the line under it are in the accent colour, and nothing else competes with them. */}
+        <h2 className={cn("heading-card min-w-0 flex-1", settingUp && "text-primary")}>
           <PlanHeading missing={missing.length} status={status?.variant ?? null} />
         </h2>
+        {ready && onDraws ? (
+          <Button size="sm" data-move-to-draws onClick={onDraws}>
+            Move to Draws <ArrowRightIcon weight="bold" />
+          </Button>
+        ) : null}
         {action}
       </div>
-      {missing.length > 0 ? (
-        <p className="text-sm text-muted-foreground">
+      {settingUp ? (
+        <p className="text-base text-primary">
           {missing.length} {missing.length === 1 ? "item" : "items"} to fill in.{" "}
-          <button type="button" className={LINK} onClick={() => onGoTo(missing[0]!)}>
+          <button type="button" className={cn(LINK, "text-primary")} onClick={() => onGoTo(missing[0]!)}>
             {issueSection(draft, missing[0]!)}: {missing[0]!.message}
             <ArrowDownIcon weight="bold" className="size-3.5 shrink-0" aria-hidden="true" />
           </button>
@@ -195,24 +216,25 @@ export function Summary({
           ) : null}
         </p>
       ) : null}
-      <div className="flex min-h-8 items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <HealthBar
-            booked={result ? result.capacity.available.courtMinutes : bookedCourtMinutes(draft.frame.halls)}
-            needed={result ? result.capacity.needed.typical : null}
-            status={status?.variant ?? null}
-          />
+      {settingUp ? null : (
+        <div className="flex min-h-8 items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <HealthBar
+              booked={result ? result.capacity.available.courtMinutes : bookedCourtMinutes(draft.frame.halls)}
+              needed={result ? result.capacity.needed.typical : null}
+              status={status?.variant ?? null}
+            />
+          </div>
+          {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
         </div>
-        {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
-      </div>
-      {result ? (
-        // With only money still to fill in, the timing is already known; the profit isn't.
+      )}
+      {result && !settingUp ? (
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm tabular-nums">
           <span>
             {formatMinutesShort(result.capacity.needed.typical)} of {formatMinutesShort(result.capacity.available.courtMinutes)}
           </span>
           <span>{result.totalMatches} matches</span>
-          {hideMoney || missing.length > 0 ? null : (
+          {hideMoney ? null : (
             <span className={cn("font-semibold", loss ? "text-over-text" : "text-fits-text")}>
               {loss ? "Loss" : "Profit"} {formatMoney(Math.abs(result.finance.profit))}
             </span>

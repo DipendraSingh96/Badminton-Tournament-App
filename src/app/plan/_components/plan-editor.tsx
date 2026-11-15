@@ -4,7 +4,7 @@ import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { CaretLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, CaretLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 import { ScrollHints } from "@/components/ui/scroll-hints";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -145,9 +145,23 @@ const RAIL_TEXT = "text-xl font-semibold whitespace-nowrap [writing-mode:vertica
  * A side panel folded to its rail: 64px wide, and the whole of it one button
  * that opens the panel again, so it is easy to see and to hit.
  */
-function Rail({ name, open, onOpen, children }: { name: string; open: string; onOpen: () => void; children: ReactNode }) {
+function Rail({
+  name,
+  open,
+  onOpen,
+  top,
+  children,
+}: {
+  name: string;
+  open: string;
+  onOpen: () => void;
+  /** Above the rail's own button: an action of its own (the rail is one button, so it can't hold another). */
+  top?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <aside aria-label={`${name} (hidden)`} className={cn(WORKBENCH, "w-16 overflow-hidden pt-0")}>
+      {top}
       <button
         type="button"
         aria-label={open}
@@ -447,6 +461,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const inputs = timingInputs(shownParsed);
     return inputs && shownAnalysis?.ok ? estimateSchedule(inputs, shownAnalysis.analysis) : null;
   }, [shownParsed, shownAnalysis]);
+  // The plan is whole and fits (or is tight) and hasn't moved on yet: the way on to the draw is offered.
+  const readyForDraws =
+    draft.stage === "plan" && shownParsed.ok && Boolean(shownAnalysis?.ok) && shownAnalysis?.ok === true && shownAnalysis.analysis.capacity.status !== "doesNotFit";
   const segments = useMemo(() => localSegments(shown, schedule), [shown, schedule]);
   const zones = useMemo(() => zoneRows(shown, schedule), [shown, schedule]);
   const warnings = useMemo(() => {
@@ -1455,7 +1472,24 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </aside>
               )
             ) : workbenchFolded ? (
-                <Rail name="Workbench" open="Show workbench" onOpen={() => foldWorkbench(false)}>
+                <Rail
+                  name="Workbench"
+                  open="Show workbench"
+                  onOpen={() => foldWorkbench(false)}
+                  top={
+                    readyForDraws ? (
+                      // The way on, at the top of the rail, its words running down it.
+                      <Button
+                        data-move-to-draws
+                        onClick={() => void advance("draw")}
+                        className="mx-auto mt-3 h-auto w-10 shrink-0 flex-col gap-2 px-0 py-3"
+                      >
+                        <span className="whitespace-nowrap [writing-mode:vertical-rl]">Move to Draws</span>
+                        <ArrowRightIcon weight="bold" />
+                      </Button>
+                    ) : undefined
+                  }
+                >
                   <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={isLive} />
                 </Rail>
               ) : (
@@ -1483,6 +1517,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       sample={sample}
                       hideMoney={isLive}
                       onGoTo={goTo}
+                      onDraws={draft.stage === "plan" ? () => void advance("draw") : undefined}
                       action={
                         <IconButton label="Hide workbench" side="left" aria-expanded onClick={() => foldWorkbench(true)}>
                           <XIcon />

@@ -108,7 +108,7 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
         const hall = typeof index === "number" ? draft.frame.halls[index] : undefined;
         return hall ? hallName(hall, index as number) : "Venue";
       }
-      return key === "bufferMinutes" || key === "bufferStart" ? "Buffer" : "Tournament";
+      return key === "bufferMinutes" || key === "bufferStart" ? "Extra time" : "Tournament";
     }
     case "categories": {
       const category = typeof key === "number" ? draft.categories[key] : undefined;
@@ -121,7 +121,7 @@ export function issueSection(draft: PlanDraft, issue: PlanIssue): string {
       return "Rules";
     case "bestOfThreeAllowance":
     case "overspill":
-      return "Stages";
+      return "Extra time";
     case "stageRules":
       return `Stage: ${STAGE_LABELS[key as Stage]}`;
     case "finance":

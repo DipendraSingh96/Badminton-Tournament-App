@@ -1176,7 +1176,7 @@ export function Timeline({
           </p>
         ) : null}
         {schedule && bufferLate ? (
-          <p className="text-sm text-over-text">The buffer runs past closing, until {clock(Math.min(bufferWindow!.to, 24 * 60 - 1))}.</p>
+          <p className="text-sm text-over-text">Prize distribution runs past closing, until {clock(Math.min(bufferWindow!.to, 24 * 60 - 1))}.</p>
         ) : null}
         {schedule && schedule.unplaced > 0 ? (
           <p className="text-sm text-over-text">
@@ -1223,7 +1223,7 @@ export function Timeline({
                 )}
               </div>
             ))}
-            <div className={thin ? "mt-2 h-1.5 text-xs leading-none font-medium" : "mt-3 h-5 text-xs leading-5 font-medium"}>Buffer</div>
+            <div className={thin ? "mt-2 h-1.5 text-xs leading-none font-medium" : "mt-3 h-5 text-xs leading-5 font-medium"}>Prize distribution</div>
           </div>
 
           <div
@@ -1584,14 +1584,14 @@ export function Timeline({
             <div className={thin ? "mt-2" : "mt-3"}>
               <TimeWindowTrack
                 locked={fixed}
-                name="Buffer"
+                name="Prize distribution"
                 mode="buffer"
                 window={bufferWindow}
                 unit={bufferUnit}
                 bounds={hasHours ? { min: start, max: end } : undefined}
                 className={lane}
                 windowClassName={`zone-buffer ${pinnedAt !== null ? "ring-1 ring-foreground/40 ring-inset" : ""}`}
-                emptyHint="Drag to add a buffer"
+                emptyHint="Drag to add prize distribution time"
                 onDraw={
                   hasHours
                     ? (w) =>
@@ -1708,7 +1708,7 @@ export function Timeline({
           </span>
           <span className="flex items-center gap-2">
             <span className="zone-buffer size-2.5 rounded-sm ring-1 ring-foreground/20" aria-hidden="true" />
-            Buffer{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
+            Prize distribution{pinnedAt !== null ? ` (pinned at ${clock(pinnedAt)})` : ""}
           </span>
           {worstFinish !== null ? (
             <span className="flex items-center gap-2">

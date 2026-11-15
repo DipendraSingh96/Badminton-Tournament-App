@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
+import { analyseTournament } from "@/engine";
 import { parsePlan, timingInputs } from "./schema";
+import { normaliseDraft } from "./storage";
 
 describe("parsePlan", () => {
   it("lists what's missing from an empty draft", () => {
@@ -407,7 +409,7 @@ describe("parsePlan", () => {
     expect(late.ok).toBe(false);
     if (late.ok) return;
     expect(late.issues).toEqual([
-      { path: ["frame", "bufferStart"], message: "Buffer must end by the last hall's closing time" },
+      { path: ["frame", "bufferStart"], message: "Prize distribution must end by the last hall's closing time" },
     ]);
 
     draft.frame.bufferStart = "16:00";
@@ -495,5 +497,29 @@ describe("parsePlan", () => {
     const late = parsePlan(draft);
     if (!late.ok) throw new Error(JSON.stringify(late.issues));
     expect(late.inputs.zoneMoves).toEqual([{ key: "h1:group", start: "2026-07-04T17:30:00.000Z" }]);
+  });
+});
+
+describe("a tournament saved with a hard cap", () => {
+  it("opens as win by two with that maximum, and is scored and timed the same", () => {
+    const saved = JSON.parse(JSON.stringify(completeDraft()));
+    const stage = saved.categories[0].stageRules.group;
+    stage.deuce = "cap";
+    stage.deuceLimit = 25;
+    const before = parsePlan(saved);
+    const opened = normaliseDraft(saved);
+    expect(opened.categories[0]!.stageRules!.group).toMatchObject({ deuce: "standard", deuceLimit: 25 });
+    const after = parsePlan(opened);
+    if (!before.ok || !after.ok) throw new Error("should parse");
+    const rules = (inputs: typeof after.inputs) => inputs.categories[0]!.stageRules?.group ?? inputs.stageRules.group;
+    expect(rules(before.inputs)!.deuce).toEqual({ type: "cap", cap: 25 });
+    expect(rules(after.inputs)!.deuce).toEqual({ type: "standard", max: 25 });
+    // The same slot lengths either way.
+    const slot = (inputs: typeof after.inputs) => {
+      const result = analyseTournament(inputs);
+      if (!result.ok) throw new Error("analyse");
+      return result.analysis.slots.map((s) => [s.stage, s.minutes.typical, s.minutes.worst]);
+    };
+    expect(slot(after.inputs)).toEqual(slot(before.inputs));
   });
 });

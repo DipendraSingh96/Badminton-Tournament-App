@@ -114,7 +114,7 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
         options={WALKOVERS}
         hint={
           rules.walkover === "straightGamesAtTarget"
-            ? "A win in straight games at the stage's points per game, e.g. 21–0, 21–0."
+            ? "A win, and the winning side is given the stage's points per game (for example 21) in each game, so those points count in the group standings."
             : rules.walkover === "winOnly"
               ? "Counts as a match won; no games or points go to either side."
               : undefined
@@ -234,16 +234,19 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
       <Heading title="Who can enter" description="Who may enter what. Checked when entries are taken." />
       {/* Several settings about the same thing: together in a card. */}
       <div className="flex flex-col gap-4 rounded-lg bg-card-system p-3">
-      <div className="w-[calc(50%-0.25rem)]">
-        <StepperField
-          label="Most categories per person"
-          hint="The most categories one person may enter. Leave empty for no limit."
-          min={1}
-          path={["rules", "eligibility", "maxCategoriesPerPerson"]}
-          value={eligibility.maxCategoriesPerPerson}
-          onChange={(v) => update((d) => void (d.rules.eligibility.maxCategoriesPerPerson = v))}
-        />
-      </div>
+      {/* With one category there is nothing to limit. */}
+      {draft.categories.length > 1 ? (
+        <div className="w-[calc(50%-0.25rem)]">
+          <StepperField
+            label="Most categories per person"
+            hint="The most categories one person may enter. Leave empty for no limit."
+            min={1}
+            path={["rules", "eligibility", "maxCategoriesPerPerson"]}
+            value={eligibility.maxCategoriesPerPerson}
+            onChange={(v) => update((d) => void (d.rules.eligibility.maxCategoriesPerPerson = v))}
+          />
+        </div>
+      ) : null}
 
       {draft.categories.length > 0 ? (
         <>

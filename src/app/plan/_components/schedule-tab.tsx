@@ -30,10 +30,13 @@ import { ReadOnly, Section, SegmentedField, StepperField, SwitchField } from "./
 import { STAGE_LABELS, categoryName, entryNoun, formatErrorMessage, formatGroupSizes } from "./labels";
 import type { Update } from "./plan-editor";
 
-const GROUP_MODES = [
-  { value: "fixed", label: "Number of groups" },
-  { value: "auto", label: "Preferred group size" },
-] as const;
+/** How groups are set: by how many there are, or by how many entries each holds ("Teams in a group", "Pairs in a group"). */
+function groupModes(perGroup: string) {
+  return [
+    { value: "fixed", label: "Number of groups" },
+    { value: "auto", label: perGroup },
+  ] as const;
+}
 
 const GROUP_COURTS = [
   { value: "own", label: "Own courts per group" },
@@ -42,7 +45,6 @@ const GROUP_COURTS = [
 
 const DEUCE_RULES = [
   { value: "none", label: "None" },
-  { value: "cap", label: "Hard cap" },
   { value: "standard", label: "Win by two" },
 ] as const;
 
@@ -100,12 +102,29 @@ export function ScheduleTab({
       <PlayedSection draft={draft} />
 
       <Section
-        title="Buffer"
-        description="Time for miscellaneous activity like prize distribution. Shown on the timeline straight after the last match; play must end by the last hall's closing time less the buffer. Drag it on the timeline to pin it at a time."
+        title="Extra time"
+        description="Time on top of the matches themselves: for third games, for matches that run over, and for prize distribution. Prize distribution is shown on the timeline straight after the last match; drag it there to pin it at a time."
       >
-        <div className="w-[calc(50%-0.25rem)]">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-3">
+          {usesBestOfThree(draft) ? (
+            <StepperField
+              label="Best-of-3 allowance (%)"
+              hint="Extra time added to every best-of-3 match, because some go to a third game. 33% adds a third."
+              path={["bestOfThreeAllowance"]}
+              value={draft.bestOfThreeAllowance}
+              onChange={(v) => update((d) => void (d.bestOfThreeAllowance = v))}
+            />
+          ) : null}
           <StepperField
-            label="Buffer (minutes)"
+            label="Overspill (%)"
+            hint="Extra time added to every match in the worst case, for matches that run over. Optional; the typical plan doesn't change."
+            path={["overspill"]}
+            value={draft.overspill}
+            onChange={(v) => update((d) => void (d.overspill = v))}
+          />
+          <StepperField
+            label="Prize distribution time (minutes)"
+            hint="Kept free after the last match."
             path={["frame", "bufferMinutes"]}
             value={draft.frame.bufferMinutes}
             onChange={(v) => update((d) => void (d.frame.bufferMinutes = v))}
@@ -269,13 +288,16 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
     update((d) => void (d.categories[index]![key] = value));
   const path = (key: keyof CategoryDraft) => ["categories", index, key];
   const notice = unusedNotice(category, format);
+  // "Teams in a group", "Pairs in a group", "Players in a group".
+  const plural = entryNoun(unit, category.event, true);
+  const perGroup = `${plural[0]!.toUpperCase()}${plural.slice(1)} in a group`;
   return (
     <div className="flex flex-col gap-3">
       <SegmentedField
         label="Groups set by"
         path={path("groupMode")}
         value={category.groupMode}
-        options={GROUP_MODES}
+        options={groupModes(perGroup)}
         onChange={set("groupMode")}
       />
       <div className="grid grid-cols-2 gap-x-2 gap-y-3">
@@ -289,7 +311,7 @@ function GroupBlock({ draft, index, update }: { draft: PlanDraft; index: number;
           />
         ) : category.groupMode === "auto" ? (
           <StepperField
-            label="Preferred group size"
+            label={perGroup}
             min={2}
             hint={
               format === "groupsKnockout"
@@ -356,7 +378,7 @@ function PlayedSection({ draft }: { draft: PlanDraft }) {
   return (
     <Section
       title="Matches played by a player"
-      description={`How much badminton each ${team ? "team" : "entry"} gets. The bar is everyone entered, split by how far they get: each section's width is the share whose day ends there, and the number in it is the ${team ? "ties" : "matches"} they will have played by then. Above each section is the stage or round and how many play in it. Use it to balance a good day for players against the size of the tournament.`}
+      description="Matches played by every player individually, based on the stage they reach."
     >
       {unit === null || format === null || draft.categories.length === 0
         ? empty
@@ -433,7 +455,6 @@ function notPlayedReason(draft: PlanDraft): string {
 
 function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) {
   const inPlay = stagesInPlay(draft);
-  const source = inPlay[0];
   const hasKnockout = draft.format === "groupsKnockout" || draft.format === "knockout";
   const hasCategories = draft.unit !== null && draft.categories.length > 0;
   return (
@@ -441,24 +462,6 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
       title="Stages"
       description="In play order. Each category sets its own groups, scoring and timing for each stage; they apply to every event and match it plays there."
     >
-      <div className="grid grid-cols-2 gap-x-2 gap-y-3">
-        {usesBestOfThree(draft) ? (
-          <StepperField
-            label="Best-of-3 allowance (%)"
-            hint="Extra time added to every best-of-3 match, because some go to a third game. 33% adds a third."
-            path={["bestOfThreeAllowance"]}
-            value={draft.bestOfThreeAllowance}
-            onChange={(v) => update((d) => void (d.bestOfThreeAllowance = v))}
-          />
-        ) : null}
-        <StepperField
-          label="Overspill (%)"
-          hint="Extra time added to every match in the worst case, for matches that run over. Optional; the typical plan doesn't change."
-          path={["overspill"]}
-          value={draft.overspill}
-          onChange={(v) => update((d) => void (d.overspill = v))}
-        />
-      </div>
       {STAGES.map((stage) => {
         // The bronze match is each category's choice, so its stage shows whenever there's a knockout.
         const played = inPlay.includes(stage) || (stage === "bronze" && hasKnockout);
@@ -493,7 +496,8 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
                     draft={draft}
                     index={i}
                     stage={stage}
-                    copyFrom={source !== undefined && source !== stage ? source : null}
+                    // The stage played just before this one: its rules are the likeliest to be wanted again.
+            copyFrom={inPlay[inPlay.indexOf(stage) - 1] ?? null}
                     update={update}
                   />
                 ))}
@@ -521,7 +525,7 @@ function CategoryStageCard({
   draft: PlanDraft;
   index: number;
   stage: Stage;
-  /** The first stage in play, to copy this category's rules from; null for that stage itself. */
+  /** The stage played before this one, to copy this category's rules from; null for the first. */
   copyFrom: Stage | null;
   update: Update;
 }) {
@@ -572,7 +576,7 @@ function CategoryStageCard({
           {rules.deuce === "cap" || rules.deuce === "standard" ? (
             <div className="w-[calc(50%-0.25rem)]">
               <StepperField
-                label={rules.deuce === "cap" ? "Points cap" : "Maximum points"}
+                label="Maximum points"
                 min={1}
                 path={path("deuceLimit")}
                 value={rules.deuceLimit}
