@@ -1223,7 +1223,7 @@ export function Timeline({
                 )}
               </div>
             ))}
-            <div className={thin ? "mt-2 h-1.5 text-xs leading-none font-medium" : "mt-3 h-5 text-xs leading-5 font-medium"}>Prize distribution</div>
+            <div className={thin ? "mt-2 h-1.5 text-xs leading-none font-medium" : "mt-3 h-5 text-xs leading-5 font-medium whitespace-nowrap"} title="Prize distribution time">Prize time</div>
           </div>
 
           <div

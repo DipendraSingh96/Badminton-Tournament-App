@@ -283,3 +283,14 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Score sheets card:** Preview, Print and "Upload score sheet" in one row ("Upload" alone where the card is narrow; "Replace score sheet" once one is uploaded), then "Use ours again". The score sheets card is the widest of the three.
 - **Entries, pairs:** the row is aligned to the top: the number, the name field, the external tick, the seed and the delete button are level with the first player's name.
 - **Keys:** Space plays and pauses the timeline; Left and Right move it by 5 seconds of playback (not while a field, a tab, a choice, or a match or zone on the timeline has the keyboard).
+
+### Plan side panel and words, 15 Nov 2026 (these replace anything above that says otherwise)
+- **Summary while anything is still to fill in:** only the heading "Set up your tournament" and the line "19 items to fill in. <the next one> ↓", both in the accent colour, the line at 16px. No health bar, no status pill, no results line. The sample-data line stays under it. The folded rail shows the same two, with no bar.
+- **Summary once the plan is whole:** as before (heading with the fit in words, bar, pill, hours, matches, profit), plus **Move to Draws →** (primary button) beside the heading when the plan fits or is tight and the tournament is still in the Plan stage. Folded: the same button at the top of the rail, its words running down it.
+- **Setup tab:** "Categories", "Category name", "Add category", "Category format", "Line-up of a match-up".
+- **Rules:** walkover choices "Win with points" and "Win only"; "Most categories per person" only with more than one category.
+- **Schedule tab:**
+  - Stages: Deuce is "None" or "Win by two"; "Groups set by" is "Number of groups" or "Teams in a group" ("Pairs in a group", "Players in a group"); each stage card's copy button is "Same as <the stage before it>".
+  - Matches played by a player: info tip "Matches played by every player individually, based on the stage they reach."; under the bar "A match-up is 2 matches: each player plays 1 match a match-up."
+  - **Extra time** (was Buffer): Best-of-3 allowance (%), Overspill (%), Prize distribution time (minutes).
+- **Timeline:** pills read "M1/2"; hover "Match 1 of 2: Open doubles"; the buffer's row is "Prize time" and its legend entry "Prize distribution".
