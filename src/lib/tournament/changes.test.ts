@@ -456,7 +456,7 @@ describe("a tie's stapled rubbers move as one", () => {
     const before = draft.log.length;
     expect(moveGame(draft, { matchId: `${tie}:r1`, with: [`${tie}:r2`], fromCourtId: "c1", target: { courtId: "c2", before: null }, now: NOW })).toBe(true);
     expect(draft.log).toHaveLength(before + 1);
-    expect(draft.log.at(-1)!.text).toBe("Group A, rubbers 1 and 2, Entry 1 v Entry 2: moved from Court 1 to Court 2");
+    expect(draft.log.at(-1)!.text).toBe("Group A, matches 1 and 2, Entry 1 v Entry 2: moved from Court 1 to Court 2");
     expect(Object.entries(draft.matchMoves)).toEqual([
       [`${tie}:r1`, { courtId: "c2", before: null }],
       [`${tie}:r2`, { courtId: "c2", before: null }],
@@ -467,7 +467,7 @@ describe("a tie's stapled rubbers move as one", () => {
     setScore(draft, "c1:group:A:A1-A3:r2", 0, 0, 3, NOW);
     moveGame(draft, { matchId: "c1:group:A:A1-A3:r1", with: ["c1:group:A:A1-A3:r2"], fromCourtId: "c1", target: { courtId: "c2", before: null }, now: NOW });
     expect(draft.matchMoves["c1:group:A:A1-A3:r2"]).toBeUndefined();
-    expect(draft.log.at(-1)!.text).toBe("Group A, rubber 1, Entry 1 v Entry 3: moved from Court 1 to Court 2");
+    expect(draft.log.at(-1)!.text).toBe("Group A, match 1, Entry 1 v Entry 3: moved from Court 1 to Court 2");
     reverseChange(draft, draft.log.at(-1)!.id, LATER);
     reverseChange(draft, draft.log[before]!.id, LATER);
     expect(draft.matchMoves).toEqual({});

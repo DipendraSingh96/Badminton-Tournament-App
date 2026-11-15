@@ -185,7 +185,7 @@ const frameSchema = z.object({
   bufferStart: z.string().regex(/^\d{2}:\d{2}$/, "Buffer start must be a time").nullable(),
 });
 
-const lineUpCount = whole("Rubbers", 0).nullable();
+const lineUpCount = whole("Matches", 0).nullable();
 
 /** Category rules depend on the tournament's unit of play and format. */
 function categorySchema(unit: Unit | null, format: FormatType | null) {
@@ -223,7 +223,7 @@ function categorySchema(unit: Unit | null, format: FormatType | null) {
         if (!c.name) ctx.addIssue({ code: "custom", message: "Name is required", path: ["name"] });
         const rubbers = EVENT_TYPES.reduce((sum, e) => sum + (c.lineUp[e] ?? 0), 0);
         if (rubbers < 1) {
-          ctx.addIssue({ code: "custom", message: "Add at least one rubber to the line-up", path: ["lineUp"] });
+          ctx.addIssue({ code: "custom", message: "Add at least one match to the line-up", path: ["lineUp"] });
         }
       }
       if (format === "groupsKnockout" || format === "groups") {
@@ -325,7 +325,7 @@ function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
   const lots = tiebreaks.indexOf("drawOfLots");
   if (lots !== -1 && lots !== tiebreaks.length - 1) add(["tiebreaks"], "Draw of lots can only be the last tiebreak");
   if (draft.unit !== "team" && tiebreaks.includes("rubbersWon")) {
-    add(["tiebreaks"], "Rubbers won applies to team events only");
+    add(["tiebreaks"], "Matches won within match-ups applies to team events only");
   }
 
   const handicapOn = rules.handicap.enabled && openDoublesInUse(draft);

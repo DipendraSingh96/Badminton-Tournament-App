@@ -392,7 +392,7 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
             const { groupSizes } = category.format;
             const { waves, fixturesPerWave, mostFixtures } = category.waves;
             const rubbers = category.rubbersPerFixture;
-            const unit = rubbers > 1 ? "ties" : "matches";
+            const unit = rubbers > 1 ? "match-ups" : "matches";
             return (
               <Row
                 key={category.categoryId}
@@ -401,11 +401,11 @@ function GroupStageCard({ draft, analysis }: { draft: PlanDraft; analysis: Analy
                 working={[
                   `Groups: ${formatGroupSizes(groupSizes)}`,
                   `Group matches: ${category.matches.group}`,
-                  `${rubbers > 1 ? "Ties" : "Matches"} per entry: ${perEntryText(groupSizes)}`,
+                  `${rubbers > 1 ? "Match-ups" : "Matches"} per entry: ${perEntryText(groupSizes)}`,
                   `Waves: ${waves}, from the largest group (a group of n plays n − 1 rounds when n is even, n when odd)`,
                   `${unit[0]!.toUpperCase()}${unit.slice(1)} per wave: ${fixturesPerWave.join(", ")}`,
                   rubbers > 1
-                    ? `Most in one wave: ${mostFixtures} ties × ${rubbers} rubbers = ${mostFixtures * rubbers} matches`
+                    ? `Most in one wave: ${mostFixtures} match-ups × ${rubbers} matches each = ${mostFixtures * rubbers} matches`
                     : `Most in one wave: ${mostFixtures} matches`,
                 ]}
               />

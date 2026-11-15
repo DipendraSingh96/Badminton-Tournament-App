@@ -441,7 +441,7 @@ export function TeamDetail({
               return (
                 <li key={r.number} className="flex flex-wrap items-baseline gap-x-2">
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    Rubber {r.number} · {EVENT_LABELS[r.event]}
+                    Match {r.number} · {EVENT_LABELS[r.event]}
                   </span>
                   {ids.length > 0 ? ids.map((id) => playerButton(entry.players.find((p) => p.id === id))) : <span className="text-muted-foreground">Not set</span>}
                 </li>
@@ -449,7 +449,7 @@ export function TeamDetail({
             })}
             {spare.length > 0 ? (
               <li className="flex flex-wrap items-baseline gap-x-2">
-                <span className="shrink-0 text-xs text-muted-foreground">{rubbers.length > 0 ? "Not in a rubber" : "Players"}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{rubbers.length > 0 ? "Not in a match" : "Players"}</span>
                 {spare.map(playerButton)}
               </li>
             ) : null}

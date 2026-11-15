@@ -140,7 +140,7 @@ export function matchText(draft: PlanDraft, match: MatchInfo): { where: string; 
   // Once the draw places entries, their names replace the slots.
   const sides = `${sideLabel(draft, match, match.home)} v ${sideLabel(draft, match, match.away)}`;
   const rubber = match.rubber
-    ? `Rubber ${match.rubber.number} of ${match.rubber.of}: ${EVENT_LABELS[match.rubber.event]}`
+    ? `Match ${match.rubber.number} of ${match.rubber.of}: ${EVENT_LABELS[match.rubber.event]}`
     : null;
   return { where, sides, rubber };
 }
@@ -249,7 +249,7 @@ export function playingStatus(draft: PlanDraft, segment: LocalSegment): CourtSta
       stage: segment.stage,
       label: short,
       face: {
-        net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `R${m.rubber.number}/${m.rubber.of}` : null]
+        net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `M${m.rubber.number}/${m.rubber.of}` : null]
           .filter(Boolean)
           .join(" · "),
         home: m.home,

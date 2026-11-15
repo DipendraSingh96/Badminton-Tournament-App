@@ -98,7 +98,7 @@ describe("parsePlan", () => {
     if (result.ok) return;
     const messages = result.issues.map((i) => i.message);
     expect(messages).toContain("Name is required");
-    expect(messages).toContain("Add at least one rubber to the line-up");
+    expect(messages).toContain("Add at least one match to the line-up");
   });
 
   it("needs no group settings for knockout only", () => {
@@ -247,7 +247,7 @@ describe("parsePlan", () => {
     if (result.ok) return;
     expect(result.issues).toEqual([
       { path: ["rules", "tiebreaks"], message: "Draw of lots can only be the last tiebreak" },
-      { path: ["rules", "tiebreaks"], message: "Rubbers won applies to team events only" },
+      { path: ["rules", "tiebreaks"], message: "Matches won within match-ups applies to team events only" },
     ]);
   });
 

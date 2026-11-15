@@ -150,7 +150,7 @@ function boardGame(draft: PlanDraft, game: BoardSource, day: LiveDay, numbers: M
     held: day.started !== null && day.held.has(game.id),
     category: categoryLabel(draft, m.categoryId),
     where: m.stage === "group" ? `Group ${m.group ?? ""}`.trim() : knockoutRoundName(m.code ?? ""),
-    rubber: m.rubber ? `Rubber ${m.rubber.number} of ${m.rubber.of} · ${EVENT_LABELS[m.rubber.event]}` : null,
+    rubber: m.rubber ? `Match ${m.rubber.number} of ${m.rubber.of} · ${EVENT_LABELS[m.rubber.event]}` : null,
     sides: [side(draft, game, m.home), side(draft, game, m.away)],
     games: (result?.games ?? []).filter(([h, a]) => h !== null || a !== null).map(([h, a]) => [h, a]),
     mark: awardMark(result?.award),
@@ -269,7 +269,7 @@ export function boardTables(draft: PlanDraft): BoardTable[] {
       categoryId: category.id,
       category: categoryLabel(draft, category.id),
       letter: table.letter,
-      progress: table.complete ? "Finished" : `${table.played} of ${table.total} ${draft.unit === "team" ? "ties" : "games"} played`,
+      progress: table.complete ? "Finished" : `${table.played} of ${table.total} ${draft.unit === "team" ? "match-ups" : "games"} played`,
       rows: table.rows.map((row, i) => {
         const entry = byId.get(row.id);
         const status = groupStatus(table, row);

@@ -423,20 +423,20 @@ function TeamDetails({
         </Button>
       </div>
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">Line-up, for every tie</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground">Line-up, for every match-up</h3>
         {rubbers.map((rubber) => {
           const chosen = entry.lineUp[String(rubber.number)] ?? [];
           return (
             <div key={rubber.number} className="flex flex-col gap-1">
               <span className="text-sm">
-                Rubber {rubber.number} · {EVENT_LABELS[rubber.event]}
+                Match {rubber.number} · {EVENT_LABELS[rubber.event]}
               </span>
               <div className="grid grid-cols-2 gap-2">
                 {Array.from({ length: rubber.players }, (_, slot) => (
                   <NativeSelect
                     key={slot}
                     className="w-full"
-                    aria-label={`Rubber ${rubber.number}, player ${slot + 1}`}
+                    aria-label={`Match ${rubber.number}, player ${slot + 1}`}
                     value={chosen[slot] ?? ""}
                     onChange={(e) =>
                       edit((x) => {

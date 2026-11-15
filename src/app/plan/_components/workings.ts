@@ -166,8 +166,8 @@ function nextPowerOfTwo(n: number): number {
 export function categoryMatchesWorking(category: CategoryAnalysis, formatType: FormatType): string[] {
   const { format, rubbersPerFixture } = category;
   const team = rubbersPerFixture > 1;
-  const one = team ? "tie" : "match";
-  const many = team ? "ties" : "matches";
+  const one = team ? "match-up" : "match";
+  const many = team ? "match-ups" : "matches";
   const lines: string[] = [];
   const counts = new Map<number, number>();
   for (const size of format.groupSizes) counts.set(size, (counts.get(size) ?? 0) + 1);
@@ -200,7 +200,7 @@ export function categoryMatchesWorking(category: CategoryAnalysis, formatType: F
   lines.push(`Total = ${plural(format.totalFixtures, one, many)}`);
   if (team) {
     lines.push(
-      `Each tie is ${rubbersPerFixture} rubbers, all played: ${format.totalFixtures} × ${rubbersPerFixture} = ${plural(category.totalMatches, "match", "matches")}`,
+      `Each match-up is ${rubbersPerFixture} matches, all played: ${format.totalFixtures} × ${rubbersPerFixture} = ${plural(category.totalMatches, "match", "matches")}`,
     );
   }
   return lines;

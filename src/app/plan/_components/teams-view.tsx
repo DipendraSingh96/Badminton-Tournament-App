@@ -306,14 +306,14 @@ function EntryDetail({
 
       {team && rubbers.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Line-up, every tie</h3>
+          <h3 className="text-sm font-semibold">Line-up, every match-up</h3>
           <ul className="flex flex-col gap-1 text-sm">
             {rubbers.map((r) => {
               const ids = entry.lineUp[String(r.number)] ?? [];
               return (
                 <li key={r.number} className="flex justify-between gap-2">
                   <span className="text-muted-foreground">
-                    Rubber {r.number} · {EVENT_LABELS[r.event]}
+                    Match {r.number} · {EVENT_LABELS[r.event]}
                   </span>
                   <span className="truncate font-medium">{ids.length > 0 ? ids.map(nameOf).join(" & ") : "Not set"}</span>
                 </li>

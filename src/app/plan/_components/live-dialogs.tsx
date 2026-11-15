@@ -440,7 +440,7 @@ export function DecideKnockoutDialog({
       open
       onOpenChange={(open) => (open ? undefined : onClose())}
       title={`Decide ${round === "Final" || round === "Bronze match" ? `the ${round.toLowerCase()}` : round} by hand`}
-      description={`${home} v ${away} ended level on rubbers, games and points. The scores stand as entered; this only says who it goes to.`}
+      description={`${home} v ${away} ended level on matches, games and points. The scores stand as entered; this only says who it goes to.`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

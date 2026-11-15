@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { groupLetter } from "@/engine";
 import { entryName, type CategoryDraft, type PlanDraft } from "@/lib/tournament/draft";
 import { categoryFormatOf } from "@/lib/tournament/entries";
-import { TIEBREAK_LABELS } from "@/lib/tournament/events";
+import { tiebreakLabels } from "@/lib/tournament/events";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
 import { categoryName } from "./labels";
@@ -60,7 +60,7 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
           <p className="text-sm text-muted-foreground">
             {draw.groups.length} groups
             {qualify > 0 ? ` · top ${qualify} of each go through` : ""} · ranked by{" "}
-            {tiebreaks.length > 0 ? tiebreaks.map((t) => TIEBREAK_LABELS[t].toLowerCase()).join(", then ") : "no tiebreaks set"}
+            {tiebreaks.length > 0 ? tiebreaks.map((t) => tiebreakLabels(draft.unit)[t].toLowerCase()).join(", then ") : "no tiebreaks set"}
           </p>
         </div>
         <label
@@ -92,7 +92,7 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
                   <th scope="col" className="pb-1 text-left font-semibold">
                     {draft.unit === "team" ? "Team" : "Entry"}
                   </th>
-                  <th scope="col" className="w-10 pb-1 text-right font-semibold" title="Ties played">
+                  <th scope="col" className="w-10 pb-1 text-right font-semibold" title="Match-ups played">
                     P
                   </th>
                   <th scope="col" className="w-10 pb-1 text-right font-semibold" title="Won">
@@ -104,8 +104,8 @@ function CategoryGroups({ draft, category }: { draft: PlanDraft; category: Categ
                   {tiebreaks
                     .filter((t) => t !== "matchesWon" && t !== "drawOfLots" && t !== "headToHead")
                     .map((t) => (
-                      <th key={t} scope="col" className="w-12 pb-1 text-right font-semibold" title={TIEBREAK_LABELS[t]}>
-                        {TIEBREAK_LABELS[t].replace(/ \(.*\)/, "").split(" ").map((w) => w[0]!.toUpperCase()).join("")}
+                      <th key={t} scope="col" className="w-12 pb-1 text-right font-semibold" title={tiebreakLabels(draft.unit)[t]}>
+                        {tiebreakLabels(draft.unit)[t].replace(/ \(.*\)/, "").split(" ").map((w) => w[0]!.toUpperCase()).join("")}
                       </th>
                     ))}
                   <th scope="col" className="w-28 pb-1 text-right font-semibold">

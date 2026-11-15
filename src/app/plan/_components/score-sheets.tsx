@@ -56,7 +56,7 @@ export function BlankScoreSheet({ draft, design }: { draft: PlanDraft; design: S
         <Blank label="Court" />
         <Blank label="Time" />
         <Blank label="Group or round" />
-        <Blank label={team ? "Tie and rubber" : "Match"} />
+        <Blank label={team ? "Match-up and match" : "Match"} />
       </div>
       <div className="grid grid-cols-2 gap-[8mm]">
         {["Side A", "Side B"].map((side) => (

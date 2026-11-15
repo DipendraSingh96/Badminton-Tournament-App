@@ -420,7 +420,7 @@ export function moveGame(
   const from = courtNo(draft, change.fromCourtId);
   const to = courtNo(draft, change.target.courtId);
   const rubbers = ids.map((id) => /:r(\d+)$/.exec(id)?.[1]).filter(Boolean);
-  const label = ids.length > 1 ? `${ref.label.replace(/, rubber \d+$/, "")}, rubbers ${rubbers.slice(0, -1).join(", ")} and ${rubbers.at(-1)}` : ref.label;
+  const label = ids.length > 1 ? `${ref.label.replace(/, match \d+$/, "")}, matches ${rubbers.slice(0, -1).join(", ")} and ${rubbers.at(-1)}` : ref.label;
   const what = `${label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}`;
   const next = change.target.before ? matchRef(draft, change.target.before) : null;
   logged(

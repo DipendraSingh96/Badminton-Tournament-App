@@ -56,7 +56,7 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
       if (
         !(await confirm({
           title: team ? "Switch to Team?" : "Switch to individuals and pairs?",
-          body: team ? "Your categories are replaced with a team competition." : "Your team competitions are removed.",
+          body: team ? "Your categories are replaced with a team category." : "Your team categories are removed.",
           action: "Switch",
           destructive: true,
         }))
@@ -91,17 +91,17 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
 
       {draft.unit ? (
         <Section
-          title={draft.unit === "team" ? "Competitions" : "Categories"}
+          title="Categories"
           description={
             draft.unit === "team"
-              ? "Each competition has its own line-up. Entries and structure are on the Schedule tab."
+              ? "Each category has its own line-up. Entries and structure are on the Schedule tab."
               : "Choose the events you're running. Add an event more than once for separate categories, such as an under-15s draw."
           }
           // Beside the heading while there is none; under the last one after that.
           action={
             draft.unit === "team" && draft.categories.length === 0 ? (
               <Button variant="outline" size="sm" onClick={() => update((d) => void d.categories.push(newCategory(d)))}>
-                <PlusIcon /> Add competition
+                <PlusIcon /> Add category
               </Button>
             ) : null
           }
@@ -130,13 +130,13 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
           )}
           {draft.unit === "team" && draft.categories.length > 0 ? (
             <Button variant="outline" size="sm" className="self-start" onClick={() => update((d) => void d.categories.push(newCategory(d)))}>
-              <PlusIcon /> Add competition
+              <PlusIcon /> Add category
             </Button>
           ) : null}
         </Section>
       ) : null}
 
-      <Section title="Competition format" description="Applies to every category.">
+      <Section title="Category format" description="Applies to every category.">
         <OptionCards
           label="How categories are played"
           hideLabel
@@ -260,7 +260,7 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <TextField
-            label="Competition name"
+            label="Category name"
             placeholder="e.g. Club team cup"
             path={["categories", index, "name"]}
             value={category.name}
@@ -271,10 +271,11 @@ function CompetitionCard({ draft, index, update }: { draft: PlanDraft; index: nu
       </div>
       <fieldset className="flex flex-col gap-2" data-path={`categories.${index}.lineUp`}>
         <legend className="flex items-center gap-1 text-sm font-semibold">
-          Line-up of a tie
+          Line-up of a match-up
           <InfoTip about="the line-up">
-            Rubbers of each event in every tie. All rubbers are played; the team that wins the most rubbers wins the
-            tie. Each player plays one rubber, so the line-up sets the squad.
+            A match-up is two teams meeting. These are the matches of each event in every match-up. All of them are
+            played; the team that wins the most matches wins the match-up. Each player plays one match, so the
+            line-up sets the squad.
           </InfoTip>
         </legend>
         <div className="grid grid-cols-3 gap-x-2 gap-y-3">

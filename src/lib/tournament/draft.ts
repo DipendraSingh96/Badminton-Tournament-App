@@ -601,7 +601,7 @@ export function defaultCategoryName(draft: PlanDraft, index: number): string {
     const before = draft.categories.slice(0, index).filter((c) => c.event === event).length;
     return before === 0 ? EVENT_LABELS[event] : `${EVENT_LABELS[event]} ${before + 1}`;
   }
-  return `Competition ${index + 1}`;
+  return `Category ${index + 1}`;
 }
 
 /** Removes a category and every reference to it: prizes and eligibility rules. */

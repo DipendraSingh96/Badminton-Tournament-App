@@ -351,7 +351,7 @@ function playedStep(step: PlayedStep): { short: string; full: string; colour: st
 function PlayedSection({ draft }: { draft: PlanDraft }) {
   const { unit, format } = draft;
   const team = unit === "team";
-  const matchNoun = (n: number) => (team ? (n === 1 ? "tie" : "ties") : n === 1 ? "match" : "matches");
+  const matchNoun = (n: number) => (team ? (n === 1 ? "match-up" : "match-ups") : n === 1 ? "match" : "matches");
   const empty = <p className="text-sm text-muted-foreground">Fill in the entries and groups above to see this.</p>;
   return (
     <Section
@@ -414,7 +414,7 @@ function PlayedSection({ draft }: { draft: PlanDraft }) {
                     </div>
                     {team && rubbers > 0 ? (
                       <p className="text-sm text-muted-foreground tabular-nums">
-                        {rubbers === 1 ? "A tie is 1 rubber." : `A tie is ${rubbers} rubbers: each player plays 1 rubber a tie.`}
+                        {rubbers === 1 ? "A match-up is 1 match." : `A match-up is ${rubbers} matches: each player plays 1 match a match-up.`}
                       </p>
                     ) : null}
                   </>
@@ -439,7 +439,7 @@ function StagesSection({ draft, update }: { draft: PlanDraft; update: Update }) 
   return (
     <Section
       title="Stages"
-      description="In play order. Each category sets its own groups, scoring and timing for each stage; they apply to every event and rubber it plays there."
+      description="In play order. Each category sets its own groups, scoring and timing for each stage; they apply to every event and match it plays there."
     >
       <div className="grid grid-cols-2 gap-x-2 gap-y-3">
         {usesBestOfThree(draft) ? (

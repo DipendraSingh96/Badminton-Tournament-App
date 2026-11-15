@@ -12,7 +12,7 @@ import {
   type PlanDraft,
   type RulesDraft,
 } from "@/lib/tournament/draft";
-import { TIEBREAK_LABELS, WALKOVER_LABELS, WITHDRAWAL_LABELS } from "@/lib/tournament/events";
+import { tiebreakLabels, WALKOVER_LABELS, WITHDRAWAL_LABELS } from "@/lib/tournament/events";
 import { InfoTip, IssuesContext, Section, SegmentedField, SelectField, StepperField, SwitchField, pathKey } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
@@ -62,7 +62,7 @@ export function RulesSection({ draft, update }: { draft: PlanDraft; update: Upda
         <div className="flex flex-col gap-2">
           <Heading
             title="Open doubles handicap"
-            description="A points head start in every game when different pair types meet, given to the weaker pair type. The same in every stage, and in Open doubles rubbers of team ties. Pairs of the same type get none."
+            description="A points head start in every game when different pair types meet, given to the weaker pair type. The same in every stage, and in the Open doubles matches of team match-ups. Pairs of the same type get none."
           />
           <SwitchField
             label="Give a head start"
@@ -168,13 +168,13 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
               <li key={criterion} className="flex items-center gap-2 rounded-lg bg-card-system py-1 pr-1 pl-3">
                 <span className="w-5 text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
                 <span className="flex-1 text-sm">
-                  {TIEBREAK_LABELS[criterion]}
+                  {tiebreakLabels(draft.unit)[criterion]}
                   {fixedLast ? <span className="text-muted-foreground"> · always last</span> : null}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Move ${TIEBREAK_LABELS[criterion].toLowerCase()} up`}
+                  aria-label={`Move ${tiebreakLabels(draft.unit)[criterion].toLowerCase()} up`}
                   disabled={!canUp}
                   onClick={() => move(i, i - 1)}
                 >
@@ -183,7 +183,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Move ${TIEBREAK_LABELS[criterion].toLowerCase()} down`}
+                  aria-label={`Move ${tiebreakLabels(draft.unit)[criterion].toLowerCase()} down`}
                   disabled={!canDown}
                   onClick={() => move(i, i + 1)}
                 >
@@ -192,7 +192,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Remove ${TIEBREAK_LABELS[criterion].toLowerCase()}`}
+                  aria-label={`Remove ${tiebreakLabels(draft.unit)[criterion].toLowerCase()}`}
                   onClick={() => update((d) => void d.rules.tiebreaks.splice(i, 1))}
                 >
                   <TrashIcon />
@@ -216,7 +216,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
                 className="rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-inset focus-visible:bg-inset"
                 onClick={() => add(criterion)}
               >
-                {TIEBREAK_LABELS[criterion]}
+                {tiebreakLabels(draft.unit)[criterion]}
               </button>
             ))}
           </PopoverContent>

@@ -18,7 +18,7 @@ import {
   type GroupStatus,
   type GroupTable,
 } from "@/lib/tournament/entries";
-import { TIEBREAK_LABELS } from "@/lib/tournament/events";
+import { tiebreakLabels } from "@/lib/tournament/events";
 import { gameState } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
@@ -32,7 +32,7 @@ import type { LocalSegment } from "./timeline";
 
 /** The tiebreaks that are a number in the table (wins have their own column; head-to-head and lots aren't one number). */
 const NUMERIC: TiebreakCriterion[] = ["gameDifference", "pointDifference", "pointsWon", "rubbersWon"];
-const SHORT: Partial<Record<TiebreakCriterion, string>> = { gameDifference: "GD", pointDifference: "PD", pointsWon: "Pts", rubbersWon: "RW" };
+const SHORT: Partial<Record<TiebreakCriterion, string>> = { gameDifference: "GD", pointDifference: "PD", pointsWon: "Pts", rubbersWon: "MW" };
 
 /** A difference with its sign: "+12", "−3", "0". */
 function signed(n: number): string {
@@ -154,7 +154,7 @@ function CategoryStandings({
               ? "Knockout only, by seed"
               : [
                   qualify > 0 ? `Top ${qualify} of each group go through` : "Groups only: each group's table decides it",
-                  `ranked by ${tiebreaks.length > 0 ? tiebreaks.map((t) => TIEBREAK_LABELS[t].replace(/ \(.*\)/, "").toLowerCase()).join(", then ") : "no tiebreaks set"}`,
+                  `ranked by ${tiebreaks.length > 0 ? tiebreaks.map((t) => tiebreakLabels(draft.unit)[t].replace(/ \(.*\)/, "").toLowerCase()).join(", then ") : "no tiebreaks set"}`,
                 ].join(" · ")}
           </p>
         </div>
@@ -248,7 +248,7 @@ function GroupCard({
           </button>
         </h3>
         <p className="text-xs text-muted-foreground tabular-nums">
-          {table.complete ? "Finished" : `${table.played} of ${table.total} ${team ? "ties" : "games"} played`}
+          {table.complete ? "Finished" : `${table.played} of ${table.total} ${team ? "match-ups" : "games"} played`}
         </p>
       </div>
       <table className="w-full text-sm tabular-nums">
@@ -263,7 +263,7 @@ function GroupCard({
             <th scope="col" className="pb-1 text-left font-semibold">
               {team ? "Team" : "Entry"}
             </th>
-            <th scope="col" className="w-8 pb-1 text-right font-semibold" title={team ? "Ties played" : "Played"}>
+            <th scope="col" className="w-8 pb-1 text-right font-semibold" title={team ? "Match-ups played" : "Played"}>
               P
             </th>
             <th scope="col" className="w-8 pb-1 text-right font-semibold" title="Won">
@@ -273,7 +273,7 @@ function GroupCard({
               L
             </th>
             {columns.map((t) => (
-              <th key={t} scope="col" className="w-10 pb-1 text-right font-semibold" title={TIEBREAK_LABELS[t]}>
+              <th key={t} scope="col" className="w-10 pb-1 text-right font-semibold" title={tiebreakLabels(draft.unit)[t]}>
                 {SHORT[t]}
               </th>
             ))}

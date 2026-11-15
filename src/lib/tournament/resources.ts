@@ -1,6 +1,6 @@
 import { categoryRules, courtNumber, entryName, type CategoryDraft, type PlanDraft, type StageRulesDraft } from "./draft";
 import { categoryFormatOf, categoryLabel, lineUpComplete } from "./entries";
-import { TIEBREAK_LABELS } from "./events";
+import { tiebreakLabels, type TIEBREAK_LABELS } from "./events";
 
 // Getting ready for the day (the Draw stage's Resources page): what to carry,
 // what is still to do, and the words of the rulebook and the message to
@@ -167,7 +167,7 @@ const TIEBREAK_MEANING: Record<keyof typeof TIEBREAK_LABELS, string> = {
   pointDifference: "points won less points lost",
   headToHead: "the result between the entries that are level",
   pointsWon: "the most points won in all",
-  rubbersWon: "the most rubbers won",
+  rubbersWon: "the most matches won across its match-ups",
   drawOfLots: "drawn by lot",
 };
 
@@ -236,7 +236,7 @@ export function rulebook(draft: PlanDraft, houseRules: string): { sections: Rule
         title: "How groups are ranked",
         lines: [
           "Entries in a group are ranked by these, in this order; each is used only to separate entries still level on the ones before.",
-          ...draft.rules.tiebreaks.map((t, i) => `${i + 1}. ${TIEBREAK_LABELS[t].replace(/ \(.*\)/, "")}: ${TIEBREAK_MEANING[t]}.`),
+          ...draft.rules.tiebreaks.map((t, i) => `${i + 1}. ${tiebreakLabels(draft.unit)[t].replace(/ \(.*\)/, "")}: ${draft.unit === "team" && t === "matchesWon" ? "the most match-ups won" : TIEBREAK_MEANING[t]}.`),
         ],
       });
     }

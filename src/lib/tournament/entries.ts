@@ -361,7 +361,7 @@ export function matchRef(draft: PlanDraft, id: string): MatchRef | null {
   const code = parts[5] ?? null;
   const knockout = code ? knockoutMatchOf(draft, category, code) : null;
   if (code && !knockout) return null;
-  const rubber = draft.unit === "team" && rubberCount(draft, category) > 1 ? `, rubber ${parts[6]}` : "";
+  const rubber = draft.unit === "team" && rubberCount(draft, category) > 1 ? `, match ${parts[6]}` : "";
   const of = draft.categories.length > 1 ? `${categoryLabel(draft, categoryId)}, ` : "";
   return {
     id,
