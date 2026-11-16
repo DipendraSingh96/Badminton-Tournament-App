@@ -87,6 +87,12 @@ interface Simulation {
   seed: number;
   /** "I enter the scores": the simulation starts games and waits for the desk to score and finish them. */
   deskScores: boolean;
+  /**
+   * False for a rehearsal that has been opened but not begun: the Live pages
+   * as they are before Start tournament, with nothing playing. The desk's
+   * changes are simply made to `base` until the organiser starts it.
+   */
+  started: boolean;
 }
 
 /** A court's number from its id; null if it is no longer in the venue. */
@@ -698,6 +704,16 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const simUpdate: Update = (recipe) => {
     const now = simNow.current;
     if (!now) return;
+    if (!now.started) {
+      // A rehearsal not begun yet: nothing is playing, so the change is just made.
+      try {
+        const next = produce(now.base, recipe);
+        if (next !== now.base) putSim({ ...now, base: next });
+      } catch {
+        // A change that can't be made is left unmade.
+      }
+      return;
+    }
     const hold = holdOf(now.events);
     const at = Math.max(now.from, Math.min(playhead ?? now.from, hold ?? Infinity));
     const dayNow = dayAfter(now.base, now.events, eventsBy(now.events, at));
@@ -729,7 +745,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const seed = Math.floor(Math.random() * 2 ** 31);
     const events = simulateFrom(draft, seed, from, false);
     if (!events) return;
-    putSim({ base: draft, events, from, seed, deskScores: false });
+    putSim({ base: draft, events, from, seed, deskScores: false, started: true });
     setPlayhead(from);
     const hold = holdOf(events);
     setPlaying(hold === null || hold > from);
@@ -767,22 +783,43 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     if (from === null || !canGoLive(draft)) return;
     const base = produce(draft, (d) => goLive(d, new Date().toISOString()));
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const events = simulateFrom(base, seed, from, false);
-    if (!events) return;
-    putSim({ base, events, from, seed, deskScores: false });
+    // It opens as a Live tournament does: nothing started. The organiser looks round, checks people in, and starts it.
+    putSim({ base, events: [], from, seed, deskScores: true, started: false });
     setStageView("live");
-    setLiveView("board");
+    setLiveView("checkin");
     setPlayhead(from);
-    const hold = holdOf(events);
-    setPlaying(hold === null || hold > from);
+    setPlaying(false);
   }
-  // The way on from the draw, in the Draw side panel's top band and on its folded rail.
+  /** Start tournament simulation, in a rehearsal: the day begins. People arrive by themselves; the desk scores and finishes every game. */
+  function startRehearsal() {
+    const now = simNow.current;
+    if (!now || now.started) return;
+    const events = simulateFrom(now.base, now.seed, now.from, true);
+    if (!events) return;
+    putSim({ ...now, events, started: true });
+    setPlayhead(now.from);
+    const hold = holdOf(events);
+    setPlaying(hold === null || hold > now.from);
+  }
+  /** Before the tournament's day, Live is a rehearsal: both ways in ask the same thing first. */
+  async function askRehearse() {
+    if (
+      await confirm({
+        title: "Simulate the live tournament?",
+        body: "This is a simulation only: nothing is saved and the tournament stays in the Draw stage. On the day of the tournament you go Live in the same way.",
+        action: "Simulate live",
+      })
+    )
+      rehearse();
+  }
+  // Until its day comes, a tournament can only be rehearsed, not taken Live.
+  const dayReached = tournamentDayReached(draft.frame.date, todayIn(draft.frame.timeZone));
   const drawStep: "lock" | "live" | "rehearse" | null =
     draft.stage !== "draw" || sim !== null
       ? null
       : !canGoLive(draft)
         ? "lock"
-        : tournamentDayReached(draft.frame.date, todayIn(draft.frame.timeZone))
+        : dayReached
           ? "live"
           : "rehearse";
   const drawNext =
@@ -800,7 +837,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   function goDrawNext() {
     if (drawStep === "lock") update((d) => void Object.values(d.draw).forEach((made) => void (made.locked = true)));
     else if (drawStep === "live") void advance("live");
-    else if (drawStep === "rehearse") rehearse();
+    else if (drawStep === "rehearse") void askRehearse();
   }
   /** The cursor during a simulation: not back past the desk's last action, nor on past a court that is waiting for the desk. */
   const seek = useCallback((minute: number | null) => {
@@ -824,9 +861,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // or a dialog has the keyboard (the keys are theirs there).
   const spaceHeld = simHold !== null && playhead !== null && playhead >= simHold;
   // Minutes of the day a second of playback: slower with developer tools on, so a simulated day can be followed.
-  const playRate = watching || developer ? SIMULATION.minutesPerSecond : undefined;
+  const playRate = rehearsing ? SIMULATION.rehearsalMinutesPerSecond : watching || developer ? SIMULATION.minutesPerSecond : undefined;
   useEffect(() => {
-    if (clockLocked || !range) return;
+    // A rehearsal that hasn't been started has nothing to play or move through yet.
+    if (clockLocked || !range || (sim !== null && !sim.started)) return;
     const onKey = (e: KeyboardEvent) => {
       const arrow = e.code === "ArrowLeft" ? -1 : e.code === "ArrowRight" ? 1 : 0;
       if ((e.code !== "Space" && arrow === 0) || (e.repeat && arrow === 0) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
@@ -857,7 +895,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld, playRate, seek]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld, playRate, seek, sim?.started]); // eslint-disable-line react-hooks/exhaustive-deps
   // The time shown beside the Live panel's tabs: the cursor's.
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
@@ -1080,6 +1118,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         return;
     }
     if (next === "live") {
+      // Before the day, the Live tab opens a rehearsal instead: the tournament itself stays in the Draw stage.
+      if (!dayReached) return askRehearse();
       if (
         !(await confirm({
           title: "Go Live?",
@@ -1213,7 +1253,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           onSeek={clockLocked ? noSeek : seek}
           playing={clockLocked ? false : playing}
           onPlayingChange={clockLocked ? noPlaying : setPlaying}
-          locked={clockLocked}
+          locked={clockLocked || (sim !== null && !sim.started)}
           rate={playRate}
           picked={pickedGame}
           onPick={viewing === "plan" ? undefined : pickGame}
@@ -1342,7 +1382,27 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 />
               ) : null}
               {liveDraft.startedAt ? <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span> : null}
-              {watching ? (
+              {sim && !sim.started ? (
+                // A rehearsal opened and not begun: as Live is before Start tournament.
+                <>
+                  <Button
+                    size="sm"
+                    data-start-rehearsal
+                    disabled={simBlocked !== null}
+                    title={
+                      simBlocked
+                        ? `Can't simulate: ${simBlocked}`
+                        : "The day begins: players arrive by themselves and games go on court. You enter the scores; it pauses when a game needs one. Nothing is saved"
+                    }
+                    onClick={startRehearsal}
+                  >
+                    <PlayIcon /> Start tournament simulation
+                  </Button>
+                  <Button variant="outline" size="sm" title="Back to the draw, with nothing changed" onClick={endSimulation}>
+                    End rehearsal
+                  </Button>
+                </>
+              ) : watching ? (
                 <SimulationControls
                   state={playing ? "playing" : "paused"}
                   // A court is waiting for the desk: the day plays on once it has been dealt with.
@@ -1552,12 +1612,15 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                             <p className="text-sm">
                               <span className="font-semibold">{rehearsing ? "Rehearsal." : "Simulation."}</span> Nothing is saved.
                             </p>
-                            <label
-                              className="flex w-fit items-center gap-2 text-sm"
-                              title="On: each game that ends pauses the day until you enter its score and finish it. Off: the simulation scores games itself"
-                            >
-                              <Switch checked={Boolean(sim?.deskScores)} onCheckedChange={setDeskScores} />I enter the scores
-                            </label>
+                            {/* A rehearsal is scored by the desk, as the day will be: the switch is a developer's. */}
+                            {rehearsing ? null : (
+                              <label
+                                className="flex w-fit items-center gap-2 text-sm"
+                                title="On: each game that ends pauses the day until you enter its score and finish it. Off: the simulation scores games itself"
+                              >
+                                <Switch checked={Boolean(sim?.deskScores)} onCheckedChange={setDeskScores} />I enter the scores
+                              </label>
+                            )}
                           </div>
                         ) : undefined
                       }
