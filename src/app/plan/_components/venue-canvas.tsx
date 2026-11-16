@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, PlusIcon } from "@phosphor-icons/react";
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import type { CourtGroups } from "@/engine";
@@ -17,7 +17,13 @@ export function VenueCanvas({
   update,
   statuses,
   courtGroups,
+  intro,
+  onNext,
 }: {
+  /** The guided start's second step: a line of help above the halls. */
+  intro?: string;
+  /** The guided start's second step: Next, on the Add hall row, moves on to the rest of the plan. */
+  onNext?: () => void;
   draft: PlanDraft;
   update: Update;
   /** What each court is doing at the timeline's playhead; null without an estimate. */
@@ -53,6 +59,7 @@ export function VenueCanvas({
   }
   return (
     <section aria-label="Venue" className="flex flex-col gap-4">
+      {intro ? <p className="text-base">{intro}</p> : null}
       <div className="flex flex-col gap-4">
         {draft.frame.halls.map((hall, i) => (
           <HallCard
@@ -67,9 +74,16 @@ export function VenueCanvas({
         ))}
       </div>
       {fixed ? null : (
-        <Button variant="outline" className="self-start" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
-          <PlusIcon /> Add hall
-        </Button>
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="outline" onClick={() => update((d) => void d.frame.halls.push(emptyHall()))}>
+            <PlusIcon /> Add hall
+          </Button>
+          {onNext ? (
+            <Button data-guide-next onClick={onNext}>
+              Next <ArrowRightIcon weight="bold" />
+            </Button>
+          ) : null}
+        </div>
       )}
     </section>
   );

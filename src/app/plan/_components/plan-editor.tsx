@@ -18,6 +18,7 @@ import { fillStage } from "@/lib/tournament/dummy/fill";
 import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type SampleStage } from "@/lib/tournament/dummy/marks";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { useDeveloperTools } from "@/lib/developer";
+import { advanceGuide, beginGuide, guideStep, skipGuide, type GuideStep } from "@/lib/onboarding";
 import { SIMULATION } from "@/lib/tournament/dummy/values";
 import { dayAfter, eventsBy, holdEvent, holdOf, restamp, simulateDay, type SimEvent } from "@/lib/tournament/simulate";
 import { Button } from "@/components/ui/button";
@@ -353,6 +354,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id) ?? emptyDraft(browserTimeZone()));
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
+  // The guided start (a device's first tournament only): 1 the name and date alone, 2 the venue, null the whole app.
+  const [guide, setGuide] = useState<GuideStep>(() => loadGuide(id));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [courtSize, setCourtSize] = useState<CourtSize>(loadCourtSize);
   const courtSizing = useMemo(
@@ -1277,7 +1280,35 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     },
   };
   // The Plan stage's working area, and the Draw stage's Schedule page.
-  const workingArea = docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />);
+  function nextGuideStep() {
+    let next: GuideStep = null;
+    try {
+      next = advanceGuide(window.localStorage, id);
+    } catch {
+      next = null;
+    }
+    setGuide(next);
+    // The last step opens the side panel, expanded, on "Set up your tournament".
+    if (next === null) foldWorkbench(false);
+  }
+  const workingArea =
+    guide === 2 ? (
+      // The guided start's second step: the venue alone. The timeline and the side panel come with the next step.
+      <div className="@container scroll-pane h-full overflow-y-auto px-(--pane-x)">
+        <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
+          <VenueCanvas
+            draft={shown}
+            update={update}
+            statuses={statuses}
+            courtGroups={courtGroups}
+            intro="Set up your tournament's halls, courts and umpires."
+            onNext={nextGuideStep}
+          />
+        </div>
+      </div>
+    ) : (
+      docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />)
+    );
 
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
@@ -1374,6 +1405,27 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             >
             <div className="workspace-dots flex min-w-0 flex-1">
             <main className="flex min-w-0 flex-1 flex-col">
+              {guide === 1 ? (
+                // The guided start's first step: nothing but the tournament's name, date and time zone.
+                <div className="@container grid min-h-0 flex-1 place-items-center px-(--pane-x) pb-24">
+                  <div data-guide-step="1" className="flex w-full max-w-[860px] flex-col items-center gap-3">
+                    <h1 className="sr-only">Name your tournament</h1>
+                    <div className="flex items-start gap-2">
+                      <TournamentHeader draft={draft} update={update} />
+                      <Button
+                        data-guide-next
+                        disabled={!draft.name.trim() || !draft.frame.date}
+                        title={!draft.name.trim() || !draft.frame.date ? "Give it a name and a date first" : undefined}
+                        onClick={nextGuideStep}
+                      >
+                        Next <ArrowRightIcon weight="bold" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">You can change these later.</p>
+                  </div>
+                </div>
+              ) : (
+              <>
               <div className="shrink-0 px-(--pane-x)">
                 <div className={cn(COLUMN, "pb-4")}>
                   <NameRow
@@ -1457,8 +1509,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </VenueFixedContext>
                 )}
               </div>
+              </>
+              )}
             </main>
-            {viewing === "live" || viewing === "results" ? (
+            {guide !== null ? null : viewing === "live" || viewing === "results" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
@@ -1674,13 +1728,41 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
  * The saved tournaments, with one open in the editor. Opening another remounts
  * the editor, so its undo history, preview and selections start afresh.
  */
+/** A device that already has tournaments never gets the guided start (unless one is part-way through it). */
+function guideOff(): void {
+  try {
+    skipGuide(window.localStorage);
+  } catch {
+    // No storage: nothing to remember.
+  }
+}
+
+function loadGuide(id: string): GuideStep {
+  try {
+    return guideStep(window.localStorage, id);
+  } catch {
+    return null;
+  }
+}
+
 function Workspace() {
   const confirm = useConfirm();
   const [index, setIndex] = useState<TournamentIndex>(() => {
     const saved = loadIndex();
-    if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) return saved;
+    if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) {
+      // Tournaments already here from before the guided start: it isn't for them. (One in the middle of it carries on.)
+      guideOff();
+      return saved;
+    }
     if (saved.items[0]) return setCurrent(saved, saved.items[0].id);
-    return createTournament(saved, emptyDraft(browserTimeZone())).index;
+    // Nothing here yet: this device's first tournament, which is revealed a step at a time.
+    const made = createTournament(saved, emptyDraft(browserTimeZone()));
+    try {
+      beginGuide(window.localStorage, made.index.currentId!);
+    } catch {
+      // No storage: the tournament opens in full.
+    }
+    return made.index;
   });
   const indexRef = useRef(index);
   const change = useCallback((next: TournamentIndex) => {
