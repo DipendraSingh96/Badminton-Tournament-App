@@ -251,7 +251,19 @@ export interface WithdrawalDraft {
   results: "stand" | "void";
 }
 
-export type LogKind = "live" | "start" | "withdrawal" | "walkover" | "retirement" | "correction" | "move" | "decision" | "reversal";
+export type LogKind =
+  | "live"
+  | "start"
+  | "withdrawal"
+  | "walkover"
+  | "retirement"
+  | "correction"
+  | "move"
+  | "decision"
+  | "reversal"
+  /** The tournament was finished (Live to Results), or reopened (Results back to Live). */
+  | "finish"
+  | "reopen";
 
 /** A controlled change made while Live: what, when, who, and what it replaced so it can be reversed. */
 export interface LogEntryDraft {
@@ -334,6 +346,12 @@ export interface PlanDraft {
   bestOfThreeAllowance: N;
   /** Percentage added to every match in the worst case, for matches that run over. Optional: empty is none. */
   overspill: N;
+  /**
+   * Results: what was really paid or received, where it differs from what the
+   * app works out, by money line ("fee:<category>", "income:<id>", "hire",
+   * "prize:<id>", "cost:<id>": an amount; "shuttles": the number used).
+   */
+  actuals: Record<string, number>;
   finance: FinanceDraft;
   /** Set once for the tournament. */
   rules: RulesDraft;
@@ -990,6 +1008,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     log: [],
     startedAt: null,
     resources: emptyResources(),
+    actuals: {},
     publicNames: "full",
     groupCourts: "own",
     courtGroups: {},

@@ -43,6 +43,8 @@ export const LOG_KIND_LABELS: Record<LogKind, string> = {
   move: "Court move",
   decision: "Tie decided",
   reversal: "Reversal",
+  finish: "Finished",
+  reopen: "Reopened",
 };
 
 const resultKey = (matchId: string) => `results/${matchId}`;
@@ -155,6 +157,24 @@ export function goLive(draft: PlanDraft, now: string): void {
   logged(draft, { kind: "live", text: "The tournament went Live", now }, [STAGE], () => {
     draft.stage = "live";
   });
+}
+
+/** The tournament is finished: its results are shown from here. Nothing happens unless it is Live. */
+export function finishTournament(draft: PlanDraft, now: string): boolean {
+  if (draft.stage !== "live") return false;
+  logged(draft, { kind: "finish", text: "The tournament was finished", now }, [STAGE], () => {
+    draft.stage = "results";
+  });
+  return true;
+}
+
+/** Back to Live from the results, to correct something. Nothing happens unless it is finished. */
+export function reopenLive(draft: PlanDraft, now: string, note?: string): boolean {
+  if (draft.stage !== "results") return false;
+  logged(draft, { kind: "reopen", text: "The tournament was reopened", note, now }, [STAGE], () => {
+    draft.stage = "live";
+  });
+  return true;
 }
 
 /** A side's name in a match, or where it comes from while it isn't known. */
