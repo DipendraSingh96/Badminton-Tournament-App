@@ -305,3 +305,12 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Draw side panel, top band:** heading, then the primary button (**Lock draws**, **Simulate live →** or **Go Live →**), then Hide. Folded: the same button at the top of the rail, its words running down it.
 - **Rehearsal:** the Live pages with the stage switch on Live; the banner's last line reads "Rehearsal. Nothing is saved." with the "I enter the scores" switch; Play, Pause and End beside the stage switch. End, or choosing another stage, returns to the Draw stage.
 - **Knockout bracket (Draw KO stage and Live Knockout stage):** the rounds' columns share the width, each at least 144px; names and the court line shorten with an ellipsis.
+
+### Rehearsal, bracket, byes and panels, 16 Nov 2026 second round (these replace anything above that says otherwise)
+- **Confirm before a rehearsal:** title "Simulate the live tournament?"; body "This is a simulation only: nothing is saved and the tournament stays in the Draw stage. On the day of the tournament you go Live in the same way."; buttons Cancel and Simulate live. Shown from the Simulate live button and from the Live tab, on any day before the tournament's.
+- **Rehearsal, not started:** opens on Check-in. Beside the stage switch: **Start tournament simulation** and **End rehearsal**. The banner reads "Rehearsal. Nothing is saved." and has no switch. The timeline's cursor is fixed until it starts.
+- **Rehearsal, running:** Play, Pause and End beside the stage switch; the banner lists what needs the desk ("Waiting for a score: Court 6. Enter it and finish the match").
+- **KO stage page (Draw) and Knockout stage page (Live):** zoom out and zoom in buttons at the top right. Lines join each match to the next. Compact boxes hold the two names (and, in Live, their scores) with no header line.
+- **Draw page group cards and the side panel's group lists:** a dashed, muted "E5 Bye" row for each place a group is short of the biggest. Not in Live, and not while searching the list.
+- **Folded rail:** the whole rail highlights under the pointer, its action strip included.
+- **New tournament:** side panel folded to its rail, timeline folded to its bar.
