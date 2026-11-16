@@ -258,6 +258,21 @@
 ::-webkit-scrollbar {
   display: none;
 }
+/* The one exception: a knockout tree too wide for its page (a round of 32
+   beside an open side panel) keeps a thin scrollbar in view, so it never
+   looks cut off. */
+.bracket-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 35%, transparent) transparent;
+}
+.bracket-scroll::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
+.bracket-scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--foreground) 35%, transparent);
+}
 /* The thumb's box is its grab area (12px across the pane's edge); the bar
    drawn in it is 4px, 2px in from the edge, and 6px while it's held. */
 .scroll-hint {

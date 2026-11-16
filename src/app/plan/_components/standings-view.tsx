@@ -23,6 +23,7 @@ import { gameState } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
+import { BRACKET_COLUMN } from "./bracket-view";
 import { awardMark } from "./court-board";
 import { TeamName, courtOf } from "./draw-panel";
 import { DecideDialog, DecideKnockoutDialog } from "./live-dialogs";
@@ -387,10 +388,10 @@ function BracketCard({
           <p className="text-sm text-muted-foreground">As it stands: the names in grey are who would go through if the groups ended now.</p>
         ) : null}
       </div>
-      <div className="scroll-pane overflow-x-auto pb-2">
-        <div className="flex min-w-max gap-6">
+      <div className="bracket-scroll overflow-x-auto pb-2">
+        <div className="flex gap-3">
           {earlier.map((round) => (
-            <div key={round.size} className="flex flex-col gap-3">
+            <div key={round.size} className={BRACKET_COLUMN}>
               <h4 className="text-sm font-semibold">{roundName(round.size)}</h4>
               <ol className="flex flex-1 flex-col justify-around gap-3">
                 {round.matches.map((m) => (
@@ -399,7 +400,7 @@ function BracketCard({
               </ol>
             </div>
           ))}
-          <div className="flex flex-col gap-3">
+          <div className={BRACKET_COLUMN}>
             <h4 className="flex items-center gap-2 text-sm font-semibold">
               <TrophyIcon weight="fill" className="size-4 text-shuttle" aria-hidden="true" /> Final
             </h4>
@@ -483,7 +484,7 @@ function MatchBox({
     : [(rubbers[0] ?? []).map(([h]) => String(h)), (rubbers[0] ?? []).map(([, a]) => String(a))];
 
   return (
-    <div className={cn("flex w-64 flex-col rounded-lg border bg-card text-sm", final ? "border-shuttle ring-1 ring-shuttle" : "border-border")}>
+    <div className={cn("flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm", final ? "border-shuttle ring-1 ring-shuttle" : "border-border")}>
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums">
         <span>{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
         {first ? (

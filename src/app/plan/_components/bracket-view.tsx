@@ -40,6 +40,9 @@ function whenOf(draft: PlanDraft, segments: LocalSegment[], categoryId: string, 
   return `${clock(own[0]!.from)} · ${courts.length === 1 ? "Court" : "Courts"} ${courts.join(", ")}`;
 }
 
+/** A round's column: an equal share of the width, never narrower than a readable box. */
+export const BRACKET_COLUMN = "flex min-w-36 flex-1 basis-0 flex-col gap-3";
+
 function MatchBox({
   draft,
   segments,
@@ -59,13 +62,15 @@ function MatchBox({
   return (
     <div
       className={cn(
-        "flex w-56 flex-col rounded-lg border bg-card text-sm",
+        "flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm",
         final ? "border-shuttle ring-1 ring-shuttle" : "border-border",
       )}
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums">
-        <span>{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
-        <span className="truncate">{when ?? "Not scheduled"}</span>
+        <span className="shrink-0">{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
+        <span className="truncate" title={when ?? undefined}>
+          {when ?? "Not scheduled"}
+        </span>
       </div>
       {[match.home, match.away].map((slot, i) => (
         <div key={i} className={cn("truncate px-3 py-2", i === 0 && "border-b border-border/60")} title={side(slot)}>
@@ -113,10 +118,11 @@ function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segm
           {category.bronze ? ", with a bronze match" : ""}. Sides fill in as results arrive in Live mode.
         </p>
       </div>
-      <div className="scroll-pane overflow-x-auto pb-2">
-        <div className="flex min-w-max gap-6">
+      {/* The rounds share the width there is, so the whole tree shows; with too many to fit it scrolls sideways, with its scrollbar in view. */}
+      <div className="bracket-scroll overflow-x-auto pb-2">
+        <div className="flex gap-3">
           {earlier.map((round) => (
-            <div key={round.size} className="flex flex-col gap-3">
+            <div key={round.size} className={BRACKET_COLUMN}>
               <h3 className="text-sm font-semibold">{roundName(round.size)}</h3>
               <ol className="flex flex-1 flex-col justify-around gap-3">
                 {round.matches.map((m) => (
@@ -128,7 +134,7 @@ function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segm
             </div>
           ))}
           {final ? (
-            <div className="flex flex-col gap-3">
+            <div className={BRACKET_COLUMN}>
               <h3 className="flex items-center gap-2 text-sm font-semibold">
                 <TrophyIcon weight="fill" className="size-4 text-shuttle" aria-hidden="true" /> Final
               </h3>
