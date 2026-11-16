@@ -55,7 +55,10 @@ export function SimulationControls({
   onPlay,
   onPause,
   onStop,
+  rehearsal = false,
 }: {
+  /** A rehearsal from the Draw stage, not a developer's simulation: the buttons say so. */
+  rehearsal?: boolean;
   state: "playing" | "paused";
   /** Stopped for the desk: what it is waiting for, in words. Null when it isn't. */
   waiting: string | null;
@@ -66,12 +69,12 @@ export function SimulationControls({
   return (
     <>
       {state === "playing" ? (
-        <IconButton label="Pause the simulation" side="bottom" className="text-tight-text" onClick={onPause}>
+        <IconButton label={rehearsal ? "Pause the rehearsal" : "Pause the simulation"} side="bottom" className="text-tight-text" onClick={onPause}>
           <PauseIcon weight="fill" />
         </IconButton>
       ) : (
         <IconButton
-          label={waiting ?? "Carry on with the simulation"}
+          label={waiting ?? (rehearsal ? "Carry on with the rehearsal" : "Carry on with the simulation")}
           side="bottom"
           className={cn("text-fits-text", waiting && "cursor-not-allowed opacity-50 hover:bg-transparent")}
           aria-disabled={Boolean(waiting)}
@@ -80,7 +83,7 @@ export function SimulationControls({
           <PlayIcon weight="fill" />
         </IconButton>
       )}
-      <IconButton label="Stop the simulation: the tournament goes back to how it was" side="bottom" className="text-over-text" onClick={onStop}>
+      <IconButton label={rehearsal ? "End the rehearsal: back to the draw, with nothing changed" : "Stop the simulation: the tournament goes back to how it was"} side="bottom" className="text-over-text" onClick={onStop}>
         <StopIcon weight="fill" />
       </IconButton>
     </>

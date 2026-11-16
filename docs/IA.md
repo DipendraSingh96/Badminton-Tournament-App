@@ -294,3 +294,14 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
   - Matches played by a player: info tip "Matches played by every player individually, based on the stage they reach."; under the bar "A match-up is 2 matches: each player plays 1 match a match-up."
   - **Extra time** (was Buffer): Best-of-3 allowance (%), Overspill (%), Prize distribution time (minutes).
 - **Timeline:** pills read "M1/2"; hover "Match 1 of 2: Open doubles"; the buffer's row is "Prize time" and its legend entry "Prize distribution".
+
+### Guided start, Draw panel button, rehearsal, 16 Nov 2026 (these replace anything above that says otherwise)
+- **Guided start (a device's first tournament only).** The tournament list on the left stays throughout.
+  - Step 1: the working area is empty but for one row in its middle: Tournament name, Date, Time zone, **Next →** (greyed until name and date are in), and under it "You can change these later."
+  - Step 2: the three fields at the top as usual; the stage tabs; "Set up your tournament's halls, courts and umpires."; the halls; and a row with **Add hall** at the left and **Next →** at the right. No timeline, no side panel.
+  - Step 3: the side panel, expanded, and the timeline. The guided start is over for good.
+- **Hall header row:** Time unit, Rate, Opens, Closes, courts. Opens and Closes are greyed, with "Set the time unit first", until the unit is set. The settings panel has the same order.
+- **Rules, Who can enter:** "Most categories per person" and "Can't be entered together" only with more than one category.
+- **Draw side panel, top band:** heading, then the primary button (**Lock draws**, **Simulate live →** or **Go Live →**), then Hide. Folded: the same button at the top of the rail, its words running down it.
+- **Rehearsal:** the Live pages with the stage switch on Live; the banner's last line reads "Rehearsal. Nothing is saved." with the "I enter the scores" switch; Play, Pause and End beside the stage switch. End, or choosing another stage, returns to the Draw stage.
+- **Knockout bracket (Draw KO stage and Live Knockout stage):** the rounds' columns share the width, each at least 144px; names and the court line shorten with an ellipsis.

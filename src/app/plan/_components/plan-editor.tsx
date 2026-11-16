@@ -1350,6 +1350,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   onPlay={() => setPlaying(true)}
                   onPause={() => setPlaying(false)}
                   onStop={endSimulation}
+                  rehearsal={rehearsing}
                 />
               ) : developer ? (
                 <Button
