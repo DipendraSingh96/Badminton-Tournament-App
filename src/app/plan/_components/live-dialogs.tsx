@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, WarningIcon } from "@phosphor-icons/react";
+import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon, WarningIcon } from "@phosphor-icons/react";
 import { produce } from "immer";
 import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -487,7 +487,10 @@ export function NeedsYou({
   onCourt,
   onGroups,
   footer,
+  onFinish,
 }: {
+  /** Every match is played and nothing is left to decide: the tournament can be finished. */
+  onFinish?: () => void;
   draft: PlanDraft;
   update: Update;
   /** Why a simulation is waiting for the desk, in words; null when it isn't. */
@@ -512,10 +515,10 @@ export function NeedsYou({
   const item = "flex items-start gap-2 text-sm";
   const mark = <WarningIcon className="mt-1 size-3 shrink-0 text-over-text" aria-hidden="true" />;
   const needs = (paused ? 1 : 0) + (waiting.length > 0 ? 1 : 0) + ties.length + groups.length;
-  if (needs === 0 && !footer && !deciding) return null;
+  if (needs === 0 && !footer && !deciding && !onFinish) return null;
   return (
     <>
-      {needs > 0 || footer ? (
+      {needs > 0 || footer || onFinish ? (
         <div data-needs-you={needs} className="mx-4 mb-3 flex shrink-0 flex-col gap-2 rounded-lg bg-card-system py-2 pr-2 pl-3">
           {needs > 0 ? (
             <ul aria-label="Needs you" className="flex flex-col gap-2">
@@ -573,6 +576,16 @@ export function NeedsYou({
                 </li>
               ))}
             </ul>
+          ) : null}
+          {onFinish ? (
+            <div data-finish className="flex items-center justify-between gap-3">
+              <p className="text-sm">
+                <span className="font-semibold">Every match has been played.</span> Finish to see the results.
+              </p>
+              <Button size="sm" onClick={onFinish}>
+                Finish tournament <ArrowRightIcon weight="bold" />
+              </Button>
+            </div>
           ) : null}
           {footer}
         </div>

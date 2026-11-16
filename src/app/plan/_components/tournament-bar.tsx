@@ -64,10 +64,12 @@ export function StageRow({
   onAdvance,
   planMissing,
   liveBlocked,
+  resultsBlocked,
   actions,
 }: {
   /** Why the tournament can't go Live yet; null when it can. */
   liveBlocked: string | null;
+  resultsBlocked: string | null;
   /** How many items the plan still needs. */
   planMissing: number;
   stage: TournamentStage;
@@ -79,7 +81,7 @@ export function StageRow({
 }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-4">
-      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} planMissing={planMissing} liveBlocked={liveBlocked} />
+      <StageSwitch stage={stage} view={view} onView={onView} onAdvance={onAdvance} planMissing={planMissing} liveBlocked={liveBlocked} resultsBlocked={resultsBlocked} />
       <div className="flex items-center gap-1">{actions}</div>
     </div>
   );

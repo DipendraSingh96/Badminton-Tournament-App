@@ -32,7 +32,7 @@ const KINDS = Object.keys(LOG_KIND_LABELS) as LogKind[];
  * made here; the others are made where they happen and all end up in the log.
  * A change is taken back with Reverse, which is logged too.
  */
-export function ChangesView({ draft, update }: { draft: PlanDraft; update: Update }) {
+export function ChangesView({ draft, update, readOnly = false }: { draft: PlanDraft; update: Update; /** Results: the log is read (and printed), not acted on. */ readOnly?: boolean }) {
   const confirm = useConfirm();
   const [withdrawing, setWithdrawing] = useState(false);
   const [kind, setKind] = useState<LogKind | "">("");
@@ -90,9 +90,11 @@ export function ChangesView({ draft, update }: { draft: PlanDraft; update: Updat
           <Button variant="outline" size="sm" disabled={draft.log.length === 0} onClick={() => setPrinting(true)}>
             <PrinterIcon /> Print log
           </Button>
-          <Button size="sm" onClick={() => setWithdrawing(true)}>
-            <UserMinusIcon /> Withdraw an entry…
-          </Button>
+          {readOnly ? null : (
+            <Button size="sm" onClick={() => setWithdrawing(true)}>
+              <UserMinusIcon /> Withdraw an entry…
+            </Button>
+          )}
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -139,7 +141,7 @@ export function ChangesView({ draft, update }: { draft: PlanDraft; update: Updat
                   <p className={cn("text-sm", reversed && "text-muted-foreground line-through")}>{entry.text}</p>
                   {entry.note ? <p className="text-xs text-muted-foreground">Note: {entry.note}</p> : null}
                 </div>
-                {entry.kind === "reversal" || entry.kind === "start" || reversed ? null : (
+                {readOnly || entry.kind === "reversal" || entry.kind === "start" || reversed ? null : (
                   <Button
                     variant="outline"
                     size="sm"

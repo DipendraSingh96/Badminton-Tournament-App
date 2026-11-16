@@ -53,7 +53,7 @@ function courtOf(draft: PlanDraft, courtId: string): number | null {
 }
 
 /** The top of a document: the tournament, what the document is, and the date. */
-function Head({ draft, title }: { draft: PlanDraft; title: string }) {
+export function Head({ draft, title }: { draft: PlanDraft; title: string }) {
   return (
     <header className="flex flex-col gap-[1mm] border-b-2 border-black pb-[3mm]">
       <span className="text-[9pt] uppercase">{title}</span>
@@ -63,8 +63,8 @@ function Head({ draft, title }: { draft: PlanDraft; title: string }) {
   );
 }
 
-const DOC = "print-doc flex flex-col gap-[5mm] font-sans text-[10.5pt] leading-snug text-black";
-const H2 = "text-[13pt] leading-tight font-bold";
+export const DOC = "print-doc flex flex-col gap-[5mm] font-sans text-[10.5pt] leading-snug text-black";
+export const H2 = "text-[13pt] leading-tight font-bold";
 
 /** The rulebook: the tournament's rules in words, from the settings the app scores and ranks by. */
 export function RulebookDocument({ draft }: { draft: PlanDraft }) {

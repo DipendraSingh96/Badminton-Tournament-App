@@ -42,6 +42,7 @@ import {
 } from "@/lib/tournament/storage";
 import { DerivedCards } from "./dashboard";
 import { NeedsYou } from "./live-dialogs";
+import { ResultsStage, type ResultsView } from "./results-stage";
 import { COURT_SIZES, CourtSelectionContext, CourtSizeContext, VenueFixedContext, type CourtSize } from "./court-card";
 import { DrawPanel, TeamOpenContext, type DrawFocus } from "./draw-panel";
 import { DrawStage, type DrawStageView } from "./draw-stage";
@@ -49,7 +50,8 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
-import { goLive, moveGame, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { finishTournament, goLive, moveGame, reopenLive, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { canFinish, stillOpen } from "@/lib/tournament/results";
 import { matchRef } from "@/lib/tournament/entries";
 import { liveDay } from "@/lib/tournament/live-day";
 import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
@@ -666,7 +668,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   function fixAt(at: FixAt) {
     if (at === "plan" || at === "budget") {
       setStageView("plan");
-      chooseTab(at === "budget" && !isLive ? "finance" : "setup");
+      chooseTab(at === "budget" && stageNow !== "live" ? "finance" : "setup");
       foldWorkbench(false);
     } else setDrawView(at === "schedule" ? "courts" : at);
   }
@@ -681,7 +683,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     return () => window.removeEventListener("keydown", onKey);
   }, [drawCourt]);
   const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(stageNow) ? stageView : stageNow;
-  const onLive = viewing === "live" || viewing === "results";
+  // Live is the day being run; Results is the day once it is finished. Both show the games where they were really played.
+  const onLive = viewing === "live";
+  const onResults = viewing === "results";
+  const onDay = onLive || onResults;
+  // No money on screen while the tournament is Live; it comes back with Results.
+  const moneyHidden = stageNow === "live";
+  const [resultsView, setResultsView] = useState<ResultsView>("summary");
 
   /** A stored time as minutes since midnight in the tournament's time zone. */
   const minuteOf = useCallback((iso: string) => minutesOfDay(formatClock(iso, draft.frame.timeZone)), [draft.frame.timeZone]);
@@ -802,6 +810,46 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     const hold = holdOf(events);
     setPlaying(hold === null || hold > now.from);
   }
+  // What still stands between the Live tournament and its results; nothing when it can be finished.
+  const open = draft.stage === "live" ? stillOpen(draft) : [];
+  const resultsBlocked = draft.stage !== "live" ? null : open.length > 0 ? `Not yet: ${open.join("; ")}.` : null;
+  const finishable = canFinish(draft) && sim === null;
+  /** Finish tournament: asked first, logged; the results are shown from here. */
+  async function askFinish() {
+    if (!canFinish(draftRef.current)) return;
+    if (
+      !(await confirm({
+        title: "Finish the tournament?",
+        body: "Results are shown from here. You can reopen Live if a score needs correcting.",
+        action: "Finish tournament",
+      }))
+    )
+      return;
+    commit(produce(draftRef.current, (d) => void finishTournament(d, new Date().toISOString())), false);
+    setResultsView("summary");
+    setStageView("results");
+  }
+  /** Reopen Live, from the results, to correct something: asked first, logged. */
+  async function askReopen() {
+    if (draftRef.current.stage !== "results") return;
+    if (
+      !(await confirm({
+        title: "Reopen Live?",
+        body: "The tournament goes back to Live so a score or a decision can be corrected. Finish it again afterwards. It is logged.",
+        action: "Reopen Live",
+      }))
+    )
+      return;
+    commit(produce(draftRef.current, (d) => void reopenLive(d, new Date().toISOString())), false);
+    setStageView("live");
+  }
+  // The plan's money on its expected numbers, to set the day against on the Results stage.
+  const plannedFinance = useMemo(() => {
+    if (draft.stage !== "results") return null;
+    const asPlanned = parsePlan({ ...draft, stage: "plan" });
+    const result = asPlanned.ok ? analyseTournament(asPlanned.inputs) : null;
+    return result?.ok ? result.analysis.finance : null;
+  }, [draft]);
   /** Before the tournament's day, Live is a rehearsal: both ways in ask the same thing first. */
   async function askRehearse() {
     if (
@@ -865,7 +913,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const playRate = rehearsing ? SIMULATION.rehearsalMinutesPerSecond : watching || developer ? SIMULATION.minutesPerSecond : undefined;
   useEffect(() => {
     // A rehearsal that hasn't been started has nothing to play or move through yet.
-    if (clockLocked || !range || (sim !== null && !sim.started)) return;
+    if (clockLocked || onResults || !range || (sim !== null && !sim.started)) return;
     const onKey = (e: KeyboardEvent) => {
       const arrow = e.code === "ArrowLeft" ? -1 : e.code === "ArrowRight" ? 1 : 0;
       if ((e.code !== "Space" && arrow === 0) || (e.repeat && arrow === 0) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
@@ -896,7 +944,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld, playRate, seek, sim?.started]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clockLocked, range?.start, range?.end, playing, playhead, watching, spaceHeld, playRate, seek, sim?.started, onResults]); // eslint-disable-line react-hooks/exhaustive-deps
   // The time shown beside the Live panel's tabs: the cursor's.
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
@@ -1051,6 +1099,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
 
   /** A game chosen on the timeline: its court in the side panel, with the game opened (Live) or marked (Draw). */
   function pickGame(segment: LocalSegment) {
+    // Results are read, not run: nothing opens from the timeline there.
+    if (onResults) return;
     if (onLive) attention.attend(segment.courtId);
     if (onLive) filterLive({ kind: "court", id: segment.courtId, game: segment.id });
     else openInPanel({ kind: "court", id: segment.courtId, game: segment.id });
@@ -1118,6 +1168,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       )
         return;
     }
+    if (next === "results") return askFinish();
     if (next === "live") {
       // Before the day, the Live tab opens a rehearsal instead: the tournament itself stays in the Draw stage.
       if (!dayReached) return askRehearse();
@@ -1258,14 +1309,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           draft={shown}
           update={update}
           schedule={schedule}
-          segments={onLive ? timelineSegments : segments}
-          zones={onLive ? liveZones : zones}
+          segments={onDay ? timelineSegments : segments}
+          zones={onDay ? liveZones : zones}
           fit={shownAnalysis?.ok ? shownAnalysis.analysis.capacity.status : null}
           playhead={clockLocked ? clockMinute : playhead}
           onSeek={clockLocked ? noSeek : seek}
           playing={clockLocked ? false : playing}
           onPlayingChange={clockLocked ? noPlaying : setPlaying}
-          locked={clockLocked || (sim !== null && !sim.started)}
+          locked={clockLocked || onResults || (sim !== null && !sim.started)}
           rate={playRate}
           picked={pickedGame}
           onPick={viewing === "plan" ? undefined : pickGame}
@@ -1278,6 +1329,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
           live={
             isLive
               ? {
+                  // Finished: nothing on the timeline can be moved.
+                  frozen: stageNow === "results",
                   state: (matchId) => gameState(liveDraft.results, matchId),
                   held: (matchId) => attention.held.has(matchId),
                   timing: (matchId) => attention.timing(matchId),
@@ -1373,11 +1426,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       // Looking at another stage ends a rehearsal: its pages are the saved tournament's again.
       onView={(view) => {
         if (rehearsing) endSimulation();
+        // A finished tournament's Live pages are its results now: going back to Live is reopening it.
+        if (draft.stage === "results" && view === "live") return void askReopen();
         setStageView(view);
       }}
       onAdvance={advance}
       planMissing={planMissing}
       liveBlocked={liveBlocked}
+      resultsBlocked={resultsBlocked}
       actions={
         // Live runs on the day's real data: no sample data there, or anywhere once the tournament is Live.
         isLive ? (
@@ -1444,6 +1500,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 <Button size="sm" title="Play begins now: the day's times move to match, and each court's first game goes on court" onClick={beginTournament}>
                   <PlayIcon /> Start tournament
                 </Button>
+              ) : finishable ? (
+                <Button size="sm" data-finish-tournament onClick={() => void askFinish()}>
+                  Finish tournament <ArrowRightIcon weight="bold" />
+                </Button>
               ) : null}
             </>
           ) : null
@@ -1458,7 +1518,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     <TooltipProvider delay={300}>
       <ViewRangeContext value={view}>
         <IssuesContext value={issues}>
-        <MoneyHiddenContext value={isLive}>
+        <MoneyHiddenContext value={moneyHidden}>
         <WatchOnlyContext value={simulation}>
         <LiveAttentionContext value={onLive ? attention : null}>
         <LiveMovesContext value={onLive ? liveMoves : null}>
@@ -1477,7 +1537,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             />
             {/* The working area: the dot matrix runs behind the venue, the timeline and the workbench. */}
             <TeamOpenContext
-              value={viewing === "plan" ? null : viewing === "live" || viewing === "results" ? openLiveEntry : (id) => openInPanel({ kind: "team", id })}
+              value={viewing === "plan" ? null : viewing === "live" ? openLiveEntry : (id) => openInPanel({ kind: "team", id })}
             >
             <div className="workspace-dots flex min-w-0 flex-1">
             <main className="flex min-w-0 flex-1 flex-col">
@@ -1516,7 +1576,21 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 </div>
               </div>
               <div className="flex min-h-0 flex-1">
-                {viewing === "live" || viewing === "results" ? (
+                {viewing === "results" ? (
+                  <ResultsStage
+                    draft={draft}
+                    update={update}
+                    segments={liveSegments}
+                    games={segments}
+                    minuteOf={minuteOf}
+                    inputs={parsed.ok ? parsed.inputs : null}
+                    planned={plannedFinance}
+                    view={resultsView}
+                    onViewChange={setResultsView}
+                    onReopen={() => void askReopen()}
+                    dock={docked}
+                  />
+                ) : viewing === "live" ? (
                   <CourtSelectionContext
                     value={{ selected: liveFilter?.kind === "court" ? liveFilter.id : null, onSelect: (id) => {
                         attention.attend(id);
@@ -1588,7 +1662,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               </>
               )}
             </main>
-            {guide !== null ? null : viewing === "live" || viewing === "results" ? (
+            {guide !== null ? null : viewing === "live" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
@@ -1621,6 +1695,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         filterLive({ kind: "court", id: courtId });
                       }}
                       onGroups={() => setLiveView("standings")}
+                      onFinish={finishable ? () => void askFinish() : undefined}
                       footer={
                         watching ? (
                           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -1672,7 +1747,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                 <aside aria-label="Side panel" className={cn(WORKBENCH, "w-[440px]")}>
                   <DrawPanel
                     draft={shown}
-                    update={update}
+                    // Results are read: nothing about an entry is changed from its list.
+                    update={onResults ? () => {} : update}
                     segments={segments}
                     moment={moment}
                     focus={drawFocus}
@@ -1697,7 +1773,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     readyForDraws ? <RailAction label="Move to Draws" arrow mark="data-move-to-draws" onClick={() => void advance("draw")} /> : undefined
                   }
                 >
-                  <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={isLive} />
+                  <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={moneyHidden} />
                 </Rail>
               ) : (
                 <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
@@ -1722,7 +1798,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       analysis={shownAnalysis}
                       warnings={warnings}
                       sample={sample}
-                      hideMoney={isLive}
+                      hideMoney={moneyHidden}
                       onGoTo={goTo}
                       onDraws={draft.stage === "plan" ? () => void advance("draw") : undefined}
                       action={
@@ -1734,7 +1810,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </div>
                   <Tabs
                     // While Live the Budget tab can't be opened: wherever it was left, Setup shows.
-                    value={isLive && tab === "finance" ? "setup" : tab}
+                    value={moneyHidden && tab === "finance" ? "setup" : tab}
                     onValueChange={(value) => chooseTab(value as Tab)}
                     className="min-h-0 flex-1 gap-0"
                   >
@@ -1743,8 +1819,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          disabled={isLive && t.value === "finance"}
-                          title={isLive && t.value === "finance" ? "Hidden while the tournament is Live" : undefined}
+                          disabled={moneyHidden && t.value === "finance"}
+                          title={moneyHidden && t.value === "finance" ? "Hidden while the tournament is Live" : undefined}
                         >
                           {t.label}
                           {tabMissing[t.value] > 0 ? (
