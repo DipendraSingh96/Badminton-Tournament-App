@@ -23,7 +23,7 @@ import { gameState } from "@/lib/tournament/live";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
 import { CategoryTabs } from "./category-tabs";
-import { BRACKET_COLUMN } from "./bracket-view";
+import { BRACKET_COLUMN, BracketFrame, BracketZoomButtons, feedsOf, useBracketCompact, useBracketZoom, type BracketZoom } from "./bracket-frame";
 import { awardMark } from "./court-board";
 import { TeamName, courtOf } from "./draw-panel";
 import { DecideDialog, DecideKnockoutDialog } from "./live-dialogs";
@@ -133,6 +133,7 @@ function CategoryStandings({
 }) {
   // "If it ended now": the knockout shows who would go through as the tables stand.
   const [endedNow, setEndedNow] = useState(false);
+  const [zoom, setZoom] = useBracketZoom();
   const tables = groupTables(draft, category);
   const format = categoryFormatOf(draft, category);
   const tiebreaks = draft.rules.tiebreaks;
@@ -168,6 +169,7 @@ function CategoryStandings({
             If it ended now
           </label>
         ) : null}
+        {part === "knockout" && bracket ? <BracketZoomButtons zoom={zoom} onZoom={setZoom} /> : null}
       </div>
 
       {part === "groups" && tables.length === 0 ? (
@@ -195,7 +197,7 @@ function CategoryStandings({
       ) : null}
 
       {part === "knockout" && bracket ? (
-        <BracketCard draft={draft} update={update} category={category} segments={segments} bracket={bracket} provisional={provisional} onCourt={onCourt} />
+        <BracketCard draft={draft} update={update} category={category} segments={segments} bracket={bracket} provisional={provisional} onCourt={onCourt} zoom={zoom} />
       ) : null}
     </section>
   );
@@ -363,6 +365,7 @@ function BracketCard({
   bracket,
   provisional,
   onCourt,
+  zoom,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -371,6 +374,7 @@ function BracketCard({
   bracket: ReturnType<typeof knockoutBracket>;
   provisional: boolean;
   onCourt: (courtId: string) => void;
+  zoom: BracketZoom;
 }) {
   const final = bracket.rounds.at(-1);
   const earlier = bracket.rounds.slice(0, -1);
@@ -388,8 +392,7 @@ function BracketCard({
           <p className="text-sm text-muted-foreground">As it stands: the names in grey are who would go through if the groups ended now.</p>
         ) : null}
       </div>
-      <div className="bracket-scroll overflow-x-auto pb-2">
-        <div className="flex gap-3">
+      <BracketFrame compact={zoom === "compact"} redraw={`${category.id}:${bracket.rounds.length}:${Boolean(bracket.bronze)}:${provisional}`}>
           {earlier.map((round) => (
             <div key={round.size} className={BRACKET_COLUMN}>
               <h4 className="text-sm font-semibold">{roundName(round.size)}</h4>
@@ -422,8 +425,7 @@ function BracketCard({
               ) : null}
             </div>
           </div>
-        </div>
-      </div>
+      </BracketFrame>
     </div>
   );
 }
@@ -451,6 +453,8 @@ function MatchBox({
   const own = segments.filter((s) => s.match.categoryId === category.id && s.match.code === match.code).sort((a, b) => a.from - b.from);
   const first = own[0];
   const court = first ? courtOf(draft, first.courtId) : null;
+  // Zoomed out: the two sides (and their scores) only.
+  const compact = useBracketCompact();
   const outcome = knockoutOutcome(draft, category, match.code);
   // A tie that ended level on rubbers, games and points: the desk says who goes through.
   const level = knockoutLevel(draft, category, match.code);
@@ -484,8 +488,12 @@ function MatchBox({
     : [(rubbers[0] ?? []).map(([h]) => String(h)), (rubbers[0] ?? []).map(([, a]) => String(a))];
 
   return (
-    <div className={cn("flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm", final ? "border-shuttle ring-1 ring-shuttle" : "border-border")}>
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums">
+    <div
+      data-bracket-match={match.code}
+      data-feeds={feedsOf(match)}
+      className={cn("relative flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm", final ? "border-shuttle ring-1 ring-shuttle" : "border-border")}
+    >
+      <div className={cn("flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums", compact && "hidden")}>
         <span>{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
         {first ? (
           <button
@@ -503,7 +511,7 @@ function MatchBox({
       {sides.map((side, i) => {
         const won = outcome !== null && side.id === outcome.winner;
         return (
-          <div key={i} className={cn("flex items-center gap-2 px-3 py-2", i === 0 && "border-b border-border/60")}>
+          <div key={i} className={cn("flex items-center gap-2 px-3", compact ? "py-1" : "py-2", i === 0 && "border-b border-border/60")}>
             <span
               className={cn("min-w-0 flex-1 truncate", won && "font-bold", !side.known && "text-muted-foreground", side.guessed && "italic")}
               title={side.guessed ? `${side.label} (as it stands)` : side.label}

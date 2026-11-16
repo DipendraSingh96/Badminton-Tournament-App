@@ -43,6 +43,8 @@ export function DrawView({ draft, update }: { draft: PlanDraft; update: Update }
 
 function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category: CategoryDraft; update: Update }) {
   const draw = draft.draw[category.id];
+  // The biggest group's size: smaller groups show the places they are short as byes.
+  const largest = draw ? Math.max(0, ...draw.groups.map((group) => group.length)) : 0;
   const sizes = drawSizes(draft, category);
   const stale = drawStale(draft, category);
   const knockout = draft.format === "knockout";
@@ -205,6 +207,23 @@ function CategoryDraw({ draft, category, update }: { draft: PlanDraft; category:
                       </li>
                     );
                   })}
+                  {/* A group with fewer entries than the biggest has a place free: shown as a bye, so the difference is plain. It is only a marker. */}
+                  {knockout
+                    ? null
+                    : Array.from({ length: largest - group.length }, (_, k) => (
+                        <li key={`bye-${k}`} data-bye>
+                          <div
+                            className="flex items-center gap-2 rounded-md border border-dashed border-foreground/25 px-2 py-1 text-sm text-muted-foreground"
+                            title="A place nobody holds: each wave, the entry that would meet it sits out"
+                          >
+                            <span className="w-6 shrink-0 text-xs font-semibold tabular-nums">
+                              {groupLetter(g)}
+                              {group.length + k + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">Bye</span>
+                          </div>
+                        </li>
+                      ))}
                 </ol>
               </div>
             ))}

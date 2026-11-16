@@ -222,6 +222,14 @@ export function TeamList({
   );
   // A card for each group, in draw order; entries not drawn after their category's groups.
   const groups = entryGroups(draft, visible);
+  /** The places a group is short of its category's biggest group ("E5"): byes. Not while searching, and not on the day. */
+  const byesIn = (group: EntryGroup): string[] => {
+    if (live || q || group.kind !== "group" || group.group === null || draft.format === "knockout") return [];
+    const all = draft.draw[group.categoryId]?.groups ?? [];
+    const own = all[group.group]?.length ?? 0;
+    const largest = Math.max(0, ...all.map((g) => g.length));
+    return Array.from({ length: Math.max(0, largest - own) }, (_, k) => `${groupLetter(group.group!)}${own + k + 1}`);
+  };
   // Another entry is to be opened: if the search or the category is hiding it, show everything again.
   const [seenOpen, setSeenOpen] = useState(openId);
   if (openId !== seenOpen) {
@@ -327,6 +335,13 @@ export function TeamList({
                   </li>
                 );
               })}
+              {/* Before the day: a group smaller than its category's biggest shows the places it is short, as byes. */}
+              {byesIn(group).map((place) => (
+                <li key={place} data-bye className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-dashed border-foreground/25 px-3 py-2 text-muted-foreground">
+                  <span className="min-w-8 font-display text-xl leading-none font-bold tabular-nums">{place}</span>
+                  <span className="text-sm">Bye</span>
+                </li>
+              ))}
             </ul>
           </li>
         ))}

@@ -7,6 +7,7 @@ import { courtNumber, type CategoryDraft, type PlanDraft } from "@/lib/tournamen
 import { categoryFormatOf, entryForSlot, sideName } from "@/lib/tournament/entries";
 import { clock } from "@/lib/tournament/time";
 import { cn } from "@/lib/utils";
+import { BRACKET_COLUMN, BracketFrame, BracketZoomButtons, feedsOf, useBracketCompact, useBracketZoom, type BracketZoom } from "./bracket-frame";
 import { CategoryTabs } from "./category-tabs";
 import { TeamName } from "./draw-panel";
 import { categoryName } from "./labels";
@@ -40,9 +41,6 @@ function whenOf(draft: PlanDraft, segments: LocalSegment[], categoryId: string, 
   return `${clock(own[0]!.from)} · ${courts.length === 1 ? "Court" : "Courts"} ${courts.join(", ")}`;
 }
 
-/** A round's column: an equal share of the width, never narrower than a readable box. */
-export const BRACKET_COLUMN = "flex min-w-36 flex-1 basis-0 flex-col gap-3";
-
 function MatchBox({
   draft,
   segments,
@@ -59,21 +57,27 @@ function MatchBox({
   // A side's entry once known (knockout only, by seed); otherwise where it comes from.
   const side = (slot: string) => sideName(draft, category.id, slot) ?? slot;
   const when = whenOf(draft, segments, category.id, match.code);
+  // Zoomed out: the two sides only.
+  const compact = useBracketCompact();
   return (
     <div
+      data-bracket-match={match.code}
+      data-feeds={feedsOf(match)}
       className={cn(
-        "flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm",
+        "relative flex w-full min-w-0 flex-col rounded-lg border bg-card text-sm",
         final ? "border-shuttle ring-1 ring-shuttle" : "border-border",
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums">
-        <span className="shrink-0">{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
-        <span className="truncate" title={when ?? undefined}>
-          {when ?? "Not scheduled"}
-        </span>
-      </div>
+      {compact ? null : (
+        <div className="flex items-center justify-between gap-2 border-b px-3 py-1 text-xs font-semibold text-muted-foreground tabular-nums">
+          <span className="shrink-0">{match.code === "Final" ? "Final" : match.code === "Bronze" ? "Bronze match" : match.code}</span>
+          <span className="truncate" title={when ?? undefined}>
+            {when ?? "Not scheduled"}
+          </span>
+        </div>
+      )}
       {[match.home, match.away].map((slot, i) => (
-        <div key={i} className={cn("truncate px-3 py-2", i === 0 && "border-b border-border/60")} title={side(slot)}>
+        <div key={i} className={cn("truncate px-3", compact ? "py-1" : "py-2", i === 0 && "border-b border-border/60")} title={side(slot)}>
           <TeamName entryId={entryForSlot(draft, category.id, slot)?.id}>{side(slot)}</TeamName>
         </div>
       ))}
@@ -90,16 +94,22 @@ function MatchBox({
 export function BracketView({ draft, segments }: { draft: PlanDraft; segments: LocalSegment[] }) {
   const [categoryId, setCategoryId] = useState<string | null>(draft.categories[0]?.id ?? null);
   const category = draft.categories.find((c) => c.id === categoryId) ?? draft.categories[0];
+  const [zoom, setZoom] = useBracketZoom();
   if (!category) return <p className="text-sm text-muted-foreground">Add categories on the Plan stage first.</p>;
   return (
     <div className="flex flex-col gap-4">
-      <CategoryTabs draft={draft} value={category.id} onChange={setCategoryId} count={() => ""} />
-      <CategoryBracket key={category.id} draft={draft} segments={segments} category={category} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <CategoryTabs draft={draft} value={category.id} onChange={setCategoryId} count={() => ""} />
+        </div>
+        <BracketZoomButtons zoom={zoom} onZoom={setZoom} />
+      </div>
+      <CategoryBracket key={category.id} draft={draft} segments={segments} category={category} zoom={zoom} />
     </div>
   );
 }
 
-function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segments: LocalSegment[]; category: CategoryDraft }) {
+function CategoryBracket({ draft, segments, category, zoom }: { draft: PlanDraft; segments: LocalSegment[]; category: CategoryDraft; zoom: BracketZoom }) {
   const format = categoryFormatOf(draft, category);
   if (draft.format === "groups") {
     return <p className="rounded-lg bg-card-system p-4 text-sm text-muted-foreground">Groups only: there&apos;s no knockout. See Group stage.</p>;
@@ -118,13 +128,12 @@ function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segm
           {category.bronze ? ", with a bronze match" : ""}. Sides fill in as results arrive in Live mode.
         </p>
       </div>
-      {/* The rounds share the width there is, so the whole tree shows; with too many to fit it scrolls sideways, with its scrollbar in view. */}
-      <div className="bracket-scroll overflow-x-auto pb-2">
-        <div className="flex gap-3">
+      {/* The rounds share the width there is, so the whole tree shows, each match joined to the one its winner plays next. */}
+      <BracketFrame compact={zoom === "compact"} redraw={`${category.id}:${format.format.qualifiers}:${category.bronze}`}>
           {earlier.map((round) => (
             <div key={round.size} className={BRACKET_COLUMN}>
               <h3 className="text-sm font-semibold">{roundName(round.size)}</h3>
-              <ol className="flex flex-1 flex-col justify-around gap-3">
+              <ol className={cn("flex flex-1 flex-col justify-around", zoom === "compact" ? "gap-1.5" : "gap-3")}>
                 {round.matches.map((m) => (
                   <li key={m.code}>
                     <MatchBox draft={draft} segments={segments} category={category} match={m} />
@@ -149,8 +158,7 @@ function CategoryBracket({ draft, segments, category }: { draft: PlanDraft; segm
               </div>
             </div>
           ) : null}
-        </div>
-      </div>
+      </BracketFrame>
     </section>
   );
 }

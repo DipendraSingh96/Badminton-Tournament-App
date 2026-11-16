@@ -167,7 +167,8 @@ function Rail({
   children: ReactNode;
 }) {
   return (
-    <aside aria-label={`${name} (hidden)`} className={cn(WORKBENCH, "w-16 overflow-hidden pt-0")}>
+    // The whole rail lights up under the pointer, the strip holding its action included.
+    <aside aria-label={`${name} (hidden)`} className={cn(WORKBENCH, "w-16 overflow-hidden pt-0 transition-colors hover:bg-inset has-focus-visible:bg-inset")}>
       {top}
       <button
         type="button"
@@ -175,7 +176,7 @@ function Rail({
         aria-expanded={false}
         title={open}
         onClick={onOpen}
-        className="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center gap-4 pt-4 pb-4 text-foreground transition-colors outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center gap-4 pt-4 pb-4 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
         <CaretLeftIcon className="size-5 shrink-0" aria-hidden="true" />
         {children}
@@ -1199,6 +1200,17 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     return () => cancelAnimationFrame(frame);
   }, [thinHeight, timelinePanel]);
   const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
+  // A tournament just made, and the guided start's last step, show the timeline folded: there is nothing on it yet.
+  const [foldOnce, setFoldOnce] = useState(false);
+  useEffect(() => {
+    if (!isFresh(id) && !foldOnce) return;
+    const frame = requestAnimationFrame(() => {
+      timelinePanel.current?.collapse();
+      clearFresh();
+      if (foldOnce) setFoldOnce(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [id, foldOnce, timelinePanel]);
   const [workbenchFolded, setWorkbenchFolded] = useState(loadWorkbenchFolded);
   function foldWorkbench(folded: boolean) {
     setWorkbenchFolded(folded);
@@ -1328,8 +1340,11 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
       next = null;
     }
     setGuide(next);
-    // The last step opens the side panel, expanded, on "Set up your tournament".
-    if (next === null) foldWorkbench(false);
+    // The last step opens the side panel, expanded, on "Set up your tournament"; the timeline comes in folded.
+    if (next === null) {
+      foldWorkbench(false);
+      setFoldOnce(true);
+    }
   }
   const workingArea =
     guide === 2 ? (
@@ -1792,6 +1807,30 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
  * The saved tournaments, with one open in the editor. Opening another remounts
  * the editor, so its undo history, preview and selections start afresh.
  */
+// A tournament just made, for its editor to open with the timeline folded (once).
+const FRESH_KEY = "badminton:fresh-tournament";
+function markFresh(id: string): void {
+  try {
+    window.sessionStorage.setItem(FRESH_KEY, id);
+  } catch {
+    // Not remembered: the timeline opens as it was left.
+  }
+}
+function isFresh(id: string): boolean {
+  try {
+    return window.sessionStorage.getItem(FRESH_KEY) === id;
+  } catch {
+    return false;
+  }
+}
+function clearFresh(): void {
+  try {
+    window.sessionStorage.removeItem(FRESH_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
 /** A device that already has tournaments never gets the guided start (unless one is part-way through it). */
 function guideOff(): void {
   try {
@@ -1842,7 +1881,13 @@ function Workspace() {
   const actions: TournamentActions = {
     index,
     onSave,
-    onNew: () => change(createTournament(indexRef.current, emptyDraft(browserTimeZone())).index),
+    onNew: () => {
+      // A new tournament opens with the side panel and the timeline folded: only the venue to begin with.
+      saveWorkbenchFolded(true);
+      const made = createTournament(indexRef.current, emptyDraft(browserTimeZone()));
+      markFresh(made.index.currentId!);
+      change(made.index);
+    },
     onDuplicate: (draft) => {
       // Dummy data the copy no longer has (entries, the draw, name and date) isn't carried over.
       const copy = duplicateDraft(draft);
