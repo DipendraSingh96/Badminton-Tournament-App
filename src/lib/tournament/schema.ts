@@ -348,7 +348,9 @@ function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
   }
   const ids = new Set(draft.categories.map((c) => c.id));
   const seen = new Set<string>();
-  eligibility.exclusivePairs.forEach((pair, i) => {
+  // With one category there is no pair of categories to keep apart: any left from before are ignored (and aren't on screen).
+  const exclusivePairs = draft.categories.length > 1 ? eligibility.exclusivePairs : [];
+  exclusivePairs.forEach((pair, i) => {
     const path = ["eligibility", "exclusivePairs", i];
     if (!pair.first || !pair.second || !ids.has(pair.first) || !ids.has(pair.second)) {
       add(path, "Choose two categories");
@@ -380,7 +382,7 @@ function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
       : { enabled: false },
     eligibility: {
       maxCategoriesPerPerson: eligibility.maxCategoriesPerPerson ?? undefined,
-      exclusivePairs: eligibility.exclusivePairs.map((p) => [p.first!, p.second!]),
+      exclusivePairs: exclusivePairs.map((p) => [p.first!, p.second!]),
       membersOnly: [...eligibility.membersOnly],
       allowMixedMemberExternalPairs: eligibility.allowMixedMemberExternalPairs,
     },

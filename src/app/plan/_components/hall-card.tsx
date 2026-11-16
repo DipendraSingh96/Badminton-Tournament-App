@@ -100,9 +100,7 @@ function HallSettings({
   return (
     <div className="flex flex-col gap-4 rounded-lg bg-card-system p-4">
       <div>
-        <div className="grid grid-cols-[9rem_9rem_minmax(0,13rem)_minmax(0,12rem)] gap-x-2 gap-y-3">
-          <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
-          <TextField label="Closes" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
+        <div className="grid grid-cols-[minmax(0,13rem)_minmax(0,12rem)_9rem_9rem] gap-x-2 gap-y-3">
           <StepperField
             label="Time unit (min)"
             hint="The time the hall charges by, e.g. 60, 40 or 30 minutes. Hall hours, band edges and court hours must fall on these steps from opening."
@@ -124,6 +122,8 @@ function HallSettings({
               }
             />
           ) : null}
+          <TextField label="Opens" type="time" path={path("from")} value={hall.from} onChange={(v) => setHours("from", v)} />
+          <TextField label="Closes" type="time" path={path("to")} value={hall.to} onChange={(v) => setHours("to", v)} />
         </div>
       </div>
 
@@ -349,15 +349,17 @@ export function HallCard({
             </span>
   );
   const rate = hall.bands[0]?.rate;
+  // The hall's hours are whole time units from opening, so they wait for the unit.
+  const hoursOff = hall.unitMinutes ? undefined : "Set the time unit first";
   // What the hall's line says where the venue is fixed: the same values, as text.
   const facts: [string, string][] = [
-    ["Opens", hall.from || "--:--"],
-    ["Closes", hall.to || "--:--"],
     ["Time unit", hall.unitMinutes ? `${hall.unitMinutes} min` : "–"],
     // No money on screen while the tournament is Live.
     ...(moneyHidden
       ? []
       : ([["Rate", hall.multipleRates ? `${hall.bands.length} rate ${hall.bands.length === 1 ? "band" : "bands"}` : rate != null ? `£ ${rate}` : "–"]] as [string, string][])),
+    ["Opens", hall.from || "--:--"],
+    ["Closes", hall.to || "--:--"],
   ];
 
   const addCourt = fixed ? null : (
@@ -410,22 +412,7 @@ export function HallCard({
           </IconButton>
           {/* The hall's settings in a line; the panel under it holds the same values. */}
           <div className="ml-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <InlineTime
-              label="Opens"
-              path={path("from")}
-              value={hall.from}
-              onChange={setHours("from")}
-              earlier={steppedHallTime(hall, "from", -1)}
-              later={steppedHallTime(hall, "from", 1)}
-            />
-            <InlineTime
-              label="Closes"
-              path={path("to")}
-              value={hall.to}
-              onChange={setHours("to")}
-              earlier={steppedHallTime(hall, "to", -1)}
-              later={steppedHallTime(hall, "to", 1)}
-            />
+            {/* The time unit (and the rate it is charged at) comes first: the hall's hours are counted in it. */}
             <InlineNumber
               label="Time unit"
               path={path("unitMinutes")}
@@ -460,6 +447,24 @@ export function HallCard({
                 before="£"
               />
             )}
+            <InlineTime
+              label="Opens"
+              path={path("from")}
+              value={hall.from}
+              onChange={setHours("from")}
+              earlier={steppedHallTime(hall, "from", -1)}
+              later={steppedHallTime(hall, "from", 1)}
+              off={hoursOff}
+            />
+            <InlineTime
+              label="Closes"
+              path={path("to")}
+              value={hall.to}
+              onChange={setHours("to")}
+              earlier={steppedHallTime(hall, "to", -1)}
+              later={steppedHallTime(hall, "to", 1)}
+              off={hoursOff}
+            />
             <span className="text-sm text-muted-foreground tabular-nums">
               {hall.courts.length} {hall.courts.length === 1 ? "court" : "courts"}
             </span>

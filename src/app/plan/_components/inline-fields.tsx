@@ -32,6 +32,7 @@ export function InlineTime({
   onChange,
   earlier,
   later,
+  off,
 }: {
   label: string;
   path: Path;
@@ -39,6 +40,8 @@ export function InlineTime({
   onChange: (value: string) => void;
   earlier: string | null;
   later: string | null;
+  /** Why it can't be set yet (something it depends on is missing); the field is greyed and says so. */
+  off?: string;
 }) {
   const id = useId();
   const issue = useIssue(path, value !== "");
@@ -49,7 +52,7 @@ export function InlineTime({
     if (next) onChange(next);
   }
   return (
-    <span className="flex items-center gap-1" data-path={pathKey(path)}>
+    <span className={`flex items-center gap-1 ${off ? "opacity-50" : ""}`} data-path={pathKey(path)} title={off}>
       <label htmlFor={id} className="text-sm text-muted-foreground">
         {label}
       </label>
@@ -58,8 +61,9 @@ export function InlineTime({
         type="time"
         value={value}
         data-empty={value === "" || undefined}
-        title={issue ? `${label}: ${issue}` : label}
+        title={off ?? (issue ? `${label}: ${issue}` : label)}
         aria-invalid={issue !== undefined || undefined}
+        disabled={Boolean(off)}
         onKeyDown={onKeyDown}
         onChange={(e) => onChange(e.target.value)}
         className={`${VALUE} w-[calc(5ch+0.5rem)] text-center [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit]:p-0`}

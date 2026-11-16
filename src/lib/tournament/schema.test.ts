@@ -434,6 +434,18 @@ describe("parsePlan", () => {
     expect(none.inputs.courtGroups).toEqual([{ courtId: "c1", group: null }]);
   });
 
+  it("ignores categories that can't be entered together when there is only one category", () => {
+    const draft = completeDraft();
+    draft.categories = draft.categories.slice(0, 1);
+    draft.finance.prizes = draft.finance.prizes.filter((p) => p.categoryId === draft.categories[0]!.id);
+    // A pair left half filled in from when there were two.
+    draft.rules.eligibility.exclusivePairs = [{ id: "x", first: draft.categories[0]!.id, second: null }];
+    draft.rules.eligibility.membersOnly = draft.rules.eligibility.membersOnly.filter((id) => id === draft.categories[0]!.id);
+    const result = parsePlan(draft);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.inputs.rules.eligibility.exclusivePairs).toEqual([]);
+  });
+
   it("takes overspill as optional: empty is none", () => {
     const draft = completeDraft();
     draft.overspill = null;

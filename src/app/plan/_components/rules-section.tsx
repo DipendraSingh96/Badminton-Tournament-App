@@ -250,6 +250,8 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
 
       {draft.categories.length > 0 ? (
         <>
+          {/* With one category there is no pair of categories to keep apart. */}
+          {draft.categories.length > 1 ? (
           <div className="flex flex-col gap-2">
             <span className="flex items-center gap-1 text-sm font-semibold">
               Can&apos;t be entered together
@@ -304,6 +306,7 @@ function Eligibility({ draft, update }: { draft: PlanDraft; update: Update }) {
               <PlusIcon /> Add pair
             </Button>
           </div>
+          ) : null}
 
           <div className="flex flex-col gap-2" data-path="rules.eligibility.membersOnly">
             <span className="flex items-center gap-1 text-sm font-semibold">
