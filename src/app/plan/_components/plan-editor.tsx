@@ -26,7 +26,7 @@ import { SimulationControls } from "./dummy-data";
 import { WatchOnlyContext } from "./watch-only";
 import { LiveAttentionContext, type LiveAttention } from "./attention";
 import { ResourcesView } from "./resources-view";
-import type { FixAt } from "@/lib/tournament/resources";
+import { todayIn, tournamentDayReached, type FixAt } from "@/lib/tournament/resources";
 import { formatClock } from "./workings";
 import type { LocalSegment } from "./timeline";
 import { parsePlan, timingInputs, type PlanIssue } from "@/lib/tournament/schema";
@@ -174,6 +174,22 @@ function Rail({
         {children}
       </button>
     </aside>
+  );
+}
+
+/** The way on, at the top of a folded panel's rail: a primary button, its words running down it. */
+function RailAction({ label, arrow, off, mark, onClick }: { label: string; arrow: boolean; off?: string; mark?: string; onClick: () => void }) {
+  return (
+    <Button
+      {...{ [mark ?? "data-draw-next"]: "" }}
+      disabled={Boolean(off)}
+      title={off}
+      onClick={onClick}
+      className="mx-auto mt-3 h-auto w-10 shrink-0 flex-col gap-2 px-0 py-3"
+    >
+      <span className="whitespace-nowrap [writing-mode:vertical-rl]">{label}</span>
+      {arrow ? <ArrowRightIcon weight="bold" /> : null}
+    </Button>
   );
 }
 
@@ -597,7 +613,11 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // Once any category's draw is locked, the structure is read-only.
   const locked = Object.values(draft.draw).some((d) => d.locked);
   // Live (and after): the structure and the venue are fixed, and nothing about money is on screen.
-  const isLive = draft.stage === "live" || draft.stage === "results";
+  // A rehearsal (Simulate live, from the Draw stage) is a simulated day on a copy of the tournament that has gone
+  // Live: the pages follow that copy's stage while it runs, and the saved tournament stays in the Draw stage.
+  const stageNow = sim ? sim.base.stage : draft.stage;
+  const rehearsing = sim !== null && draft.stage !== "live" && draft.stage !== "results";
+  const isLive = stageNow === "live" || stageNow === "results";
   // Going Live needs every category drawn and its draw locked.
   const liveBlocked = canGoLive(draft) ? null : "Lock every category's draw first.";
   // The Live stage's open page.
@@ -650,7 +670,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawCourt]);
-  const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(draft.stage) ? stageView : draft.stage;
+  const viewing = STAGE_ORDER.indexOf(stageView) <= STAGE_ORDER.indexOf(stageNow) ? stageView : stageNow;
   const onLive = viewing === "live" || viewing === "results";
 
   /** A stored time as minutes since midnight in the tournament's time zone. */
@@ -727,9 +747,57 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     else if (hold !== null && at >= hold) setPlaying(true);
   }
   function endSimulation() {
+    // A rehearsal ends back where it began: the Draw stage.
+    if (simNow.current && draft.stage === "draw") setStageView("draw");
     putSim(null);
     setPlaying(false);
     setPlayhead(null);
+  }
+  /**
+   * Simulate live: a rehearsal of the day before it comes. The tournament as
+   * it stands goes Live on a copy, and a simulated day plays on that copy,
+   * with the desk's part the organiser's. Nothing is saved; the tournament
+   * itself stays in the Draw stage.
+   */
+  function rehearse() {
+    const from = range?.start ?? null;
+    if (from === null || !canGoLive(draft)) return;
+    const base = produce(draft, (d) => goLive(d, new Date().toISOString()));
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    const events = simulateFrom(base, seed, from, false);
+    if (!events) return;
+    putSim({ base, events, from, seed, deskScores: false });
+    setStageView("live");
+    setLiveView("board");
+    setPlayhead(from);
+    const hold = holdOf(events);
+    setPlaying(hold === null || hold > from);
+  }
+  // The way on from the draw, in the Draw side panel's top band and on its folded rail.
+  const drawStep: "lock" | "live" | "rehearse" | null =
+    draft.stage !== "draw" || sim !== null
+      ? null
+      : !canGoLive(draft)
+        ? "lock"
+        : tournamentDayReached(draft.frame.date, todayIn(draft.frame.timeZone))
+          ? "live"
+          : "rehearse";
+  const drawNext =
+    drawStep === null
+      ? null
+      : drawStep === "lock"
+        ? {
+            label: "Lock draws",
+            arrow: false,
+            off: draft.categories.length > 0 && draft.categories.every((c) => draft.draw[c.id]) ? undefined : "Make every category's draw first",
+          }
+        : drawStep === "live"
+          ? { label: "Go Live", arrow: true, off: undefined }
+          : { label: "Simulate live", arrow: true, off: simBlocked ? `Can't simulate: ${simBlocked}` : undefined };
+  function goDrawNext() {
+    if (drawStep === "lock") update((d) => void Object.values(d.draw).forEach((made) => void (made.locked = true)));
+    else if (drawStep === "live") void advance("live");
+    else if (drawStep === "rehearse") rehearse();
   }
   /** The cursor during a simulation: not back past the desk's last action, nor on past a court that is waiting for the desk. */
   const seek = useCallback((minute: number | null) => {
@@ -1214,9 +1282,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
     <StageRow
-      stage={draft.stage}
+      stage={stageNow}
       view={viewing}
-      onView={setStageView}
+      // Looking at another stage ends a rehearsal: its pages are the saved tournament's again.
+      onView={(view) => {
+        if (rehearsing) endSimulation();
+        setStageView(view);
+      }}
       onAdvance={advance}
       planMissing={planMissing}
       liveBlocked={liveBlocked}
@@ -1423,7 +1495,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                         watching ? (
                           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                             <p className="text-sm">
-                              <span className="font-semibold">Simulation.</span> Nothing is saved.
+                              <span className="font-semibold">{rehearsing ? "Rehearsal." : "Simulation."}</span> Nothing is saved.
                             </p>
                             <label
                               className="flex w-fit items-center gap-2 text-sm"
@@ -1455,7 +1527,12 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             ) : viewing !== "plan" ? (
               // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
               workbenchFolded ? (
-                <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
+                <Rail
+                  name="Side panel"
+                  open="Show panel"
+                  onOpen={() => foldWorkbench(false)}
+                  top={drawNext ? <RailAction label={drawNext.label} arrow={drawNext.arrow} off={drawNext.off} onClick={goDrawNext} /> : undefined}
+                >
                   <span className={RAIL_TEXT}>{draft.unit === "team" ? "Teams" : "Entries"}</span>
                 </Rail>
               ) : (
@@ -1468,6 +1545,13 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     focus={drawFocus}
                     onFocus={setDrawFocus}
                     onFold={() => foldWorkbench(true)}
+                    action={
+                      drawNext ? (
+                        <Button size="sm" data-draw-next disabled={Boolean(drawNext.off)} title={drawNext.off} onClick={goDrawNext}>
+                          {drawNext.label} {drawNext.arrow ? <ArrowRightIcon weight="bold" /> : null}
+                        </Button>
+                      ) : undefined
+                    }
                   />
                 </aside>
               )
@@ -1477,17 +1561,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   open="Show workbench"
                   onOpen={() => foldWorkbench(false)}
                   top={
-                    readyForDraws ? (
-                      // The way on, at the top of the rail, its words running down it.
-                      <Button
-                        data-move-to-draws
-                        onClick={() => void advance("draw")}
-                        className="mx-auto mt-3 h-auto w-10 shrink-0 flex-col gap-2 px-0 py-3"
-                      >
-                        <span className="whitespace-nowrap [writing-mode:vertical-rl]">Move to Draws</span>
-                        <ArrowRightIcon weight="bold" />
-                      </Button>
-                    ) : undefined
+                    readyForDraws ? <RailAction label="Move to Draws" arrow mark="data-move-to-draws" onClick={() => void advance("draw")} /> : undefined
                   }
                 >
                   <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={isLive} />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { duplicateDraft, emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { autoChecklist, daysText, daysToGo, kitList, playerMessage, posterPrompt, rulebook, scoringText, sheetDesigns } from "./resources";
+import { autoChecklist, daysText, daysToGo, kitList, playerMessage, posterPrompt, rulebook, scoringText, sheetDesigns, todayIn, tournamentDayReached } from "./resources";
 import { normaliseDraft } from "./storage";
 
 /** Sixteen pairs entered and drawn into four groups of four. */
@@ -254,5 +254,23 @@ describe("poster prompt", () => {
     expect(posterPrompt(draft, { firstGame: null, money: false })).not.toMatch(/£|prize/i);
     draft.finance.prizes[0]!.off = true;
     expect(posterPrompt(draft, { firstGame: null, money: true })).not.toMatch(/prizes:/);
+  });
+});
+
+describe("the tournament's day", () => {
+  it("has come on its date and after it, not before, and never with no date", () => {
+    expect(tournamentDayReached("2026-11-21", "2026-11-20")).toBe(false);
+    expect(tournamentDayReached("2026-11-21", "2026-11-21")).toBe(true);
+    expect(tournamentDayReached("2026-11-21", "2026-11-22")).toBe(true);
+    expect(tournamentDayReached("", "2026-11-21")).toBe(false);
+  });
+
+  it("reads today in the tournament's time zone", () => {
+    // 23:30 UTC on the 20th is already the 21st in Auckland and still the 20th in Los Angeles.
+    const now = new Date("2026-11-20T23:30:00Z");
+    expect(todayIn("Pacific/Auckland", now)).toBe("2026-11-21");
+    expect(todayIn("America/Los_Angeles", now)).toBe("2026-11-20");
+    expect(todayIn("Europe/London", now)).toBe("2026-11-20");
+    expect(todayIn("Not/AZone", now)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

@@ -123,6 +123,21 @@ export function autoChecklist(draft: PlanDraft, state: { scheduled: number; fits
   return items;
 }
 
+/** Today's date ("YYYY-MM-DD") in a time zone; the device's own where the zone can't be read. */
+export function todayIn(timeZone: string, now: Date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timeZone || undefined }).format(now);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA").format(now);
+  }
+}
+
+/** The tournament's day has come: today is its date, or later. False with no date. */
+export function tournamentDayReached(date: string, today: string): boolean {
+  const days = daysToGo(date, today);
+  return days !== null && days <= 0;
+}
+
 /** Whole days from today to the tournament's date ("YYYY-MM-DD" both): 0 is today, negative is past, null with no date. */
 export function daysToGo(date: string, today: string): number | null {
   if (!date) return null;

@@ -122,6 +122,7 @@ export function DrawPanel({
   focus,
   onFocus,
   onFold,
+  action,
 }: {
   draft: PlanDraft;
   update: Update;
@@ -131,6 +132,8 @@ export function DrawPanel({
   focus: DrawFocus;
   onFocus: (focus: DrawFocus) => void;
   onFold: () => void;
+  /** The way on from the draw (Lock draws, Simulate live, Go Live), in the panel's top band. */
+  action?: ReactNode;
 }) {
   const team = draft.unit === "team";
   const court = focus.kind === "court" ? courtOf(draft, focus.id) : null;
@@ -149,6 +152,7 @@ export function DrawPanel({
         <h2 className="heading-card min-w-0 flex-1 truncate" title={title}>
           {title}
         </h2>
+        {action}
         <IconButton label="Hide panel" side="left" aria-expanded onClick={onFold}>
           <XIcon />
         </IconButton>
