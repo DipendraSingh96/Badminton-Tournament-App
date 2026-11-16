@@ -1750,7 +1750,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     // Results are read: nothing about an entry is changed from its list.
                     update={onResults ? () => {} : update}
                     segments={segments}
-                    moment={moment}
+                    // Finished: nobody has a next match.
+                    moment={onResults ? Infinity : moment}
                     focus={drawFocus}
                     onFocus={setDrawFocus}
                     onFold={() => foldWorkbench(true)}

@@ -314,3 +314,18 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Draw page group cards and the side panel's group lists:** a dashed, muted "E5 Bye" row for each place a group is short of the biggest. Not in Live, and not while searching the list.
 - **Folded rail:** the whole rail highlights under the pointer, its action strip included.
 - **New tournament:** side panel folded to its rail, timeline folded to its bar.
+
+### Results stage, 16 Nov 2026
+- **Getting there:** in Live, once everything is played and decided: a primary **Finish tournament →** beside the stage tabs; the same in the side panel's banner ("Every match has been played. Finish to see the results."); and the Results tab. Before that the Results tab is greyed and its tip says "Not yet: 2 matches still to play; Semi-final 1 is level: decide it."
+- **Confirm:** "Finish the tournament?" / "Results are shown from here. You can reopen Live if a score needs correcting." / Finish tournament.
+- **Layout:** as Draw and Live: a row of pages over the central column, the timeline docked under it, a side panel at the right.
+  - Pages: **Summary · Group tables · Knockout · The day · Money · Changes** (Group tables is left out for knockout only; Knockout for groups only).
+  - **Summary:** heading "Results" with **Reopen Live** and **Print results sheet** at the right. A card per category: 1st (larger), 2nd, 3rd, each with its prize at the right where one is given; per group with groups only. Then "The day" and "The money", one line each, each with a link to its page.
+  - **Group tables / Knockout:** the Live pages, with nothing to decide or change; the knockout keeps its lines and zoom.
+  - **The day:** four figures (Started, Finished, Against the plan, Matches played), "Longest overruns" (up to five), and a "By court" table.
+  - **Money:** a table with Planned, Actual and Difference. Every Actual is a field; a figure the organiser has typed has the accent ring and a button to go back to the worked-out one. Shuttles are typed as a number used, with the amount under the field. Totals for Money in, Total cost and Profit (or Loss).
+  - **Changes:** the log, to read and print; no Reverse and no Withdraw.
+- **Side panel:** the entries by group, each opening to its matches; "No more matches" under each. Nothing is edited there.
+- **Timeline:** real times, cursor fixed, nothing drags.
+- **Reopening:** Reopen Live on the summary, or the Live tab, asks "Reopen Live?" and returns to the Live pages.
+- **Results sheet:** a preview dialog ("As it prints…") with Close and Print.
