@@ -534,8 +534,50 @@ describe("estimateSchedule with groups on their own courts", () => {
     expect(byCourt.get("h1-c1")).toBe(byCourt.get("h1-c2"));
     expect(byCourt.get("h1-c3")).toBe(byCourt.get("h1-c4"));
     expect(byCourt.get("h1-c1")).not.toBe(byCourt.get("h1-c3"));
-    for (const { courtId, matches } of groupMatches(schedule)) {
-      expect(matches.every((m) => m.group === byCourt.get(courtId))).toBe(true);
+    // Every match on a court is its own group's, except one borrowed from another group once the court's own are done.
+    for (const court of schedule.courts) {
+      const own = court.segments.filter((x) => x.stage === "group").map((x) => x.details[0]!).filter((d) => !d.borrowed);
+      expect(own.every((d) => d.match.group === byCourt.get(court.courtId))).toBe(true);
+    }
+    expect(schedule.unplaced).toBe(0);
+  });
+
+  /** Every tie's rubbers: side by side (the same start, different courts) or back to back on one court, in any mix of the two. */
+  function together(schedule: ReturnType<typeof estimateSchedule>): string[] {
+    const byTie = new Map<string, { courtId: string; from: string; to: string }[]>();
+    for (const court of schedule.courts) {
+      for (const seg of court.segments) {
+        const d = seg.details[0]!;
+        const tie = d.id.replace(/:r\d+$/, "");
+        byTie.set(tie, [...(byTie.get(tie) ?? []), { courtId: court.courtId, from: d.from, to: d.to }]);
+      }
+    }
+    const apart: string[] = [];
+    for (const [tie, rubbers] of byTie) {
+      const sorted = [...rubbers].sort((x, y) => x.from.localeCompare(y.from));
+      // Each rubber starts with the tie's first, or the moment an earlier rubber of the tie ends on its own court.
+      const ok = sorted.every(
+        (r, i) => r.from === sorted[0]!.from || sorted.slice(0, i).some((earlier) => earlier.courtId === r.courtId && earlier.to === r.from),
+      );
+      if (!ok) apart.push(tie);
+    }
+    return apart;
+  }
+
+  it("keeps a tie's rubbers together however many teams and courts there are", () => {
+    for (const teams of [8, 12, 16, 20, 24]) {
+      for (const courts of [[4, 4], [4, 2], [6], [3, 3]]) {
+        for (const groupCourts of ["own", "shared"] as const) {
+          const plan = tournament();
+          plan.unit = "team";
+          plan.groupCourts = groupCourts;
+          plan.categories[0] = { ...plan.categories[0]!, entry: { type: "team", lineUp: [{ event: "MD", count: 2 }] }, expectedEntries: teams };
+          plan.frame.halls = courts.map((n, h) => hall(`h${h + 1}`, "09:00", "23:00", { courtCount: n }));
+          const { schedule } = estimate(plan);
+          expect([teams, courts, groupCourts, schedule.unplaced]).toEqual([teams, courts, groupCourts, 0]);
+          expect([teams, courts, groupCourts, together(schedule)]).toEqual([teams, courts, groupCourts, []]);
+        }
+      }
     }
   });
 

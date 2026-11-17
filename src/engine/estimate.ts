@@ -417,48 +417,64 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     let order = 0;
     for (const step of steps) {
       const ends = new Map<string, number>();
-      for (const match of step) {
-        const minutes = slot.get(match.info);
+      // A tie's rubbers are placed as one: side by side at the same time on different courts, or back to
+      // back on one court, whichever finishes the tie sooner. Never one now and another later elsewhere.
+      const done = new Set<string>();
+      for (const first of step) {
+        if (done.has(first.tie)) continue;
+        done.add(first.tie);
+        const rubbers = step.filter((m) => m.tie === first.tie);
+        const minutes = slot.get(first.info);
         if (minutes === undefined) continue;
-        const release = Math.max(match.release, ready.get(gate(match.info)) ?? -Infinity);
-        let best = -1;
-        let bestStart = Infinity;
-        let bestOwn = false;
+        const release = Math.max(first.release, ready.get(gate(first.info)) ?? -Infinity);
+        // Every court the tie may use, with when it could start there; its own courts first where the start is the same.
+        const options: { court: number; start: number; own: boolean }[] = [];
         courts.forEach((court, i) => {
-          if (!match.halls.has(court.hallId)) return;
-          const own = !match.courts || match.courts.has(court.courtId);
+          if (!first.halls.has(court.hallId)) return;
+          const own = !first.courts || first.courts.has(court.courtId);
           if (!own && (!lendFrom || closed.has(court.courtId))) return;
           // A group match on its own court keeps to the court's own clock; a borrowed one to the lent
           // clock; anything else (the knockout) waits for both.
-          const free = !own ? lentFreeAt[i]! : match.courts || !lendFrom ? freeAt[i]! : Math.max(freeAt[i]!, lentFreeAt[i]!);
-          const start = Math.max(free, release, court.start);
-          // Its own court wins a tie with a borrowed one.
-          if (start < bestStart || (start === bestStart && own && !bestOwn)) {
-            best = i;
-            bestStart = start;
-            bestOwn = own;
-          }
+          const free = !own ? lentFreeAt[i]! : first.courts || !lendFrom ? freeAt[i]! : Math.max(freeAt[i]!, lentFreeAt[i]!);
+          options.push({ court: i, start: Math.max(free, release, court.start), own });
         });
-        if (best === -1) {
-          unplaced += 1;
+        options.sort((x, y) => x.start - y.start || Number(y.own) - Number(x.own) || x.court - y.court);
+        if (options.length === 0) {
+          unplaced += rubbers.length;
           continue;
         }
-        const end = bestStart + minutes;
-        if (bestOwn) {
-          freeAt[best] = end;
-          // When the court's own groups have finished there: only their matches count.
-          if (match.courts) ownEnd[best] = Math.max(ownEnd[best]!, end);
-          // What it lends starts after its own, however the two were placed.
-          if (lendFrom) lentFreeAt[best] = Math.max(lentFreeAt[best]!, end);
-        } else {
-          lentFreeAt[best] = end;
-          borrowed.add(match.id);
+        // On how many courts at once: each number of courts starts together when the last of them is free,
+        // and the rubbers go round them. The fewest courts that finish soonest are taken.
+        let use = 1;
+        let finish = Infinity;
+        for (let c = 1; c <= Math.min(rubbers.length, options.length); c++) {
+          const end = options[c - 1]!.start + Math.ceil(rubbers.length / c) * minutes;
+          if (end < finish) {
+            use = c;
+            finish = end;
+          }
         }
-        placed[best]!.push({ match, start: bestStart, order: order++ });
-        const id = gate(match.info);
-        ends.set(id, Math.max(ends.get(id) ?? -Infinity, end));
-        // A category's knockout waits for all its groups, whichever way its groups move on.
-        if (match.info.stage === "group") ends.set(match.info.categoryId, Math.max(ends.get(match.info.categoryId) ?? -Infinity, end));
+        const together = options[use - 1]!.start;
+        rubbers.forEach((match, r) => {
+          const { court: best, own: bestOwn } = options[r % use]!;
+          const start = (use === 1 ? options[0]!.start : together) + Math.floor(r / use) * minutes;
+          const end = start + minutes;
+          if (bestOwn) {
+            freeAt[best] = end;
+            // When the court's own groups have finished there: only their matches count.
+            if (match.courts) ownEnd[best] = Math.max(ownEnd[best]!, end);
+            // What it lends starts after its own, however the two were placed.
+            if (lendFrom) lentFreeAt[best] = Math.max(lentFreeAt[best]!, end);
+          } else {
+            lentFreeAt[best] = end;
+            borrowed.add(match.id);
+          }
+          placed[best]!.push({ match, start, order: order++ });
+          const id = gate(match.info);
+          ends.set(id, Math.max(ends.get(id) ?? -Infinity, end));
+          // A category's knockout waits for all its groups, whichever way its groups move on.
+          if (match.info.stage === "group") ends.set(match.info.categoryId, Math.max(ends.get(match.info.categoryId) ?? -Infinity, end));
+        });
       }
       // A category's next step waits for this one.
       for (const [id, end] of ends) ready.set(id, Math.max(ready.get(id) ?? -Infinity, end));
@@ -571,30 +587,48 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
     }
     // Nothing left that can be timed: what remains waits on matches that were never placed.
     if (!best) break;
-    const i = best.court;
-    const queue = left[i]!;
-    const [match] = queue.splice(best.at, 1);
-    // The rest of its tie's rubbers there come next.
-    const rest = queue.filter((m) => m.tie === match!.tie);
-    if (rest.length > 0) left[i] = [...rest, ...queue.filter((m) => m.tie !== match!.tie)];
-    stapled[i] = rest.length > 0;
-    const minutes = slot.get(match!.info)!;
-    courtFree[i] = best.start + minutes;
-    ends.set(match!.id, best.start + minutes);
-    for (const side of match!.sides) {
-      busy.set(side, [...(busy.get(side) ?? []), { tie: match!.tie, from: best.start, to: best.start + minutes, court: i }]);
+    /** Times a court's match at a start, and brings the rest of its tie's rubbers there up behind it. */
+    const schedule = (i: number, at: number, start: number, wait: Wait | undefined) => {
+      const queue = left[i]!;
+      const [match] = queue.splice(at, 1);
+      const rest = queue.filter((m) => m.tie === match!.tie);
+      if (rest.length > 0) left[i] = [...rest, ...queue.filter((m) => m.tie !== match!.tie)];
+      stapled[i] = rest.length > 0;
+      const minutes = slot.get(match!.info)!;
+      courtFree[i] = start + minutes;
+      ends.set(match!.id, start + minutes);
+      for (const side of match!.sides) {
+        busy.set(side, [...(busy.get(side) ?? []), { tie: match!.tie, from: start, to: start + minutes, court: i }]);
+      }
+      timed.push({
+        planned: match!,
+        court: i,
+        from: start,
+        to: start + minutes,
+        moved: moved.has(match!.id),
+        borrowed: borrowed.has(match!.id) && !moved.has(match!.id),
+        wait,
+        // Runs past its court's closing time: still shown, flagged. (The buffer is not a wall.)
+        late: start + minutes > courts[i]!.end,
+      });
+      // The tie's other rubbers on this court follow straight away, back to back: nothing else of
+      // either side's is timed in between.
+      if (rest.length > 0) {
+        const next = startOf(i, left[i]![0]!);
+        schedule(i, 0, next.start, next.wait);
+      }
+    };
+    // The tie's rubbers waiting at the front of other courts go on with it, all at the same time: side by side.
+    const chosen = left[best.court]![best.at]!;
+    const mates: { court: number; start: number; wait?: Wait }[] = [];
+    for (let j = 0; j < courts.length; j++) {
+      const front = left[j]![0];
+      if (j === best.court || !front || front.tie !== chosen.tie || pending(front)) continue;
+      mates.push({ court: j, ...startOf(j, front) });
     }
-    timed.push({
-      planned: match!,
-      court: i,
-      from: best.start,
-      to: best.start + minutes,
-      moved: moved.has(match!.id),
-      borrowed: borrowed.has(match!.id) && !moved.has(match!.id),
-      wait: best.wait,
-      // Runs past its court's closing time: still shown, flagged. (The buffer is not a wall.)
-      late: best.start + minutes > courts[i]!.end,
-    });
+    const start = Math.max(best.start, ...mates.map((m) => m.start));
+    schedule(best.court, best.at, start, best.wait);
+    for (const mate of mates) schedule(mate.court, 0, start, mate.wait);
   }
 
   // Anything that still couldn't be timed is reported, never dropped silently.
