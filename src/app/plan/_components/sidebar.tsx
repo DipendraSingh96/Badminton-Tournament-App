@@ -5,14 +5,17 @@ import { setDeveloperTools, useDeveloperTools } from "@/lib/developer";
 import {
   CopyIcon,
   DesktopIcon,
+  DownloadSimpleIcon,
   GearSixIcon,
   MoonIcon,
   PlusIcon,
   SidebarSimpleIcon,
   SunIcon,
   TrashIcon,
+  UploadSimpleIcon,
   UserIcon,
 } from "@phosphor-icons/react";
+import { useRef } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -124,9 +127,15 @@ export function Sidebar({
   onDuplicate,
   onDelete,
   onOpen,
+  onExport,
+  onImport,
   collapsed,
   onCollapsedChange,
 }: {
+  /** Developer tools: saves the open tournament as a file. */
+  onExport: () => void;
+  /** Developer tools: adds a tournament from a file. */
+  onImport: (file: File) => void;
   draft: PlanDraft;
   currentId: string;
   items: TournamentMeta[];
@@ -138,6 +147,8 @@ export function Sidebar({
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
   const name = draft.name.trim() || "Untitled tournament";
+  const developer = useDeveloperTools();
+  const picker = useRef<HTMLInputElement>(null);
   // The open tournament shows as it is now, ahead of its next save.
   const listed = sortTournaments(
     items.map((t) => (t.id === currentId ? { ...t, name: draft.name, date: draft.frame.date } : t)),
@@ -194,9 +205,31 @@ export function Sidebar({
         </div>
       ) : (
         <div className="scroll-pane flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-(--pane-x) py-4">
-          <Button onClick={onNew}>
-            <PlusIcon /> New tournament
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button className="min-w-0 flex-1" onClick={onNew}>
+              <PlusIcon /> New tournament
+            </Button>
+            {developer ? (
+              <>
+                <IconButton label="Import a tournament from a file" variant="outline" onClick={() => picker.current?.click()}>
+                  <UploadSimpleIcon />
+                </IconButton>
+                <input
+                  ref={picker}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  data-import-tournament
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    // Emptied, so the same file can be chosen again.
+                    e.target.value = "";
+                    if (file) onImport(file);
+                  }}
+                />
+              </>
+            ) : null}
+          </div>
           <section aria-labelledby="tournaments-heading" className="flex flex-col gap-2">
             <h2 id="tournaments-heading" className="heading-card text-xl">
               Tournaments
@@ -214,6 +247,11 @@ export function Sidebar({
                       <p className="flex-1 truncate text-xs text-muted-foreground tabular-nums">
                         Saved {formatSaved(t.updatedAt)}
                       </p>
+                      {developer ? (
+                        <IconButton label="Export this tournament as a file" onClick={onExport}>
+                          <DownloadSimpleIcon />
+                        </IconButton>
+                      ) : null}
                       <IconButton label="Duplicate as a new tournament" onClick={onDuplicate}>
                         <CopyIcon />
                       </IconButton>

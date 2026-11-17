@@ -301,6 +301,42 @@ export function deleteTournament(
   return next;
 }
 
+/** What marks a file as a tournament saved from this app. */
+const FILE_KIND = "badminton-tournament";
+
+/** A tournament as a file: the whole of it as saved (plan, entries, draw, and its Live results if it has them). */
+export function exportTournament(draft: PlanDraft): string {
+  return JSON.stringify({ kind: FILE_KIND, version: 1, tournament: draft }, null, 2);
+}
+
+/** The file's name: the tournament's name, without what a file name can't hold. */
+export function exportFileName(name: string): string {
+  const clean = name
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${clean || "Untitled tournament"}.tournament.json`;
+}
+
+/**
+ * Reads a tournament file. It goes through the same checks as a tournament
+ * loaded from this device, so a file from an older build still opens. Null
+ * when the file isn't a tournament.
+ */
+export function readTournamentFile(text: string): PlanDraft | null {
+  try {
+    const file = JSON.parse(text) as { kind?: unknown; tournament?: unknown } | null;
+    if (!file || typeof file !== "object" || file.kind !== FILE_KIND) return null;
+    const saved = file.tournament as Partial<PlanDraft> | null;
+    if (!saved || typeof saved !== "object" || typeof saved.name !== "string" || !Array.isArray(saved.categories)) return null;
+    if (!saved.frame || typeof saved.frame !== "object" || !Array.isArray(saved.frame.halls)) return null;
+    return normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
+  } catch {
+    return null;
+  }
+}
+
 /** Newest first: tournaments without a date yet (the ones being set up), then by date, latest first. */
 export function sortTournaments(items: TournamentMeta[]): TournamentMeta[] {
   return [...items].sort((a, b) => {

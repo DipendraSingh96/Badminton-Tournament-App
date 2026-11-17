@@ -4,8 +4,12 @@ import { completeDraft } from "./draft.test-helpers";
 import {
   createTournament,
   deleteTournament,
+  exportFileName,
+  exportTournament,
   loadIndex,
   loadTournament,
+  normaliseDraft,
+  readTournamentFile,
   saveTournament,
   setCurrent,
   sortTournaments,
@@ -96,6 +100,37 @@ describe("saved tournaments", () => {
       { id: "draftB", name: "", date: "", updatedAt: 3 },
     ]);
     expect(sorted.map((t) => t.id)).toEqual(["draftB", "draftA", "new", "old"]);
+  });
+});
+
+describe("a tournament as a file", () => {
+  it("imports to the tournament that was exported", () => {
+    const draft = normaliseDraft(JSON.parse(JSON.stringify(completeDraft())));
+    expect(readTournamentFile(exportTournament(draft))).toEqual(draft);
+  });
+
+  it("refuses a file that isn't a tournament", () => {
+    expect(readTournamentFile("not json")).toBeNull();
+    expect(readTournamentFile("null")).toBeNull();
+    expect(readTournamentFile(JSON.stringify({ name: "Some other file" }))).toBeNull();
+    expect(readTournamentFile(JSON.stringify({ kind: "badminton-tournament", tournament: { name: "No halls" } }))).toBeNull();
+    expect(readTournamentFile(JSON.stringify({ kind: "something-else", tournament: completeDraft() }))).toBeNull();
+  });
+
+  it("opens a file from an older build with the newer fields defaulted", () => {
+    const old = JSON.parse(exportTournament(completeDraft()));
+    delete old.tournament.actuals;
+    delete old.tournament.log;
+    delete old.tournament.entries;
+    const read = readTournamentFile(JSON.stringify(old))!;
+    expect(read.actuals).toEqual({});
+    expect(read.log).toEqual([]);
+    expect(read.entries).toEqual([]);
+  });
+
+  it("names the file after the tournament", () => {
+    expect(exportFileName("BHF x GZD: Winter 2026")).toBe("BHF x GZD Winter 2026.tournament.json");
+    expect(exportFileName("  ")).toBe("Untitled tournament.tournament.json");
   });
 });
 

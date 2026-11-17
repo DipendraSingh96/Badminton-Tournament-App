@@ -33,6 +33,9 @@ import type { LocalSegment } from "./timeline";
 import { parsePlan, timingInputs, type PlanIssue } from "@/lib/tournament/schema";
 import {
   createTournament,
+  exportFileName,
+  exportTournament,
+  readTournamentFile,
   deleteTournament,
   loadIndex,
   loadTournament,
@@ -357,6 +360,19 @@ interface TournamentActions {
   onDuplicate: (draft: PlanDraft) => void;
   onDelete: (id: string) => void;
   onOpen: (id: string) => void;
+  onImport: (file: File) => void;
+}
+
+/** Hands the organiser a file to save: made here, on their device; nothing is sent anywhere. */
+function saveFile(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function Editor({ id, tournaments }: { id: string; tournaments: TournamentActions }) {
@@ -1543,6 +1559,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onNew={tournaments.onNew}
               onDuplicate={() => tournaments.onDuplicate(draftRef.current)}
               onDelete={tournaments.onDelete}
+              onExport={() => saveFile(exportFileName(draft.name), exportTournament(draft))}
+              onImport={tournaments.onImport}
               onOpen={tournaments.onOpen}
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
@@ -1991,6 +2009,19 @@ function Workspace() {
       change(next.currentId ? next : createTournament(next, emptyDraft(browserTimeZone())).index);
     },
     onOpen: (id) => change(setCurrent(indexRef.current, id)),
+    onImport: async (file) => {
+      const read = readTournamentFile(await file.text().catch(() => ""));
+      if (!read) {
+        await confirm({
+          title: "That file isn’t a tournament",
+          body: "Choose a file saved here with Export (its name ends .tournament.json).",
+          action: "OK",
+        });
+        return;
+      }
+      // Added as a new tournament, and opened.
+      change(createTournament(indexRef.current, read).index);
+    },
   };
   const currentId = index.currentId!;
   return <Editor key={currentId} id={currentId} tournaments={actions} />;
