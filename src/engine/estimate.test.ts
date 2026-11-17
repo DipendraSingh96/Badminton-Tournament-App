@@ -568,14 +568,17 @@ describe("estimateSchedule with groups on their own courts", () => {
     for (const teams of [8, 12, 16, 20, 24]) {
       for (const courts of [[4, 4], [4, 2], [6], [3, 3]]) {
         for (const groupCourts of ["own", "shared"] as const) {
-          const plan = tournament();
-          plan.unit = "team";
-          plan.groupCourts = groupCourts;
-          plan.categories[0] = { ...plan.categories[0]!, entry: { type: "team", lineUp: [{ event: "MD", count: 2 }] }, expectedEntries: teams };
-          plan.frame.halls = courts.map((n, h) => hall(`h${h + 1}`, "09:00", "23:00", { courtCount: n }));
-          const { schedule } = estimate(plan);
-          expect([teams, courts, groupCourts, schedule.unplaced]).toEqual([teams, courts, groupCourts, 0]);
-          expect([teams, courts, groupCourts, together(schedule)]).toEqual([teams, courts, groupCourts, []]);
+          for (const lineUp of [[{ event: "MD", count: 2 }], [{ event: "MS", count: 1 }, { event: "MD", count: 2 }], [{ event: "MD", count: 3 }, { event: "XD", count: 2 }]] as const) {
+            const plan = tournament();
+            plan.unit = "team";
+            plan.groupCourts = groupCourts;
+            plan.categories[0] = { ...plan.categories[0]!, entry: { type: "team", lineUp: [...lineUp] }, expectedEntries: teams };
+            plan.frame.halls = courts.map((n, h) => hall(`h${h + 1}`, "09:00", "23:00", { courtCount: n }));
+            const { schedule } = estimate(plan);
+            const which = [teams, courts, groupCourts, lineUp.map((l) => l.count).join("+")];
+            expect([...which, schedule.unplaced]).toEqual([...which, 0]);
+            expect([...which, together(schedule)]).toEqual([...which, []]);
+          }
         }
       }
     }

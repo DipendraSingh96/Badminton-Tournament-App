@@ -618,17 +618,22 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
         schedule(i, 0, next.start, next.wait);
       }
     };
-    // The tie's rubbers waiting at the front of other courts go on with it, all at the same time: side by side.
+    // The tie's rubbers on other courts go on with it, all at the same time: side by side. They come
+    // forward on their courts to do so, ahead of anything queued before them there. (One moved by hand
+    // keeps the place it was given, unless it is already next on its court.)
     const chosen = left[best.court]![best.at]!;
-    const mates: { court: number; start: number; wait?: Wait }[] = [];
+    const mates: { court: number; at: number; start: number; wait?: Wait }[] = [];
     for (let j = 0; j < courts.length; j++) {
-      const front = left[j]![0];
-      if (j === best.court || !front || front.tie !== chosen.tie || pending(front)) continue;
-      mates.push({ court: j, ...startOf(j, front) });
+      if (j === best.court) continue;
+      const at = left[j]!.findIndex((m) => m.tie === chosen.tie);
+      if (at < 0) continue;
+      const mate = left[j]![at]!;
+      if (pending(mate) || (at > 0 && moved.has(mate.id))) continue;
+      mates.push({ court: j, at, ...startOf(j, mate) });
     }
     const start = Math.max(best.start, ...mates.map((m) => m.start));
     schedule(best.court, best.at, start, best.wait);
-    for (const mate of mates) schedule(mate.court, 0, start, mate.wait);
+    for (const mate of mates) schedule(mate.court, mate.at, start, mate.wait);
   }
 
   // Anything that still couldn't be timed is reported, never dropped silently.

@@ -551,11 +551,22 @@ export function Timeline({
       }
       const lines: typeof threads = [];
       for (const [tie, pills] of byTie) {
-        const sorted = pills.sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
-        sorted.slice(1).forEach((b, i) => {
-          const a = sorted[i]!;
-          // Rubbers on one court are stapled, not threaded.
-          if (a.courtId === b.courtId) return;
+        // Rubbers on one court are stapled, not threaded. From one court to the next down the page,
+        // the thread joins the two pills nearest in time: the ones played side by side.
+        const rows: (typeof pills)[] = [];
+        for (const pill of pills.sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left)) {
+          const row = rows.at(-1);
+          if (row && row[0]!.courtId === pill.courtId) row.push(pill);
+          else rows.push([pill]);
+        }
+        rows.slice(1).forEach((below, i) => {
+          let a = rows[i]![0]!;
+          let b = below[0]!;
+          for (const x of rows[i]!) {
+            for (const y of below) {
+              if (Math.abs(x.rect.left - y.rect.left) < Math.abs(a.rect.left - b.rect.left)) [a, b] = [x, y];
+            }
+          }
           lines.push({
             key: `${a.id}>${b.id}`,
             tie,
