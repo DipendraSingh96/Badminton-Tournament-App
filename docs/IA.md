@@ -329,3 +329,14 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Timeline:** real times, cursor fixed, nothing drags.
 - **Reopening:** Reopen Live on the summary, or the Live tab, asks "Reopen Live?" and returns to the Live pages.
 - **Results sheet:** a preview dialog ("As it prints…") with Close and Print.
+
+### Review round, 17 Nov 2026 (these replace anything above that says otherwise)
+- **Guided start, motion.** Step 1 to 2: the name, date and time zone row travels from the middle of the page to its place at the top while the stage tabs and the halls come up from the bottom edge. Step 2 to 3: the side panel slides in from the right edge, the main area narrowing with it; then the timeline rises from the bottom edge to its folded bar. With reduced motion the steps simply appear.
+- **Live's opening state.** Whenever the Live stage is opened (going Live, a rehearsal, returning from another stage, a reload) it shows Check-in with the timeline folded and the side panel folded.
+- **Draw stage timeline: for reading only.** No grab cursors, no resize handles, no remove buttons and no "Drag" hint; its hint line reads "Hover a match for its details · Arrow keys go between matches · Ctrl or Cmd and scroll to zoom". Hovering a match still shows its details, and the time can still be scrubbed. The same holds for a finished tournament's timeline.
+- **Timeline links.** From one court to the next, the thread joins the two matches of a match-up that are played side by side (never a slanting line to a match played later). Links are measured again whenever a match settles after a move.
+- **Team to Individuals and pairs (and back).** No "Switch?" question when nothing has been put into a category (no name, event, line-up, expected number or fee). It still asks when there is something to lose.
+- **Number steppers.** From empty, + gives 1 (or the field's lowest allowed value if that is higher). 0 can still be typed.
+- **Hovers.** Each tiebreak criterion, in the list and in Add criterion, says what it means in one line. The Fits / Tight / Over badge says how it is worked out (Tight: "The matches fit at their usual length, but not if every match runs to its longest (the worst case, with your overspill). It may overrun.").
+- **Export and import (Developer tools on).** An export icon on the open tournament's card, before Duplicate and Delete; an import icon beside New tournament. Hidden with Developer tools off.
+
