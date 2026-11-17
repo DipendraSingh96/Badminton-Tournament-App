@@ -1267,6 +1267,18 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     setWorkbenchFolded(folded);
     saveWorkbenchFolded(folded);
   }
+  // Live opens the same way every time (going Live, a rehearsal, coming back to it, a reload):
+  // on Check-in, with the timeline and the side panel folded.
+  const liveOpen = viewing === "live";
+  useEffect(() => {
+    if (!liveOpen) return;
+    const frame = requestAnimationFrame(() => {
+      setLiveView("checkin");
+      setWorkbenchFolded(true);
+      timelinePanel.current?.collapse();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [liveOpen, id, timelinePanel]);
   /** Shows a team or a court in the Draw stage's side panel, opening the panel if it's folded. */
   function openInPanel(focus: DrawFocus) {
     setDrawFocus(focus);
