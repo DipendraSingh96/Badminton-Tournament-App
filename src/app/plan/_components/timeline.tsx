@@ -485,20 +485,28 @@ export function Timeline({
   /** A match moved from the keyboard keeps the focus, even on another court. */
   const refocus = useRef<string | null>(null);
 
-  // Playback: move the playhead forward until the end of the day.
+  // Playback: move the playhead forward until the end of the day. The time shown is worked out from
+  // the clock since play began (or since the cursor was last put somewhere by hand), not added up
+  // frame by frame: a slow frame, or one drawn late, then loses no time.
   const position = useRef(playhead);
+  const playFrom = useRef<{ time: number; at: number } | null>(null);
+  // The times playback itself has just sent: one of these coming back is not a move by hand.
+  const sent = useRef<number[]>([]);
   useEffect(() => {
+    if (playhead !== null && sent.current.includes(playhead)) return;
     position.current = playhead;
+    playFrom.current = null;
   }, [playhead]);
   useEffect(() => {
     if (!playing) return;
     let frame = 0;
-    let last = performance.now();
     const perMs = (rate ?? (end - start) / PLAYBACK_SECONDS) / 1000;
+    playFrom.current = null;
     const tick = (time: number) => {
-      const next = Math.min(end, (position.current ?? start) + (time - last) * perMs);
-      last = time;
+      playFrom.current ??= { time, at: position.current ?? start };
+      const next = Math.min(end, playFrom.current.at + (time - playFrom.current.time) * perMs);
       position.current = next;
+      sent.current = [...sent.current.slice(-240), next];
       onSeek(next);
       if (next >= end) onPlayingChange(false);
       else frame = requestAnimationFrame(tick);
