@@ -1,7 +1,7 @@
 "use client";
 
 import { produce } from "immer";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ArrowRightIcon, CaretLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
@@ -351,6 +351,9 @@ function saveSidebarCollapsed(collapsed: boolean) {
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+/** How long each movement of the guided start takes, in milliseconds. */
+const GUIDE_MOTION = 1000;
 
 /** What the editor can do with the list of saved tournaments. */
 interface TournamentActions {
@@ -1332,7 +1335,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         }}
         className="h-full"
       >
-        <div className="pointer-events-auto h-full">
+        <div data-guide-timeline className="pointer-events-auto h-full">
         <Timeline
           draft={shown}
           update={update}
@@ -1413,7 +1416,38 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     },
   };
   // The Plan stage's working area, and the Draw stage's Schedule page.
+  // The guided start moves between its steps: where the fields were, for them to travel from.
+  const guideFrom = useRef<{ step: GuideStep; fields: DOMRect | null } | null>(null);
+  useLayoutEffect(() => {
+    const from = guideFrom.current;
+    guideFrom.current = null;
+    // With reduced motion the steps simply appear.
+    if (!from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timing = { duration: GUIDE_MOTION, easing: "ease-in-out", fill: "backwards" } as const;
+    if (from.step === 1) {
+      // The name, date and time zone travel from the middle of the page up to their place;
+      // the stage tabs and the halls come up from the bottom edge.
+      const fields = document.querySelector("[data-guide-fields]");
+      if (fields && from.fields) {
+        const to = fields.getBoundingClientRect();
+        fields.animate([{ transform: `translate(${from.fields.left - to.left}px, ${from.fields.top - to.top}px)` }, { transform: "none" }], timing);
+      }
+      for (const rising of document.querySelectorAll("[data-guide-rise]")) {
+        const away = window.innerHeight - rising.getBoundingClientRect().top;
+        rising.animate([{ transform: `translateY(${away}px)` }, { transform: "none" }], timing);
+      }
+    } else {
+      // The side panel slides in from the right edge, the main area narrowing with it; then the timeline rises.
+      const panel = document.querySelector("[data-guide-panel]");
+      if (panel) {
+        const width = panel.getBoundingClientRect().width;
+        panel.animate([{ marginRight: `-${width}px` }, { marginRight: "0px" }], timing);
+      }
+      document.querySelector("[data-guide-timeline]")?.animate([{ transform: "translateY(100%)" }, { transform: "none" }], { ...timing, delay: GUIDE_MOTION });
+    }
+  }, [guide]);
   function nextGuideStep() {
+    guideFrom.current = { step: guide, fields: document.querySelector("[data-guide-fields]")?.getBoundingClientRect() ?? null };
     let next: GuideStep = null;
     try {
       next = advanceGuide(window.localStorage, id);
@@ -1569,14 +1603,14 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             <TeamOpenContext
               value={viewing === "plan" ? null : viewing === "live" ? openLiveEntry : (id) => openInPanel({ kind: "team", id })}
             >
-            <div className="workspace-dots flex min-w-0 flex-1">
+            <div className="workspace-dots flex min-w-0 flex-1 overflow-x-clip">
             <main className="flex min-w-0 flex-1 flex-col">
               {guide === 1 ? (
                 // The guided start's first step: nothing but the tournament's name, date and time zone.
                 <div className="@container grid min-h-0 flex-1 place-items-center px-(--pane-x) pb-24">
                   <div data-guide-step="1" className="flex w-full max-w-[860px] flex-col items-center gap-3">
                     <h1 className="sr-only">Name your tournament</h1>
-                    <div className="flex items-start gap-2">
+                    <div data-guide-fields className="flex items-start gap-2">
                       <TournamentHeader draft={draft} update={update} />
                       <Button
                         data-guide-next
@@ -1594,18 +1628,20 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               <>
               <div className="shrink-0 px-(--pane-x)">
                 <div className={cn(COLUMN, "pb-4")}>
-                  <NameRow
-                    fields={<TournamentHeader draft={draft} update={update} />}
-                    onUndo={() => step(true)}
-                    onRedo={() => step(false)}
-                    canUndo={steps.back > 0}
-                    canRedo={steps.forward > 0}
-                    off={isLive ? "No undo while Live: reverse a change from the Changes page" : undefined}
-                  />
-                  {stageRow}
+                  <div data-guide-fields>
+                    <NameRow
+                      fields={<TournamentHeader draft={draft} update={update} />}
+                      onUndo={() => step(true)}
+                      onRedo={() => step(false)}
+                      canUndo={steps.back > 0}
+                      canRedo={steps.forward > 0}
+                      off={isLive ? "No undo while Live: reverse a change from the Changes page" : undefined}
+                    />
+                  </div>
+                  <div data-guide-rise>{stageRow}</div>
                 </div>
               </div>
-              <div className="flex min-h-0 flex-1">
+              <div data-guide-rise className="flex min-h-0 flex-1">
                 {viewing === "results" ? (
                   <ResultsStage
                     draft={draft}
@@ -1807,7 +1843,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={moneyHidden} />
                 </Rail>
               ) : (
-                <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
+                <aside data-guide-panel aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
                   {locked ? (
                     <div className="px-4 pb-3">
                       <StageBar onUnlock={unlockDraw} live={isLive} />
