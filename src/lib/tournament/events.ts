@@ -32,6 +32,20 @@ export const TIEBREAK_LABELS: Record<TiebreakCriterion, string> = {
   drawOfLots: "Draw of lots",
 };
 
+/** What each tiebreak criterion means, in one line, as the organiser reads it. */
+export function tiebreakMeanings(unit: "individual" | "team" | null): Record<TiebreakCriterion, string> {
+  const team = unit === "team";
+  return {
+    matchesWon: team ? "The most match-ups won in the group" : "The most matches won in the group",
+    gameDifference: "Games won less games lost, across the group",
+    pointDifference: "Points won less points lost, across the group",
+    headToHead: "The result of the match between the entries that are level",
+    pointsWon: "The most points won in all, across the group",
+    rubbersWon: "The most matches won across a team's match-ups",
+    drawOfLots: "Drawn by lot when nothing else separates them",
+  };
+}
+
 /**
  * The tiebreak criteria by name, as the organiser reads them. In a team
  * event two teams meeting is a match-up and each match inside it a match,

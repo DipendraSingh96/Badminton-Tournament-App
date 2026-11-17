@@ -241,7 +241,8 @@ export function StepperField({
   const filled = value !== null;
   const issue = useIssue(path, filled);
   const invalid = issue !== undefined;
-  const step = (delta: number) => onChange(Math.max(min, (value ?? min) + (value === null ? 0 : delta)));
+  // From empty, + gives 1 (or the lowest allowed value, if that is higher); 0 can still be typed.
+  const step = (delta: number) => onChange(value === null ? Math.max(min, 1) : Math.max(min, value + delta));
   return (
     <Field id={id} label={label} path={path} filled={filled} hint={hint}>
       <div

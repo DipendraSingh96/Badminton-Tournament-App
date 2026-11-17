@@ -12,7 +12,7 @@ import {
   type PlanDraft,
   type RulesDraft,
 } from "@/lib/tournament/draft";
-import { tiebreakLabels, WALKOVER_LABELS, WITHDRAWAL_LABELS } from "@/lib/tournament/events";
+import { tiebreakLabels, tiebreakMeanings, WALKOVER_LABELS, WITHDRAWAL_LABELS } from "@/lib/tournament/events";
 import { InfoTip, IssuesContext, Section, SegmentedField, SelectField, StepperField, SwitchField, pathKey } from "./fields";
 import { categoryName } from "./labels";
 import type { Update } from "./plan-editor";
@@ -165,7 +165,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
             const canUp = i > 0 && !fixedLast;
             const canDown = i < tiebreaks.length - 1 && !(lots !== -1 && i === lots - 1);
             return (
-              <li key={criterion} className="flex items-center gap-2 rounded-lg bg-card-system py-1 pr-1 pl-3">
+              <li key={criterion} title={tiebreakMeanings(draft.unit)[criterion]} className="flex items-center gap-2 rounded-lg bg-card-system py-1 pr-1 pl-3">
                 <span className="w-5 text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
                 <span className="flex-1 text-sm">
                   {tiebreakLabels(draft.unit)[criterion]}
@@ -213,6 +213,7 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
               <button
                 key={criterion}
                 type="button"
+                title={tiebreakMeanings(draft.unit)[criterion]}
                 className="rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-inset focus-visible:bg-inset"
                 onClick={() => add(criterion)}
               >

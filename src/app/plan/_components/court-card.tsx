@@ -391,16 +391,14 @@ export function CourtCard({
       <>
         {/* The game's time: a dot in the card's own corner, outside the court's lines. */}
         {live?.timing ? <TimingDot timing={live.timing} className="absolute top-1.5 right-1.5 z-20" /> : null}
-        <span className="h-5 truncate text-center text-xs leading-5 font-semibold">
-          {live ? top : groups ? groupText(groups) : null}
-        </span>
-        <span className="relative flex min-h-20 flex-col border-2 border-white/90">
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-0 grid place-items-center font-display text-[56px] leading-none font-bold text-black/18 mix-blend-multiply select-none"
-          >
+        <span className="relative h-5 text-xs leading-5 font-semibold">
+          {/* The court's number: top left, the size of the group's name. */}
+          <span data-court-number aria-hidden="true" className="absolute top-0 left-0 tabular-nums">
             {number}
           </span>
+          <span className="block truncate px-5 text-center">{live ? top : groups ? groupText(groups) : null}</span>
+        </span>
+        <span className="relative flex min-h-20 flex-col border-2 border-white/90">
           <span className={`flex flex-1 flex-col ${dim}`}>
             <Half size="small" code={face?.home ?? null} players={face?.homePlayers ?? []} />
           </span>

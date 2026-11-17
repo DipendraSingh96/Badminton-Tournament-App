@@ -51,7 +51,16 @@ export function SetupTab({ draft, update }: { draft: PlanDraft; update: Update }
   const confirm = useConfirm();
   async function chooseUnit(next: Unit) {
     if (next === draft.unit) return;
-    if (draft.unit !== null && draft.categories.length > 0) {
+    // Nothing put into a category yet: nothing to lose, so nothing to ask.
+    const entered = draft.categories.some(
+      (c) =>
+        c.name.trim() !== "" ||
+        c.event !== null ||
+        c.expectedEntries !== null ||
+        c.feeAmount !== null ||
+        Object.values(c.lineUp).some((n) => n !== null),
+    );
+    if (draft.unit !== null && entered) {
       const team = next === "team";
       if (
         !(await confirm({

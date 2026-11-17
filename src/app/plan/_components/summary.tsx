@@ -9,7 +9,7 @@ import type { PlanDraft } from "@/lib/tournament/draft";
 import { bookedCourtMinutes, healthBars } from "@/lib/tournament/health-bar";
 import type { ParseResult, PlanIssue } from "@/lib/tournament/schema";
 import { cn } from "@/lib/utils";
-import { FIT_STATUS, analysisErrorMessages, formatMinutesShort, formatMoney, issueSection } from "./labels";
+import { FIT_MEANING, FIT_STATUS, analysisErrorMessages, formatMinutesShort, formatMoney, issueSection } from "./labels";
 
 /** The most bars the health bar shows; with more hours booked, each bar stands for more than one hour. */
 const MAX_BARS = 48;
@@ -225,7 +225,13 @@ export function Summary({
               status={status?.variant ?? null}
             />
           </div>
-          {status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="off">Incomplete</Badge>}
+          {status && result ? (
+            <span title={FIT_MEANING[result.capacity.status]} className="cursor-help">
+              <Badge variant={status.variant}>{status.label}</Badge>
+            </span>
+          ) : (
+            <Badge variant="off">Incomplete</Badge>
+          )}
         </div>
       )}
       {result && !settingUp ? (

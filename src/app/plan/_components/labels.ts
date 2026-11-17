@@ -17,6 +17,14 @@ export const FIT_STATUS: Record<CapacityStatus, { label: string; variant: "fits"
   doesNotFit: { label: "Over", variant: "over" },
 };
 
+/** How each fit status is worked out, for the badge's hover. */
+export const FIT_MEANING: Record<CapacityStatus, string> = {
+  fits: "The matches fit in the court time booked even if every match runs to its longest (the worst case, with your overspill).",
+  fitsTypicalOnly:
+    "The matches fit at their usual length, but not if every match runs to its longest (the worst case, with your overspill). It may overrun.",
+  doesNotFit: "Even at their usual length, the matches need more court time than is booked.",
+};
+
 export const STAGE_LABELS: Record<Stage, string> = {
   group: "Group stage",
   knockout: "Knockout rounds",
