@@ -237,14 +237,16 @@ export function TimeWindowTrack({
       ) : (
         <div
           className={cn(
-            "group/window pointer-events-auto absolute inset-y-0 rounded-sm ring-1 transition-shadow focus-within:ring-2",
+            "group/window absolute inset-y-0 rounded-sm ring-1 transition-shadow focus-within:ring-2",
+            // Locked: shown, not handled. No grab cursor, no handles, no remove button.
+            !locked && "pointer-events-auto",
             invalid ? "ring-destructive" : "ring-foreground/50 focus-within:ring-ring",
             windowClassName,
           )}
           style={{ left: pct(window.from), width: `calc(${pct(window.to)} - ${pct(window.from)})` }}
         >
           {/* The body moves the whole window. */}
-          <div
+          {locked ? null : <div
             role="slider"
             tabIndex={0}
             aria-label={`${name}: move`}
@@ -257,8 +259,8 @@ export function TimeWindowTrack({
             onDoubleClick={onReset}
             onKeyDown={(e) => keys(e, "body")}
             {...handlers}
-          />
-          {(["start", "end"] as const).map((edge) => (
+          />}
+          {(locked ? [] : (["start", "end"] as const)).map((edge) => (
             <div
               key={edge}
               role="slider"
@@ -285,7 +287,7 @@ export function TimeWindowTrack({
           >
             {clock(window.from)}–{clock(window.to)}
           </span>
-          {onDelete ? (
+          {onDelete && !locked ? (
             <button
               type="button"
               aria-label={`Remove ${name}`}
@@ -302,7 +304,7 @@ export function TimeWindowTrack({
         <div
           key={b.id}
           role="slider"
-          tabIndex={0}
+          tabIndex={locked ? -1 : 0}
           aria-label={b.label}
           aria-valuemin={b.bounds.min}
           aria-valuemax={b.bounds.max}

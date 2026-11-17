@@ -534,6 +534,7 @@ export function Timeline({
   const span = Math.max(1, range.end - range.start);
 
   // Threads: between a tie's rubbers on different courts, from each pill to the tie's next pill down the page.
+  const pillDragging = pillDrag !== null;
   const threadKey = segments
     .filter((s) => s.match.rubber)
     .map((s) => `${s.id}@${s.courtId}:${s.from}-${s.to}`)
@@ -568,13 +569,21 @@ export function Timeline({
       setThreads((before) => (JSON.stringify(before) === JSON.stringify(lines) ? before : lines));
     };
     const frame = requestAnimationFrame(measure);
+    // The pills slide to their new places: measured again when they have settled, so no link is left sheared.
+    const settled = [200, 450].map((ms) => setTimeout(measure, ms));
+    const moved = (event: Event) => {
+      if ((event.target as HTMLElement).closest?.("[data-segment-id]")) measure();
+    };
+    root.addEventListener("transitionend", moved);
     const observer = new ResizeObserver(() => measure());
     observer.observe(root);
     return () => {
       cancelAnimationFrame(frame);
+      settled.forEach(clearTimeout);
+      root.removeEventListener("transitionend", moved);
       observer.disconnect();
     };
-  }, [threadKey, range.start, range.end, collapsed]);
+  }, [threadKey, range.start, range.end, collapsed, pillDragging]);
 
   // How far the rows are scrolled, for the fades under the labels and the axis.
   useEffect(() => {
@@ -593,6 +602,8 @@ export function Timeline({
   const labels = useRef<HTMLDivElement>(null);
   /** Changes to the day's structure; none where it's fixed. */
   const edit: Update = fixed ? () => {} : update;
+  // For reading only: the Draw stage's timeline, and a finished tournament's. Nothing is dragged; hovering still tells.
+  const readOnly = (fixed && !live) || Boolean(live?.frozen);
   const [zoom, setZoom] = useState(1);
   // One step out from the whole day: every row a thin bar, so the timeline takes little height
   // and the whole day stays in view over more of the venue.
@@ -909,7 +920,7 @@ export function Timeline({
   }
 
   /** While Live: a game that has started (on court or finished) can't be moved. */
-  const stuck = (segment: LocalSegment) => (live ? Boolean(live.frozen) || live.state(segment.id) !== "waiting" : false);
+  const stuck = (segment: LocalSegment) => readOnly || (live ? live.state(segment.id) !== "waiting" : false);
 
   function focusPill(id: string) {
     document.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(id)}"]`)?.focus();
@@ -944,12 +955,12 @@ export function Timeline({
       onPick(segment);
       return;
     }
-    if ((event.key === "h" || event.key === "H") && segment.moved) {
+    if ((event.key === "h" || event.key === "H") && segment.moved && !readOnly) {
       event.preventDefault();
       resetMatch(segment);
       return;
     }
-    if (!event.altKey) {
+    if (!event.altKey || readOnly) {
       pillNavigate(event, segment);
       return;
     }
@@ -1496,7 +1507,7 @@ export function Timeline({
                                         : live?.timing?.(s.id) === "over"
                                           ? "!bg-time-over !text-time-foreground"
                                           : ""
-                                    } transition-transform duration-150 motion-reduce:transition-none`}
+                                    } ${readOnly ? "!cursor-default" : ""} transition-transform duration-150 motion-reduce:transition-none`}
                                     style={{
                                       left: pct(s.from),
                                       width: width(s.from, s.to),
@@ -1724,7 +1735,9 @@ export function Timeline({
           ) : null}
           {segments.length > 0 ? (
             <span className={thin ? "hidden" : "basis-full"}>
-              {live
+              {readOnly
+                ? "Hover a match for its details · Arrow keys go between matches · Ctrl or Cmd and scroll to zoom"
+                : live
                 ? "Drag a game that hasn't started to move it: each move is logged · Arrow keys go between games · Alt and the arrows move the focused one · Ctrl or Cmd and scroll to zoom"
                 : `${fixed ? "Drag a game to move it" : "Drag a match or zone to move it"} · Arrow keys go between matches · Alt and the arrows move the focused one · H or double-click puts it back · Ctrl or Cmd and scroll to zoom`}
             </span>
