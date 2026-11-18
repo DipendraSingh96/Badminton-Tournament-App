@@ -327,6 +327,26 @@ describe("a simulated day where the desk enters the scores", () => {
     expect(day.results[hold.matchId]).toMatchObject({ state: "onCourt", games: [] });
   });
 
+  it("leaves check-in to the organiser: nobody arrives by themselves, and a court without its players waits while the rest play", () => {
+    const { draft, games } = tournament();
+    // One player of the first game is not checked in.
+    const first = games[0]!;
+    const out = matchPlayers(draft, first.match)[0]!;
+    for (const entry of draft.entries) for (const p of entry.players) if (p.id === out.id) p.attendance = "notYet";
+    const events = simulateDay(draft, games, rulesOf, 8, undefined, { deskScores: true });
+    expect(events.some((e) => e.kind === "attendance")).toBe(false);
+    // Its game doesn't start, and the day doesn't stop for it: the other court's game is on, and the stop is for a score.
+    const started = events.filter((e) => e.kind === "start").map((e) => (e as { matchId: string }).matchId);
+    expect(started).not.toContain(first.id);
+    expect(started.length).toBeGreaterThan(0);
+    expect(holdEvent(events)!.reason).toBe("score");
+    // Checked in later, from then on: the game goes on.
+    const later = JSON.parse(JSON.stringify(dayAfter(draft, events, events.length))) as typeof draft;
+    for (const entry of later.entries) for (const p of entry.players) if (p.id === out.id) p.attendance = "arrived";
+    const next = simulateDay(later, games, rulesOf, 8, 545, { deskScores: true });
+    expect(next.filter((e) => e.kind === "start").map((e) => (e as { matchId: string }).matchId)).toContain(first.id);
+  });
+
   it("plays on once the desk has scored and finished the game, with the next game coming onto that court", () => {
     const { draft, games } = tournament();
     const first = simulateDay(draft, games, rulesOf, 8, undefined, { deskScores: true });

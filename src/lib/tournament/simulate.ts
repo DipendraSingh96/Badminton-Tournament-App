@@ -142,7 +142,11 @@ export function simulateDay(
   rulesOf: (game: SimGame) => StageRules | undefined,
   seed: number,
   from?: number,
-  /** `deskScores`: the simulation starts games but doesn't score or finish them; the day stops when a game's time is up, for the desk to enter its score. */
+  /**
+   * `deskScores` (a rehearsal): the simulation starts games but doesn't score or finish them; the day stops when a
+   * game's time is up, for the desk to enter its score. Check-in is the organiser's too: nobody arrives by
+   * themselves, and a court whose players aren't checked in waits without stopping the day.
+   */
   options: { deskScores?: boolean } = {},
 ): SimEvent[] {
   const rand = random(seed);
@@ -194,6 +198,8 @@ export function simulateDay(
     for (const p of entry.players) {
       if (p.attendance === "arrived") continue;
       missing.add(p.id);
+      // A rehearsal keeps check-in as the organiser left it: nobody arrives by themselves there.
+      if (options.deskScores) continue;
       if (p.attendance === "absent" || draft.withdrawn[entry.id]) continue;
       const draw = chance(seed, `player:${p.id}`);
       if (draw < SIMULATION.absentShare) continue;
@@ -304,6 +310,9 @@ export function simulateDay(
       // stands held until they come); one who is never coming leaves the court waiting for the desk.
       const due = Math.max(now, courtFree.get(courtId) ?? now, knownFrom(game, game.match.home), knownFrom(game, game.match.away));
       const awaited = players.filter((id) => missing.has(id));
+      // In a rehearsal a court whose players aren't checked in simply waits, as on the day: the rest of
+      // the day plays on, and the game goes on once the organiser checks them in.
+      if (options.deskScores && rulesOf(game) && awaited.length > 0) continue;
       if (awaited.some((id) => !arrival.has(id)) || !rulesOf(game)) {
         if (!stuck || due < stuck.at) stuck = { at: due, reason: "players", courtId, matchId: game.id };
         continue;

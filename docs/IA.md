@@ -340,3 +340,6 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Hovers.** Each tiebreak criterion, in the list and in Add criterion, says what it means in one line. The Fits / Tight / Over badge says how it is worked out (Tight: "The matches fit at their usual length, but not if every match runs to its longest (the worst case, with your overspill). It may overrun.").
 - **Export and import (Developer tools on).** An export icon on the open tournament's card, before Duplicate and Delete; an import icon beside New tournament. Hidden with Developer tools off.
 
+### Rehearsal check-in, 18 Nov 2026 (this replaces anything above that says otherwise)
+- **A rehearsal keeps check-in as the organiser left it.** Nobody arrives by themselves. Starting the simulation puts on court only the games whose players are all checked in; a game with a player not checked in waits on its court, as on the day, and the clock runs on. Checking a player in later (or giving a walkover, or putting another game on the court) changes what goes on from that moment, on the Court board and the timeline. The clock still stops when a game needs its score.
+- **Timeline playback keeps to the clock:** a minute a second in a rehearsal, two with Developer tools, with no time lost on slow frames.

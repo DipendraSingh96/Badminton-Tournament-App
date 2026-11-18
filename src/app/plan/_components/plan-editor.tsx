@@ -818,7 +818,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     setPlayhead(from);
     setPlaying(false);
   }
-  /** Start tournament simulation, in a rehearsal: the day begins. People arrive by themselves; the desk scores and finishes every game. */
+  /** Start tournament simulation, in a rehearsal: the day begins. Check-in is as the organiser left it; the desk scores and finishes every game. */
   function startRehearsal() {
     const now = simNow.current;
     if (!now || now.started) return;
@@ -1525,7 +1525,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     title={
                       simBlocked
                         ? `Can't simulate: ${simBlocked}`
-                        : "The day begins: players arrive by themselves and games go on court. You enter the scores; it pauses when a game needs one. Nothing is saved"
+                        : "The day begins with the players you have checked in: their games go on court, and a game waits until its players are checked in. You enter the scores; it pauses when a game needs one. Nothing is saved"
                     }
                     onClick={startRehearsal}
                   >
