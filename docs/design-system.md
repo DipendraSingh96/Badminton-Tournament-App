@@ -350,3 +350,5 @@ Two entrance movements, each 1s, ease in-out, played once as a step is taken, in
 - **Slide and rise (step 2 to 3).** The side panel comes in from the right edge by its own width, the main area narrowing with it; then, 1s later, the timeline translates up from the bottom edge to its folded bar.
 - Reduced motion: no movement; the step simply appears.
 
+### Sign-in page (18 Nov 2026)
+The `workspace-dots` ground; a 360px column centred both ways. Product name in the display face, 24px, uppercase. One `card` panel, 24px padding, 16px radius: `heading-card` 20px title, a 14px muted line, fields with 12px muted labels above them (labels above, not inside: a browser's saved-password fill must not hide them), a full-width primary button. A 14px muted line under the card. Errors: 14px `destructive` text, `role="alert"`. Same in Light and Dark.

@@ -10,6 +10,7 @@ import {
   MoonIcon,
   PlusIcon,
   SidebarSimpleIcon,
+  SignOutIcon,
   SunIcon,
   TrashIcon,
   UploadSimpleIcon,
@@ -97,18 +98,38 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-/** The account; arrives with sign-in (PRD build slice 4). */
-function ProfileButton({ collapsed }: { collapsed: boolean }) {
-  return collapsed ? (
-    <Button variant="ghost" size="icon" aria-label="Profile (sign-in arrives later)" disabled>
-      <UserIcon />
-    </Button>
-  ) : (
-    <Button variant="ghost" className="w-full justify-start" disabled>
-      <UserIcon />
-      Profile
-      <span className="ml-auto text-xs font-normal">Sign-in later</span>
-    </Button>
+/** Who is signed in, and the way out. */
+export interface Account {
+  email: string;
+  onSignOut: () => void;
+}
+
+/** The account: the signed-in organiser's email, and Sign out. */
+function ProfileButton({ collapsed, account }: { collapsed: boolean; account: Account }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          collapsed ? (
+            <Button variant="ghost" size="icon" aria-label={`Profile: ${account.email}`} />
+          ) : (
+            <Button variant="ghost" className="w-full justify-start" />
+          )
+        }
+      >
+        <UserIcon />
+        {collapsed ? null : <span className="min-w-0 truncate" title={account.email}>{account.email}</span>}
+      </PopoverTrigger>
+      <PopoverContent side={collapsed ? "right" : "top"} align="start" className="w-64 gap-2 p-3">
+        <p className="text-xs font-semibold text-muted-foreground">Signed in as</p>
+        <p className="truncate text-sm font-medium" title={account.email}>
+          {account.email}
+        </p>
+        <Button variant="outline" size="sm" className="mt-1 self-start" data-sign-out onClick={account.onSignOut}>
+          <SignOutIcon /> Sign out
+        </Button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -129,9 +150,19 @@ export function Sidebar({
   onOpen,
   onExport,
   onImport,
+  account,
+  unsent,
+  kept,
+  onAddKept,
   collapsed,
   onCollapsedChange,
 }: {
+  account: Account;
+  /** The open tournament has changes that haven't reached the account yet. */
+  unsent: boolean;
+  /** Developer tools: tournaments kept in this browser from before sign-in. */
+  kept: TournamentMeta[];
+  onAddKept: (id: string) => void;
   /** Developer tools: saves the open tournament as a file. */
   onExport: () => void;
   /** Developer tools: adds a tournament from a file. */
@@ -244,9 +275,23 @@ export function Sidebar({
                     </p>
                     <p className="text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</p>
                     <div className="mt-2 flex items-center gap-1">
-                      <p className="flex-1 truncate text-xs text-muted-foreground tabular-nums">
-                        Saved {formatSaved(t.updatedAt)}
-                      </p>
+                      {unsent ? (
+                        <p
+                          data-saved="unsent"
+                          className="flex-1 truncate text-xs font-medium text-tight-text"
+                          title="Saved on this device. It is sent to your account as soon as the connection allows."
+                        >
+                          Not saved to your account yet
+                        </p>
+                      ) : (
+                        <p
+                          data-saved="account"
+                          className="flex-1 truncate text-xs text-muted-foreground tabular-nums"
+                          title={`Saved to your account ${formatSaved(t.updatedAt)}`}
+                        >
+                          Saved to your account {formatSaved(t.updatedAt)}
+                        </p>
+                      )}
                       {developer ? (
                         <IconButton label="Export this tournament as a file" onClick={onExport}>
                           <DownloadSimpleIcon />
@@ -277,11 +322,31 @@ export function Sidebar({
               })}
             </ul>
           </section>
+          {developer && kept.length > 0 ? (
+            <section aria-labelledby="kept-heading" className="flex flex-col gap-2" data-kept>
+              <h2 id="kept-heading" className="text-xs font-semibold text-muted-foreground">
+                Kept in this browser before sign-in
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {sortTournaments(kept).map((t) => (
+                  <li key={t.id} className="rounded-lg border border-dashed border-border px-4 py-3">
+                    <p className="truncate text-sm font-semibold" title={t.name.trim() || "Untitled tournament"}>
+                      {t.name.trim() || "Untitled tournament"}
+                    </p>
+                    <p className="text-sm text-muted-foreground tabular-nums">{formatDate(t.date)}</p>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => onAddKept(t.id)}>
+                      <PlusIcon /> Add to my account
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
       )}
 
       <div className={cn("flex shrink-0 flex-col gap-1 pt-4 pb-2", collapsed ? "items-center" : "px-(--pane-x)")}>
-        <ProfileButton collapsed={collapsed} />
+        <ProfileButton collapsed={collapsed} account={account} />
         <SettingsMenu collapsed={collapsed} />
       </div>
     </aside>

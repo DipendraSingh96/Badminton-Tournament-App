@@ -41,8 +41,26 @@ import {
   loadTournament,
   saveTournament,
   setCurrent,
+  type Store,
   type TournamentIndex,
+  type TournamentMeta,
 } from "@/lib/tournament/storage";
+import {
+  accountStore,
+  clearDevice,
+  hasPending,
+  loadPending,
+  markRemoved,
+  markUnsent,
+  sendPending,
+  syncAccount,
+  type Pending,
+  type Remote,
+} from "@/lib/tournament/cloud";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { accountRemote } from "@/lib/supabase/tournaments";
+import type { Account } from "./sidebar";
 import { DerivedCards } from "./dashboard";
 import { NeedsYou } from "./live-dialogs";
 import { ResultsStage, type ResultsView } from "./results-stage";
@@ -364,6 +382,13 @@ interface TournamentActions {
   onDelete: (id: string) => void;
   onOpen: (id: string) => void;
   onImport: (file: File) => void;
+  /** The account's space on this device, where its tournaments are kept. */
+  store: Store;
+  account: Account;
+  /** Tournaments with changes that haven't reached the account yet. */
+  unsent: string[];
+  kept: TournamentMeta[];
+  onAddKept: (id: string) => void;
 }
 
 /** Hands the organiser a file to save: made here, on their device; nothing is sent anywhere. */
@@ -379,7 +404,7 @@ function saveFile(name: string, text: string) {
 }
 
 function Editor({ id, tournaments }: { id: string; tournaments: TournamentActions }) {
-  const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id) ?? emptyDraft(browserTimeZone()));
+  const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id, tournaments.store) ?? emptyDraft(browserTimeZone()));
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
   // The guided start (a device's first tournament only): 1 the name and date alone, 2 the venue, null the whole app.
@@ -1595,6 +1620,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               onDelete={tournaments.onDelete}
               onExport={() => saveFile(exportFileName(draft.name), exportTournament(draft))}
               onImport={tournaments.onImport}
+              account={tournaments.account}
+              unsent={tournaments.unsent.includes(id)}
+              kept={tournaments.kept}
+              onAddKept={tournaments.onAddKept}
               onOpen={tournaments.onOpen}
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
@@ -1991,18 +2020,44 @@ function loadGuide(id: string): GuideStep {
   }
 }
 
-function Workspace() {
+// Tournaments from before sign-in that have been added to an account from this browser: not offered again.
+const ADDED_KEY = "badminton:added-to-account:v1";
+
+function loadAdded(): string[] {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(ADDED_KEY) ?? "[]") as unknown;
+    return Array.isArray(saved) ? (saved as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** How long after a change it is sent to the account, and how often an unsent one is tried again. */
+const SEND_AFTER_MS = 1500;
+const RETRY_MS = 30_000;
+
+/** The signed-in organiser, their space on this device and their account. */
+interface Session {
+  email: string;
+  store: Store;
+  remote: Remote;
+  signOut: () => Promise<void>;
+}
+
+function Workspace({ session }: { session: Session }) {
   const confirm = useConfirm();
+  const { store, remote } = session;
   const [index, setIndex] = useState<TournamentIndex>(() => {
-    const saved = loadIndex();
+    const saved = loadIndex(store);
     if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) {
       // Tournaments already here from before the guided start: it isn't for them. (One in the middle of it carries on.)
       guideOff();
       return saved;
     }
-    if (saved.items[0]) return setCurrent(saved, saved.items[0].id);
-    // Nothing here yet: this device's first tournament, which is revealed a step at a time.
-    const made = createTournament(saved, emptyDraft(browserTimeZone()));
+    if (saved.items[0]) return setCurrent(saved, saved.items[0].id, store);
+    // Nothing here yet: the account's first tournament, which is revealed a step at a time on a device's first.
+    const made = createTournament(saved, emptyDraft(browserTimeZone()), store);
+    markUnsent(store, made.id);
     try {
       beginGuide(window.localStorage, made.index.currentId!);
     } catch {
@@ -2016,35 +2071,148 @@ function Workspace() {
     setIndex(next);
   }, []);
 
-  const onSave = useCallback(
-    (id: string, draft: PlanDraft) => change(saveTournament(indexRef.current, id, draft)),
-    [change],
+  // What this device has that the account doesn't yet, and the sending of it: a moment after each
+  // change, again when the connection comes back, every so often while anything is unsent, and when
+  // the page is left.
+  const [pending, setPending] = useState<Pending>(() => loadPending(store));
+  const sending = useRef(false);
+  const again = useRef(false);
+  const timer = useRef<number | null>(null);
+  const send = useCallback(async () => {
+    if (sending.current) {
+      again.current = true;
+      return;
+    }
+    sending.current = true;
+    try {
+      setPending(await sendPending(store, remote));
+    } finally {
+      sending.current = false;
+      if (again.current) {
+        again.current = false;
+        void send();
+      }
+    }
+  }, [store, remote]);
+  const sendSoon = useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      void send();
+    }, SEND_AFTER_MS);
+  }, [send]);
+  /** A tournament changed here: marked, and sent shortly. */
+  const touch = useCallback(
+    (id: string) => {
+      setPending(markUnsent(store, id));
+      sendSoon();
+    },
+    [store, sendSoon],
   );
+  const waiting = hasPending(pending);
+  useEffect(() => {
+    if (!waiting) return;
+    const now = () => void send();
+    const left = () => {
+      if (document.visibilityState === "hidden") now();
+    };
+    // Anything unsent when the planner opens goes straight away.
+    const first = window.setTimeout(now, 0);
+    const retry = window.setInterval(now, RETRY_MS);
+    window.addEventListener("online", now);
+    document.addEventListener("visibilitychange", left);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(retry);
+      window.removeEventListener("online", now);
+      document.removeEventListener("visibilitychange", left);
+    };
+  }, [waiting, send]);
+
+  const onSave = useCallback(
+    (id: string, draft: PlanDraft) => {
+      change(saveTournament(indexRef.current, id, draft, store));
+      touch(id);
+    },
+    [change, store, touch],
+  );
+  /** A new tournament in the account, opened. */
+  const add = useCallback(
+    (draft: PlanDraft) => {
+      const made = createTournament(indexRef.current, draft, store);
+      change(made.index);
+      touch(made.id);
+      return made.id;
+    },
+    [change, store, touch],
+  );
+
+  // Developer tools: tournaments kept in this browser from before sign-in, to add to the account by hand.
+  const [added, setAdded] = useState<string[]>(loadAdded);
+  const [before] = useState<TournamentMeta[]>(() => loadIndex().items);
+  const kept = before.filter((t) => !added.includes(t.id));
+
+  async function signOut() {
+    const left = await sendPending(store, remote);
+    setPending(left);
+    if (
+      hasPending(left) &&
+      !(await confirm({
+        title: "Some changes haven’t reached your account",
+        body: "They are saved on this device and will be sent the next time you sign in here. Sign out anyway?",
+        action: "Sign out",
+      }))
+    )
+      return;
+    // The account's tournaments leave this device (anything unsent stays, to be sent later).
+    clearDevice(store);
+    await session.signOut();
+  }
 
   const actions: TournamentActions = {
     index,
     onSave,
+    store,
+    account: { email: session.email, onSignOut: () => void signOut() },
+    unsent: pending.unsent,
+    kept,
+    onAddKept: (id) => {
+      const draft = loadTournament(id);
+      if (!draft) return;
+      add(draft);
+      const next = [...added, id];
+      setAdded(next);
+      try {
+        window.localStorage.setItem(ADDED_KEY, JSON.stringify(next));
+      } catch {
+        // Not remembered: it is offered again.
+      }
+    },
     onNew: () => {
       // A new tournament opens with the side panel and the timeline folded: only the venue to begin with.
       saveWorkbenchFolded(true);
-      const made = createTournament(indexRef.current, emptyDraft(browserTimeZone()));
-      markFresh(made.index.currentId!);
-      change(made.index);
+      markFresh(add(emptyDraft(browserTimeZone())));
     },
     onDuplicate: (draft) => {
       // Dummy data the copy no longer has (entries, the draw, name and date) isn't carried over.
       const copy = duplicateDraft(draft);
-      change(createTournament(indexRef.current, { ...copy, dummy: liveMarks(copy) }).index);
+      add({ ...copy, dummy: liveMarks(copy) });
     },
     onDelete: async (id) => {
       const name = indexRef.current.items.find((t) => t.id === id)?.name.trim() || "Untitled tournament";
       if (!(await confirm({ title: `Delete “${name}”?`, body: "This can’t be undone.", action: "Delete tournament", destructive: true })))
         return;
-      const next = deleteTournament(indexRef.current, id);
+      const next = deleteTournament(indexRef.current, id, store);
+      setPending(markRemoved(store, id));
+      sendSoon();
       // The last one gone: start a new one.
-      change(next.currentId ? next : createTournament(next, emptyDraft(browserTimeZone())).index);
+      if (next.currentId) change(next);
+      else {
+        indexRef.current = next;
+        add(emptyDraft(browserTimeZone()));
+      }
     },
-    onOpen: (id) => change(setCurrent(indexRef.current, id)),
+    onOpen: (id) => change(setCurrent(indexRef.current, id, store)),
     onImport: async (file) => {
       const read = readTournamentFile(await file.text().catch(() => ""));
       if (!read) {
@@ -2056,18 +2224,67 @@ function Workspace() {
         return;
       }
       // Added as a new tournament, and opened.
-      change(createTournament(indexRef.current, read).index);
+      add(read);
     },
   };
   const currentId = index.currentId!;
   return <Editor key={currentId} id={currentId} tournaments={actions} />;
 }
 
+/** How long opening the planner waits for the account before working from this device's copy. */
+const ACCOUNT_WAIT_MS = 8000;
+
+/**
+ * The signed-in organiser's planner. Finds the session, brings this device
+ * level with the account (sending anything unsent first), then opens. With no
+ * session it goes to the sign-in page; with no connection it opens from the
+ * device's copy.
+ */
+function SignedIn() {
+  const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+  useEffect(() => {
+    let gone = false;
+    const supabase = createClient();
+    void (async () => {
+      // The session kept in this browser: read without the network, so the planner opens offline too.
+      const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const user = data.session?.user;
+      if (gone) return;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      const store = accountStore(window.localStorage, user.id);
+      const remote = accountRemote(supabase);
+      await Promise.race([syncAccount(store, remote), new Promise((done) => window.setTimeout(done, ACCOUNT_WAIT_MS))]);
+      if (gone) return;
+      setSession({
+        email: user.email ?? "Signed in",
+        store,
+        remote,
+        signOut: async () => {
+          // This browser only; with no connection the session still ends here.
+          await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+          router.replace("/login");
+          router.refresh();
+        },
+      });
+    })();
+    return () => {
+      gone = true;
+    };
+  }, [router]);
+  if (!session) return <p className="p-6 text-sm text-muted-foreground">Opening your tournaments…</p>;
+  return <Workspace session={session} />;
+}
+
 const subscribe = () => () => {};
 
 /**
- * The plan lives in this browser's storage, which the server can't read, so
- * the editor renders on the client only.
+ * The plan is worked on from this browser's storage (and kept in the organiser's
+ * account behind it), which the server can't read, so the editor renders on the
+ * client only.
  */
 export function PlanEditor() {
   const isClient = useSyncExternalStore(subscribe, () => true, () => false);
@@ -2077,7 +2294,7 @@ export function PlanEditor() {
   return (
     <ConfirmProvider>
       <ScrollHints />
-      <Workspace />
+      <SignedIn />
     </ConfirmProvider>
   );
 }
