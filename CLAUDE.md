@@ -19,6 +19,12 @@ A web app that helps organisers plan, price and run a badminton tournament. One 
 * `src/lib/`: Supabase client and shared helpers
 * `docs/`: PRD and specs. Source of truth for requirements.
 
+## Environments
+
+* Local (`.env.local`) points at the **development** Supabase project. Vercel points at the **production** project. They are separate databases: never assume data, accounts or settings in one exist in the other.
+* A schema change is a migration file in `supabase/migrations/`. It is applied to development first and tested there, then applied to production. Its check script in `supabase/checks/` is run on both.
+* No project refs or keys in the repo. The app uses the URL and the publishable key only; the secret key is never used by the app.
+
 ## Commands
 
 * `npm run dev`: start local dev server
