@@ -174,7 +174,7 @@ const WORKBENCH =
 const SIDE_PANEL_OPEN = 440;
 const SIDE_PANEL_FOLDED = 64;
 /** How long the side panel and the timeline take to open or fold, in milliseconds. */
-const PANEL_MOTION_MS = 500;
+const PANEL_MOTION_MS = 300;
 /** Text running down the folded rail. */
 const RAIL_TEXT = "text-xl font-semibold whitespace-nowrap [writing-mode:vertical-rl]";
 
@@ -1336,6 +1336,15 @@ function Editor({
     setWorkbenchFolded(folded);
     saveWorkbenchFolded(folded);
   }
+  // Folding is the mirror of opening: the panel stays as it is while its width closes, and its rail
+  // takes its place only once it has. (Opening shows the panel at once, as its width grows.)
+  const [foldDone, setFoldDone] = useState(workbenchFolded);
+  useEffect(() => {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(() => setFoldDone(workbenchFolded), workbenchFolded && !still ? PANEL_MOTION_MS : 0);
+    return () => window.clearTimeout(timer);
+  }, [workbenchFolded]);
+  const railShown = workbenchFolded && foldDone;
   // Live opens the same way every time (going Live, a rehearsal, coming back to it, a reload):
   // on Check-in, with the timeline and the side panel folded.
   const liveOpen = viewing === "live";
@@ -1746,15 +1755,15 @@ function Editor({
                 )}
               </div>
             </main>
-            {/* The side panel opens and folds in half a second, and the main area follows it. Its content keeps to the right edge as it goes. */}
+            {/* The side panel opens and folds softly, and the main area follows it. Its content keeps to the right edge as it goes. */}
             <div
               data-side-panel
-              className="flex shrink-0 justify-end overflow-hidden transition-[width] duration-500 ease-in-out motion-reduce:transition-none"
+              className="flex shrink-0 justify-end overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none"
               style={{ width: workbenchFolded ? SIDE_PANEL_FOLDED : SIDE_PANEL_OPEN }}
             >
             {viewing === "live" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
-              workbenchFolded ? (
+              railShown ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
                   {liveTime ? (
                     // Hours over minutes: larger than it could be on one line of the rail.
@@ -1824,7 +1833,7 @@ function Editor({
               )
             ) : viewing !== "plan" ? (
               // The Draw stage's side panel: the same pane as the workbench, folded and opened the same way.
-              workbenchFolded ? (
+              railShown ? (
                 <Rail
                   name="Side panel"
                   open="Show panel"
@@ -1855,7 +1864,7 @@ function Editor({
                   />
                 </aside>
               )
-            ) : workbenchFolded ? (
+            ) : railShown ? (
                 <Rail
                   name="Workbench"
                   open="Show workbench"

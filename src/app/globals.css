@@ -430,9 +430,9 @@
   animation: court-news 1.4s ease-in-out infinite;
 }
 /* The timeline opening or folding by its button (not by dragging its edge):
-   its panels take half a second over it. */
+   its panels take 0.3 seconds over it, as the side panel does. */
 [data-timeline-moving] [data-panel] {
-  transition: flex-grow 500ms ease-in-out;
+  transition: flex-grow 300ms ease-in-out;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-timeline-moving] [data-panel] {
