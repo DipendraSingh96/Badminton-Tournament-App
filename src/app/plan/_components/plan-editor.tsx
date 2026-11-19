@@ -90,7 +90,7 @@ import { PLAYBACK_SECONDS, Timeline, courtStatuses, dayRange, localSegments, zon
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
-import { TOUR, type TourScreen } from "./tour/steps";
+import { EXPLORE, TOUR, type TourScreen } from "./tour/steps";
 import { Tour, type TourAt } from "./tour/tour";
 import { tourSamples, type TourState } from "@/lib/tournament/tour-sample";
 import { VenueCanvas } from "./venue-canvas";
@@ -411,10 +411,10 @@ function Editor({
 }: {
   id: string;
   tournaments: TournamentActions;
-  /** The product tour is showing this tournament (its sample): the screen its step needs. */
-  tour?: TourScreen | null;
+  /** The product tour is showing its sample here: the screen its step needs, and the sample at that point of its life. */
+  tour?: { screen: TourScreen; sample: PlanDraft; exploring: boolean } | null;
 }) {
-  const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id, tournaments.store) ?? emptyDraft(browserTimeZone()));
+  const [draft, setDraft] = useState<PlanDraft>(() => tour?.sample ?? loadTournament(id, tournaments.store) ?? emptyDraft(browserTimeZone()));
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
@@ -433,7 +433,7 @@ function Editor({
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   // The timeline docked under the venue: its height is remembered too.
-  const dock = useDefaultLayout({ id: tour ? "badminton:tour-layout-v" : "badminton:plan-layout-v", storage: window.localStorage });
+  const dock = useDefaultLayout({ id: tour ? "badminton:tour-layout-v2" : "badminton:plan-layout-v", storage: window.localStorage });
 
   // A suggested lever being previewed: everything derived shows the plan with it; not saved.
   const [preview, setPreview] = useState<LeverChange | null>(null);
@@ -1333,21 +1333,38 @@ function Editor({
   }, [liveOpen, id, timelinePanel]);
   // The product tour: each step says the screen it needs (stage, page, tab, panels, a rehearsal), and
   // the editor is put there. Nothing is remembered: the organiser's own choices are as they left them.
-  const tourKey = tour ? JSON.stringify(tour) : null;
+  const tourScreen = tour?.screen ?? null;
+  const tourSample = tour?.sample ?? null;
+  const tourKey = tourScreen ? JSON.stringify(tourScreen) : null;
+  const shownSample = useRef(tourSample);
   useEffect(() => {
-    if (!tour) return;
+    if (!tourScreen || !tourSample) return;
+    // The sample moves on to another point of its life: it replaces the one shown, in place.
+    if (shownSample.current !== tourSample) {
+      shownSample.current = tourSample;
+      if (simNow.current) {
+        putSim(null);
+        setPlaying(false);
+        setPlayhead(null);
+      }
+      history.current = emptyHistory();
+      countSteps();
+      draftRef.current = tourSample;
+      savedDraft.current = tourSample;
+      setDraft(tourSample);
+    }
     const apply = () => {
       const now = simNow.current;
-      if (tour.rehearsal && !now) rehearse();
-      else if (!tour.rehearsal && now) endSimulation();
-      if (tour.rehearsal === "started" && simNow.current && !simNow.current.started) startRehearsal();
-      setStageView(tour.stage);
-      if (tour.tab) setTab(tour.tab);
-      if (tour.drawView) setDrawView(tour.drawView);
-      if (tour.liveView) setLiveView(tour.liveView);
-      if (tour.resultsView) setResultsView(tour.resultsView);
-      setWorkbenchFolded(tour.panel === false);
-      if (tour.timeline) timelinePanel.current?.expand();
+      if (tourScreen.rehearsal && !now) rehearse();
+      else if (!tourScreen.rehearsal && now) endSimulation();
+      if (tourScreen.rehearsal === "started" && simNow.current && !simNow.current.started) startRehearsal();
+      setStageView(tourScreen.stage);
+      if (tourScreen.tab) setTab(tourScreen.tab);
+      if (tourScreen.drawView) setDrawView(tourScreen.drawView);
+      if (tourScreen.liveView) setLiveView(tourScreen.liveView);
+      if (tourScreen.resultsView) setResultsView(tourScreen.resultsView);
+      setWorkbenchFolded(tourScreen.panel !== true);
+      if (tourScreen.timeline) timelinePanel.current?.expand();
       else timelinePanel.current?.collapse();
       setSidebarCollapsed(false);
     };
@@ -1359,8 +1376,8 @@ function Editor({
       window.clearTimeout(first);
       window.clearTimeout(second);
     };
-    // The screen is applied when the step's screen changes, not when the editor's own state does.
-  }, [tourKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    // The screen is applied when the step's screen or sample changes, not when the editor's own state does.
+  }, [tourKey, tourSample]); // eslint-disable-line react-hooks/exhaustive-deps
   /** Shows a team or a court in the Draw stage's side panel, opening the panel if it's folded. */
   function openInPanel(focus: DrawFocus) {
     setDrawFocus(focus);
@@ -1997,18 +2014,29 @@ function saveTourMemo(store: Store, memo: TourMemo): void {
   }
 }
 
-/** The tour's sample tournament at every point of its life, in a store of its own in memory: never the device's, never the account's. */
-function sampleStore(): Store {
-  const data = new Map<string, string>();
-  const store: Store = {
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => void data.set(key, value),
-    removeItem: (key) => void data.delete(key),
-  };
-  const samples = tourSamples(new Date(), browserTimeZone());
-  let index: TournamentIndex = { currentId: null, items: [] };
-  for (const state of Object.keys(samples) as TourState[]) index = saveTournament(index, `tour:${state}`, samples[state], store);
-  return store;
+/**
+ * Light for as long as asked, whatever theme is chosen: the theme setting itself is left alone, and
+ * the chosen theme is back the moment this ends.
+ */
+function useLightWhile(on: boolean) {
+  useEffect(() => {
+    if (!on) return;
+    const html = document.documentElement;
+    const wasDark = html.classList.contains("dark");
+    const scheme = html.style.colorScheme;
+    const light = () => {
+      if (html.classList.contains("dark")) html.classList.remove("dark");
+      if (html.style.colorScheme !== "light") html.style.colorScheme = "light";
+    };
+    light();
+    const observer = new MutationObserver(light);
+    observer.observe(html, { attributes: true, attributeFilter: ["class", "style"] });
+    return () => {
+      observer.disconnect();
+      if (wasDark) html.classList.add("dark");
+      html.style.colorScheme = scheme;
+    };
+  }, [on]);
 }
 
 /** How long after a change it is sent to the account, and how often an unsent one is tried again. */
@@ -2144,7 +2172,10 @@ function Workspace({ session }: { session: Session }) {
   const [tourAt, setTourAt] = useState<TourAt | null>(null);
   const tourNow = useRef<TourAt | null>(null);
   const [tourScreen, setTourScreen] = useState<TourScreen>(TOUR[0]!.steps[0]!.screen);
-  const [tourStore, setTourStore] = useState<Store | null>(null);
+  const [samples, setSamples] = useState<Record<TourState, PlanDraft> | null>(null);
+  // After the tour: the finished sample, to look round freely. Still only in memory.
+  const [exploring, setExploring] = useState(false);
+  const [offering, setOffering] = useState(false);
   const [tourMemo, setTourMemo] = useState(() => loadTourMemo(store));
   const remember = useCallback(
     (next: TourMemo) => {
@@ -2155,7 +2186,8 @@ function Workspace({ session }: { session: Session }) {
   );
   const goTour = useCallback(
     (at: TourAt) => {
-      setTourStore((made) => made ?? sampleStore());
+      setSamples((made) => made ?? tourSamples(new Date(), browserTimeZone()));
+      setExploring(false);
       // A chapter gone through to its end is ticked in the list.
       const before = tourNow.current;
       if (before && typeof before === "object") {
@@ -2178,6 +2210,7 @@ function Workspace({ session }: { session: Session }) {
     if (offered.current || loadTourMemo(store).offered) return;
     offered.current = true;
     remember({ ...loadTourMemo(store), offered: true });
+    setOffering(true);
     void confirm({
       title: "Welcome to Tournament Planner",
       body: "Take a five-minute tour of a whole tournament, from plan to results, on a sample. Nothing of yours is touched, and it is in Settings whenever you want it again.",
@@ -2185,6 +2218,7 @@ function Workspace({ session }: { session: Session }) {
       decline: "Skip, start my tournament",
     }).then((yes) => {
       if (yes) goTour({ chapter: 0, step: 0 });
+      setOffering(false);
     });
   }, [store, confirm, goTour, remember]);
 
@@ -2248,37 +2282,72 @@ function Workspace({ session }: { session: Session }) {
     },
   };
   const currentId = index.currentId!;
-  if (tourAt !== null && tourStore) {
-    const sampleId = `tour:${tourScreen.sample}`;
+  const leaveTour = () => {
+    tourNow.current = null;
+    setTourAt(null);
+    setExploring(false);
+  };
+  // The tour, and the welcome that offers it, are shown in Light whatever theme is chosen.
+  useLightWhile(offering || tourAt !== null);
+  if ((tourAt !== null || exploring) && samples) {
+    const screen = exploring ? EXPLORE : tourScreen;
     // The sample is shown in place of the organiser's tournament: none of theirs is open, nothing is saved or sent.
     const sample: TournamentActions = {
       ...actions,
       index: { ...index, currentId: null },
-      store: tourStore,
       onSave: () => {},
       unsent: [],
       kept: [],
+      // Anything that opens one of the organiser's own tournaments leaves the sample.
+      onNew: () => {
+        leaveTour();
+        actions.onNew();
+      },
+      onOpen: (id) => {
+        leaveTour();
+        actions.onOpen(id);
+      },
+      onDuplicate: () => {},
+      onDelete: () => {},
+      onImport: () => {},
+      onAddKept: () => {},
     };
     return (
       <>
         {/* For looking at, not for clicking, while the tour is up. */}
-        <div inert className="contents">
-          <Editor key={sampleId} id={sampleId} tournaments={sample} tour={tourScreen} />
+        <div inert={tourAt !== null} className="contents">
+          <Editor key="tour" id="tour" tournaments={sample} tour={{ screen, sample: samples[screen.sample], exploring }} />
         </div>
-        <Tour
-          at={tourAt}
-          seen={tourMemo.seen}
-          onGo={goTour}
-          onClose={() => {
-            tourNow.current = null;
-            setTourAt(null);
-          }}
-          onStartOwn={() => {
-            tourNow.current = null;
-            setTourAt(null);
-            actions.onNew();
-          }}
-        />
+        {tourAt !== null ? (
+          <Tour
+            at={tourAt}
+            seen={tourMemo.seen}
+            onGo={goTour}
+            onClose={leaveTour}
+            onStartOwn={() => {
+              leaveTour();
+              actions.onNew();
+            }}
+            onExplore={() => {
+              tourNow.current = null;
+              setTourAt(null);
+              setExploring(true);
+            }}
+          />
+        ) : (
+          <div
+            data-exploring
+            role="status"
+            className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-card py-2 pr-2 pl-4 text-sm shadow-lg"
+          >
+            <span>
+              <span className="font-semibold">Sample tournament.</span> Look round freely: nothing here is saved.
+            </span>
+            <Button size="sm" onClick={leaveTour}>
+              Back to my tournaments
+            </Button>
+          </div>
+        )}
       </>
     );
   }

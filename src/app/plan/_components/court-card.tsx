@@ -438,6 +438,7 @@ export function CourtCard({
           aria-label={`${about}. Show in the panel`}
           onClick={() => selection.onSelect(court.id)}
           data-court-card
+          data-court-state={live?.state}
           {...drop}
           className={`${shell} ${flash} cursor-pointer ${selected ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : ""}`}
         >
@@ -474,6 +475,7 @@ export function CourtCard({
       aria-describedby={descriptionId}
       onClick={selection ? () => selection.onSelect(court.id) : undefined}
       data-court-card
+      data-court-state={live?.state}
       {...drop}
       className={`flex flex-col gap-1 rounded-lg bg-court px-3 pt-1 pb-2 text-white transition-[opacity,box-shadow] ${
         status?.kind === "notBooked" ? "opacity-60" : ""

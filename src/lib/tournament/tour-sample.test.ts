@@ -28,6 +28,48 @@ describe("the tour's sample tournament", () => {
     }
   });
 
+  it("starts as a new tournament does, and fills in a part at a time", () => {
+    const blank = sample("blank");
+    expect(blank.name).toBe("");
+    expect([blank.unit, blank.categories.length, blank.frame.halls.length, blank.frame.halls[0]!.courts.length]).toEqual([null, 0, 1, 1]);
+    const basics = sample("basics");
+    expect([basics.name, basics.frame.date]).toEqual([sample("plan").name, sample("plan").frame.date]);
+    expect(basics.frame.halls).toEqual(blank.frame.halls);
+    // The hall's line is filled in; it still has the one court.
+    const hall = sample("hall");
+    expect(hall.frame.halls).toHaveLength(1);
+    expect([hall.frame.halls[0]!.from, hall.frame.halls[0]!.unitMinutes]).toEqual([sample("plan").frame.halls[0]!.from, sample("plan").frame.halls[0]!.unitMinutes]);
+    expect(hall.frame.halls[0]!.courts).toHaveLength(1);
+    // The courts; nothing of the side panel yet.
+    const courts = sample("courts");
+    expect(courts.frame.halls).toEqual(sample("plan").frame.halls);
+    expect([courts.unit, courts.format, courts.categories.length]).toEqual([null, null, 0]);
+    // Setup: who enters, the categories, the format and the rules; no numbers, no money.
+    const setup = sample("setup");
+    expect([setup.unit, setup.format, setup.rules]).toEqual([sample("plan").unit, sample("plan").format, sample("plan").rules]);
+    expect(setup.categories.map((c) => c.event)).toEqual(sample("plan").categories.map((c) => c.event));
+    expect(setup.categories.every((c) => c.expectedEntries === null && c.feeAmount === null)).toBe(true);
+    // Schedule: the numbers and timings; still no money.
+    const schedule = sample("schedule");
+    expect(schedule.categories.map((c) => c.expectedEntries)).toEqual(sample("plan").categories.map((c) => c.expectedEntries));
+    expect(schedule.categories.every((c) => c.feeAmount === null)).toBe(true);
+    expect(schedule.finance).toEqual(blank.finance);
+    // None of them is a plan that can be read yet; the whole plan is.
+    for (const state of ["blank", "basics", "hall", "courts", "setup", "schedule"] as const) expect([state, parsePlan(sample(state)).ok]).toEqual([state, false]);
+  });
+
+  it("is part-way through the day for the Live chapter: matches played, matches on court, and one court waiting for a player", () => {
+    const midday = sample("midday");
+    expect(midday.stage).toBe("live");
+    expect(midday.startedAt).not.toBeNull();
+    const states = scheduledGames(midday)!.games.map((g) => gameState(midday.results, g.id));
+    expect(states.filter((x) => x === "finished").length).toBeGreaterThan(0);
+    expect(states.filter((x) => x === "onCourt").length).toBeGreaterThan(0);
+    expect(states.filter((x) => x === "waiting").length).toBeGreaterThan(states.length / 2);
+    expect(midday.entries.flatMap((e) => e.players).filter((p) => p.attendance !== "arrived")).toHaveLength(1);
+    expect(canFinish(midday)).toBe(false);
+  });
+
   it("is a complete plan that fits, on a Saturday after today", () => {
     const plan = sample("plan");
     expect(plan.stage).toBe("plan");

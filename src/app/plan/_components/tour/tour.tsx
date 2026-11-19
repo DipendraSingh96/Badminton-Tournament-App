@@ -14,6 +14,8 @@ const PAD = 6;
 const GAP = 16;
 const EDGE = 16;
 const CARD_WIDTH = 344;
+/** Frames the lit part must hold still before the light travels to it. */
+const SETTLED_FRAMES = 6;
 
 interface Box {
   top: number;
@@ -55,8 +57,7 @@ function cardPlace(box: Box | null, height: number): { top: number; left: number
 /**
  * The product tour's overlay: the screen dimmed, one part lit, and a card
  * beside it. The screen underneath is for looking at, not for clicking, while
- * it is up. Shown in the Light theme whatever theme is chosen; the chosen
- * theme comes back when the tour is left.
+ * it is up.
  */
 export function Tour({
   at,
@@ -64,7 +65,10 @@ export function Tour({
   onGo,
   onClose,
   onStartOwn,
+  onExplore,
 }: {
+  /** The last card's other way on: the sample tournament, to look round freely. */
+  onExplore: () => void;
   at: TourAt;
   /** Chapters already been through, for the ticks in the list. */
   seen: string[];
@@ -78,31 +82,18 @@ export function Tour({
   const step = place && chapter ? chapter.steps[place.step]! : null;
   const target = step?.target ?? null;
 
-  // Light for the tour's length: the theme setting itself is left alone.
-  useEffect(() => {
-    const html = document.documentElement;
-    const wasDark = html.classList.contains("dark");
-    const scheme = html.style.colorScheme;
-    const light = () => {
-      if (html.classList.contains("dark")) html.classList.remove("dark");
-      if (html.style.colorScheme !== "light") html.style.colorScheme = "light";
-    };
-    light();
-    const observer = new MutationObserver(light);
-    observer.observe(html, { attributes: true, attributeFilter: ["class", "style"] });
-    return () => {
-      observer.disconnect();
-      if (wasDark) html.classList.add("dark");
-      html.style.colorScheme = scheme;
-    };
-  }, []);
-
-  // The lit part is followed wherever it is: the screen under the tour changes as its steps do.
-  const [lit, setLit] = useState<{ target: string; box: Box } | null>(null);
+  // The lit part is followed wherever it is: the screen under the tour changes as its steps do. It
+  // keeps its last place until the next part is on screen and has stopped moving, then travels there
+  // in one movement, so the tour stays joined up from step to step.
+  const [lit, setLit] = useState<Box | null>(null);
   useEffect(() => {
     if (!target) return;
     let frame = 0;
     let shown = false;
+    let last: Box | null = null;
+    let still = 0;
+    const same = (a: Box | null, b: Box | null) =>
+      a !== null && b !== null && a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
     const follow = () => {
       const element = document.querySelector<HTMLElement>(target);
       if (element && !shown) {
@@ -110,23 +101,17 @@ export function Tour({
         element.scrollIntoView({ block: "nearest", inline: "nearest" });
       }
       const box = boxOf(target);
-      setLit((before) => {
-        if (!box) return before && before.target === target ? null : before;
-        const same =
-          before &&
-          before.target === target &&
-          before.box.top === box.top &&
-          before.box.left === box.left &&
-          before.box.width === box.width &&
-          before.box.height === box.height;
-        return same ? before : { target, box };
-      });
+      still = same(box, last) ? still + 1 : 0;
+      last = box;
+      // Settled for a few frames: the screen has finished rearranging itself for this step.
+      if (box && still >= SETTLED_FRAMES) setLit((before) => (same(before, box) ? before : box));
       frame = requestAnimationFrame(follow);
     };
     frame = requestAnimationFrame(follow);
     return () => cancelAnimationFrame(frame);
   }, [target]);
-  const box = target && lit?.target === target ? lit.box : null;
+  // The chapter list and the last card light nothing.
+  const box = target ? lit : null;
 
   // The card, placed once its height is known.
   const card = useRef<HTMLDivElement>(null);
@@ -186,16 +171,14 @@ export function Tour({
     <div data-tour-overlay className="fixed inset-0 z-[80] text-sm" role="presentation">
       {/* The dim, with the lit part cut out of it. Nothing under it can be clicked. */}
       <div className="absolute inset-0" aria-hidden="true" />
-      {box ? (
-        <div
-          data-tour-lit
-          aria-hidden="true"
-          className="pointer-events-none absolute rounded-lg shadow-[0_0_0_200vmax_rgb(0_0_0/0.55)] outline-2 outline-offset-0 outline-primary transition-[top,left,width,height] duration-200 ease-out motion-reduce:transition-none"
-          style={box}
-        />
-      ) : (
-        <div className="pointer-events-none absolute inset-0 bg-black/55" aria-hidden="true" />
-      )}
+      {/* One element for the whole tour, so it travels from each place and shape to the next (half a second, ease in-out). */}
+      <div
+        data-tour-lit
+        aria-hidden="true"
+        className={`pointer-events-none absolute rounded-lg shadow-[0_0_0_200vmax_rgb(0_0_0/0.55)] outline-offset-0 outline-primary transition-[top,left,width,height] duration-500 ease-in-out motion-reduce:transition-none ${box ? "outline-2" : "outline-0"}`}
+        // With nothing to light it closes to a point in the middle: the whole screen is dimmed.
+        style={box ?? { top: "50%", left: "50%", width: 0, height: 0 }}
+      />
 
       <div
         ref={card}
@@ -203,8 +186,8 @@ export function Tour({
         aria-modal="true"
         aria-label={`Tour: ${title}`}
         data-tour-card
-        className="absolute flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-lg transition-[top,left] duration-200 ease-out motion-reduce:transition-none"
-        style={{ width: CARD_WIDTH, top: spot?.top ?? -9999, left: spot?.left ?? -9999 }}
+        className="absolute flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-lg transition-[top,left] duration-500 ease-in-out motion-reduce:transition-none"
+        style={{ width: CARD_WIDTH, top: spot?.top ?? 0, left: spot?.left ?? 0, visibility: spot ? "visible" : "hidden" }}
       >
         <div className="flex items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-xs font-semibold text-muted-foreground" aria-live="polite">
@@ -250,12 +233,12 @@ export function Tour({
           <div className="flex flex-col gap-1">
             <h2 className="heading-card text-xl">That’s the whole flow</h2>
             <p className="leading-relaxed">
-              Plan it, draw it, run it, wrap it up. The tour is in Settings whenever you want a chapter again.
+              Plan it, draw it, run it, wrap it up. Start your own, or look round the finished sample first. The tour is in Settings whenever you want a chapter again.
             </p>
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2">
+        <div className={at === "end" ? "flex flex-col gap-2" : "flex items-center justify-end gap-2"}>
           {place ? (
             <>
               <Button variant="secondary" size="sm" disabled={!previous} onClick={back}>
@@ -271,11 +254,11 @@ export function Tour({
             </Button>
           ) : (
             <>
-              <Button variant="secondary" size="sm" onClick={onClose}>
-                Back to my tournament
+              <Button ref={primary} size="sm" className="w-full" data-tour-start-own onClick={onStartOwn}>
+                Start new tournament <ArrowRightIcon weight="bold" />
               </Button>
-              <Button ref={primary} size="sm" data-tour-start-own onClick={onStartOwn}>
-                Start my tournament <ArrowRightIcon weight="bold" />
+              <Button variant="secondary" size="sm" className="w-full" data-tour-explore onClick={onExplore}>
+                Explore sample tournament
               </Button>
             </>
           )}

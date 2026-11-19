@@ -357,3 +357,6 @@ The `workspace-dots` ground; a 360px column centred both ways. Product name in t
 - **Dim:** black at 55% over everything but the lit part. **Lit part:** an 8px-radius box 6px larger than the element, a 2px `primary` outline. It moves between steps in 200ms, ease-out; instantly under reduced motion.
 - **Card:** `card` surface, 12px radius, 16px padding, 1px border and the large shadow (it floats over a dimmed screen, the one place a shadow carries meaning here). 344px wide. Muted 12px semibold line for chapter and count; `heading-card` 20px title; 14px text at relaxed leading; small buttons, the way on is primary and has the keyboard.
 - **Light by default:** the tour always renders in Light.
+
+### The product tour, motion (19 Nov 2026, replaces the 200ms above)
+The lit box is one element for the whole tour. It waits until the next part is on screen and still, then travels from its last place and shape to the new one in 500ms, ease in-out; the card travels with it in the same time. With nothing to light (the chapter list, the last card) it closes to a point at the centre. Reduced motion: no travel.
