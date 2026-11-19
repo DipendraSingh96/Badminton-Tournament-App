@@ -11,6 +11,7 @@ import {
   PlusIcon,
   SidebarSimpleIcon,
   SignOutIcon,
+  SignpostIcon,
   SunIcon,
   TrashIcon,
   UploadSimpleIcon,
@@ -55,7 +56,7 @@ const THEMES = [
 ] as const;
 
 /** Settings: for now, the theme. Opens from the sidebar's foot. */
-function SettingsMenu({ collapsed }: { collapsed: boolean }) {
+function SettingsMenu({ collapsed, onTour }: { collapsed: boolean; onTour: () => void }) {
   const { theme, setTheme } = useTheme();
   const developer = useDeveloperTools();
   const optionClass =
@@ -88,6 +89,11 @@ function SettingsMenu({ collapsed }: { collapsed: boolean }) {
             {label}
           </button>
         ))}
+        <p className="mt-1 border-t px-2 pt-2 pb-1 text-xs font-semibold text-muted-foreground">Help</p>
+        <button type="button" data-take-tour onClick={onTour} className={optionClass}>
+          <SignpostIcon className="size-4" aria-hidden="true" />
+          Take the tour
+        </button>
         <p className="mt-1 border-t px-2 pt-2 pb-1 text-xs font-semibold text-muted-foreground">For developers</p>
         <label className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-medium" title="Adds a simulated day to the Live stage, and lets its timeline be moved by hand. Remembered on this device only.">
           Developer mode
@@ -154,9 +160,12 @@ export function Sidebar({
   unsent,
   kept,
   onAddKept,
+  onTour,
   collapsed,
   onCollapsedChange,
 }: {
+  /** Settings: opens the product tour's list of chapters. */
+  onTour: () => void;
   account: Account;
   /** The open tournament has changes that haven't reached the account yet. */
   unsent: boolean;
@@ -237,7 +246,7 @@ export function Sidebar({
       ) : (
         <div className="scroll-pane flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-(--pane-x) py-4">
           <div className="flex items-center gap-2">
-            <Button className="min-w-0 flex-1" onClick={onNew}>
+            <Button data-tour="new" className="min-w-0 flex-1" onClick={onNew}>
               <PlusIcon /> New tournament
             </Button>
             {developer ? (
@@ -347,7 +356,7 @@ export function Sidebar({
 
       <div className={cn("flex shrink-0 flex-col gap-1 pt-4 pb-2", collapsed ? "items-center" : "px-(--pane-x)")}>
         <ProfileButton collapsed={collapsed} account={account} />
-        <SettingsMenu collapsed={collapsed} />
+        <SettingsMenu collapsed={collapsed} onTour={onTour} />
       </div>
     </aside>
   );

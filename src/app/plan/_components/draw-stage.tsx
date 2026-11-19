@@ -48,7 +48,7 @@ export function DrawStage({
   resources: ReactNode;
 }) {
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <main data-tour="page" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="shrink-0 px-(--pane-x)">
       <nav aria-label="Draw views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b">
         {DRAW_VIEWS.map((v) => (

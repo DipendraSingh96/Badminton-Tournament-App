@@ -502,7 +502,7 @@ export function ResultsStage({
   const money = inputs ? moneyReport(draft, planned, workedFinance(draft, inputs)) : null;
   const still: Update = () => {};
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <main data-tour="page" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="shrink-0 px-(--pane-x)">
         <nav aria-label="Results views" className="mx-auto flex w-full max-w-[960px] items-end gap-4 border-b">
           {VIEWS.filter((v) => (v.value === "groups" ? draft.format !== "knockout" : v.value === "knockout" ? draft.format !== "groups" : true)).map((v) => (

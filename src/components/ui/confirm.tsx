@@ -12,6 +12,8 @@ export interface ConfirmRequest {
   body?: string
   /** The action's own name on its button, e.g. "Clear hall". */
   action: string
+  /** The other button's words, where "Cancel" would be wrong (an offer that can be passed up). */
+  decline?: string
   /** An action that removes data: its button is the destructive one and Cancel has the focus. */
   destructive?: boolean
 }
@@ -77,7 +79,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex justify-end gap-2">
               <Button ref={cancel} variant="secondary" onClick={() => answer(false)}>
-                Cancel
+                {request?.decline ?? "Cancel"}
               </Button>
               <Button ref={go} variant={request?.destructive ? "destructive" : "default"} onClick={() => answer(true)}>
                 {request?.action}

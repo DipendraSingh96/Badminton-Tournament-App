@@ -19,9 +19,9 @@ import { minutesOfDay } from "./time";
 // nothing here is ever saved.
 
 /** The points of a tournament's life the tour shows. */
-export type TourState = "plan" | "draw" | "locked" | "played" | "results";
+export type TourState = "plan" | "draw" | "locked" | "ready" | "played" | "results";
 
-export const TOUR_STATES: TourState[] = ["plan", "draw", "locked", "played", "results"];
+export const TOUR_STATES: TourState[] = ["plan", "draw", "locked", "ready", "played", "results"];
 
 /** The seed that makes the tour's draw and its simulated day the same each time. */
 const SEED = 2026;
@@ -88,5 +88,9 @@ export function tourSamples(today: Date, timeZone: string): Record<TourState, Pl
   const results = produce(playedDay, (d) => {
     finishTournament(d, d.log.at(-1)?.at ?? `${d.frame.date}T18:00:00.000Z`);
   });
-  return { plan, draw, locked, played: playedDay, results };
+  // For the rehearsal: the day about to begin, everyone checked in, so its first games go straight on court.
+  const ready = produce(locked, (d) => {
+    for (const entry of d.entries) for (const player of entry.players) player.attendance = "arrived";
+  });
+  return { plan, draw, locked, ready, played: playedDay, results };
 }

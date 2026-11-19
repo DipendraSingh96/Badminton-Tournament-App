@@ -1135,10 +1135,12 @@ export function Timeline({
                 : "Complete the plan to see the estimated schedule."}
             </InfoTip>
           </h2>
-          {playButton}
-          <span className="font-display text-xl leading-none font-bold tabular-nums">{clock(Math.round(now))}</span>
+          <span data-tour="timeline-clock" className="flex items-center gap-3">
+            {playButton}
+            <span className="font-display text-xl leading-none font-bold tabular-nums">{clock(Math.round(now))}</span>
+          </span>
         </span>
-        <span className="flex items-center gap-2">
+        <span data-tour="timeline-tools" className="flex items-center gap-2">
           {anyMoves && !live ? (
             <Button
               variant="ghost"
@@ -1219,7 +1221,7 @@ export function Timeline({
         {notice}
       </p>
 
-      <div ref={scroller} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
+      <div ref={scroller} data-tour="timeline-rows" className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:none]">
         <div className={`flex w-max min-w-full pr-4 ${thin ? "pb-4" : "pb-3"}`}>
           {/* Labels, row for row with the tracks; they stay put while the tracks scroll sideways. */}
           <div ref={labels} className="sticky left-0 z-40 flex w-29 shrink-0 flex-col pr-3 pl-4"

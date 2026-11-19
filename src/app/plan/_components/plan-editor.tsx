@@ -1,7 +1,7 @@
 "use client";
 
 import { produce } from "immer";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties , type ReactNode } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ArrowRightIcon, CaretLeftIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
@@ -18,7 +18,6 @@ import { fillStage } from "@/lib/tournament/dummy/fill";
 import { dummySummary, liveMarks, ownDataLeft, removeDummy, sampleFields, type SampleStage } from "@/lib/tournament/dummy/marks";
 import { clock, minutesOfDay } from "@/lib/tournament/time";
 import { useDeveloperTools } from "@/lib/developer";
-import { advanceGuide, beginGuide, guideStep, skipGuide, type GuideStep } from "@/lib/onboarding";
 import { SIMULATION } from "@/lib/tournament/dummy/values";
 import { dayAfter, eventsBy, holdEvent, holdOf, restamp, simulateDay, type SimEvent } from "@/lib/tournament/simulate";
 import { Button } from "@/components/ui/button";
@@ -91,6 +90,9 @@ import { PLAYBACK_SECONDS, Timeline, courtStatuses, dayRange, localSegments, zon
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
+import { TOUR, type TourScreen } from "./tour/steps";
+import { Tour, type TourAt } from "./tour/tour";
+import { tourSamples, type TourState } from "@/lib/tournament/tour-sample";
 import { VenueCanvas } from "./venue-canvas";
 
 export type Update = (recipe: (draft: PlanDraft) => void) => void;
@@ -370,9 +372,6 @@ function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-/** How long each movement of the guided start takes, in milliseconds. */
-const GUIDE_MOTION = 1000;
-
 /** What the editor can do with the list of saved tournaments. */
 interface TournamentActions {
   index: TournamentIndex;
@@ -389,6 +388,8 @@ interface TournamentActions {
   unsent: string[];
   kept: TournamentMeta[];
   onAddKept: (id: string) => void;
+  /** Settings: opens the product tour. */
+  onTour: () => void;
 }
 
 /** Hands the organiser a file to save: made here, on their device; nothing is sent anywhere. */
@@ -403,12 +404,19 @@ function saveFile(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function Editor({ id, tournaments }: { id: string; tournaments: TournamentActions }) {
+function Editor({
+  id,
+  tournaments,
+  tour = null,
+}: {
+  id: string;
+  tournaments: TournamentActions;
+  /** The product tour is showing this tournament (its sample): the screen its step needs. */
+  tour?: TourScreen | null;
+}) {
   const [draft, setDraft] = useState<PlanDraft>(() => loadTournament(id, tournaments.store) ?? emptyDraft(browserTimeZone()));
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>(loadTab);
-  // The guided start (a device's first tournament only): 1 the name and date alone, 2 the venue, null the whole app.
-  const [guide, setGuide] = useState<GuideStep>(() => loadGuide(id));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [courtSize, setCourtSize] = useState<CourtSize>(loadCourtSize);
   const courtSizing = useMemo(
@@ -425,7 +433,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
   const [playhead, setPlayhead] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   // The timeline docked under the venue: its height is remembered too.
-  const dock = useDefaultLayout({ id: "badminton:plan-layout-v", storage: window.localStorage });
+  const dock = useDefaultLayout({ id: tour ? "badminton:tour-layout-v" : "badminton:plan-layout-v", storage: window.localStorage });
 
   // A suggested lever being previewed: everything derived shows the plan with it; not saved.
   const [preview, setPreview] = useState<LeverChange | null>(null);
@@ -1295,7 +1303,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     return () => cancelAnimationFrame(frame);
   }, [thinHeight, timelinePanel]);
   const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
-  // A tournament just made, and the guided start's last step, show the timeline folded: there is nothing on it yet.
+  // A tournament just made shows the timeline folded: there is nothing on it yet.
   const [foldOnce, setFoldOnce] = useState(false);
   useEffect(() => {
     if (!isFresh(id) && !foldOnce) return;
@@ -1323,6 +1331,36 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     });
     return () => cancelAnimationFrame(frame);
   }, [liveOpen, id, timelinePanel]);
+  // The product tour: each step says the screen it needs (stage, page, tab, panels, a rehearsal), and
+  // the editor is put there. Nothing is remembered: the organiser's own choices are as they left them.
+  const tourKey = tour ? JSON.stringify(tour) : null;
+  useEffect(() => {
+    if (!tour) return;
+    const apply = () => {
+      const now = simNow.current;
+      if (tour.rehearsal && !now) rehearse();
+      else if (!tour.rehearsal && now) endSimulation();
+      if (tour.rehearsal === "started" && simNow.current && !simNow.current.started) startRehearsal();
+      setStageView(tour.stage);
+      if (tour.tab) setTab(tour.tab);
+      if (tour.drawView) setDrawView(tour.drawView);
+      if (tour.liveView) setLiveView(tour.liveView);
+      if (tour.resultsView) setResultsView(tour.resultsView);
+      setWorkbenchFolded(tour.panel === false);
+      if (tour.timeline) timelinePanel.current?.expand();
+      else timelinePanel.current?.collapse();
+      setSidebarCollapsed(false);
+    };
+    // After the stage's own opening moves (Live folds its panels as it opens), and once more when a
+    // rehearsal that was just opened is there to be started.
+    const first = window.setTimeout(apply, 60);
+    const second = window.setTimeout(apply, 260);
+    return () => {
+      window.clearTimeout(first);
+      window.clearTimeout(second);
+    };
+    // The screen is applied when the step's screen changes, not when the editor's own state does.
+  }, [tourKey]); // eslint-disable-line react-hooks/exhaustive-deps
   /** Shows a team or a court in the Draw stage's side panel, opening the panel if it's folded. */
   function openInPanel(focus: DrawFocus) {
     setDrawFocus(focus);
@@ -1360,7 +1398,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
         }}
         className="h-full"
       >
-        <div data-guide-timeline className="pointer-events-auto h-full">
+        <div data-tour="timeline" className="pointer-events-auto h-full">
         <Timeline
           draft={shown}
           update={update}
@@ -1441,69 +1479,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
     },
   };
   // The Plan stage's working area, and the Draw stage's Schedule page.
-  // The guided start moves between its steps: where the fields were, for them to travel from.
-  const guideFrom = useRef<{ step: GuideStep; fields: DOMRect | null } | null>(null);
-  useLayoutEffect(() => {
-    const from = guideFrom.current;
-    guideFrom.current = null;
-    // With reduced motion the steps simply appear.
-    if (!from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timing = { duration: GUIDE_MOTION, easing: "ease-in-out", fill: "backwards" } as const;
-    if (from.step === 1) {
-      // The name, date and time zone travel from the middle of the page up to their place;
-      // the stage tabs and the halls come up from the bottom edge.
-      const fields = document.querySelector("[data-guide-fields]");
-      if (fields && from.fields) {
-        const to = fields.getBoundingClientRect();
-        fields.animate([{ transform: `translate(${from.fields.left - to.left}px, ${from.fields.top - to.top}px)` }, { transform: "none" }], timing);
-      }
-      for (const rising of document.querySelectorAll("[data-guide-rise]")) {
-        const away = window.innerHeight - rising.getBoundingClientRect().top;
-        rising.animate([{ transform: `translateY(${away}px)` }, { transform: "none" }], timing);
-      }
-    } else {
-      // The side panel slides in from the right edge, the main area narrowing with it; then the timeline rises.
-      const panel = document.querySelector("[data-guide-panel]");
-      if (panel) {
-        const width = panel.getBoundingClientRect().width;
-        panel.animate([{ marginRight: `-${width}px` }, { marginRight: "0px" }], timing);
-      }
-      document.querySelector("[data-guide-timeline]")?.animate([{ transform: "translateY(100%)" }, { transform: "none" }], { ...timing, delay: GUIDE_MOTION });
-    }
-  }, [guide]);
-  function nextGuideStep() {
-    guideFrom.current = { step: guide, fields: document.querySelector("[data-guide-fields]")?.getBoundingClientRect() ?? null };
-    let next: GuideStep = null;
-    try {
-      next = advanceGuide(window.localStorage, id);
-    } catch {
-      next = null;
-    }
-    setGuide(next);
-    // The last step opens the side panel, expanded, on "Set up your tournament"; the timeline comes in folded.
-    if (next === null) {
-      foldWorkbench(false);
-      setFoldOnce(true);
-    }
-  }
-  const workingArea =
-    guide === 2 ? (
-      // The guided start's second step: the venue alone. The timeline and the side panel come with the next step.
-      <div className="@container scroll-pane h-full overflow-y-auto px-(--pane-x)">
-        <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
-          <VenueCanvas
-            draft={shown}
-            update={update}
-            statuses={statuses}
-            courtGroups={courtGroups}
-            intro="Set up your tournament's halls, courts and umpires."
-            onNext={nextGuideStep}
-          />
-        </div>
-      </div>
-    ) : (
-      docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />)
-    );
+  const workingArea = docked(<VenueCanvas draft={shown} update={update} statuses={statuses} courtGroups={courtGroups} />);
 
   // The stages under the tournament's name. On the Plan stage they sit over the venue, beside the workbench.
   const stageRow = (
@@ -1561,6 +1537,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </Button>
                 </>
               ) : watching ? (
+                <span data-tour="end-rehearsal" className="flex items-center gap-2">
                 <SimulationControls
                   state={playing ? "playing" : "paused"}
                   // A court is waiting for the desk: the day plays on once it has been dealt with.
@@ -1570,6 +1547,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   onStop={endSimulation}
                   rehearsal={rehearsing}
                 />
+                </span>
               ) : developer ? (
                 <Button
                   size="sm"
@@ -1624,6 +1602,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
               unsent={tournaments.unsent.includes(id)}
               kept={tournaments.kept}
               onAddKept={tournaments.onAddKept}
+              onTour={tournaments.onTour}
               onOpen={tournaments.onOpen}
               collapsed={sidebarCollapsed}
               onCollapsedChange={collapseSidebar}
@@ -1634,30 +1613,9 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
             >
             <div className="workspace-dots flex min-w-0 flex-1 overflow-x-clip">
             <main className="flex min-w-0 flex-1 flex-col">
-              {guide === 1 ? (
-                // The guided start's first step: nothing but the tournament's name, date and time zone.
-                <div className="@container grid min-h-0 flex-1 place-items-center px-(--pane-x) pb-24">
-                  <div data-guide-step="1" className="flex w-full max-w-[860px] flex-col items-center gap-3">
-                    <h1 className="sr-only">Name your tournament</h1>
-                    <div data-guide-fields className="flex items-start gap-2">
-                      <TournamentHeader draft={draft} update={update} />
-                      <Button
-                        data-guide-next
-                        disabled={!draft.name.trim() || !draft.frame.date}
-                        title={!draft.name.trim() || !draft.frame.date ? "Give it a name and a date first" : undefined}
-                        onClick={nextGuideStep}
-                      >
-                        Next <ArrowRightIcon weight="bold" />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">You can change these later.</p>
-                  </div>
-                </div>
-              ) : (
-              <>
               <div className="shrink-0 px-(--pane-x)">
                 <div className={cn(COLUMN, "pb-4")}>
-                  <div data-guide-fields>
+                  <div data-tour="basics">
                     <NameRow
                       fields={<TournamentHeader draft={draft} update={update} />}
                       onUndo={() => step(true)}
@@ -1667,10 +1625,10 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                       off={isLive ? "No undo while Live: reverse a change from the Changes page" : undefined}
                     />
                   </div>
-                  <div data-guide-rise>{stageRow}</div>
+                  {stageRow}
                 </div>
               </div>
-              <div data-guide-rise className="flex min-h-0 flex-1">
+              <div className="flex min-h-0 flex-1">
                 {viewing === "results" ? (
                   <ResultsStage
                     draft={draft}
@@ -1754,10 +1712,8 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   </VenueFixedContext>
                 )}
               </div>
-              </>
-              )}
             </main>
-            {guide !== null ? null : viewing === "live" ? (
+            {viewing === "live" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
@@ -1872,7 +1828,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                   <RailSummary draft={shown} parsed={shownParsed} analysis={shownAnalysis} hideMoney={moneyHidden} />
                 </Rail>
               ) : (
-                <aside data-guide-panel aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
+                <aside aria-label="Workbench" className={cn(WORKBENCH, "w-[440px]")}>
                   {locked ? (
                     <div className="px-4 pb-3">
                       <StageBar onUnlock={unlockDraw} live={isLive} />
@@ -1905,6 +1861,7 @@ function Editor({ id, tournaments }: { id: string; tournaments: TournamentAction
                     />
                   </div>
                   <Tabs
+                    data-tour="tabs"
                     // While Live the Budget tab can't be opened: wherever it was left, Setup shows.
                     value={moneyHidden && tab === "finance" ? "setup" : tab}
                     onValueChange={(value) => chooseTab(value as Tab)}
@@ -2003,23 +1960,6 @@ function clearFresh(): void {
   }
 }
 
-/** A device that already has tournaments never gets the guided start (unless one is part-way through it). */
-function guideOff(): void {
-  try {
-    skipGuide(window.localStorage);
-  } catch {
-    // No storage: nothing to remember.
-  }
-}
-
-function loadGuide(id: string): GuideStep {
-  try {
-    return guideStep(window.localStorage, id);
-  } catch {
-    return null;
-  }
-}
-
 // Tournaments from before sign-in that have been added to an account from this browser: not offered again.
 const ADDED_KEY = "badminton:added-to-account:v1";
 
@@ -2030,6 +1970,45 @@ function loadAdded(): string[] {
   } catch {
     return [];
   }
+}
+
+/** What is remembered about the tour for an account on a device: whether it has been offered, and the chapters gone through. */
+interface TourMemo {
+  offered: boolean;
+  seen: string[];
+}
+
+const TOUR_KEY = "badminton:tour:v1";
+
+function loadTourMemo(store: Store): TourMemo {
+  try {
+    const saved = JSON.parse(store.getItem(TOUR_KEY) ?? "null") as Partial<TourMemo> | null;
+    return { offered: saved?.offered === true, seen: Array.isArray(saved?.seen) ? saved.seen : [] };
+  } catch {
+    return { offered: false, seen: [] };
+  }
+}
+
+function saveTourMemo(store: Store, memo: TourMemo): void {
+  try {
+    store.setItem(TOUR_KEY, JSON.stringify(memo));
+  } catch {
+    // Not remembered: the tour is offered again.
+  }
+}
+
+/** The tour's sample tournament at every point of its life, in a store of its own in memory: never the device's, never the account's. */
+function sampleStore(): Store {
+  const data = new Map<string, string>();
+  const store: Store = {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+    removeItem: (key) => void data.delete(key),
+  };
+  const samples = tourSamples(new Date(), browserTimeZone());
+  let index: TournamentIndex = { currentId: null, items: [] };
+  for (const state of Object.keys(samples) as TourState[]) index = saveTournament(index, `tour:${state}`, samples[state], store);
+  return store;
 }
 
 /** How long after a change it is sent to the account, and how often an unsent one is tried again. */
@@ -2049,20 +2028,11 @@ function Workspace({ session }: { session: Session }) {
   const { store, remote } = session;
   const [index, setIndex] = useState<TournamentIndex>(() => {
     const saved = loadIndex(store);
-    if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) {
-      // Tournaments already here from before the guided start: it isn't for them. (One in the middle of it carries on.)
-      guideOff();
-      return saved;
-    }
+    if (saved.currentId && saved.items.some((t) => t.id === saved.currentId)) return saved;
     if (saved.items[0]) return setCurrent(saved, saved.items[0].id, store);
-    // Nothing here yet: the account's first tournament, which is revealed a step at a time on a device's first.
+    // Nothing here yet: the account's first tournament.
     const made = createTournament(saved, emptyDraft(browserTimeZone()), store);
     markUnsent(store, made.id);
-    try {
-      beginGuide(window.localStorage, made.index.currentId!);
-    } catch {
-      // No storage: the tournament opens in full.
-    }
     return made.index;
   });
   const indexRef = useRef(index);
@@ -2169,9 +2139,59 @@ function Workspace({ session }: { session: Session }) {
     await session.signOut();
   }
 
+  // The product tour. It shows a sample tournament that exists only while the tour runs: built in
+  // memory, kept in a store of its own that is thrown away, and never saved to the device or the account.
+  const [tourAt, setTourAt] = useState<TourAt | null>(null);
+  const tourNow = useRef<TourAt | null>(null);
+  const [tourScreen, setTourScreen] = useState<TourScreen>(TOUR[0]!.steps[0]!.screen);
+  const [tourStore, setTourStore] = useState<Store | null>(null);
+  const [tourMemo, setTourMemo] = useState(() => loadTourMemo(store));
+  const remember = useCallback(
+    (next: TourMemo) => {
+      setTourMemo(next);
+      saveTourMemo(store, next);
+    },
+    [store],
+  );
+  const goTour = useCallback(
+    (at: TourAt) => {
+      setTourStore((made) => made ?? sampleStore());
+      // A chapter gone through to its end is ticked in the list.
+      const before = tourNow.current;
+      if (before && typeof before === "object") {
+        const chapter = TOUR[before.chapter]!;
+        const onward = at === "end" || (typeof at === "object" && at.chapter > before.chapter);
+        if (onward && before.step === chapter.steps.length - 1) {
+          const memo = loadTourMemo(store);
+          if (!memo.seen.includes(chapter.id)) remember({ ...memo, seen: [...memo.seen, chapter.id] });
+        }
+      }
+      tourNow.current = at;
+      setTourAt(at);
+      if (typeof at === "object") setTourScreen(TOUR[at.chapter]!.steps[at.step]!.screen);
+    },
+    [store, remember],
+  );
+  // Offered once, the first time an account opens the planner on a device.
+  const offered = useRef(false);
+  useEffect(() => {
+    if (offered.current || loadTourMemo(store).offered) return;
+    offered.current = true;
+    remember({ ...loadTourMemo(store), offered: true });
+    void confirm({
+      title: "Welcome to Tournament Planner",
+      body: "Take a five-minute tour of a whole tournament, from plan to results, on a sample. Nothing of yours is touched, and it is in Settings whenever you want it again.",
+      action: "Take the tour",
+      decline: "Skip, start my tournament",
+    }).then((yes) => {
+      if (yes) goTour({ chapter: 0, step: 0 });
+    });
+  }, [store, confirm, goTour, remember]);
+
   const actions: TournamentActions = {
     index,
     onSave,
+    onTour: () => goTour("contents"),
     store,
     account: { email: session.email, onSignOut: () => void signOut() },
     unsent: pending.unsent,
@@ -2228,6 +2248,40 @@ function Workspace({ session }: { session: Session }) {
     },
   };
   const currentId = index.currentId!;
+  if (tourAt !== null && tourStore) {
+    const sampleId = `tour:${tourScreen.sample}`;
+    // The sample is shown in place of the organiser's tournament: none of theirs is open, nothing is saved or sent.
+    const sample: TournamentActions = {
+      ...actions,
+      index: { ...index, currentId: null },
+      store: tourStore,
+      onSave: () => {},
+      unsent: [],
+      kept: [],
+    };
+    return (
+      <>
+        {/* For looking at, not for clicking, while the tour is up. */}
+        <div inert className="contents">
+          <Editor key={sampleId} id={sampleId} tournaments={sample} tour={tourScreen} />
+        </div>
+        <Tour
+          at={tourAt}
+          seen={tourMemo.seen}
+          onGo={goTour}
+          onClose={() => {
+            tourNow.current = null;
+            setTourAt(null);
+          }}
+          onStartOwn={() => {
+            tourNow.current = null;
+            setTourAt(null);
+            actions.onNew();
+          }}
+        />
+      </>
+    );
+  }
   return <Editor key={currentId} id={currentId} tournaments={actions} />;
 }
 

@@ -55,6 +55,7 @@ export function LiveStage({
   const selection = useContext(CourtSelectionContext);
   return (
     <main
+      data-tour="page"
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       // A click anywhere here that isn't on a court or a group goes back to every game.
       onClick={(e) => {

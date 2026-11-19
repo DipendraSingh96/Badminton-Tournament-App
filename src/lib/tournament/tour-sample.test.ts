@@ -59,6 +59,14 @@ describe("the tour's sample tournament", () => {
     expect(scheduledGames(locked)!.games.length).toBeGreaterThan(0);
   });
 
+  it("is ready for a rehearsal with everyone checked in", () => {
+    const ready = sample("ready");
+    expect(ready.stage).toBe("draw");
+    expect(canGoLive(ready)).toBe(true);
+    expect(ready.entries.flatMap((e) => e.players).every((p) => p.attendance === "arrived")).toBe(true);
+    expect(ready.draw).toEqual(sample("locked").draw);
+  });
+
   it("has every match played and can be finished", () => {
     const played = sample("played");
     expect(played.stage).toBe("live");

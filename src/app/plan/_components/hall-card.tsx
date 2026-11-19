@@ -331,7 +331,7 @@ export function HallCard({
   }
 
   const zoom = (
-            <span className="flex items-center">
+            <span data-tour="court-size" className="flex items-center">
               <IconButton
                 label="Smaller courts, to see more halls"
                 disabled={sizeStep === 0}
@@ -366,6 +366,7 @@ export function HallCard({
     <button
       key="add-court"
       type="button"
+      data-tour="add-court"
       onClick={() => update((d) => void d.frame.halls[hallIndex]!.courts.push(emptyCourt()))}
       className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${
         size === "large" ? "min-h-80" : size === "medium" ? "min-h-56" : "min-h-28"
@@ -394,7 +395,7 @@ export function HallCard({
         </header>
       ) : (
       <header className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1">
+        <div data-tour="hall-line" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-1">
           <input
             aria-label="Hall name"
             value={hall.name}
