@@ -170,6 +170,11 @@ const DIVIDER =
 /** The workbench, from the top of the shell, with an open divider at its left: a line that stops 16px short of the shell's edges. */
 const WORKBENCH =
   "relative flex shrink-0 flex-col pt-4 before:absolute before:top-4 before:bottom-4 before:left-0 before:w-px before:bg-border";
+/** The side panel's width, open and folded to its rail (the widths of the panels themselves). */
+const SIDE_PANEL_OPEN = 440;
+const SIDE_PANEL_FOLDED = 64;
+/** How long the side panel and the timeline take to open or fold, in milliseconds. */
+const PANEL_MOTION_MS = 500;
 /** Text running down the folded rail. */
 const RAIL_TEXT = "text-xl font-semibold whitespace-nowrap [writing-mode:vertical-rl]";
 
@@ -1302,7 +1307,19 @@ function Editor({
     });
     return () => cancelAnimationFrame(frame);
   }, [thinHeight, timelinePanel]);
-  const foldTimeline = (folded: boolean) => (folded ? timelinePanel.current?.collapse() : timelinePanel.current?.expand());
+  // The timeline opens and folds softly: while it does, its panels are told to take their time
+  // (dragging its edge stays immediate).
+  const [timelineMoving, setTimelineMoving] = useState(false);
+  const timelineSettled = useRef<number | null>(null);
+  function foldTimeline(folded: boolean) {
+    const panel = timelinePanel.current;
+    if (!panel || panel.isCollapsed() === folded) return;
+    setTimelineMoving(true);
+    if (timelineSettled.current !== null) window.clearTimeout(timelineSettled.current);
+    // A frame on, so the panels are already taking their time when the size changes.
+    requestAnimationFrame(() => (folded ? panel.collapse() : panel.expand()));
+    timelineSettled.current = window.setTimeout(() => setTimelineMoving(false), PANEL_MOTION_MS + 80);
+  }
   // A tournament just made shows the timeline folded: there is nothing on it yet.
   const [foldOnce, setFoldOnce] = useState(false);
   useEffect(() => {
@@ -1364,8 +1381,7 @@ function Editor({
       if (tourScreen.liveView) setLiveView(tourScreen.liveView);
       if (tourScreen.resultsView) setResultsView(tourScreen.resultsView);
       setWorkbenchFolded(tourScreen.panel !== true);
-      if (tourScreen.timeline) timelinePanel.current?.expand();
-      else timelinePanel.current?.collapse();
+      foldTimeline(tourScreen.timeline !== true);
       setSidebarCollapsed(false);
     };
     // After the stage's own opening moves (Live folds its panels as it opens), and once more when a
@@ -1388,7 +1404,7 @@ function Editor({
   const docked = (content: ReactNode) => (
     // The venue fills the area and scrolls under the timeline, which is glass over its lower part.
     // The panels above it only size the two: the venue's own panel is empty and lets the pointer through.
-    <div className="relative h-full" style={{ "--under": `${timelineHeight + 8}px` } as CSSProperties}>
+    <div className="relative h-full" data-timeline-moving={timelineMoving || undefined} style={{ "--under": `${timelineHeight + 8}px` } as CSSProperties}>
       <div className="@container scroll-pane absolute inset-0 isolate overflow-y-auto px-(--pane-x) pb-(--under) [scroll-padding-bottom:var(--under)]">
         <div className={cn(COLUMN, "flex flex-col gap-4 pb-4")}>
           {content}
@@ -1730,6 +1746,12 @@ function Editor({
                 )}
               </div>
             </main>
+            {/* The side panel opens and folds in half a second, and the main area follows it. Its content keeps to the right edge as it goes. */}
+            <div
+              data-side-panel
+              className="flex shrink-0 justify-end overflow-hidden transition-[width] duration-500 ease-in-out motion-reduce:transition-none"
+              style={{ width: workbenchFolded ? SIDE_PANEL_FOLDED : SIDE_PANEL_OPEN }}
+            >
             {viewing === "live" ? (
               // The Live side panel, on every Live page: the games to run, and the entries.
               workbenchFolded ? (
@@ -1935,6 +1957,7 @@ function Editor({
                   </Tabs>
                 </aside>
               )}
+            </div>
             </div>
             </TeamOpenContext>
           </div>

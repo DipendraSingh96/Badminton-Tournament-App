@@ -429,6 +429,16 @@
 .court-call {
   animation: court-news 1.4s ease-in-out infinite;
 }
+/* The timeline opening or folding by its button (not by dragging its edge):
+   its panels take half a second over it. */
+[data-timeline-moving] [data-panel] {
+  transition: flex-grow 500ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-timeline-moving] [data-panel] {
+    transition: none;
+  }
+}
 /* Still, for anyone who has asked for less motion: a waiting court is grey
    already; new information gets a steady outline. */
 @media (prefers-reduced-motion: reduce) {

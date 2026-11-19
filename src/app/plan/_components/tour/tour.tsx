@@ -14,6 +14,8 @@ const PAD = 6;
 const GAP = 16;
 const EDGE = 16;
 const CARD_WIDTH = 344;
+/** The last card is wider: its two ways on sit side by side. */
+const END_CARD_WIDTH = 464;
 /** Frames the lit part must hold still before the light travels to it. */
 const SETTLED_FRAMES = 6;
 
@@ -39,7 +41,7 @@ function boxOf(selector: string): Box | null {
 }
 
 /** Where the card goes: beside the lit part where there is room, otherwise inside its lower right corner. */
-function cardPlace(box: Box | null, height: number): { top: number; left: number } {
+function cardPlace(box: Box | null, height: number, CARD_WIDTH: number): { top: number; left: number } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   if (!box) return { top: Math.max(EDGE, (vh - height) / 2), left: (vw - CARD_WIDTH) / 2 };
@@ -114,18 +116,19 @@ export function Tour({
   const box = target ? lit : null;
 
   // The card, placed once its height is known.
+  const width = at === "end" ? END_CARD_WIDTH : CARD_WIDTH;
   const card = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<{ top: number; left: number } | null>(null);
   useLayoutEffect(() => {
     const height = card.current?.offsetHeight ?? 0;
-    const next = cardPlace(box, height);
+    const next = cardPlace(box, height, width);
     setSpot((before) => (before && before.top === next.top && before.left === next.left ? before : next));
-  }, [box, at]);
+  }, [box, at, width]);
   useEffect(() => {
-    const again = () => setSpot(cardPlace(box, card.current?.offsetHeight ?? 0));
+    const again = () => setSpot(cardPlace(box, card.current?.offsetHeight ?? 0, width));
     window.addEventListener("resize", again);
     return () => window.removeEventListener("resize", again);
-  }, [box]);
+  }, [box, width]);
 
   const next = place ? nextPlace(place) : null;
   const previous = place ? previousPlace(place) : null;
@@ -187,7 +190,7 @@ export function Tour({
         aria-label={`Tour: ${title}`}
         data-tour-card
         className="absolute flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-lg transition-[top,left] duration-500 ease-in-out motion-reduce:transition-none"
-        style={{ width: CARD_WIDTH, top: spot?.top ?? 0, left: spot?.left ?? 0, visibility: spot ? "visible" : "hidden" }}
+        style={{ width, top: spot?.top ?? 0, left: spot?.left ?? 0, visibility: spot ? "visible" : "hidden" }}
       >
         <div className="flex items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-xs font-semibold text-muted-foreground" aria-live="polite">
@@ -238,7 +241,7 @@ export function Tour({
           </div>
         )}
 
-        <div className={at === "end" ? "flex flex-col gap-2" : "flex items-center justify-end gap-2"}>
+        <div className="flex items-center justify-end gap-2">
           {place ? (
             <>
               <Button variant="secondary" size="sm" disabled={!previous} onClick={back}>
@@ -254,11 +257,11 @@ export function Tour({
             </Button>
           ) : (
             <>
-              <Button ref={primary} size="sm" className="w-full" data-tour-start-own onClick={onStartOwn}>
-                Start new tournament <ArrowRightIcon weight="bold" />
-              </Button>
-              <Button variant="secondary" size="sm" className="w-full" data-tour-explore onClick={onExplore}>
+              <Button variant="secondary" size="sm" className="flex-1" data-tour-explore onClick={onExplore}>
                 Explore sample tournament
+              </Button>
+              <Button ref={primary} size="sm" className="flex-1" data-tour-start-own onClick={onStartOwn}>
+                Start new tournament <ArrowRightIcon weight="bold" />
               </Button>
             </>
           )}

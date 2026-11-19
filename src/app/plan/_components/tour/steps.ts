@@ -349,8 +349,8 @@ export const TOUR: TourChapter[] = [
       {
         id: "live-drag",
         target: page,
-        title: "Drag a match to a court",
-        body: "Drag a waiting match from the Games panel onto any court to play it there next. The court takes it, and the match it replaced waits its turn.",
+        title: "Put another game on a waiting court",
+        body: "Click the waiting court: the right panel shows all the games available for it. Drag any game from the panel's Up next section and drop it on the waiting court to play it there next. The waiting game joins the Up next queue.",
         screen: live({ panel: true }),
       },
       {
