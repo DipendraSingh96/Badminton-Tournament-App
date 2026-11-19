@@ -352,3 +352,8 @@ Two entrance movements, each 1s, ease in-out, played once as a step is taken, in
 
 ### Sign-in page (18 Nov 2026)
 The `workspace-dots` ground; a 360px column centred both ways. Product name in the display face, 24px, uppercase. One `card` panel, 24px padding, 16px radius: `heading-card` 20px title, a 14px muted line, fields with 12px muted labels above them (labels above, not inside: a browser's saved-password fill must not hide them), a full-width primary button. A 14px muted line under the card. Errors: 14px `destructive` text, `role="alert"`. Same in Light and Dark.
+
+### The product tour (19 Nov 2026)
+- **Dim:** black at 55% over everything but the lit part. **Lit part:** an 8px-radius box 6px larger than the element, a 2px `primary` outline. It moves between steps in 200ms, ease-out; instantly under reduced motion.
+- **Card:** `card` surface, 12px radius, 16px padding, 1px border and the large shadow (it floats over a dimmed screen, the one place a shadow carries meaning here). 344px wide. Muted 12px semibold line for chapter and count; `heading-card` 20px title; 14px text at relaxed leading; small buttons, the way on is primary and has the keyboard.
+- **Light by default:** the tour always renders in Light.
