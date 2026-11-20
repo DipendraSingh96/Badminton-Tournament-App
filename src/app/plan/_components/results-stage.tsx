@@ -270,37 +270,44 @@ function MoneyView({ update, money }: { update: Update; money: MoneyReport | nul
       .map((line) => {
         // A cost that came in under plan is good news; money in under plan is not.
         const diff = line.planned === null ? null : line.actual - line.planned;
-        const shown = line.shuttles ? line.shuttles.actual : line.actual;
+        const units = line.units;
+        const hours = units?.what === "courtHours";
+        const shown = units ? units.actual : line.actual;
+        const number = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
         return (
           <tr key={line.key} data-money-line={line.key} data-corrected={line.corrected || undefined} className="border-t border-border/60">
             <th scope="row" className="py-2 pr-2 text-left font-medium">
               {line.label}
-              {line.shuttles ? <span className="block text-xs font-normal text-muted-foreground">Shuttles used, at {formatMoney(line.shuttles.each)} each</span> : null}
+              {units ? (
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {hours ? `Court-hours charged (courts × hours), at ${formatMoney(units.each)} an hour` : `Shuttles used, at ${formatMoney(units.each)} each`}
+                </span>
+              ) : null}
             </th>
             <td className="py-2 text-right text-muted-foreground">{line.planned === null ? "–" : formatMoney(line.planned)}</td>
             <td className="py-2 pl-3">
               <span className="flex items-center justify-end gap-1">
                 {line.corrected ? (
                   <IconButton
-                    label={`Back to the worked-out figure for ${line.label.toLowerCase()} (${line.shuttles ? `${line.shuttles.worked} shuttles` : formatMoney(line.worked)})`}
+                    label={`Back to the worked-out figure for ${line.label.toLowerCase()} (${units ? `${number(units.worked)} ${hours ? "court-hours" : "shuttles"}` : formatMoney(line.worked)})`}
                     onClick={() => update((d) => void delete d.actuals[line.key])}
                   >
                     <ArrowCounterClockwiseIcon />
                   </IconButton>
                 ) : null}
                 <Input
-                  aria-label={line.shuttles ? "Shuttles used" : `${line.label}, actual (£)`}
+                  aria-label={units ? (hours ? `${line.label}, court-hours charged` : "Shuttles used") : `${line.label}, actual (£)`}
                   type="number"
                   inputMode="decimal"
                   min={0}
-                  step={line.shuttles ? 1 : 0.01}
-                  value={Number.isInteger(shown) ? String(shown) : shown.toFixed(2)}
+                  step={units ? (hours ? 0.5 : 1) : 0.01}
+                  value={units ? number(shown) : Number.isInteger(shown) ? String(shown) : shown.toFixed(2)}
                   onChange={(e) => set(line.key, e.target.value)}
                   // A corrected figure is marked: the accent ring says it is the organiser's own.
                   className={cn("w-28 text-right tabular-nums", line.corrected && "ring-2 ring-primary")}
                 />
               </span>
-              {line.shuttles ? <span className="block pt-0.5 text-right text-xs text-muted-foreground">= {formatMoney(line.actual)}</span> : null}
+              {units ? <span className="block pt-0.5 text-right text-xs text-muted-foreground">= {formatMoney(line.actual)}</span> : null}
             </td>
             <td className="py-2 pl-3 text-right">{diff === null ? "–" : signed(diff)}</td>
           </tr>
@@ -323,7 +330,8 @@ function MoneyView({ update, money }: { update: Update; money: MoneyReport | nul
         <h2 className="heading-card">Money</h2>
         <p className="text-sm text-muted-foreground">
           Planned is the plan on its expected numbers. Actual is worked out from the day (the real entries, the games played, the time booked); type over
-          any figure with what was really paid or received.
+          any figure with what was really paid or received. Court hire and shuttles are entered as what was used (court-hours charged, shuttles), and
+          their cost follows.
           {corrections > 0 ? ` ${corrections} ${corrections === 1 ? "figure is" : "figures are"} your own.` : ""}
         </p>
       </div>

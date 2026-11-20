@@ -225,7 +225,7 @@ export function dayReport(draft: PlanDraft, games: ResultsGame[], minuteOf: (iso
 
 /** One line of the money, planned and as it turned out. */
 export interface MoneyLine {
-  /** What it is, for the organiser's correction: "fee:<category>", "income:<id>", "hire", "shuttles", "prize:<id>", "cost:<id>". */
+  /** What it is, for the organiser's correction: "fee:<category>", "income:<id>", "hireHours:<hall>", "shuttles", "prize:<id>", "cost:<id>". */
   key: string;
   label: string;
   side: "in" | "out";
@@ -236,8 +236,12 @@ export interface MoneyLine {
   /** What counts: the organiser's correction where there is one, else the worked-out figure. */
   actual: number;
   corrected: boolean;
-  /** Shuttles are corrected as a number used, not as money: the number worked out, the number that counts, and each one's cost. */
-  shuttles?: { worked: number; actual: number; each: number };
+  /**
+   * A line corrected in its own unit, not as money: shuttles as a number
+   * used, court hire as court-hours charged. The number worked out, the
+   * number that counts, and what each one costs.
+   */
+  units?: { what: "shuttles" | "courtHours"; worked: number; actual: number; each: number };
 }
 
 export interface MoneyReport {
@@ -262,7 +266,9 @@ const PLACE_NAMES = ["1st", "2nd", "3rd"];
  * The money, plan beside actual. `planned` is the plan on its expected
  * numbers (null if that plan can't be read); `worked` is the day as it was.
  * A correction in `draft.actuals` replaces a line's worked-out figure: an
- * amount for every line but shuttles, which are corrected as a number used.
+ * amount for every line but shuttles (a number used) and court hire (the
+ * court-hours charged in each hall, which the hall may bill whether or not
+ * the courts were played on to the end).
  */
 export function moneyReport(draft: PlanDraft, planned: FinanceResult | null, worked: FinanceResult): MoneyReport {
   const several = draft.categories.length > 1;
@@ -282,7 +288,28 @@ export function moneyReport(draft: PlanDraft, planned: FinanceResult | null, wor
   for (const income of worked.otherIncome) {
     add(`income:${income.id}`, income.label || "Other money in", "in", planned?.otherIncome.find((i) => i.id === income.id)?.amount ?? null, income.amount);
   }
-  add("hire", "Court hire", "out", planned?.courtHire.total ?? null, worked.courtHire.total);
+  // Court hire, hall by hall, in court-hours: booked by default, typed over with what the hall charged for.
+  draft.frame.halls.forEach((hall, h) => {
+    const booked = worked.courtHire.courts.filter((c) => c.hallId === hall.id);
+    if (booked.length === 0) return;
+    const hours = booked.reduce((sum, c) => sum + c.bands.reduce((minutes, b) => minutes + b.minutes, 0), 0) / 60;
+    const amount = booked.reduce((sum, c) => sum + c.amount, 0);
+    // One rate for the hall: what was booked over its hours (several rate bands average out).
+    const each = hours > 0 ? amount / hours : 0;
+    const before = planned ? planned.courtHire.courts.filter((c) => c.hallId === hall.id).reduce((sum, c) => sum + c.amount, 0) : null;
+    const key = `hireHours:${hall.id}`;
+    const used = corrected(key);
+    lines.push({
+      key,
+      label: draft.frame.halls.length > 1 ? `Court hire: ${hall.name.trim() || `Hall ${h + 1}`}` : "Court hire",
+      side: "out",
+      planned: before,
+      worked: amount,
+      actual: (used ?? hours) * each,
+      corrected: used !== null,
+      units: { what: "courtHours", worked: hours, actual: used ?? hours, each },
+    });
+  });
   {
     const used = corrected("shuttles");
     const count = used ?? worked.shuttles;
@@ -294,7 +321,7 @@ export function moneyReport(draft: PlanDraft, planned: FinanceResult | null, wor
       worked: worked.shuttleCost,
       actual: count * worked.costPerShuttle,
       corrected: used !== null,
-      shuttles: { worked: worked.shuttles, actual: count, each: worked.costPerShuttle },
+      units: { what: "shuttles", worked: worked.shuttles, actual: count, each: worked.costPerShuttle },
     });
   }
   for (const prize of draft.finance.prizes) {

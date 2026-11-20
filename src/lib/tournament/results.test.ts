@@ -207,18 +207,27 @@ describe("the money, plan and actual", () => {
     const draft = live();
     playGroups(draft);
     const before = reports(draft).report();
-    draft.actuals = { hire: 100, shuttles: 20 };
+    const hire = before.lines.find((l) => l.key.startsWith("hireHours:"))!;
+    // Court hire starts at the booked court-hours, at the hall's booked rate.
+    expect(hire.units).toMatchObject({ what: "courtHours", actual: hire.units!.worked });
+    expect(hire.units!.worked).toBeGreaterThan(0);
+    expect(hire.actual).toBeCloseTo(hire.units!.worked * hire.units!.each);
+    expect(hire.actual).toBeCloseTo(hire.planned!);
+    // An old correction of the hire as money is no longer read.
+    draft.actuals = { hire: 100, [hire.key]: 3, shuttles: 20 };
     const after = reports(draft).report();
     const line = (money: typeof after, key: string) => money.lines.find((l) => l.key === key)!;
-    expect(line(after, "hire")).toMatchObject({ actual: 100, corrected: true, worked: line(before, "hire").worked });
+    // Court hire is corrected as court-hours charged; its cost follows.
+    expect(line(after, hire.key)).toMatchObject({ corrected: true, worked: hire.worked, units: { actual: 3, worked: hire.units!.worked } });
+    expect(line(after, hire.key).actual).toBeCloseTo(3 * hire.units!.each);
     // Shuttles are corrected as a number used.
-    expect(line(after, "shuttles")).toMatchObject({ corrected: true, shuttles: { actual: 20 } });
-    expect(line(after, "shuttles").actual).toBeCloseTo(20 * line(after, "shuttles").shuttles!.each);
+    expect(line(after, "shuttles")).toMatchObject({ corrected: true, units: { what: "shuttles", actual: 20 } });
+    expect(line(after, "shuttles").actual).toBeCloseTo(20 * line(after, "shuttles").units!.each);
     for (const l of after.lines) {
-      if (l.key === "hire" || l.key === "shuttles") continue;
+      if (l.key === hire.key || l.key === "shuttles") continue;
       expect(l).toEqual(before.lines.find((x) => x.key === l.key));
     }
-    expect(after.actual.costs).toBeCloseTo(before.actual.costs - line(before, "hire").actual + 100 - line(before, "shuttles").actual + line(after, "shuttles").actual);
+    expect(after.actual.costs).toBeCloseTo(before.actual.costs - hire.actual + 3 * hire.units!.each - line(before, "shuttles").actual + line(after, "shuttles").actual);
     // A walkover's given games aren't played, so they use no shuttles.
     awardMatch(draft, { matchId: ko("SF1"), winner: 0, reason: "walkover", now: at("11:00") });
     expect(gamesPlayed(draft)).toBe(6);
