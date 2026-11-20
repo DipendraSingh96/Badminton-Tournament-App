@@ -648,14 +648,16 @@ function GameBody({
     superCategory && state !== "finished" ? (
       <div data-super-line-up className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">Who plays the super match? It can be anyone in the squad, whatever the line-up for the match-ups.</p>
+        {/* Each team on its own side, as its name and its score are: home's players on the left, away's on the right. */}
+        <div className="grid grid-cols-2 gap-2">
         {([match.home, match.away] as const).map((slot, i) => {
           const entry = entryForSlot(draft, match.categoryId, slot);
-          if (!entry) return null;
+          if (!entry) return <div key={slot} />;
           const chosen = entry.lineUp[SUPER_LINE_UP] ?? [];
           return (
-            <div key={slot} className="flex flex-col gap-1">
-              <h4 className="truncate text-sm font-semibold">{i === 0 ? home : away}</h4>
-              <div className="grid grid-cols-2 gap-2">
+            <div key={slot} className="flex min-w-0 flex-col gap-1">
+              <h4 className={cn("truncate text-sm font-semibold", i === 1 && "text-right")}>{i === 0 ? home : away}</h4>
+              <div className="flex flex-col gap-2">
                 {Array.from({ length: superPlayersPerSide(superCategory) }, (_, p) => (
                   <NativeSelect
                     key={p}
@@ -693,6 +695,7 @@ function GameBody({
             </div>
           );
         })}
+        </div>
       </div>
     ) : null;
   // A super match still in the panel: it is played once it is on a court.
