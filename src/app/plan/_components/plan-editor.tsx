@@ -77,8 +77,6 @@ import { finishTournament, goLive, moveGame, reopenLive, startReadyGames, startT
 import { canFinish, stillOpen } from "@/lib/tournament/results";
 import { matchRef } from "@/lib/tournament/entries";
 import { liveDay } from "@/lib/tournament/live-day";
-import { BOARD_PING_MS, boardChannel, type BoardDay, type BoardMessage } from "@/lib/tournament/board-channel";
-import { AudienceBoardButton } from "./audience-button";
 import { courtQueues, gameState, stapledWith, timingOf } from "@/lib/tournament/live";
 import { LiveMovesContext, type LiveMoves } from "./live-moves";
 import { CourtBoard } from "./court-board";
@@ -1017,10 +1015,6 @@ function Editor({
   const day = useMemo(() => liveDay(liveDraft, segments, { now: liveMinute, minuteOf, courtIds }), [liveDraft, segments, liveMinute, minuteOf, courtIds]);
   const projection = day.projection;
 
-  // The audience board, in a window of its own: it is sent the day as the desk sees it (a simulated
-  // day included) each time something changes. Nothing sent is saved.
-  const boardClock = watching || developer ? liveTime : null;
-
   // The players' link. While the tournament is shared, a public snapshot of the day is kept up to
   // date under the link: built by the audience board's own functions, which carry no phone number,
   // check-in, money or log. It is the real tournament that is shown. A rehearsal is shown instead
@@ -1107,35 +1101,23 @@ function Editor({
   // Offered from the Draw stage on: before that there is nothing to follow.
   const shareButton =
     sharing && draft.stage !== "plan" ? (
-      <ShareButton link={draft.publicLink} state={shareState} onShare={() => setPublicLink(crypto.randomUUID())} onStop={() => void stopSharing()} onRenew={() => void renewLink()} />
+      <ShareButton
+        link={draft.publicLink}
+        state={shareState}
+        onShare={() => setPublicLink(crypto.randomUUID())}
+        onStop={() => void stopSharing()}
+        onRenew={() => void renewLink()}
+        names={draft.publicNames}
+        // A real name from the entries to show each choice with; none until someone is entered.
+        example={draft.entries.flatMap((e) => e.players.map((p) => p.name.trim())).find((n) => n.includes(" ")) ?? null}
+        // The names setting is the tournament's: it is saved, and a rehearsal under way takes it too.
+        onNames={(mode) => {
+          update((d) => void (d.publicNames = mode));
+          const now = simNow.current;
+          if (now) putSim({ ...now, base: produce(now.base, (d) => void (d.publicNames = mode)) });
+        }}
+      />
     ) : null;
-  const boardDay = useRef<BoardDay>({ draft: liveDraft, now: liveMinute, clock: boardClock });
-  const boardSend = useRef<(() => void) | null>(null);
-  const boardOn = draft.stage === "live";
-  useEffect(() => {
-    if (!boardOn) return;
-    const channel = boardChannel(id);
-    if (!channel) return;
-    const send = () => channel.postMessage({ type: "day", ...boardDay.current } satisfies BoardMessage);
-    channel.onmessage = (event: MessageEvent<BoardMessage>) => {
-      if (event.data.type === "hello") send();
-    };
-    boardSend.current = send;
-    send();
-    const timer = window.setInterval(
-      () => channel.postMessage({ type: "ping", now: boardDay.current.now, clock: boardDay.current.clock } satisfies BoardMessage),
-      BOARD_PING_MS,
-    );
-    return () => {
-      window.clearInterval(timer);
-      boardSend.current = null;
-      channel.close();
-    };
-  }, [id, boardOn]);
-  useEffect(() => {
-    boardDay.current = { draft: liveDraft, now: liveMinute, clock: boardClock };
-    boardSend.current?.();
-  }, [liveDraft, liveMinute, boardClock]);
   const liveSegments = useMemo(
     () =>
       segments.map((s) => {
@@ -1643,18 +1625,6 @@ function Editor({
           // Developer tools: a simulated day to watch, on the Live stage only.
           onLive ? (
             <>
-              {draft.stage === "live" ? (
-                <AudienceBoardButton
-                  id={id}
-                  draft={draft}
-                  // The names setting is the tournament's: it is saved, and a simulated day takes it too.
-                  update={(recipe) => {
-                    update(recipe);
-                    const now = simNow.current;
-                    if (now) putSim({ ...now, base: produce(now.base, recipe) });
-                  }}
-                />
-              ) : null}
               {liveDraft.startedAt ? <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">Started {clock(day.started ?? 0)}</span> : null}
               {sim && !sim.started ? (
                 // A rehearsal opened and not begun: as Live is before Start tournament.

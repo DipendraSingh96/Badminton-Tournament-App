@@ -70,6 +70,8 @@ function CategoryEntries({ draft, category, update }: { draft: PlanDraft; catego
   const external = entries.filter((e) => e.external).length;
   const repeated = repeatedSeeds(entries);
   const [pending, setPending] = useState<Pending | null>(null);
+  // One team's squad and line-up are open at a time: opening another closes it.
+  const [openId, setOpenId] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
   return (
@@ -171,6 +173,8 @@ function CategoryEntries({ draft, category, update }: { draft: PlanDraft; catego
               entry={entry}
               index={i}
               repeatedSeed={entry.seed !== null && repeated.has(entry.seed)}
+              open={openId === entry.id}
+              onOpen={(on) => setOpenId(on ? entry.id : null)}
               update={update}
             />
           ))}
@@ -248,6 +252,8 @@ function EntryRow({
   entry,
   index,
   repeatedSeed,
+  open,
+  onOpen,
   update,
 }: {
   draft: PlanDraft;
@@ -255,10 +261,12 @@ function EntryRow({
   entry: EntryDraft;
   index: number;
   repeatedSeed: boolean;
+  /** This team's squad and line-up are showing: one team at a time. */
+  open: boolean;
+  onOpen: (open: boolean) => void;
   update: Update;
 }) {
   const team = draft.unit === "team";
-  const [open, setOpen] = useState(false);
   const edit = (recipe: (e: EntryDraft) => void) =>
     update((d) => {
       const target = d.entries.find((e) => e.id === entry.id);
@@ -271,9 +279,18 @@ function EntryRow({
   return (
     <div role="row" className="flex flex-col border-b py-2 last:border-b-0">
       <div
+        // The whole row opens a team's squad and line-up; its fields and buttons keep their own job.
+        onClick={
+          team
+            ? (event) => {
+                if (!(event.target as HTMLElement).closest("input, button, select, label, a, [role='checkbox']")) onOpen(!open);
+              }
+            : undefined
+        }
         className={cn(
           // Top-aligned: a pair's two players stand one above the other, and the rest of the row lines up with the first.
           "grid items-start gap-2 px-2",
+          team && "cursor-pointer",
           team ? "grid-cols-[40px_minmax(140px,1.4fr)_minmax(180px,1fr)_80px_80px_40px]" : "grid-cols-[40px_minmax(140px,1.4fr)_minmax(180px,1fr)_80px_80px_40px]",
         )}
       >
@@ -285,6 +302,8 @@ function EntryRow({
             aria-label={label(team ? "Team name" : "Name")}
             value={entry.name}
             placeholder={team ? "Team name" : "Optional"}
+            // Naming a team shows its squad and line-up to fill in next.
+            onFocus={team ? () => onOpen(true) : undefined}
             onChange={(e) => edit((x) => void (x.name = e.target.value))}
           />
         </span>
@@ -293,7 +312,7 @@ function EntryRow({
             <button
               type="button"
               aria-expanded={open}
-              onClick={() => setOpen(!open)}
+              onClick={() => onOpen(!open)}
               className="flex h-8 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm outline-none hover:bg-inset focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="flex min-w-0 items-center gap-2">
