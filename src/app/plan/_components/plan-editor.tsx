@@ -59,6 +59,9 @@ import {
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { accountRemote } from "@/lib/supabase/tournaments";
+import { accountSharing, type Sharing } from "@/lib/supabase/shared-boards";
+import { publicBoard, type PublicBoard } from "@/lib/tournament/public-board";
+import { ShareButton, type ShareState } from "./share-button";
 import type { Account } from "./sidebar";
 import { DerivedCards } from "./dashboard";
 import { NeedsYou } from "./live-dialogs";
@@ -173,6 +176,8 @@ const WORKBENCH =
 /** The side panel's width, open and folded to its rail (the widths of the panels themselves). */
 const SIDE_PANEL_OPEN = 440;
 const SIDE_PANEL_FOLDED = 64;
+/** How often the players' link is brought up to date while something has changed. */
+const SHARE_EVERY_MS = 3000;
 /** How long the side panel and the timeline take to open or fold, in milliseconds. */
 const PANEL_MOTION_MS = 300;
 /** Text running down the folded rail. */
@@ -395,6 +400,8 @@ interface TournamentActions {
   onAddKept: (id: string) => void;
   /** Settings: opens the product tour. */
   onTour: () => void;
+  /** The players' link, kept in the organiser's account. */
+  sharing: Sharing;
 }
 
 /** Hands the organiser a file to save: made here, on their device; nothing is sent anywhere. */
@@ -1013,6 +1020,95 @@ function Editor({
   // The audience board, in a window of its own: it is sent the day as the desk sees it (a simulated
   // day included) each time something changes. Nothing sent is saved.
   const boardClock = watching || developer ? liveTime : null;
+
+  // The players' link. While the tournament is shared, a public snapshot of the day is kept up to
+  // date under the link: built by the audience board's own functions, which carry no phone number,
+  // check-in, money or log. It is the real tournament that is shown. A rehearsal is shown instead
+  // (marked as one) only with developer mode on; the tour's sample is never sent anywhere.
+  const sharing = tour ? null : tournaments.sharing;
+  const publicLink = sharing ? draft.publicLink : null;
+  const shareRehearsal = rehearsing && developer;
+  // The saved tournament on the real clock, whatever a rehearsal or the developer's cursor is showing the desk.
+  const realDay = useMemo(() => (publicLink ? liveDay(draft, segments, { now: clockMinute, minuteOf, courtIds }) : null), [publicLink, draft, segments, clockMinute, minuteOf, courtIds]); // eslint-disable-line react-hooks/preserve-manual-memoization
+  const realTime = clockMinute === null ? null : clock(Math.round(clockMinute));
+  const shareSource = useMemo(() => {
+    if (!publicLink || !realDay) return null;
+    if (shareRehearsal) return JSON.stringify(publicBoard(liveDraft, segments, day, { clock: liveTime, rehearsal: true }));
+    return JSON.stringify(publicBoard(draft, segments, realDay, { clock: realTime, rehearsal: false }));
+  }, [publicLink, shareRehearsal, liveDraft, draft, segments, day, liveTime, realDay, realTime]);
+  const [shareState, setShareState] = useState<ShareState>({ at: null, failed: false });
+  const shareLatest = useRef<string | null>(null);
+  useEffect(() => {
+    shareLatest.current = shareSource;
+  }, [shareSource]);
+  useEffect(() => {
+    if (!publicLink || !sharing) return;
+    // The latest snapshot goes out when it differs from the last one sent: a few seconds behind the
+    // desk at most, and tried again by itself after a failure (no connection, say).
+    let sent: string | null = null;
+    let busy = false;
+    let gone = false;
+    const send = async () => {
+      const latest = shareLatest.current;
+      if (!latest || latest === sent || busy) return;
+      busy = true;
+      try {
+        await sharing.publish(publicLink, id, JSON.parse(latest) as PublicBoard);
+        sent = latest;
+        if (!gone) setShareState({ at: Date.now(), failed: false });
+      } catch {
+        if (!gone) setShareState((was) => ({ ...was, failed: true }));
+      } finally {
+        busy = false;
+      }
+    };
+    const first = window.setTimeout(() => void send(), 300);
+    const timer = window.setInterval(() => void send(), SHARE_EVERY_MS);
+    return () => {
+      gone = true;
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
+  }, [publicLink, sharing, id]);
+  /** Sets the tournament's players' link (a new secret id), or takes it away. Saved with the tournament; a rehearsal under way keeps it too. */
+  function setPublicLink(link: string | null) {
+    commit(produce(draftRef.current, (d) => void (d.publicLink = link)), false);
+    const now = simNow.current;
+    if (now) putSim({ ...now, base: produce(now.base, (d) => void (d.publicLink = link)) });
+    setShareState({ at: null, failed: false });
+  }
+  async function stopSharing() {
+    if (!sharing) return;
+    if (
+      !(await confirm({
+        title: "Stop sharing with players?",
+        body: "The link stops working for everyone who has it. Sharing again makes a new link.",
+        action: "Stop sharing",
+      }))
+    )
+      return;
+    setPublicLink(null);
+    // Whoever has the link sees it is no longer shared. (If this can't be sent now, the link is orphaned: it shows the last update and no more.)
+    await sharing.stop(id).catch(() => {});
+  }
+  async function renewLink() {
+    if (!sharing) return;
+    if (
+      !(await confirm({
+        title: "Make a new link?",
+        body: "The link you have sent stops working. Send players the new one.",
+        action: "New link",
+      }))
+    )
+      return;
+    await sharing.stop(id).catch(() => {});
+    setPublicLink(crypto.randomUUID());
+  }
+  // Offered from the Draw stage on: before that there is nothing to follow.
+  const shareButton =
+    sharing && draft.stage !== "plan" ? (
+      <ShareButton link={draft.publicLink} state={shareState} onShare={() => setPublicLink(crypto.randomUUID())} onStop={() => void stopSharing()} onRenew={() => void renewLink()} />
+    ) : null;
   const boardDay = useRef<BoardDay>({ draft: liveDraft, now: liveMinute, clock: boardClock });
   const boardSend = useRef<(() => void) | null>(null);
   const boardOn = draft.stage === "live";
@@ -1540,7 +1636,9 @@ function Editor({
       liveBlocked={liveBlocked}
       resultsBlocked={resultsBlocked}
       actions={
-        // Live runs on the day's real data: no sample data there, or anywhere once the tournament is Live.
+        <>
+        {shareButton}
+        {// Live runs on the day's real data: no sample data there, or anywhere once the tournament is Live.
         isLive ? (
           // Developer tools: a simulated day to watch, on the Live stage only.
           onLive ? (
@@ -1616,7 +1714,8 @@ function Editor({
           ) : null
         ) : (
           <SampleDataButtons fill={sampleFill} remove={sampleRemove} />
-        )
+        )}
+        </>
       }
     />
   );
@@ -2080,6 +2179,7 @@ interface Session {
   email: string;
   store: Store;
   remote: Remote;
+  sharing: Sharing;
   signOut: () => Promise<void>;
 }
 
@@ -2258,6 +2358,7 @@ function Workspace({ session }: { session: Session }) {
     index,
     onSave,
     onTour: () => goTour("contents"),
+    sharing: session.sharing,
     store,
     account: { email: session.email, onSignOut: () => void signOut() },
     unsent: pending.unsent,
@@ -2416,6 +2517,7 @@ function SignedIn() {
       if (gone) return;
       setSession({
         email: user.email ?? "Signed in",
+        sharing: accountSharing(supabase),
         store,
         remote,
         signOut: async () => {

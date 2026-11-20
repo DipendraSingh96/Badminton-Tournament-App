@@ -365,3 +365,13 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
 - **Timeline wording:** "a zone for each stage"; "Drag a stage zone to your timing".
 - **Last card:** "That's the whole flow"; two full-width buttons, one over the other: **Start new tournament** (primary) and **Explore sample tournament**.
 - **Exploring:** a pill at the bottom centre of the window: "Sample tournament. Look round freely: nothing here is saved." and **Back to my tournaments**. Choosing New tournament or one of the organiser's own in the list also leaves it.
+
+### The players' link, 20 Nov 2026
+- **Share with players** (stage row, from the Draw stage on; first of the row's actions): an outline button; once shared it reads "Shared with players" with a small dot (green: up to date; amber: the last update couldn't be sent). Its panel (360px): a "Players' link" switch; a sentence on what the link shows and never shows; then, while on, the address in a read-only box, **Copy link** ("Copied" for two seconds), **New link** (asks first), and a status line ("Up to date at 10:32…", or that it couldn't be updated). Switching off asks first.
+- **The players' page (`/follow?t=…`).** Phone-first, a 960px column on wider screens. A sticky top: the Rehearsal band when it applies; the tournament's name; date and how far the day has got; "Updated 10:32 · refreshes by itself" (amber "Last updated 10:32. The desk may be offline." after two minutes without an update while Live); then the page tabs. Tabs by the point of the day: before, **Schedule · Groups · Knockout**; Live, **Courts · Up next · Groups · Knockout**; finished, **Results · Groups · Knockout**.
+  - **Courts:** a card per court (one column on a phone, two from 640px, three from 1024px): "Court 3", its state (On court, "Next · 09:35", Free, Done for today), category and group or round, the two sides, and for a game on court its points game by game.
+  - **Up next / Schedule:** a row per match in order: time and court, what it is, the two sides.
+  - **Groups:** a card per group: its table (place, entry, P, W, L, +/−), each entry's standing once the group is finished, and the qualifying line.
+  - **Knockout:** per category, the rounds latest first (final at the top), each match a card with its sides, scores and winner in bold; the bronze match with the final. (Stacked by round, not drawn as a bracket: it reads better on a phone.)
+  - **Results:** per category, 1st, 2nd and 3rd.
+  - A wrong or switched-off link: "This link is no longer shared". No connection: "Couldn't load the tournament", and it tries again by itself.

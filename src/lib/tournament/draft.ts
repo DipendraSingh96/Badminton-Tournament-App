@@ -380,6 +380,12 @@ export interface PlanDraft {
   resources: ResourcesDraft;
   /** How people's names appear on the audience board (and, later, a shared link). The desk always sees full names. */
   publicNames: PublicNames;
+  /**
+   * The players' link: the secret id its address carries while the tournament
+   * is shared with players, null while it isn't. It names a public snapshot
+   * (see public-board.ts), never the tournament itself.
+   */
+  publicLink: string | null;
   /** Group stage: each group on its own courts, or any free court in the hall. */
   groupCourts: GroupCourts;
   /** Courts set by hand, by court id: a group's key ("categoryId:groupIndex") of any hall, or "" for no group. */
@@ -510,7 +516,8 @@ export function duplicateDraft(draft: PlanDraft): PlanDraft {
     kit: copy.resources.kit.map((row) => ({ ...row, packed: false })),
     packed: [],
   };
-  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, startedAt: null, resources };
+  // A copy is not shared with anyone: the original's players' link stays the original's.
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, startedAt: null, resources, publicLink: null };
 }
 
 export function emptyStageRules(): StageRulesDraft {
@@ -1010,6 +1017,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     resources: emptyResources(),
     actuals: {},
     publicNames: "full",
+    publicLink: null,
     groupCourts: "own",
     courtGroups: {},
     stage: "plan",

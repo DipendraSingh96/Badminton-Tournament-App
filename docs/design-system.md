@@ -363,3 +363,6 @@ The lit box is one element for the whole tour. It waits until the next part is o
 
 ### Panels opening and folding (19 Nov 2026)
 The side panel (440px open, 64px folded to its rail) and the timeline open and fold in 300ms, ease in-out, wherever they are used, not only in the tour. Folding the side panel is the mirror of opening it: the panel stays as it is while its width closes, and the rail takes its place once it has. The side panel's width is what moves, so the main area shifts with it; its content keeps to the right edge as it goes. The timeline lies over the main area, so only its own height moves. Dragging the timeline's edge stays immediate. Reduced motion: no movement.
+
+### The players' page (20 Nov 2026)
+The `workspace-dots` ground; `card` panels at 8px radius and 12px padding; 16px side gutters; one column under 640px. Times and scores in the display face with tabular figures. The accent marks only what is happening now: "On court", the current tab, the winner's ring in Results and the qualifying line. Status text uses the tight (amber) text colour. Light or Dark follows the device.

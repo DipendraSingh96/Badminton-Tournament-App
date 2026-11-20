@@ -48,6 +48,7 @@ export function normaliseDraft(
     | "startedAt"
     | "resources"
     | "publicNames"
+    | "publicLink"
   > & {
     /** Zones dragged in time before zone moves; their start carries over. */
     stageWindows?: Record<string, { from: string; to: string }>;
@@ -62,6 +63,7 @@ export function normaliseDraft(
     actuals?: PlanDraft["actuals"];
     resources?: PlanDraft["resources"];
     publicNames?: PlanDraft["publicNames"];
+    publicLink?: PlanDraft["publicLink"];
     groupCourts?: PlanDraft["groupCourts"];
     courtGroups?: PlanDraft["courtGroups"];
     stage?: PlanDraft["stage"];
@@ -105,6 +107,7 @@ export function normaliseDraft(
     resources: { ...emptyResources(), ...saved.resources },
     // Saved before the audience board: names in full.
     publicNames: saved.publicNames ?? "full",
+    publicLink: typeof saved.publicLink === "string" ? saved.publicLink : null,
     // Groups keep their own courts unless the organiser chose to share them.
     groupCourts: saved.groupCourts ?? "own",
     courtGroups: saved.courtGroups ?? {},
@@ -331,7 +334,8 @@ export function readTournamentFile(text: string): PlanDraft | null {
     const saved = file.tournament as Partial<PlanDraft> | null;
     if (!saved || typeof saved !== "object" || typeof saved.name !== "string" || !Array.isArray(saved.categories)) return null;
     if (!saved.frame || typeof saved.frame !== "object" || !Array.isArray(saved.frame.halls)) return null;
-    return normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]);
+    // A tournament from a file is a new one here: it is not shared with players until it is switched on again.
+    return { ...normaliseDraft(saved as Parameters<typeof normaliseDraft>[0]), publicLink: null };
   } catch {
     return null;
   }
