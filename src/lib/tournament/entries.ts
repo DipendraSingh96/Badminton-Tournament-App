@@ -49,6 +49,14 @@ export interface SlotOptions {
   provisional?: boolean;
 }
 
+/** Where a team's players for a super match are kept in its line-up, beside its matches' ("1", "2"…). */
+export const SUPER_LINE_UP = "super";
+
+/** How many players a side fields in a super match: as many as the category's largest match (a pair where it plays doubles). */
+export function superPlayersPerSide(category: CategoryDraft): number {
+  return Math.max(1, ...rubbersOf(category).map((r) => r.players));
+}
+
 /** A side given as an entry itself, not a place in the draw: a super match's sides. */
 export function entrySlot(entryId: string): string {
   return `=${entryId}`;
@@ -532,7 +540,8 @@ export function sidePlayers(draft: PlanDraft, categoryId: string, slot: string, 
   const entry = entryForSlot(draft, categoryId, slot);
   if (!entry) return [];
   if (draft.unit === "team") {
-    const ids = rubber === undefined ? [] : (entry.lineUp[String(rubber)] ?? []);
+    // A super match's side is the entry itself: who plays it is chosen for that one game.
+    const ids = slot.startsWith("=") ? (entry.lineUp[SUPER_LINE_UP] ?? []) : rubber === undefined ? [] : (entry.lineUp[String(rubber)] ?? []);
     return ids.map((id) => entry.players.find((p) => p.id === id)).filter((p): p is PlayerDraft => Boolean(p));
   }
   return entry.players;

@@ -165,6 +165,36 @@ describe("estimateSchedule", () => {
     ]);
   });
 
+  it("gives each tie of a round a court before any tie takes two: four quarter-finals on four courts at once", () => {
+    const plan = tournament();
+    plan.unit = "team";
+    plan.categories[0] = { ...plan.categories[0]!, entry: { type: "team", lineUp: [{ event: "MD", count: 2 }] } };
+    const { schedule } = estimate(plan);
+    const round = (size: number) =>
+      schedule.courts.flatMap((c) =>
+        c.segments.filter((x) => x.details[0]!.match.roundSize === size && x.stage === "knockout").map((x) => ({ court: c.courtId, code: x.details[0]!.match.code!, from: x.from, to: x.to })),
+      );
+    const quarters = round(8);
+    expect(quarters).toHaveLength(8);
+    // One quarter-final to a court, its two matches back to back there, and all four start together.
+    const byCourt = new Map<string, typeof quarters>();
+    for (const q of quarters) byCourt.set(q.court, [...(byCourt.get(q.court) ?? []), q]);
+    expect(byCourt.size).toBe(4);
+    for (const list of byCourt.values()) {
+      expect(new Set(list.map((q) => q.code)).size).toBe(1);
+      const [first, second] = [...list].sort((a, b) => a.from.localeCompare(b.from));
+      expect(second!.from).toBe(first!.to);
+    }
+    expect(new Set(quarters.map((q) => q.code)).size).toBe(4);
+    const starts = [...byCourt.values()].map((list) => list.map((q) => q.from).sort()[0]);
+    expect(new Set(starts).size).toBe(1);
+    // Two semi-finals have two courts each: their matches are played side by side.
+    const semis = round(4);
+    expect(semis).toHaveLength(4);
+    expect(new Set(semis.map((x) => x.from)).size).toBe(1);
+    expect(new Set(semis.map((x) => x.court)).size).toBe(4);
+  });
+
   it("finishes within the playing time when the plan fits", () => {
     const { analysis, schedule } = estimate(tournament());
     expect(analysis.capacity.status).toBe("fits");

@@ -289,11 +289,12 @@ export function playingStatus(draft: PlanDraft, segment: LocalSegment): CourtSta
       stage: segment.stage,
       label: short,
       face: {
-        net: [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `M${m.rubber.number}/${m.rubber.of}` : null]
-          .filter(Boolean)
-          .join(" · "),
-        home: m.home,
-        away: m.away,
+        net: m.super
+          ? "Super match"
+          : [group ? `Wave ${m.wave}` : knockoutShort(m.code), m.rubber ? `M${m.rubber.number}/${m.rubber.of}` : null].filter(Boolean).join(" · "),
+        // A super match's sides are entries, not draw places: there is no place to show until its players are chosen.
+        home: m.super ? "" : m.home,
+        away: m.super ? "" : m.away,
         homeLabel: sideName(draft, m.categoryId, m.home) ?? (group ? `${noun} ${m.home}` : noun),
         awayLabel: sideName(draft, m.categoryId, m.away) ?? (group ? `${noun} ${m.away}` : noun),
         homePlayers: playerNames(draft, m.categoryId, m.home, m.rubber?.number),

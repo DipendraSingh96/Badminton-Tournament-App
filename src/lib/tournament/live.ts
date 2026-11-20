@@ -183,13 +183,16 @@ export interface Projected {
  * it is the plan. After that, on each court in its own order: a finished
  * game sits at its real start and finish; a game on court runs from its real
  * start to its planned length, or to now once it has run past it; a waiting
- * game follows straight on from the one before (never before now), though
- * one whose sides aren't known yet doesn't move ahead of its planned time
- * shifted by how late the day began; and a walkover with nothing played
- * takes no time at all. A competition's knockout games wait for its last
- * group game, wherever that is being played.
+ * game follows straight on from the one before (never before now); and a
+ * walkover with nothing played takes no time at all. A competition's
+ * knockout games wait for its last group game, wherever that is being
+ * played; and a knockout game whose sides aren't known yet waits for the
+ * matches that decide them ("Winner QF1"), on whatever court those are, so
+ * a day running ahead of the plan closes up instead of leaving the later
+ * rounds at their planned times. (Where what feeds it can't be read, it
+ * keeps its planned time shifted by how late the day began.)
  */
-export function projectDay<G extends TimedGame & { match?: { categoryId: string; stage?: string } }>(
+export function projectDay<G extends TimedGame & { match?: { categoryId: string; stage?: string; code?: string; home?: string; away?: string; super?: boolean } }>(
   games: G[],
   results: PlanDraft["results"],
   day: {
@@ -215,41 +218,64 @@ export function projectDay<G extends TimedGame & { match?: { categoryId: string;
   const isGroup = (g: G) => !g.match || g.match.stage === undefined || g.match.stage === "group";
   const cursors = new Map<string, number>();
   const groupsEnd = new Map<string, number>();
-  for (const pass of ["group", "knockout"] as const) {
-    for (const [courtId, list] of byCourt) {
-      let cursor = cursors.get(courtId) ?? day.started;
-      for (const g of list) {
-        if (isGroup(g) !== (pass === "group")) continue;
-        const length = Math.max(1, g.to - g.from);
-        const result = results[g.id];
-        const began = result?.startedAt ? day.minuteOf(result.startedAt) : null;
-        if (result?.state === "finished") {
-          const played = result.games.some(([home, away]) => home !== null || away !== null);
-          if (result.award && (result.award.reason === "walkover" || !played)) {
-            out.set(g.id, { from: cursor, to: cursor, gone: true });
-            continue;
-          }
-          const from = began ?? cursor;
-          const ended = result.finishedAt ? day.minuteOf(result.finishedAt) : null;
-          const to = Math.max(from + 1, ended ?? from + length);
-          out.set(g.id, { from, to, gone: false });
-          cursor = Math.max(cursor, to);
-        } else if (result) {
-          const from = began ?? cursor;
-          const to = Math.max(from + length, day.now ?? -Infinity);
-          out.set(g.id, { from, to, gone: false });
-          cursor = Math.max(cursor, to);
-        } else {
-          const after = pass === "knockout" && g.match ? (groupsEnd.get(g.match.categoryId) ?? -Infinity) : -Infinity;
-          const from = Math.max(cursor, day.now ?? -Infinity, after, day.known(g) ? -Infinity : g.from + offset);
-          out.set(g.id, { from, to: from + length, gone: false });
-          cursor = from + length;
-        }
-        if (pass === "group" && g.match) groupsEnd.set(g.match.categoryId, Math.max(groupsEnd.get(g.match.categoryId) ?? -Infinity, out.get(g.id)!.to));
-      }
-      cursors.set(courtId, cursor);
-    }
+  // The games that decide a knockout game's sides: those of the matches its sides come from ("Winner QF1", "Loser SF2").
+  const byCode = new Map<string, G[]>();
+  for (const g of games) {
+    if (!g.match?.code || g.match.super) continue;
+    const key = `${g.match.categoryId}:${g.match.code}`;
+    byCode.set(key, [...(byCode.get(key) ?? []), g]);
   }
+  /** When a game's feeders end as the day is going; -Infinity with none; null when one can't be read yet. */
+  const fedAt = (g: G): number | null => {
+    let at = -Infinity;
+    for (const slot of [g.match?.home, g.match?.away]) {
+      const code = slot ? /^(?:Winner|Loser) (\S+)$/.exec(slot)?.[1] : undefined;
+      const feeders = code && g.match ? byCode.get(`${g.match.categoryId}:${code}`) : undefined;
+      if (!feeders) continue;
+      for (const feeder of feeders) {
+        const placed = out.get(feeder.id);
+        if (!placed) return null;
+        at = Math.max(at, placed.to);
+      }
+    }
+    return at;
+  };
+  const project = (g: G, pass: "group" | "knockout") => {
+    let cursor = cursors.get(g.courtId) ?? day.started!;
+    const length = Math.max(1, g.to - g.from);
+    const result = results[g.id];
+    const began = result?.startedAt ? day.minuteOf(result.startedAt) : null;
+    if (result?.state === "finished") {
+      const played = result.games.some(([home, away]) => home !== null || away !== null);
+      if (result.award && (result.award.reason === "walkover" || !played)) {
+        out.set(g.id, { from: cursor, to: cursor, gone: true });
+      } else {
+        const from = began ?? cursor;
+        const ended = result.finishedAt ? day.minuteOf(result.finishedAt) : null;
+        const to = Math.max(from + 1, ended ?? from + length);
+        out.set(g.id, { from, to, gone: false });
+        cursor = Math.max(cursor, to);
+      }
+    } else if (result) {
+      const from = began ?? cursor;
+      const to = Math.max(from + length, day.now ?? -Infinity);
+      out.set(g.id, { from, to, gone: false });
+      cursor = Math.max(cursor, to);
+    } else {
+      const after = pass === "knockout" && g.match ? (groupsEnd.get(g.match.categoryId) ?? -Infinity) : -Infinity;
+      // Sides not known yet: it can't be before what decides them has ended.
+      const hold = day.known(g) ? -Infinity : pass === "knockout" ? (fedAt(g) ?? g.from + offset) : g.from + offset;
+      const from = Math.max(cursor, day.now ?? -Infinity, after, hold);
+      out.set(g.id, { from, to: from + length, gone: false });
+      cursor = from + length;
+    }
+    if (pass === "group" && g.match) groupsEnd.set(g.match.categoryId, Math.max(groupsEnd.get(g.match.categoryId) ?? -Infinity, out.get(g.id)!.to));
+    cursors.set(g.courtId, cursor);
+  };
+  // Each court's group games first, court by court.
+  for (const list of byCourt.values()) for (const g of list) if (isGroup(g)) project(g, "group");
+  // Then the knockout games in the order they were planned, across the courts: a round is placed before the round it feeds.
+  for (const g of [...games].sort((a, b) => a.from - b.from)) if (!isGroup(g)) project(g, "knockout");
   return out;
 }
 

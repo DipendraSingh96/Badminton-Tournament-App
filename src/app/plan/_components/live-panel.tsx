@@ -10,7 +10,7 @@ import { groupLetter, matchOutcome, rulesFor, type TournamentInputs } from "@/en
 import { entryName, type PlanDraft } from "@/lib/tournament/draft";
 import { finishMatch, unplaceSuperMatch } from "@/lib/tournament/changes";
 import { superRules } from "@/lib/tournament/super-match";
-import { entryForSlot, matchPlayers, sidePlayers, sidesChanged } from "@/lib/tournament/entries";
+import { SUPER_LINE_UP, entryForSlot, matchPlayers, sidePlayers, sidesChanged, superPlayersPerSide } from "@/lib/tournament/entries";
 import { courtBoard, courtGame, courtQueues, gameState, reopenGame, scoreText, setScore, startGame } from "@/lib/tournament/live";
 import { sidesKnown } from "@/lib/tournament/live-day";
 import { cn } from "@/lib/utils";
@@ -642,6 +642,59 @@ function GameBody({
         ))}
       </NativeSelect>
     ) : null;
+  // A team's super match: who plays it is chosen for this one game, whatever the team's line-up for its match-ups.
+  const superCategory = match.super && draft.unit === "team" ? draft.categories.find((c) => c.id === match.categoryId) : undefined;
+  const superLineUp =
+    superCategory && state !== "finished" ? (
+      <div data-super-line-up className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">Who plays the super match? It can be anyone in the squad, whatever the line-up for the match-ups.</p>
+        {([match.home, match.away] as const).map((slot, i) => {
+          const entry = entryForSlot(draft, match.categoryId, slot);
+          if (!entry) return null;
+          const chosen = entry.lineUp[SUPER_LINE_UP] ?? [];
+          return (
+            <div key={slot} className="flex flex-col gap-1">
+              <h4 className="truncate text-sm font-semibold">{i === 0 ? home : away}</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from({ length: superPlayersPerSide(superCategory) }, (_, p) => (
+                  <NativeSelect
+                    key={p}
+                    aria-label={`${i === 0 ? home : away}, super match player ${p + 1}`}
+                    className="w-full"
+                    value={chosen[p] ?? ""}
+                    data-empty={!chosen[p] || undefined}
+                    disabled={state === "onCourt" && (result?.games ?? []).some(([h, a]) => h !== null || a !== null)}
+                    onChange={(e) => {
+                      const playerId = e.target.value;
+                      update((d) => {
+                        const target = d.entries.find((x) => x.id === entry.id);
+                        if (!target) return;
+                        const list = [...(target.lineUp[SUPER_LINE_UP] ?? [])];
+                        // A player is in one place only: choosing them again moves them here.
+                        const clash = playerId ? list.indexOf(playerId) : -1;
+                        if (clash !== -1 && clash !== p) list[clash] = "";
+                        while (list.length <= p) list.push("");
+                        list[p] = playerId;
+                        target.lineUp[SUPER_LINE_UP] = list;
+                      });
+                    }}
+                  >
+                    <NativeSelectOption value="">Choose…</NativeSelectOption>
+                    {entry.players
+                      .filter((player) => player.name.trim())
+                      .map((player) => (
+                        <NativeSelectOption key={player.id} value={player.id}>
+                          {player.name}
+                        </NativeSelectOption>
+                      ))}
+                  </NativeSelect>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
   // A super match still in the panel: it is played once it is on a court.
   if (match.super && !segment.courtId) {
     return (
@@ -650,6 +703,7 @@ function GameBody({
           {home} and {away} are level on every tiebreak before the super match. Put it on an empty court to play it
           {rules ? `: one game to ${rules.pointsPerGame}${rules.deuce.type === "standard" ? `, won by two, up to ${rules.deuce.max}` : ""}.` : "."}
         </p>
+        {superLineUp}
         {courtsSelect ?? <p className="text-sm text-tight-text">No court is empty yet. It can go on as soon as one is.</p>}
       </>
     );
@@ -667,6 +721,7 @@ function GameBody({
   const finished = state === "finished";
   return (
     <>
+      {superLineUp}
       {changed ? (
         <p className="flex items-start gap-2 text-xs text-over-text">
           <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />

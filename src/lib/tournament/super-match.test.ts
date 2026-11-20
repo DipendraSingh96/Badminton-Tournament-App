@@ -3,7 +3,7 @@ import { gameWinner } from "@/engine";
 import { awardMatch, goLive, moveGame, placeSuperMatch, reverseChange, unplaceSuperMatch } from "./changes";
 import { emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
-import { entryForSlot, groupStatus, groupSuperId, groupTable, knockoutOutcome, knockoutSuperId, levelKnockoutTies, matchRef, superScore } from "./entries";
+import { SUPER_LINE_UP, entryForSlot, entrySlot, matchPlayers, sidePlayers, superPlayersPerSide, groupStatus, groupSuperId, groupTable, knockoutOutcome, knockoutSuperId, levelKnockoutTies, matchRef, superScore } from "./entries";
 import { finishGame, setScore } from "./live";
 import { sidesKnown } from "./live-day";
 import { parsePlan } from "./schema";
@@ -235,6 +235,24 @@ describe("a super match for a level knockout match-up", () => {
     // Still listed, as played.
     expect(superMatches(draft).map((m) => m.id)).toEqual([id]);
     expect(unplacedSuperMatches(draft)).toEqual([]);
+  });
+
+  it("is played by whoever the desk chooses from each squad, whatever the line-up for the match-ups", () => {
+    const draft = levelSemi();
+    const category = draft.categories[0]!;
+    const squad = (id: string) => draft.entries.find((e) => e.id === id)!;
+    for (const id of ["e1", "e5"]) squad(id).players = ["a", "b", "c", "d"].map((p) => ({ id: `${id}${p}`, name: `${id} ${p}`, attendance: "arrived" as const }));
+    squad("e1").lineUp = { "1": ["e1a", "e1b"], "2": ["e1c", "e1d"] };
+    const info = superMatchInfo(superMatches(draft)[0]!);
+    expect(superPlayersPerSide(category)).toBe(2);
+    // Nobody until they are chosen: the match-ups' line-up isn't used.
+    expect(matchPlayers(draft, info)).toEqual([]);
+    squad("e1").lineUp[SUPER_LINE_UP] = ["e1a", "e1d"];
+    squad("e5").lineUp[SUPER_LINE_UP] = ["e5c", "e5b"];
+    expect(sidePlayers(draft, "c1", entrySlot("e1")).map((p) => p.id)).toEqual(["e1a", "e1d"]);
+    expect(matchPlayers(draft, info).map((p) => p.id)).toEqual(["e1a", "e1d", "e5c", "e5b"]);
+    // The match-ups keep their own.
+    expect(sidePlayers(draft, "c1", "A1", 2).map((p) => p.id)).toEqual(["e1c", "e1d"]);
   });
 
   it("isn't made when the super match isn't a tiebreak: the desk decides by hand, as before", () => {

@@ -421,7 +421,12 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
       const ends = new Map<string, number>();
       // A tie's rubbers are placed as one: side by side at the same time on different courts, or back to
       // back on one court, whichever finishes the tie sooner. Never one now and another later elsewhere.
+      // A tie takes more than one court only when the round's other ties still have a court each:
+      // four quarter-finals on four courts are played at the same time, one to a court, not two
+      // side by side and then the other two.
       const done = new Set<string>();
+      const shares = (a: Planned, b: Planned) =>
+        [...a.halls].some((hall) => b.halls.has(hall)) && (!a.courts || !b.courts ? !a.courts && !b.courts : [...a.courts].some((court) => b.courts!.has(court)));
       for (const first of step) {
         if (done.has(first.tie)) continue;
         done.add(first.tie);
@@ -449,7 +454,12 @@ function place(inputs: TournamentInputs, analysis: Analysis, length: "typical" |
         // and the rubbers go round them. The fewest courts that finish soonest are taken.
         let use = 1;
         let finish = Infinity;
-        for (let c = 1; c <= Math.min(rubbers.length, options.length); c++) {
+        // The ties of this round still to be placed that play on the same courts, this one included.
+        const waiting = new Set(step.filter((m) => (m.tie === first.tie || !done.has(m.tie)) && shares(first, m)).map((m) => m.tie)).size;
+        // The courts it could start on soonest are shared out among them.
+        const soonest = options.filter((o) => o.start === options[0]!.start).length;
+        const most = Math.max(1, Math.floor(soonest / Math.max(1, waiting)));
+        for (let c = 1; c <= Math.min(rubbers.length, options.length, most); c++) {
           const end = options[c - 1]!.start + Math.ceil(rubbers.length / c) * minutes;
           if (end < finish) {
             use = c;

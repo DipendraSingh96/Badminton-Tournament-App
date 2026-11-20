@@ -161,6 +161,24 @@ describe("live play", () => {
       expect(at(540, 556, { b: played(540, 556) })).toMatchObject({ b: "540-556", k: "600-615" });
     });
 
+    it("brings a later knockout round up behind the matches that feed it when the day runs ahead of the plan", () => {
+      const ko = (id: string, courtId: string, from: number, code: string, home: string, away: string) => ({
+        id,
+        courtId,
+        from,
+        to: from + 15,
+        match: { categoryId: "c", stage: "knockout", code, home, away },
+      });
+      // Two quarter-finals at 10:00, their semi-final planned for 11:00 on the first court.
+      const games = [ko("q1", "c1", 600, "QF1", "Winner A", "Runner-up B"), ko("q2", "c2", 600, "QF2", "Winner B", "Runner-up A"), ko("s", "c1", 660, "SF1", "Winner QF1", "Winner QF2")];
+      const project = (now: number, results: Parameters<typeof projectDay>[1]) =>
+        Object.fromEntries([...projectDay(games, results, { started: 540, now, minuteOf: (iso) => Number(iso), known: (g) => g.id !== "s" })].map(([id, p]) => [id, `${p.from}-${p.to}`]));
+      // The day began at 09:00 and the quarter-finals are on at 09:10, fifty minutes early: the semi-final follows the later of them, not its planned 11:00.
+      expect(project(552, { q1: played(550, null), q2: played(552, null) })).toEqual({ q1: "550-565", q2: "552-567", s: "567-582" });
+      // One has finished and the other runs on: it waits for that one.
+      expect(project(575, { q1: played(550, 563), q2: played(552, null) })).toMatchObject({ s: "575-590" });
+    });
+
     it("says when a game is near the end of its slot, and when it is over it", () => {
       expect([11, 12, 14, 15, 30].map((minutes) => timingOf(540, 15, 540 + minutes))).toEqual(["ok", "near", "near", "over", "over"]);
     });
