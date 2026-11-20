@@ -1118,6 +1118,13 @@ function Editor({
         }}
       />
     ) : null;
+  // Why something the desk tried couldn't be done: said at the top of the side panel, then cleared.
+  const [liveNotice, setLiveNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!liveNotice) return;
+    const timer = window.setTimeout(() => setLiveNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [liveNotice]);
   const liveSegments = useMemo(
     () =>
       segments.map((s) => {
@@ -1548,6 +1555,7 @@ function Editor({
                   state: (matchId) => gameState(liveDraft.results, matchId),
                   held: (matchId) => attention.held.has(matchId),
                   timing: (matchId) => attention.timing(matchId),
+                  onRefuse: setLiveNotice,
                   onMove: (segment, target, stapled) =>
                     liveUpdate((d) => void moveGame(d, { matchId: segment.id, with: stapled.map((s) => s.id), fromCourtId: segment.courtId, target, now: new Date().toISOString() })),
                 }
@@ -1564,18 +1572,25 @@ function Editor({
   // Putting a waiting game on a court, from the side panel or onto the Court board.
   const [liveDragging, setLiveDragging] = useState<LocalSegment | null>(null);
   const liveQueues = courtQueues(liveSegments, liveDraft.results);
+  /** Why a game can't be put on a court, in words for the desk; null when it can. */
+  function whyNot(segment: LocalSegment, courtId: string): string | null {
+    const number = draft.frame.halls.flatMap((h) => h.courts).findIndex((c) => c.id === courtId) + 1;
+    if (!canMove(segment, courtId) || number === 0) return "That court isn't in this tournament any more.";
+    const state = gameState(liveDraft.results, segment.id);
+    if (state === "onCourt") return "That game has already started, so it can't be moved.";
+    if (state === "finished") return "That game has been played, so it can't be moved.";
+    const current = liveQueues.get(courtId)?.current ?? null;
+    if (current?.id === segment.id) return `That game is already next on Court ${number}.`;
+    if (current && gameState(liveDraft.results, current.id) === "onCourt") return `Court ${number} is playing. A game can go on it once that one finishes.`;
+    return null;
+  }
   const liveMoves: LiveMoves = {
     dragging: liveDragging,
     setDragging: setLiveDragging,
-    takes: (segment, courtId) => {
-      const current = liveQueues.get(courtId)?.current ?? null;
-      return (
-        current?.id !== segment.id &&
-        gameState(liveDraft.results, segment.id) === "waiting" &&
-        (current === null || gameState(liveDraft.results, current.id) === "waiting") &&
-        canMove(segment, courtId)
-      );
-    },
+    takes: (segment, courtId) => whyNot(segment, courtId) === null,
+    whyNot,
+    notice: liveNotice,
+    say: setLiveNotice,
     // It goes first there: ahead of whatever was waiting on the court.
     move: (segment, courtId) => {
       const before = liveQueues.get(courtId)?.current?.id ?? null;

@@ -359,15 +359,16 @@ export function CourtCard({
   const takesIt = dragged !== null && Boolean(moves?.takes(dragged, court.id));
   const drop = dragged
     ? {
+        // Every court takes the drop, so one that can't have the game can say why.
         onDragOver: (e: React.DragEvent) => {
-          if (!takesIt) return;
           e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+          e.dataTransfer.dropEffect = takesIt ? "move" : "none";
         },
         onDrop: (e: React.DragEvent) => {
-          if (!takesIt) return;
           e.preventDefault();
-          moves?.move(dragged, court.id);
+          const why = moves?.whyNot(dragged, court.id) ?? null;
+          if (why) moves?.say(why);
+          else moves?.move(dragged, court.id);
           moves?.setDragging(null);
         },
       }

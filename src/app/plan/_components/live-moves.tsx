@@ -15,6 +15,11 @@ export interface LiveMoves {
   setDragging: (segment: LocalSegment | null) => void;
   /** May this waiting game be put on that court now? */
   takes: (segment: LocalSegment, courtId: string) => boolean;
+  /** Why it can't be put there, in words for the desk; null when it can. */
+  whyNot: (segment: LocalSegment, courtId: string) => string | null;
+  /** Something the desk tried couldn't be done: the reason, shown at the top of the side panel for a few seconds. */
+  notice: string | null;
+  say: (message: string) => void;
   /** Puts it first on the court; a game that was waiting there goes back behind it. Logged. */
   move: (segment: LocalSegment, courtId: string) => void;
 }

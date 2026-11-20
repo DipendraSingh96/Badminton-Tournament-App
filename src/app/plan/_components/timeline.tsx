@@ -441,6 +441,8 @@ export function Timeline({
     state: (matchId: string) => "waiting" | "onCourt" | "finished";
     /** `stapled`: the tie's other rubbers that go with it (played back to back with it on its court). */
     onMove: (segment: LocalSegment, target: { courtId: string; before: string | null }, stapled: LocalSegment[]) => void;
+    /** A move was refused: the reason, for the side panel to show as well. */
+    onRefuse?: (message: string) => void;
     /** Nothing can be moved (a simulated day is being watched). */
     frozen?: boolean;
     /** A waiting game that can't start (a player hasn't checked in): greyed out. */
@@ -1568,7 +1570,10 @@ export function Timeline({
                                         pillDrag && Math.hypot(pillDrag.x - pillDrag.startX, pillDrag.y - pillDrag.startY) > 4;
                                       if (pillDrag && dragged) {
                                         if (pillDrag.target) moveMatch(s, pillDrag.target);
-                                        else if (pillDrag.refusal) setNotice(pillDrag.refusal);
+                                        else if (pillDrag.refusal) {
+                                          setNotice(pillDrag.refusal);
+                                          live?.onRefuse?.(`That game ${pillDrag.refusal.replace(/^S/, "s")}: it can't be moved there.`);
+                                        }
                                       } else {
                                         // A click: the game is shown in the side panel.
                                         onPick?.(s);

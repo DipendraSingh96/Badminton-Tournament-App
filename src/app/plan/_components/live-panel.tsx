@@ -21,8 +21,16 @@ import { AwardDialog } from "./live-dialogs";
 import { categoryName } from "./labels";
 import { useLiveMoves } from "./live-moves";
 import type { Update } from "./plan-editor";
-import { matchText, sideLabel, type LocalSegment } from "./timeline";
+import { STAGE_COLOURS, matchText, sideLabel, type LocalSegment } from "./timeline";
 import { useSimulation } from "./watch-only";
+
+/** A listed game's text on its stage's colour (the timeline's blocks). */
+const STAGE_TEXT: Record<LocalSegment["stage"], string> = {
+  group: "text-tl-group-foreground",
+  knockout: "text-tl-knockout-foreground",
+  bronze: "text-tl-final-foreground",
+  final: "text-tl-final-foreground",
+};
 
 /** How many waiting games the Games tab lists after the courts' own: the next few, not the whole day. */
 const UP_NEXT = 12;
@@ -89,6 +97,7 @@ export function LivePanel({
   time: string | null;
   onFold: () => void;
 }) {
+  const notice = useLiveMoves()?.notice ?? null;
   return (
     <Tabs value={tab} onValueChange={(value) => onTab(value as LiveTab)} className="min-h-0 flex-1 gap-0">
       {/* The soft divider runs under the tabs, the clock and the fold button alike. */}
@@ -105,6 +114,15 @@ export function LivePanel({
         <IconButton label="Hide panel" side="left" aria-expanded onClick={onFold}>
           <XIcon />
         </IconButton>
+      </div>
+      {/* Why something the desk tried couldn't be done: said here, at the top, for a few seconds. */}
+      <div role="status" aria-live="polite" className="shrink-0">
+        {notice ? (
+          <p data-live-notice className="mx-4 mt-3 flex items-start gap-2 rounded-md bg-tight px-3 py-2 text-sm font-medium text-tight-foreground">
+            <WarningIcon weight="fill" className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {notice}
+          </p>
+        ) : null}
       </div>
       <div data-live-pane className="scroll-pane relative min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
         <TabsContent value="games">
@@ -171,6 +189,16 @@ function GamesTab({
   const dragging = moves?.dragging ?? null;
   const takes = (segment: LocalSegment, courtId: string) => Boolean(moves?.takes(segment, courtId));
   const move = (segment: LocalSegment, courtId: string) => moves?.move(segment, courtId);
+  /** Puts a game on a court, or says why it can't go there. */
+  const place = (segment: LocalSegment, courtId: string) => {
+    const why = moves?.whyNot(segment, courtId) ?? null;
+    if (why) moves?.say(why);
+    else move(segment, courtId);
+  };
+  // The stage being played: the group stage while any of its games is left, then the knockout.
+  const groupsLeft = segments.some((s) => s.stage === "group" && gameState(draft.results, s.id) !== "finished");
+  /** Up next: the games of the stage being played. The rest, knockout games further on, are listed apart. */
+  const upNow = (s: LocalSegment) => s.stage === "group" || (!groupsLeft && known(s));
   /** The courts a waiting game could be played on instead. */
   const courtsFor = (segment: LocalSegment) =>
     gameState(draft.results, segment.id) !== "waiting"
@@ -182,8 +210,10 @@ function GamesTab({
   const card = (s: LocalSegment, label: string | null, given = false, putOn: string | null = null) => (
     <GameCard
       given={given}
+      // A waiting game in a list wears its stage's colour, as its block does on the timeline.
+      staged={label !== null && !given && gameState(draft.results, s.id) === "waiting"}
       // In a chosen court's lists: one press puts the game on that court.
-      put={putOn && takes(s, putOn) ? { number: courtOf(draft, putOn) ?? 0, onPut: () => move(s, putOn) } : null}
+      put={putOn && takes(s, putOn) ? { number: courtOf(draft, putOn) ?? 0, onPut: () => place(s, putOn) } : null}
       draft={draft}
       update={update}
       inputs={inputs}
@@ -219,15 +249,16 @@ function GamesTab({
           attention?.attend(courtId);
           if (game && !target.closest("[data-game]")) setOpenId(game.id === openId ? null : game.id);
         }}
+        // Every court takes the drop, so one that can't have the game can say why.
         onDragOver={(e) => {
-          if (!takesIt) return;
+          if (!dragging) return;
           e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+          e.dataTransfer.dropEffect = takesIt ? "move" : "none";
         }}
         onDrop={(e) => {
-          if (!takesIt || !dragging) return;
+          if (!dragging) return;
           e.preventDefault();
-          move(dragging, courtId);
+          place(dragging, courtId);
           moves?.setDragging(null);
         }}
         // The court is the green frame; the game on it keeps the card's colour.
@@ -301,7 +332,8 @@ function GamesTab({
         </ol>
         {!queue?.current && queue ? <p className="text-sm text-muted-foreground">This court has played all its games.</p> : null}
         {list("Next on this court", own, false, 0, false, filter.id)}
-        {list("Other games that could go on now", others.slice(0, UP_NEXT), true, Math.max(0, others.length - UP_NEXT), false, filter.id)}
+        {list("Up next", others.filter(upNow).slice(0, UP_NEXT), true, Math.max(0, others.filter(upNow).length - UP_NEXT), false, filter.id)}
+        {list("KO stage", others.filter((g) => !upNow(g)), true, 0, false, filter.id)}
         {list("Played on this court", queue?.played ?? [], false)}
       </>,
     );
@@ -336,7 +368,8 @@ function GamesTab({
       {board.upNext.length === 0 && board.courts.every((c) => c.game === null) ? (
         <p className="text-sm text-muted-foreground">Every game has been played.</p>
       ) : null}
-      {list("Up next", board.upNext.slice(0, UP_NEXT), true, Math.max(0, board.upNext.length - UP_NEXT))}
+      {list("Up next", board.upNext.filter(upNow).slice(0, UP_NEXT), true, Math.max(0, board.upNext.filter(upNow).length - UP_NEXT))}
+      {list("KO stage", board.upNext.filter((g) => !upNow(g)))}
       {board.upNext.length > 0 ? (
         <p className="text-xs text-muted-foreground">
           Drag a game onto a court that isn&apos;t playing, here or on the Court board, to put it on next there; the game that was waiting goes back to Up next. The move is logged.
@@ -367,8 +400,11 @@ function GameCard({
   onMove,
   onDrag,
   given = false,
+  staged = false,
   put = null,
 }: {
+  /** Closed, it is filled with its stage's colour (the timeline's blocks). */
+  staged?: boolean;
   /** In a chosen court's lists: puts this waiting game on that court. */
   put?: { number: number; onPut: () => void } | null;
   /** Listed under Walkovers: the heading says what it is, so the card shows only the score and who won. */
@@ -399,7 +435,9 @@ function GameCard({
   const score = scoreText(result?.games, given && award?.reason === "walkover" ? undefined : award);
   const waiting = matchPlayers(draft, match).filter((p) => p.attendance !== "arrived").length;
   // A waiting game drags from anywhere on it (closed: an open one is being worked on).
-  const movable = state === "waiting" && freeCourts.length > 0 && !open;
+  // Even when no court can take it now: dropped on one, it is told why.
+  const movable = state === "waiting" && !open;
+  const tinted = staged && !open;
   // It can't start: a player hasn't checked in. Greyed out, until they are or it is given as a walkover.
   const held = state === "waiting" && Boolean(attention?.held.has(id));
   // On court: how its time is going, as a dot (in its court's frame; on the card itself when it stands alone).
@@ -452,7 +490,7 @@ function GameCard({
         }}
         className={cn(
           "flex cursor-pointer flex-col gap-3 rounded-md px-2 py-2 select-none",
-          "bg-card-system",
+          tinted ? cn(STAGE_COLOURS[segment.stage], STAGE_TEXT[segment.stage]) : "bg-card-system",
           held && !open && "opacity-50 grayscale",
           movable && "active:cursor-grabbing",
         )}
@@ -471,11 +509,11 @@ function GameCard({
           }}
         >
           {label ? (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+            <span className={cn("flex items-center gap-2 text-xs tabular-nums", tinted ? "opacity-80" : "text-muted-foreground")}>
               <span className="min-w-0 flex-1 truncate">{label}</span>
               <TimingDot timing={timing} ringed />
               {put && !open ? (
-                <Button variant="outline" size="sm" className="-my-1 h-6 shrink-0 px-2 text-xs" onClick={put.onPut}>
+                <Button variant="outline" size="sm" className={cn("-my-1 h-6 shrink-0 px-2 text-xs", tinted && "bg-background/80 text-foreground hover:bg-background")} onClick={put.onPut}>
                   Put on court {put.number}
                 </Button>
               ) : null}
@@ -484,7 +522,7 @@ function GameCard({
           <span className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 font-semibold", open ? "text-xl" : "text-sm")}>
             {side(match.home, 0, "text-left")}
             {/* Larger than the names' line but light, so it parts the two sides without drawing the eye. */}
-            <span className={cn("shrink-0 text-center text-xl leading-none tabular-nums", score ? "font-display font-bold" : "font-normal text-muted-foreground")}>
+            <span className={cn("shrink-0 text-center text-xl leading-none tabular-nums", score ? "font-display font-bold" : tinted ? "font-normal opacity-70" : "font-normal text-muted-foreground")}>
               {score ?? (given && award ? "–" : "V/S")}
             </span>
             {side(match.away, 1, "text-right")}
