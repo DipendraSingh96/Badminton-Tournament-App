@@ -37,6 +37,8 @@ export interface MatchInfo {
   away: string;
   /** Team ties: which rubber of how many, and its event. */
   rubber?: { number: number; of: number; event: EventType };
+  /** A super match: one extra game added on the day between two level entries. Never on the estimate's schedule. */
+  super?: boolean;
 }
 
 /** Why a match starts later than its court is free. */

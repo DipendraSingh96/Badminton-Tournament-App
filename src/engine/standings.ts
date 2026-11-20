@@ -78,6 +78,8 @@ export interface StandingRow {
   place: number;
   /** Level with another entry after every tiebreak. */
   shared: boolean;
+  /** The entry this one was level with when the tiebreaks reached the super match: the two play one, or have. */
+  superWith?: string;
   /** Fixtures: matches, or ties for teams. */
   played: number;
   won: number;
@@ -89,7 +91,12 @@ export interface StandingRow {
   rubbersWon: number;
 }
 
-type Tally = Omit<StandingRow, "place" | "shared">;
+type Tally = Omit<StandingRow, "place" | "shared" | "superWith">;
+
+/** Where a super match's winner is kept: the two entries' ids, in the same order whichever way round they are given. */
+export function superKey(a: string, b: string): string {
+  return [a, b].sort().join("~");
+}
 
 function tally(ids: string[], fixtures: PlayedFixture[]): Map<string, Tally> {
   const rows = new Map<string, Tally>(
@@ -159,6 +166,10 @@ export interface StandingsInput {
   lots?: Record<string, number>;
   /** An order decided by hand, best first: it separates entries still level after every tiebreak. */
   byHand?: string[];
+  /** Super matches played: the winner's id, by `superKey` of the two entries. */
+  superWins?: Record<string, string>;
+  /** The last place a super match is played for (the qualifying places, or the medals); beyond it level entries go on to the next tiebreak. Every place when left out. */
+  superUpTo?: number;
   /** Entries that withdrew during the group stage: placed after everyone else. */
   withdrawn?: string[];
 }
@@ -170,15 +181,37 @@ export interface StandingsInput {
  * after every tiebreak are put in the order decided by hand, if there is one;
  * otherwise they share a place and keep their draw order. Entries that
  * withdrew come after everyone else.
+ *
+ * The super match: exactly two entries level when the tiebreaks reach it are
+ * separated by the one extra game they play. Until it is played they stay
+ * level, and no later tiebreak (a draw of lots) separates them. Three or
+ * more level entries can't be settled by one game: they go on to the next.
  */
-export function groupStandings({ entries, fixtures, tiebreaks, lots, byHand, withdrawn }: StandingsInput): StandingRow[] {
+export function groupStandings({ entries, fixtures, tiebreaks, lots, byHand, withdrawn, superWins, superUpTo }: StandingsInput): StandingRow[] {
   const rows = tally(entries, fixtures);
   const gone = new Set(withdrawn ?? []);
   // Sets of entries still level, best first.
   let sets: string[][] = [entries.filter((id) => !gone.has(id)), entries.filter((id) => gone.has(id))].filter((s) => s.length > 0);
+  // Pairs the super match is for (played or not), and those still waiting to play it.
+  const superWith = new Map<string, string>();
+  const waiting = new Set<string[]>();
   for (const criterion of tiebreaks) {
+    let before = 0;
     sets = sets.flatMap((set) => {
-      if (set.length < 2) return [set];
+      const place = before + 1;
+      before += set.length;
+      if (set.length < 2 || waiting.has(set)) return [set];
+      if (criterion === "superMatch") {
+        const [a, b] = set as [string, string];
+        if (set.length !== 2 || gone.has(a) || place > (superUpTo ?? Infinity)) return [set];
+        superWith.set(a, b);
+        superWith.set(b, a);
+        const winner = superWins?.[superKey(a, b)];
+        if (winner === a) return [[a], [b]];
+        if (winner === b) return [[b], [a]];
+        waiting.add(set);
+        return [set];
+      }
       if (criterion === "drawOfLots") return split(set, (id) => -(lots?.[id] ?? 0));
       if (criterion === "headToHead") {
         const among = tally(
@@ -198,7 +231,7 @@ export function groupStandings({ entries, fixtures, tiebreaks, lots, byHand, wit
   return sets.flatMap((set) => {
     const at = place;
     place += set.length;
-    return set.map((id) => ({ ...rows.get(id)!, place: at, shared: set.length > 1 }));
+    return set.map((id) => ({ ...rows.get(id)!, place: at, shared: set.length > 1, ...(superWith.has(id) ? { superWith: superWith.get(id)! } : {}) }));
   });
 }
 

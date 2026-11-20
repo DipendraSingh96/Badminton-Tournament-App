@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countFixture, entryInPlace, fixtureWinner, groupStandings, type PlayedFixture } from "./standings";
+import { countFixture, entryInPlace, fixtureWinner, groupStandings, superKey, type PlayedFixture } from "./standings";
 import type { TiebreakCriterion } from "./types";
 
 /** A one-game match. */
@@ -195,5 +195,47 @@ describe("group standings", () => {
     expect(fixtureWinner([[[21, 10]], [[10, 21]]])).toBeNull();
     expect(fixtureWinner([[[21, 10]], [[10, 21], [20, 22]]])).toBe("away");
     expect(fixtureWinner([[[21, 10]], [[12, 21]]])).toBe("home");
+  });
+});
+
+describe("the super match as a tiebreak", () => {
+  // a and b win one each against c and draw level on points with each other; c loses both.
+  const fixtures = [match("a", "c", [21, 10]), match("b", "c", [21, 10])];
+  const places = (rows: { id: string; place: number; shared: boolean }[]) => rows.map((r) => `${r.id}:${r.place}${r.shared ? "=" : ""}`);
+
+  it("leaves two level entries level until it is played, then puts its winner first", () => {
+    const waiting = groupStandings({ entries: ["a", "b", "c"], fixtures, tiebreaks: ["matchesWon", "superMatch"] });
+    expect(places(waiting)).toEqual(["a:1=", "b:1=", "c:3"]);
+    expect(waiting.map((r) => r.superWith)).toEqual(["b", "a", undefined]);
+    const played = groupStandings({ entries: ["a", "b", "c"], fixtures, tiebreaks: ["matchesWon", "superMatch"], superWins: { [superKey("b", "a")]: "b" } });
+    expect(places(played)).toEqual(["b:1", "a:2", "c:3"]);
+    // Still marked as the pair that played one.
+    expect(played.map((r) => r.superWith)).toEqual(["a", "b", undefined]);
+    // The match isn't in the table's numbers.
+    expect(played.find((r) => r.id === "b")).toMatchObject({ played: 1, won: 1 });
+  });
+
+  it("is not passed over for the draw of lots while it waits, but three level entries go on to it", () => {
+    const lots = { a: 2, b: 1, c: 3 };
+    const waiting = groupStandings({ entries: ["a", "b", "c"], fixtures, tiebreaks: ["matchesWon", "superMatch", "drawOfLots"], lots });
+    expect(places(waiting)).toEqual(["a:1=", "b:1=", "c:3"]);
+    const ring = [match("a", "b", [21, 10]), match("b", "c", [21, 10]), match("c", "a", [21, 10])];
+    const three = groupStandings({ entries: ["a", "b", "c"], fixtures: ring, tiebreaks: ["matchesWon", "superMatch", "drawOfLots"], lots });
+    expect(places(three)).toEqual(["b:1", "a:2", "c:3"]);
+    expect(three.every((r) => r.superWith === undefined)).toBe(true);
+  });
+
+  it("is played only for the places it is asked for; a decision by hand still settles a pair", () => {
+    // c beats a and b, who are level for second and third.
+    const below = [match("c", "a", [21, 10]), match("c", "b", [21, 10])];
+    const lots = { a: 2, b: 1, c: 3 };
+    const beyond = groupStandings({ entries: ["a", "b", "c"], fixtures: below, tiebreaks: ["matchesWon", "superMatch", "drawOfLots"], lots, superUpTo: 1 });
+    // Past the last place it is played for: the lots separate them.
+    expect(places(beyond)).toEqual(["c:1", "b:2", "a:3"]);
+    expect(beyond.every((r) => r.superWith === undefined)).toBe(true);
+    const within = groupStandings({ entries: ["a", "b", "c"], fixtures: below, tiebreaks: ["matchesWon", "superMatch", "drawOfLots"], lots, superUpTo: 2 });
+    expect(places(within)).toEqual(["c:1", "a:2=", "b:2="]);
+    const byHand = groupStandings({ entries: ["a", "b", "c"], fixtures: below, tiebreaks: ["matchesWon", "superMatch"], byHand: ["b", "a"] });
+    expect(places(byHand)).toEqual(["c:1", "b:2", "a:3"]);
   });
 });

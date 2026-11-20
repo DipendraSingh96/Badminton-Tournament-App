@@ -375,3 +375,14 @@ The hall's screen: read by players and spectators, touched by nobody. Its own pa
   - **Knockout:** per category, the rounds latest first (final at the top), each match a card with its sides, scores and winner in bold; the bronze match with the final. (Stacked by round, not drawn as a bracket: it reads better on a phone.)
   - **Results:** per category, 1st, 2nd and 3rd.
   - A wrong or switched-off link: "This link is no longer shared". No connection: "Couldn't load the tournament", and it tries again by itself.
+
+### Eve-of-tournament round, 20 Nov 2026
+
+- **Plan, Tiebreak order:** "Super match" in Add criterion; it stays last, or just above Draw of lots. While it is in the list a **Super match** block sits right under the order: Points, Deuce (None · Win by two) and, with Win by two, Maximum points.
+- **Draw, Entries (teams):** one team's squad and line-up are open at a time. The whole row opens and closes it, except its fields, the External box, the seed and the remove button; clicking or tabbing into the team name opens it.
+- **Live stage row:** the Audience board button is gone. **Share with players** also holds **Names on the link** (Full name · First name and initial · Initials).
+- **Live side panel, Games:** the waiting games are in two lists, with or without a court chosen: **Up next** (the games of the stage being played: group games while any is left, then knockout games whose sides are known) and **KO stage** (every other waiting knockout game). This replaces "Other games that could go on now". Above them, when there is one, **Super match**: its card, to drag or "Put on court N" onto an empty court; opened, it says why it exists and offers "Put on court…". On a court it has "Take off this court" while it waits.
+- **Live side panel, messages:** a band at the top of the panel says why something couldn't be done, for six seconds.
+- **Standings:** a group with a super match says so under its table (to play, or who beat whom and the score); Decide by hand stays. A level knockout match-up says a super match decides it.
+- **Results, Money:** Court hire is one row per hall, typed as court-hours charged, with "at £x an hour" under the label and "= £y" under the field, as Shuttles has.
+- **Players' page:** a swipe left or right changes page (not inside a table that scrolls sideways). A court that has just started a game is outlined for three seconds; the desk's Court board does the same.

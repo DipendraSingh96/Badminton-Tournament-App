@@ -8,7 +8,8 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { groupLetter, matchOutcome, rulesFor, type TournamentInputs } from "@/engine";
 import { entryName, type PlanDraft } from "@/lib/tournament/draft";
-import { finishMatch } from "@/lib/tournament/changes";
+import { finishMatch, unplaceSuperMatch } from "@/lib/tournament/changes";
+import { superRules } from "@/lib/tournament/super-match";
 import { entryForSlot, matchPlayers, sidePlayers, sidesChanged } from "@/lib/tournament/entries";
 import { courtBoard, courtGame, courtQueues, gameState, reopenGame, scoreText, setScore, startGame } from "@/lib/tournament/live";
 import { sidesKnown } from "@/lib/tournament/live-day";
@@ -21,7 +22,7 @@ import { AwardDialog } from "./live-dialogs";
 import { categoryName } from "./labels";
 import { useLiveMoves } from "./live-moves";
 import type { Update } from "./plan-editor";
-import { STAGE_COLOURS, matchText, sideLabel, type LocalSegment } from "./timeline";
+import { STAGE_COLOURS, matchText, sideLabel, waitingSuperMatches, type LocalSegment } from "./timeline";
 import { useSimulation } from "./watch-only";
 
 /** A listed game's text on its stage's colour (the timeline's blocks). */
@@ -206,6 +207,8 @@ function GamesTab({
       : board.courts.filter((c) => takes(segment, c.courtId)).map((c) => ({ id: c.courtId, number: courtOf(draft, c.courtId) ?? 0, free: c.game === null }));
   // Matches given to a side (a walkover or a retirement) have left their courts: they are listed last.
   const given = segments.filter((s) => draft.results[s.id]?.award).sort((a, b) => a.from - b.from);
+  // Super matches the tables have made, waiting to be put on an empty court.
+  const supers = waitingSuperMatches(draft);
 
   const card = (s: LocalSegment, label: string | null, given = false, putOn: string | null = null) => (
     <GameCard
@@ -301,6 +304,21 @@ function GamesTab({
         {more > 0 ? <p className="text-xs text-muted-foreground tabular-nums">And {more} more after these.</p> : null}
       </div>
     );
+  /** Super matches to play: at the top, since each holds up a place in a table or the next knockout round. */
+  const superList = (putOn: string | null = null, only: (s: LocalSegment) => boolean = () => true) =>
+    supers.filter(only).length === 0 ? null : (
+      <div data-super-matches className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">
+          Super match <span className="font-normal text-muted-foreground tabular-nums">({supers.filter(only).length})</span>
+        </h3>
+        <ol className="flex flex-col gap-1">
+          {supers.filter(only).map((s) => (
+            <li key={s.id}>{labelled(s, false, false, putOn)}</li>
+          ))}
+        </ol>
+        <p className="text-xs text-muted-foreground">Level on every tiebreak before it. Drag it onto an empty court to play it; its result settles the place.</p>
+      </div>
+    );
   const narrowed = (label: string, body: ReactNode) => (
     <section ref={root} aria-label={label} className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 rounded-md bg-inset py-1 pr-1 pl-3">
@@ -331,6 +349,7 @@ function GamesTab({
           {frame(filter.id, shown)}
         </ol>
         {!queue?.current && queue ? <p className="text-sm text-muted-foreground">This court has played all its games.</p> : null}
+        {superList(filter.id)}
         {list("Next on this court", own, false, 0, false, filter.id)}
         {list("Up next", others.filter(upNow).slice(0, UP_NEXT), true, Math.max(0, others.filter(upNow).length - UP_NEXT), false, filter.id)}
         {list("KO stage", others.filter((g) => !upNow(g)), true, 0, false, filter.id)}
@@ -351,6 +370,7 @@ function GamesTab({
         <p className="text-sm text-muted-foreground">No games for this group on the schedule.</p>
       ) : (
         <>
+          {superList(null, (s) => s.match.categoryId === filter.categoryId && s.match.stage === "group" && s.match.group === letter)}
           {list("On court", of("onCourt"))}
           {list("Up next", of("waiting"))}
           {list("Played", of("finished"))}
@@ -365,9 +385,10 @@ function GamesTab({
       <ol aria-label="Courts" className="flex flex-col gap-1">
         {board.courts.map(({ courtId, game }) => frame(courtId, game))}
       </ol>
-      {board.upNext.length === 0 && board.courts.every((c) => c.game === null) ? (
+      {board.upNext.length === 0 && board.courts.every((c) => c.game === null) && supers.length === 0 ? (
         <p className="text-sm text-muted-foreground">Every game has been played.</p>
       ) : null}
+      {superList()}
       {list("Up next", board.upNext.filter(upNow).slice(0, UP_NEXT), true, Math.max(0, board.upNext.filter(upNow).length - UP_NEXT))}
       {list("KO stage", board.upNext.filter((g) => !upNow(g)))}
       {board.upNext.length > 0 ? (
@@ -490,7 +511,8 @@ function GameCard({
         }}
         className={cn(
           "flex cursor-pointer flex-col gap-3 rounded-md px-2 py-2 select-none",
-          tinted ? cn(STAGE_COLOURS[segment.stage], STAGE_TEXT[segment.stage]) : "bg-card-system",
+          // A super match stands apart from the schedule's games: the accent colour.
+          tinted ? (match.super ? "bg-shuttle text-shuttle-foreground" : cn(STAGE_COLOURS[segment.stage], STAGE_TEXT[segment.stage])) : "bg-card-system",
           held && !open && "opacity-50 grayscale",
           movable && "active:cursor-grabbing",
         )}
@@ -576,7 +598,8 @@ function GameBody({
   const attention = useLiveAttention();
   const touch = () => attention?.attend(segment.courtId);
   const category = inputs?.categories.find((c) => c.id === match.categoryId);
-  const rules = inputs && category ? rulesFor(inputs, category, match.stage) : undefined;
+  // A super match is scored by its own rule: one game.
+  const rules = match.super ? superRules(draft) : inputs && category ? rulesFor(inputs, category, match.stage) : undefined;
   const result = draft.results[id];
   const state = gameState(draft.results, id);
   const playing = sidesOf(draft, segment);
@@ -600,8 +623,45 @@ function GameBody({
       </p>
     );
   }
+  const courtsSelect =
+    state === "waiting" && freeCourts.length > 0 ? (
+      <NativeSelect
+        aria-label={segment.courtId ? "Move this game to another court" : "Put this game on a court"}
+        className="w-full"
+        value=""
+        data-empty
+        onChange={(e) => {
+          if (e.target.value) onMove(e.target.value);
+        }}
+      >
+        <NativeSelectOption value="">{segment.courtId ? "Move to court…" : "Put on court…"}</NativeSelectOption>
+        {freeCourts.map((c) => (
+          <NativeSelectOption key={c.id} value={c.id}>
+            Court {c.number} ({c.free ? "free" : "its game goes back to Up next"})
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    ) : null;
+  // A super match still in the panel: it is played once it is on a court.
+  if (match.super && !segment.courtId) {
+    return (
+      <>
+        <p className="text-sm text-muted-foreground">
+          {home} and {away} are level on every tiebreak before the super match. Put it on an empty court to play it
+          {rules ? `: one game to ${rules.pointsPerGame}${rules.deuce.type === "standard" ? `, won by two, up to ${rules.deuce.max}` : ""}.` : "."}
+        </p>
+        {courtsSelect ?? <p className="text-sm text-tight-text">No court is empty yet. It can go on as soon as one is.</p>}
+      </>
+    );
+  }
   if (!rules) {
-    return <p className="text-sm text-over-text">This category&apos;s scoring rules for the stage aren&apos;t set, so scores can&apos;t be checked.</p>;
+    return (
+      <p className="text-sm text-over-text">
+        {match.super
+          ? "The super match's points and deuce rule aren't set (Plan, Tiebreakers), so scores can't be checked."
+          : "This category's scoring rules for the stage aren't set, so scores can't be checked."}
+      </p>
+    );
   }
   const outcome = matchOutcome(rules, result?.games ?? []);
   const finished = state === "finished";
@@ -746,23 +806,17 @@ function GameBody({
           })}
         </div>
       ) : null}
-      {state === "waiting" && freeCourts.length > 0 ? (
-        <NativeSelect
-          aria-label="Move this game to another court"
-          className="w-full"
-          value=""
-          data-empty
-          onChange={(e) => {
-            if (e.target.value) onMove(e.target.value);
-          }}
+      {courtsSelect}
+      {match.super && state === "waiting" ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          title="It goes back to the side panel, to be put on a court later"
+          onClick={() => update((d) => void unplaceSuperMatch(d, { matchId: id, now: now() }))}
         >
-          <NativeSelectOption value="">Move to court…</NativeSelectOption>
-          {freeCourts.map((c) => (
-            <NativeSelectOption key={c.id} value={c.id}>
-              Court {c.number} ({c.free ? "free" : "its game goes back to Up next"})
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          Take off this court
+        </Button>
       ) : null}
       {awarding ? (
         <AwardDialog

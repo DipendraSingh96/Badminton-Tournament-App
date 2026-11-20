@@ -27,6 +27,11 @@ const WALKOVERS = (Object.keys(WALKOVER_LABELS) as WalkoverRule[]).map((value) =
   label: WALKOVER_LABELS[value],
 }));
 
+const SUPER_DEUCE: { value: "none" | "standard"; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "standard", label: "Win by two" },
+];
+
 const HANDICAPS: { key: keyof Omit<RulesDraft["handicap"], "enabled">; label: string; hint: string }[] = [
   { key: "mixedVsMens", label: "Mixed pair vs men's pair", hint: "Points the mixed pair starts each game with." },
   { key: "womensVsMens", label: "Women's pair vs men's pair", hint: "Points the women's pair starts each game with." },
@@ -137,9 +142,11 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
   function add(criterion: TiebreakCriterion) {
     update((d) => {
       const list = d.rules.tiebreaks;
-      const at = list.indexOf("drawOfLots");
-      // Draw of lots stays last.
-      if (criterion !== "drawOfLots" && at !== -1) list.splice(at, 0, criterion);
+      const lotsAt = list.indexOf("drawOfLots");
+      const superAt = list.indexOf("superMatch");
+      // Draw of lots stays last, and the super match just before it (or last): the rest go in above them.
+      const at = criterion === "drawOfLots" ? -1 : criterion === "superMatch" ? lotsAt : superAt !== -1 ? superAt : lotsAt;
+      if (at !== -1) list.splice(at, 0, criterion);
       else list.push(criterion);
     });
     setAdding(false);
@@ -162,14 +169,20 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
         <ol className="flex flex-col gap-1">
           {tiebreaks.map((criterion, i) => {
             const fixedLast = criterion === "drawOfLots";
-            const canUp = i > 0 && !fixedLast;
-            const canDown = i < tiebreaks.length - 1 && !(lots !== -1 && i === lots - 1);
+            const fixed = fixedLast || criterion === "superMatch";
+            const canUp = i > 0 && !fixed;
+            // Nothing moves below the super match or the draw of lots.
+            const below = tiebreaks[i + 1];
+            const canDown = i < tiebreaks.length - 1 && !fixed && below !== "superMatch" && below !== "drawOfLots";
             return (
               <li key={criterion} title={tiebreakMeanings(draft.unit)[criterion]} className="flex items-center gap-2 rounded-lg bg-card-system py-1 pr-1 pl-3">
                 <span className="w-5 text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
                 <span className="flex-1 text-sm">
                   {tiebreakLabels(draft.unit)[criterion]}
                   {fixedLast ? <span className="text-muted-foreground"> · always last</span> : null}
+                  {criterion === "superMatch" ? (
+                    <span className="text-muted-foreground"> · {lots === -1 ? "always last" : "two level entries; three or more go to lots"}</span>
+                  ) : null}
                 </span>
                 <Button
                   variant="ghost"
@@ -203,6 +216,49 @@ function Tiebreaks({ draft, update }: { draft: PlanDraft; update: Update }) {
         </ol>
       )}
       {tiebreaks.length > 0 ? <IssueMessage path={["rules", "tiebreaks"]} /> : null}
+      {tiebreaks.includes("superMatch") ? (
+        // How the super match is played, right under the order it belongs to.
+        <div data-super-match className="flex flex-col gap-3 rounded-lg bg-card-system p-3">
+          <Heading
+            title="Super match"
+            description="One extra game between two entries still level, played for a place that goes through (or a medal place when there is no knockout), and for a knockout match-up level on matches, games and points. On the day it appears in the side panel to put on an empty court."
+          />
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3">
+            <StepperField
+              label="Points"
+              hint="The game is played to this many."
+              min={1}
+              path={["rules", "superMatch", "points"]}
+              value={draft.rules.superMatch.points}
+              onChange={(value) => update((d) => void (d.rules.superMatch.points = value))}
+            />
+            {draft.rules.superMatch.deuce === "standard" ? (
+              <StepperField
+                label="Maximum points"
+                hint="Won by two clear points, up to this."
+                min={1}
+                path={["rules", "superMatch", "deuceLimit"]}
+                value={draft.rules.superMatch.deuceLimit}
+                onChange={(value) => update((d) => void (d.rules.superMatch.deuceLimit = value))}
+              />
+            ) : null}
+          </div>
+          <SegmentedField
+            label="Deuce"
+            path={["rules", "superMatch", "deuce"]}
+            value={draft.rules.superMatch.deuce}
+            options={SUPER_DEUCE}
+            hint={
+              draft.rules.superMatch.deuce === "none"
+                ? "The first to the points wins."
+                : draft.rules.superMatch.deuce === "standard"
+                  ? "Level one short of the points, it is won by two clear points, up to the maximum."
+                  : undefined
+            }
+            onChange={(value) => update((d) => void (d.rules.superMatch.deuce = value))}
+          />
+        </div>
+      ) : null}
       {available.length > 0 ? (
         <Popover open={adding} onOpenChange={setAdding}>
           <PopoverTrigger render={<Button variant="outline" size="sm" className="self-start" />}>

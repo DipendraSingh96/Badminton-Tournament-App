@@ -23,7 +23,7 @@ function roundName(size: number): string {
 
 /** When and where a knockout match is on the schedule: its first rubber's time, and its courts. */
 function whenOf(draft: PlanDraft, segments: LocalSegment[], categoryId: string, code: string): string | null {
-  const own = segments.filter((s) => s.match.categoryId === categoryId && s.match.code === code).sort((a, b) => a.from - b.from);
+  const own = segments.filter((s) => s.match.categoryId === categoryId && s.match.code === code && !s.match.super).sort((a, b) => a.from - b.from);
   if (own.length === 0) return null;
   const courts = [
     ...new Set(

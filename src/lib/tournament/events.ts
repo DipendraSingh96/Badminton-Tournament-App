@@ -29,6 +29,7 @@ export const TIEBREAK_LABELS: Record<TiebreakCriterion, string> = {
   headToHead: "Head-to-head",
   pointsWon: "Points won (total)",
   rubbersWon: "Rubbers won",
+  superMatch: "Super match",
   drawOfLots: "Draw of lots",
 };
 
@@ -42,6 +43,7 @@ export function tiebreakMeanings(unit: "individual" | "team" | null): Record<Tie
     headToHead: "The result of the match between the entries that are level",
     pointsWon: "The most points won in all, across the group",
     rubbersWon: "The most matches won across a team's match-ups",
+    superMatch: "Two entries still level play one extra game for the place",
     drawOfLots: "Drawn by lot when nothing else separates them",
   };
 }

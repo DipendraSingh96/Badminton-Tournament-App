@@ -17,6 +17,9 @@ import {
   sidesChanged,
   type GroupStatus,
   type GroupTable,
+  groupSuperId,
+  knockoutSuperId,
+  superScore,
 } from "@/lib/tournament/entries";
 import { tiebreakLabels } from "@/lib/tournament/events";
 import { gameState } from "@/lib/tournament/live";
@@ -230,6 +233,23 @@ function GroupCard({
   const team = draft.unit === "team";
   const statuses = table.rows.map((row) => groupStatus(table, row));
   const level = statuses.includes("level");
+  // Super matches this group's table has made: to play (the pair still shares a place), or played.
+  const supers = table.complete
+    ? table.rows.flatMap((row) => {
+        if (!row.superWith || row.id > row.superWith) return [];
+        const id = groupSuperId(categoryId, table.letter, row.id, row.superWith);
+        const score = superScore(draft, id);
+        if (!row.shared && !score) return [];
+        const name = (entryId: string) => {
+          const entry = byId.get(entryId);
+          return (entry && entryName(entry)) ?? "Unnamed entry";
+        };
+        const other = table.rows.find((r) => r.id === row.superWith)!;
+        // Once played, the winner is the one placed higher.
+        const [first, second] = row.place <= other.place ? [row.id, other.id] : [other.id, row.id];
+        return [{ id, played: !row.shared && score !== null, text: !row.shared && score ? `Super match: ${name(first)} beat ${name(second)}${score === "walkover" ? " by walkover" : ` ${score.split("–").map(Number).sort((a, b) => b - a).join("–")}`}.` : `${name(row.id)} and ${name(row.superWith)} are level: a super match decides it. It is in the side panel, to put on an empty court.` }];
+      })
+    : [];
   return (
     <div
       data-group-card
@@ -323,12 +343,19 @@ function GroupCard({
           })}
         </tbody>
       </table>
+      {supers.map((m) => (
+        <p key={m.id} data-super-match={m.played ? "played" : "due"} className={cn("text-xs", m.played ? "text-muted-foreground" : "font-medium text-tight-text")}>
+          {m.text}
+        </p>
+      ))}
       {shared.length > 0 ? (
         <div className="flex items-center justify-between gap-3">
           <p className={cn("flex items-start gap-2 text-xs", level ? "text-over-text" : "text-muted-foreground")}>
             {level ? <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> : null}
             {level
-              ? "Level on every tiebreak: decide by hand. The knockout places they'd take stay open until then."
+              ? supers.some((m) => !m.played)
+                ? "Or decide by hand if it can't be played. The knockout places they'd take stay open until then."
+                : "Level on every tiebreak: decide by hand. The knockout places they'd take stay open until then."
               : "Entries sharing a place are level on every tiebreak. Their order can be decided by hand."}
           </p>
           <Button
@@ -450,7 +477,7 @@ function MatchBox({
   onCourt: (courtId: string) => void;
 }) {
   // The match on the schedule: one game, or a team tie's rubbers.
-  const own = segments.filter((s) => s.match.categoryId === category.id && s.match.code === match.code).sort((a, b) => a.from - b.from);
+  const own = segments.filter((s) => s.match.categoryId === category.id && s.match.code === match.code && !s.match.super).sort((a, b) => a.from - b.from);
   const first = own[0];
   const court = first ? courtOf(draft, first.courtId) : null;
   // Zoomed out: the two sides (and their scores) only.
@@ -458,6 +485,8 @@ function MatchBox({
   const outcome = knockoutOutcome(draft, category, match.code);
   // A tie that ended level on rubbers, games and points: the desk says who goes through.
   const level = knockoutLevel(draft, category, match.code);
+  const superOn = draft.rules.tiebreaks.includes("superMatch");
+  const superText = superScore(draft, knockoutSuperId(category.id, match.code));
   const [deciding, setDeciding] = useState(false);
   const onCourtNow = own.some((s) => gameState(draft.results, s.id) === "onCourt");
   const changed = own.some((s) => sidesChanged(draft, category.id, s.id, match.home, match.away));
@@ -540,14 +569,16 @@ function MatchBox({
         <div className="flex items-center justify-between gap-2 border-t py-1 pr-1 pl-3">
           <p className="flex items-start gap-2 text-xs text-over-text">
             <WarningIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-            Ended level: decide by hand.
+            {superOn ? "Ended level: a super match decides it (in the side panel, to put on an empty court). Or decide by hand." : "Ended level: decide by hand."}
           </p>
           <Button variant="outline" size="sm" onClick={() => setDeciding(true)}>
             Decide…
           </Button>
         </div>
       ) : level ? (
-        <p className="border-t px-3 py-2 text-xs text-muted-foreground">Ended level: decided by hand (see Changes).</p>
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+          {level.byHand ? "Ended level: decided by hand (see Changes)." : `Ended level: decided by a super match${superText ? `, ${superText}` : ""}.`}
+        </p>
       ) : null}
       {deciding ? <DecideKnockoutDialog draft={draft} update={update} categoryId={category.id} code={match.code} onClose={() => setDeciding(false)} /> : null}
     </div>

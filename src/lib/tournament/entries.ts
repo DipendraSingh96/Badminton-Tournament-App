@@ -8,6 +8,7 @@ import {
   groupStandings,
   knockoutBracket,
   playersPerEntry,
+  superKey,
   type CategoryFormat,
   type EventType,
   type GroupMode,
@@ -48,8 +49,46 @@ export interface SlotOptions {
   provisional?: boolean;
 }
 
+/** A side given as an entry itself, not a place in the draw: a super match's sides. */
+export function entrySlot(entryId: string): string {
+  return `=${entryId}`;
+}
+
+/** A group's super match between two entries: the same id whichever way round they are given. */
+export function groupSuperId(categoryId: string, letter: string, a: string, b: string): string {
+  return `${categoryId}:super:${letter}:${superKey(a, b)}`;
+}
+
+/** The super match that decides a knockout match-up left level. */
+export function knockoutSuperId(categoryId: string, code: string): string {
+  return `${categoryId}:super:ko:${code}`;
+}
+
+/** Who won a finished super match: 0 for its home side, 1 for away; null until it is finished (or if its score is level). */
+function superWinner(draft: PlanDraft, id: string): 0 | 1 | null {
+  const result = draft.results[id];
+  if (result?.state !== "finished") return null;
+  if (result.award) return result.award.winner;
+  const game = result.games.find(([home, away]) => home !== null || away !== null);
+  if (!game) return null;
+  const home = game[0] ?? 0;
+  const away = game[1] ?? 0;
+  return home === away ? null : home > away ? 0 : 1;
+}
+
+/** A finished super match's score as played ("15–12"), or how it was given; null until it is finished. */
+export function superScore(draft: PlanDraft, id: string): string | null {
+  const result = draft.results[id];
+  if (result?.state !== "finished") return null;
+  const game = result.games.find(([home, away]) => home !== null || away !== null);
+  if (result.award?.reason === "walkover") return "walkover";
+  return game ? `${game[0] ?? 0}–${game[1] ?? 0}` : null;
+}
+
 /** The id of the entry in a slot; see `entryForSlot`. */
 function entryIdForSlot(draft: PlanDraft, categoryId: string, slot: string, options?: SlotOptions): string | null {
+  // An entry itself (a super match's side).
+  if (slot.startsWith("=")) return draft.entries.some((e) => e.id === slot.slice(1)) ? slot.slice(1) : null;
   // Knockout only: "Seed 3" is the third place in the draw's one list.
   const seeded = /^Seed (\d+)$/.exec(slot);
   const drawn = seeded ? null : /^([A-Z])(\d+)$/.exec(slot);
@@ -127,6 +166,9 @@ function lotOf(randomSeed: number, group: number, place: number): number {
   return (x % 1_000_000) * 100 + place;
 }
 
+/** The places with a medal: a super match is played for these when there is no knockout to qualify for. */
+const PODIUM = 3;
+
 /** Where an entry stands once its group has finished. */
 export type GroupStatus = "contention" | "through" | "out" | "level" | "winner" | "placed" | "withdrawn";
 
@@ -164,6 +206,16 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
     const played = finishedFixture(draft, `${category.id}:group:${letter}:${letter}${a}-${letter}${b}`, rubbers);
     if (played) fixtures.push({ home: ids[a - 1]!, away: ids[b - 1]!, ...played });
   }
+  const qualify = draft.format === "groupsKnockout" ? (category.qualifiersPerGroup ?? 0) : 0;
+  // Super matches this group has played: each puts its winner above the entry it was level with.
+  const superWins: Record<string, string> = {};
+  const superPrefix = `${category.id}:super:${letter}:`;
+  for (const id of Object.keys(draft.results)) {
+    if (!id.startsWith(superPrefix)) continue;
+    const pair = id.slice(superPrefix.length).split("~");
+    const winner = superWinner(draft, id);
+    if (pair.length === 2 && winner !== null) superWins[superKey(pair[0]!, pair[1]!)] = pair[winner]!;
+  }
   const rows = groupStandings({
     entries: ids,
     fixtures,
@@ -171,6 +223,9 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
     lots: Object.fromEntries(ids.map((id, p) => [id, lotOf(draw.randomSeed, group, p)])),
     byHand: draft.decided[`${category.id}:${group}`],
     withdrawn,
+    superWins,
+    // Played for the places that go through; with no knockout, for the medals.
+    superUpTo: qualify > 0 ? qualify : PODIUM,
   });
   return {
     index: group,
@@ -179,7 +234,7 @@ export function groupTable(draft: PlanDraft, category: CategoryDraft, group: num
     played: fixtures.length,
     total: pairs.length,
     complete: pairs.length > 0 && fixtures.length === pairs.length,
-    qualify: draft.format === "groupsKnockout" ? (category.qualifiersPerGroup ?? 0) : 0,
+    qualify,
     withdrawn,
   };
 }
@@ -271,15 +326,21 @@ export function knockoutDecisionKey(categoryId: string, code: string): string {
  * points: its two entries, and the one the desk has put through by hand (null
  * until it has). Null for a match the scores decide, or one not finished.
  */
-export function knockoutLevel(draft: PlanDraft, category: CategoryDraft, code: string): { home: string; away: string; decided: string | null } | null {
+export function knockoutLevel(draft: PlanDraft, category: CategoryDraft, code: string): { home: string; away: string; decided: string | null; byHand: boolean } | null {
   const played = knockoutPlayed(draft, category, code);
   if (!played || played.winner) return null;
   const by = draft.decided[knockoutDecisionKey(category.id, code)]?.[0];
-  return { home: played.home, away: played.away, decided: by === played.home || by === played.away ? by : null };
+  if (by === played.home || by === played.away) return { home: played.home, away: played.away, decided: by, byHand: true };
+  // Or by its super match, once that is played.
+  const superId = knockoutSuperId(category.id, code);
+  const won = superWinner(draft, superId);
+  const sides = draft.results[superId]?.sides ?? [played.home, played.away];
+  const through = won === null ? null : sides[won];
+  return { home: played.home, away: played.away, decided: through === played.home || through === played.away ? through : null, byHand: false };
 }
 
-/** Every finished knockout tie that ended level and hasn't been decided by hand: each holds up the round after it. */
-export function levelKnockoutTies(draft: PlanDraft): { categoryId: string; code: string; home: string; away: string }[] {
+/** Every finished knockout tie that its scores left level, decided since or not. */
+export function knockoutTies(draft: PlanDraft): { categoryId: string; code: string; home: string; away: string; decided: string | null; byHand: boolean }[] {
   if (draft.format === "groups") return [];
   return draft.categories.flatMap((category) => {
     const format = categoryFormatOf(draft, category);
@@ -287,9 +348,16 @@ export function levelKnockoutTies(draft: PlanDraft): { categoryId: string; code:
     const bracket = knockoutBracket(format.format.qualifiers, format.format.groupSizes.length, category.bronze);
     return [...bracket.rounds.flatMap((r) => r.matches), ...(bracket.bronze ? [bracket.bronze] : [])].flatMap((m) => {
       const level = knockoutLevel(draft, category, m.code);
-      return level && !level.decided ? [{ categoryId: category.id, code: m.code, home: level.home, away: level.away }] : [];
+      return level ? [{ categoryId: category.id, code: m.code, ...level }] : [];
     });
   });
+}
+
+/** Every finished knockout tie that ended level and hasn't been decided by hand: each holds up the round after it. */
+export function levelKnockoutTies(draft: PlanDraft): { categoryId: string; code: string; home: string; away: string }[] {
+  return knockoutTies(draft)
+    .filter((tie) => !tie.decided)
+    .map(({ categoryId, code, home, away }) => ({ categoryId, code, home, away }));
 }
 
 /**
@@ -303,7 +371,8 @@ export function knockoutOutcome(draft: PlanDraft, category: CategoryDraft, code:
   if (!played) return null;
   const { home, away } = played;
   if (played.winner) return played.winner === "home" ? { winner: home, loser: away } : { winner: away, loser: home };
-  const by = draft.decided[knockoutDecisionKey(category.id, code)]?.[0];
+  // Level: the side the desk put through by hand, or the winner of its super match.
+  const by = knockoutLevel(draft, category, code)?.decided;
   return by === home ? { winner: home, loser: away } : by === away ? { winner: away, loser: home } : null;
 }
 
@@ -349,10 +418,49 @@ export interface MatchRef {
   away: string;
   /** "Group A", "Quarter-final 1"; with "rubber 2" for a team tie, and the category when there are several. */
   label: string;
+  /** A super match: its sides are entries (see `entrySlot`), and it is one game on its own. */
+  super?: boolean;
 }
 
 /** The match with an id as the schedule makes them ("<category>:group:A:A1-A2:r1", "<category>:ko:QF1:r1"); null for any other. */
 export function matchRef(draft: PlanDraft, id: string): MatchRef | null {
+  const extra = /^(.*):super:(?:ko:([^:]+)|([A-Z]|G\d+):([^~:]+)~([^~:]+))$/.exec(id);
+  if (extra) {
+    const categoryId = extra[1]!;
+    const category = draft.categories.find((c) => c.id === categoryId);
+    if (!category) return null;
+    const of = draft.categories.length > 1 ? `${categoryLabel(draft, categoryId)}, ` : "";
+    const code = extra[2] ?? null;
+    if (code) {
+      const level = knockoutMatchOf(draft, category, code) ? knockoutLevel(draft, category, code) : null;
+      const kept = draft.results[id]?.sides;
+      const home = kept?.[0] ?? level?.home;
+      const away = kept?.[1] ?? level?.away;
+      if (!home || !away) return null;
+      return {
+        id,
+        categoryId,
+        stage: code === "Final" ? "final" : code === "Bronze" ? "bronze" : "knockout",
+        group: null,
+        code,
+        home: entrySlot(home),
+        away: entrySlot(away),
+        label: `${of}${knockoutRoundName(code)}, super match`,
+        super: true,
+      };
+    }
+    return {
+      id,
+      categoryId,
+      stage: "group",
+      group: groupIndexOf(extra[3]!),
+      code: null,
+      home: entrySlot(extra[4]!),
+      away: entrySlot(extra[5]!),
+      label: `${of}Group ${extra[3]}, super match`,
+      super: true,
+    };
+  }
   const parts = /^(.*):(?:group:([A-Z]|G\d+):(\w+)-(\w+)|ko:([^:]+)):r(\d+)$/.exec(id);
   if (!parts) return null;
   const categoryId = parts[1]!;
@@ -377,6 +485,7 @@ export function matchRef(draft: PlanDraft, id: string): MatchRef | null {
 
 /** The ids of every match (rubber) in a group fixture or knockout match that a match belongs to. */
 export function fixtureMatchIds(draft: PlanDraft, ref: MatchRef): string[] {
+  if (ref.super) return [ref.id];
   const category = draft.categories.find((c) => c.id === ref.categoryId)!;
   const base = ref.id.replace(/:r\d+$/, "");
   return Array.from({ length: rubberCount(draft, category) }, (_, r) => `${base}:r${r + 1}`);

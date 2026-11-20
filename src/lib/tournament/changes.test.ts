@@ -403,7 +403,7 @@ describe("a level knockout tie decided by hand", () => {
   it("is nobody's until the desk puts a side through; then the next round fills, and it can be reversed", () => {
     const draft = levelSemi();
     const category = draft.categories[0]!;
-    expect(knockoutLevel(draft, category, "SF1")).toEqual({ home: "e1", away: "e5", decided: null });
+    expect(knockoutLevel(draft, category, "SF1")).toEqual({ home: "e1", away: "e5", decided: null, byHand: false });
     expect(levelKnockoutTies(draft)).toEqual([{ categoryId: "c1", code: "SF1", home: "e1", away: "e5" }]);
     expect(knockoutOutcome(draft, category, "SF1")).toBeNull();
     expect(entryForSlot(draft, "c1", "Winner SF1")).toBeNull();

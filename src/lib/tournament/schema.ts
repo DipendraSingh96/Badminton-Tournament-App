@@ -324,6 +324,22 @@ function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
   if (new Set(tiebreaks).size !== tiebreaks.length) add(["tiebreaks"], "Each tiebreak can be used once");
   const lots = tiebreaks.indexOf("drawOfLots");
   if (lots !== -1 && lots !== tiebreaks.length - 1) add(["tiebreaks"], "Draw of lots can only be the last tiebreak");
+  // One game settles two entries and nothing after it is measured: it comes last, or just before the draw of lots (for three or more).
+  const superAt = tiebreaks.indexOf("superMatch");
+  const superOn = superAt !== -1;
+  if (superOn && superAt !== tiebreaks.length - 1 - (lots === -1 ? 0 : 1)) {
+    add(["tiebreaks"], "Super match can only be the last tiebreak, or the one before draw of lots");
+  }
+  if (superOn) {
+    const { points, deuce, deuceLimit } = rules.superMatch;
+    const pointsOk = whole("Super match points", 1).safeParse(points);
+    if (!pointsOk.success) add(["superMatch", "points"], pointsOk.error.issues[0]!.message);
+    if (!deuce) add(["superMatch", "deuce"], "Choose a deuce rule for the super match");
+    if (deuce === "standard" && pointsOk.success) {
+      const limit = whole("Super match maximum points", points! + 1).safeParse(deuceLimit);
+      if (!limit.success) add(["superMatch", "deuceLimit"], limit.error.issues[0]!.message);
+    }
+  }
   if (draft.unit !== "team" && tiebreaks.includes("rubbersWon")) {
     add(["tiebreaks"], "Matches won within match-ups applies to team events only");
   }
@@ -372,6 +388,15 @@ function parseRules(draft: PlanDraft, issues: PlanIssue[]): Rules | null {
   if (issues.length > before || !rules.withdrawal || !rules.walkover) return null;
   return {
     tiebreaks: [...tiebreaks],
+    ...(superOn
+      ? {
+          superMatch: {
+            pointsPerGame: rules.superMatch.points!,
+            deuce: rules.superMatch.deuce === "standard" ? { type: "standard" as const, max: rules.superMatch.deuceLimit! } : { type: "none" as const },
+            bestOf: 1 as const,
+          },
+        }
+      : {}),
     handicap: handicapOn
       ? {
           enabled: true,

@@ -183,6 +183,7 @@ const TIEBREAK_MEANING: Record<keyof typeof TIEBREAK_LABELS, string> = {
   headToHead: "the result between the entries that are level",
   pointsWon: "the most points won in all",
   rubbersWon: "the most matches won across its match-ups",
+  superMatch: "a super match (one extra game) between two entries still level",
   drawOfLots: "drawn by lot",
 };
 

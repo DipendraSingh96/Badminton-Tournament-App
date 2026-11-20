@@ -73,12 +73,13 @@ import { SampleDataButtons } from "./dummy-data";
 import { PreviewBar } from "./preview-bar";
 import { StageBar } from "./stage-bar";
 import { IconButton, IssuesContext, MoneyHiddenContext, ReadOnly, issueMap, pathKey } from "./fields";
-import { finishTournament, goLive, moveGame, reopenLive, startReadyGames, startTournament } from "@/lib/tournament/changes";
+import { finishTournament, goLive, moveGame, placeSuperMatch, reopenLive, startReadyGames, startTournament } from "@/lib/tournament/changes";
 import { canFinish, stillOpen } from "@/lib/tournament/results";
 import { matchRef } from "@/lib/tournament/entries";
 import { liveDay } from "@/lib/tournament/live-day";
 import { courtQueues, gameState, stapledWith, timingOf } from "@/lib/tournament/live";
 import { LiveMovesContext, type LiveMoves } from "./live-moves";
+import { isSuperId, superRules } from "@/lib/tournament/super-match";
 import { CourtBoard } from "./court-board";
 import { LivePanel, type CanMove, type LiveFilter, type LiveTab } from "./live-panel";
 import { LiveStage, type LiveStageView } from "./live-stage";
@@ -87,7 +88,7 @@ import { ScheduleTab } from "./schedule-tab";
 import { SetupTab } from "./setup-tab";
 import { RailSummary, Summary } from "./summary";
 import { ViewRangeContext, viewRangeOf, type ViewRange } from "./time-window";
-import { PLAYBACK_SECONDS, Timeline, courtStatuses, dayRange, localSegments, zoneRows, zoneWarnings } from "./timeline";
+import { PLAYBACK_SECONDS, Timeline, courtStatuses, dayRange, localSegments, withSuperMatches, zoneRows, zoneWarnings } from "./timeline";
 import { NameRow, StageRow } from "./tournament-bar";
 import { TournamentHeader } from "./tournament-header";
 import { Sidebar } from "./sidebar";
@@ -135,7 +136,7 @@ function scheduleOf(draft: PlanDraft) {
   const inputs = timingInputs(parsePlan(draft));
   const analysis = inputs ? analyseTournament(inputs) : null;
   const schedule = inputs && analysis?.ok ? estimateSchedule(inputs, analysis.analysis) : null;
-  return { inputs, segments: localSegments(draft, schedule) };
+  return { inputs, segments: withSuperMatches(draft, localSegments(draft, schedule)) };
 }
 
 /** The rest of a simulated day from a minute; null if the plan can't be read. */
@@ -146,6 +147,7 @@ function simulateFrom(draft: PlanDraft, seed: number, from: number, deskScores: 
     draft,
     segments,
     (game) => {
+      if (isSuperId(game.id)) return superRules(draft);
       const category = inputs.categories.find((c) => c.id === game.match.categoryId);
       return category ? rulesFor(inputs, category, game.match.stage as Stage) : undefined;
     },
@@ -554,7 +556,7 @@ function Editor({
   // The plan is whole and fits (or is tight) and hasn't moved on yet: the way on to the draw is offered.
   const readyForDraws =
     draft.stage === "plan" && shownParsed.ok && Boolean(shownAnalysis?.ok) && shownAnalysis?.ok === true && shownAnalysis.analysis.capacity.status !== "doesNotFit";
-  const segments = useMemo(() => localSegments(shown, schedule), [shown, schedule]);
+  const segments = useMemo(() => withSuperMatches(shown, localSegments(shown, schedule)), [shown, schedule]);
   const zones = useMemo(() => zoneRows(shown, schedule), [shown, schedule]);
   const warnings = useMemo(() => {
     // A group left with no court of its own, sharing one until the organiser chooses a court for it.
@@ -1581,6 +1583,10 @@ function Editor({
     if (state === "finished") return "That game has been played, so it can't be moved.";
     const current = liveQueues.get(courtId)?.current ?? null;
     if (current?.id === segment.id) return `That game is already next on Court ${number}.`;
+    // The schedule's games aren't put in front of a super match: it is played, or taken off, first.
+    if (current?.match.super && !segment.match.super) return `Court ${number} has a super match waiting. Play it, or take it off the court, first.`;
+    // A super match is extra to the schedule: it goes on a court with nothing it could play now.
+    if (segment.match.super && !day.open.has(courtId)) return `Court ${number} has a game to play. A super match goes on an empty court.`;
     if (current && gameState(liveDraft.results, current.id) === "onCourt") return `Court ${number} is playing. A game can go on it once that one finishes.`;
     return null;
   }
@@ -1595,6 +1601,10 @@ function Editor({
     move: (segment, courtId) => {
       const before = liveQueues.get(courtId)?.current?.id ?? null;
       attention.attend(courtId);
+      if (segment.match.super) {
+        liveUpdate((d) => void placeSuperMatch(d, { matchId: segment.id, courtId, now: new Date().toISOString() }));
+        return;
+      }
       // The tie's rubbers stapled to it on its court (still waiting) go with it, as the one move.
       const queue = liveQueues.get(segment.courtId);
       const waiting = queue ? [...(queue.current ? [queue.current] : []), ...queue.next].filter((g) => gameState(liveDraft.results, g.id) === "waiting") : [];

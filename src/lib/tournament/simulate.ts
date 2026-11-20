@@ -158,7 +158,7 @@ export function simulateDay(
   /** The level ties the desk hasn't decided, as the day stands: each stops the day once its last rubber has ended (no earlier than `at`). */
   const levelTies = (at: number): Hold[] =>
     levelKnockoutTies(day).flatMap((tie) => {
-      const own = games.filter((g) => g.match.categoryId === tie.categoryId && g.match.code === tie.code);
+      const own = games.filter((g) => g.match.categoryId === tie.categoryId && g.match.code === tie.code && !isSuper(g.id));
       // Its last rubber to end, where this run played them; otherwise its last on the schedule.
       const last = [...own].sort((a, b) => (ended.get(b.id) ?? -Infinity) - (ended.get(a.id) ?? -Infinity) || b.from - a.from)[0];
       if (!last || scoreDue.some((d) => d.reason === "tie" && own.some((g) => g.id === d.matchId))) return [];
@@ -388,4 +388,9 @@ export function dayAfter(draft: PlanDraft, events: SimEvent[], count: number): P
   return produce(draft, (d) => {
     for (const event of events.slice(0, count)) apply(d, event);
   });
+}
+
+/** A super match: extra to the schedule, and not one of a match-up's own games. */
+function isSuper(id: string): boolean {
+  return id.includes(":super:");
 }

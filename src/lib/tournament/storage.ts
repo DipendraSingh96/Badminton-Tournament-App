@@ -1,4 +1,4 @@
-import { emptyDummyMarks, emptyResources, newId, withOwnRules, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
+import { emptyDummyMarks, emptyResources, emptySuperMatch, newId, withOwnRules, type FinanceDraft, type HallDraft, type PlanDraft } from "./draft";
 import { migrateV3, migrateV4 } from "./migrate";
 
 // Browser-only saving for Plan mode until tournaments move to Supabase: a list
@@ -44,6 +44,7 @@ export function normaliseDraft(
     | "dummy"
     | "withdrawn"
     | "decided"
+    | "superCourts"
     | "log"
     | "startedAt"
     | "resources"
@@ -57,6 +58,7 @@ export function normaliseDraft(
     results?: PlanDraft["results"];
     withdrawn?: PlanDraft["withdrawn"];
     decided?: PlanDraft["decided"];
+    superCourts?: PlanDraft["superCourts"];
     log?: PlanDraft["log"];
     startedAt?: PlanDraft["startedAt"];
     overspill?: PlanDraft["overspill"];
@@ -96,6 +98,9 @@ export function normaliseDraft(
     // Saved before controlled changes: none have been made.
     withdrawn: saved.withdrawn ?? {},
     decided: saved.decided ?? {},
+    // Saved before the super match: none placed, and its rules not set.
+    superCourts: saved.superCourts ?? {},
+    rules: { ...rest.rules, superMatch: { ...emptySuperMatch(), ...rest.rules.superMatch } },
     log: saved.log ?? [],
     // Saved before the tournament could be started by hand: not started.
     startedAt: saved.startedAt ?? null,

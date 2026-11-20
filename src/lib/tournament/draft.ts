@@ -194,9 +194,22 @@ export interface ExclusivePairDraft {
   second: string | null;
 }
 
+/** How a super match is scored: one game to `points`; with `deuce` "standard" it is won by two, up to `deuceLimit`. */
+export interface SuperMatchDraft {
+  points: N;
+  deuce: "none" | "standard" | null;
+  deuceLimit: N;
+}
+
+export function emptySuperMatch(): SuperMatchDraft {
+  return { points: null, deuce: null, deuceLimit: null };
+}
+
 export interface RulesDraft {
   /** In the order they are applied. */
   tiebreaks: TiebreakCriterion[];
+  /** Used when "superMatch" is among the tiebreaks. */
+  superMatch: SuperMatchDraft;
   /** Open doubles only: points head start per matchup, given to the weaker pair type. */
   handicap: { enabled: boolean; mixedVsMens: N; womensVsMens: N; womensVsMixed: N };
   eligibility: {
@@ -372,6 +385,11 @@ export interface PlanDraft {
    * rubbers, games and points: the entry that goes through, by "categoryId:ko:code".
    */
   decided: Record<string, string[]>;
+  /**
+   * Live: the court each super match was put on, and when, by the super
+   * match's id. Its score is kept in `results` like any game's.
+   */
+  superCourts: Record<string, { courtId: string; at: string }>;
   /** Live: every controlled change, oldest first. */
   log: LogEntryDraft[];
   /** Live: when play really began (UTC ISO); null until the desk starts the tournament. The day's times shift by how far this is from the plan. */
@@ -517,7 +535,7 @@ export function duplicateDraft(draft: PlanDraft): PlanDraft {
     packed: [],
   };
   // A copy is not shared with anyone: the original's players' link stays the original's.
-  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, startedAt: null, resources, publicLink: null };
+  return { ...copy, name: "", frame: { ...copy.frame, date: "" }, stage: "plan", entries: [], draw: {}, results: {}, superCourts: {}, startedAt: null, resources, publicLink: null };
 }
 
 export function emptyStageRules(): StageRulesDraft {
@@ -921,6 +939,7 @@ export function bandName(band: RateBandDraft, index: number): string {
 export function emptyRules(): RulesDraft {
   return {
     tiebreaks: [],
+    superMatch: emptySuperMatch(),
     handicap: { enabled: false, mixedVsMens: null, womensVsMens: null, womensVsMixed: null },
     eligibility: {
       maxCategoriesPerPerson: null,
@@ -1012,6 +1031,7 @@ export function emptyDraft(timeZone: string): PlanDraft {
     results: {},
     withdrawn: {},
     decided: {},
+    superCourts: {},
     log: [],
     startedAt: null,
     resources: emptyResources(),

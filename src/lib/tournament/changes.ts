@@ -64,7 +64,15 @@ function read(draft: PlanDraft, key: string): unknown {
   const [where, ...rest] = key.split("/");
   const id = rest.join("/");
   const held =
-    where === "results" ? draft.results[id] : where === "withdrawn" ? draft.withdrawn[id] : where === "decided" ? draft.decided[id] : undefined;
+    where === "results"
+      ? draft.results[id]
+      : where === "withdrawn"
+        ? draft.withdrawn[id]
+        : where === "decided"
+          ? draft.decided[id]
+          : where === "superCourts"
+            ? draft.superCourts[id]
+            : undefined;
   return held === undefined ? null : copy(held);
 }
 
@@ -84,7 +92,7 @@ function write(draft: PlanDraft, key: string, value: unknown): void {
   }
   const [where, ...rest] = key.split("/");
   const id = rest.join("/");
-  const map = (where === "results" ? draft.results : where === "withdrawn" ? draft.withdrawn : draft.decided) as Record<string, unknown>;
+  const map = (where === "results" ? draft.results : where === "withdrawn" ? draft.withdrawn : where === "superCourts" ? draft.superCourts : draft.decided) as Record<string, unknown>;
   if (value === null) delete map[id];
   else map[id] = copy(value);
 }
@@ -195,6 +203,11 @@ export function resultText(result: Pick<MatchResultDraft, "games" | "award"> | u
 /** The games a walkover is recorded with, by the tournament's rule: straight games at the stage's points, or none. */
 function walkoverGames(draft: PlanDraft, ref: MatchRef, winner: 0 | 1): [number, number][] {
   if (draft.rules.walkover !== "straightGamesAtTarget") return [];
+  // A super match is one game to its own points.
+  if (ref.super) {
+    const points = draft.rules.superMatch.points;
+    return points ? [winner === 0 ? [points, 0] : [0, points]] : [];
+  }
   const category = draft.categories.find((c) => c.id === ref.categoryId)!;
   const rules = categoryRules(draft, category)[ref.stage];
   if (!rules.pointsPerGame || !rules.bestOf) return [];
@@ -433,7 +446,8 @@ export function moveGame(
   change: { matchId: string; with?: string[]; fromCourtId: string; target: { courtId: string; before: string | null }; note?: string; now: string },
 ): boolean {
   const ref = matchRef(draft, change.matchId);
-  if (!ref || draft.results[change.matchId]) return false;
+  // A super match isn't on the schedule: it is put on a court by `placeSuperMatch`.
+  if (!ref || ref.super || draft.results[change.matchId]) return false;
   // Rubbers that have started stay where they are.
   const ids = [change.matchId, ...(change.with ?? []).filter((id) => id !== change.matchId && matchRef(draft, id) && !draft.results[id])];
   if (change.target.before && ids.includes(change.target.before)) return false;
@@ -461,6 +475,38 @@ export function moveGame(
         delete draft.matchMoves[id];
         draft.matchMoves[id] = { ...change.target };
       }
+    },
+  );
+  return true;
+}
+
+/**
+ * Puts a super match on a court (to be played there next), or moves one that
+ * is still waiting to another court, and logs it. False once it has started.
+ */
+export function placeSuperMatch(draft: PlanDraft, change: { matchId: string; courtId: string; now: string }): boolean {
+  const ref = matchRef(draft, change.matchId);
+  const to = courtNo(draft, change.courtId);
+  if (!ref?.super || to === null || draft.results[change.matchId]) return false;
+  const key = `superCourts/${change.matchId}`;
+  logged(draft, { kind: "move", text: `${ref.label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}: put on Court ${to}`, now: change.now }, [key], () => {
+    draft.superCourts[change.matchId] = { courtId: change.courtId, at: change.now };
+  });
+  return true;
+}
+
+/** Takes a waiting super match back off its court: it waits in the side panel again. Logged. False once it has started. */
+export function unplaceSuperMatch(draft: PlanDraft, change: { matchId: string; now: string }): boolean {
+  const ref = matchRef(draft, change.matchId);
+  const placed = draft.superCourts[change.matchId];
+  if (!ref?.super || !placed || draft.results[change.matchId]) return false;
+  const key = `superCourts/${change.matchId}`;
+  logged(
+    draft,
+    { kind: "move", text: `${ref.label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}: taken off Court ${courtNo(draft, placed.courtId) ?? "?"}`, now: change.now },
+    [key],
+    () => {
+      delete draft.superCourts[change.matchId];
     },
   );
   return true;

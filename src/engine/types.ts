@@ -195,6 +195,8 @@ export type TiebreakCriterion =
   | "pointsWon"
   /** Team events only. */
   | "rubbersWon"
+  /** Two entries level on everything before it play one extra game. Last, or just before the draw of lots. */
+  | "superMatch"
   /** Last only. */
   | "drawOfLots";
 
@@ -205,6 +207,7 @@ export const TIEBREAK_CRITERIA: readonly TiebreakCriterion[] = [
   "headToHead",
   "pointsWon",
   "rubbersWon",
+  "superMatch",
   "drawOfLots",
 ];
 
@@ -242,6 +245,8 @@ export type WalkoverRule = "straightGamesAtTarget" | "winOnly";
 /** Stored for the draw, standings and Live mode; not used in planning calculations. */
 export interface Rules {
   tiebreaks: TiebreakCriterion[];
+  /** How a super match is scored (one game); only when it is among the tiebreaks. */
+  superMatch?: StageRules;
   handicap: Handicap;
   eligibility: Eligibility;
   withdrawal: WithdrawalRule;

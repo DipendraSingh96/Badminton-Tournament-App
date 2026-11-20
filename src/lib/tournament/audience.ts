@@ -34,6 +34,7 @@ export type BoardSource = DayGame & {
     home: string;
     away: string;
     rubber?: { number: number; of: number; event: EventType };
+    super?: boolean;
   };
 };
 
@@ -124,7 +125,8 @@ function side(draft: PlanDraft, game: BoardSource, slot: string): BoardSide {
 /** Rubbers won by each side of a team tie so far, from its finished rubbers. */
 function tieScore(draft: PlanDraft, id: string): [number, number] | null {
   const ref = draft.unit === "team" ? matchRef(draft, id) : null;
-  if (!ref) return null;
+  // A super match is one game on its own: it has no match-up score.
+  if (!ref || ref.super) return null;
   const finished = fixtureMatchIds(draft, ref)
     .map((rubberId) => draft.results[rubberId])
     .filter((r) => r?.state === "finished");
@@ -149,7 +151,7 @@ function boardGame(draft: PlanDraft, game: BoardSource, day: LiveDay, numbers: M
     // Nobody is waited for until play has begun.
     held: day.started !== null && day.held.has(game.id),
     category: categoryLabel(draft, m.categoryId),
-    where: m.stage === "group" ? `Group ${m.group ?? ""}`.trim() : knockoutRoundName(m.code ?? ""),
+    where: `${m.stage === "group" ? `Group ${m.group ?? ""}`.trim() : knockoutRoundName(m.code ?? "")}${m.super ? " · Super match" : ""}`,
     rubber: m.rubber ? `Match ${m.rubber.number} of ${m.rubber.of} · ${EVENT_LABELS[m.rubber.event]}` : null,
     sides: [side(draft, game, m.home), side(draft, game, m.away)],
     games: (result?.games ?? []).filter(([h, a]) => h !== null || a !== null).map(([h, a]) => [h, a]),
@@ -332,7 +334,7 @@ export function boardBracket(draft: PlanDraft, games: BoardSource[], day: LiveDa
   if (!bracket) return null;
   const numbers = courtNumbers(draft);
   const box = (match: { code: string; home: string; away: string }): BoardMatch => {
-    const own = games.filter((g) => g.match.categoryId === category.id && g.match.code === match.code).sort((a, b) => a.from - b.from);
+    const own = games.filter((g) => g.match.categoryId === category.id && g.match.code === match.code && !g.match.super).sort((a, b) => a.from - b.from);
     const first = own[0];
     const outcome = knockoutOutcome(draft, category, match.code);
     // Who played it, as kept when it started; otherwise who the results put there.

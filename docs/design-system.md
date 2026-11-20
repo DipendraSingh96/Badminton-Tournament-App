@@ -366,3 +366,11 @@ The side panel (440px open, 64px folded to its rail) and the timeline open and f
 
 ### The players' page (20 Nov 2026)
 The `workspace-dots` ground; `card` panels at 8px radius and 12px padding; 16px side gutters; one column under 640px. Times and scores in the display face with tabular figures. The accent marks only what is happening now: "On court", the current tab, the winner's ring in Results and the qualifying line. Status text uses the tight (amber) text colour. Light or Dark follows the device.
+
+## Game cards in the Live side panel, 20 Nov 2026
+
+- A waiting game listed under Up next or KO stage is filled with its stage's timeline colour (group, knockout, bronze, final) with that colour's text; opened, it returns to the card surface so its fields read as usual. A held game stays greyed.
+- A super match's card uses the accent fill (`bg-shuttle`), so it stands apart from the schedule's games.
+- Cards inside a court's green frame are unchanged.
+- The panel's message band uses the tight status fill with its foreground, a warning icon, and clears by itself.
+- A court that has just started a game takes `court-news` (the accent outline, three seconds; a steady outline under reduced motion).

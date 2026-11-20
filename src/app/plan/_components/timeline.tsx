@@ -58,6 +58,7 @@ import { STAGE_LABELS, categoryName } from "./labels";
 import type { Update } from "./plan-editor";
 import { TimeWindowTrack, ViewRangeContext } from "./time-window";
 import { formatClock } from "./workings";
+import { placedSuperMatches, superMatchInfo, superMatchOn, unplacedSuperMatches, type SuperMatch } from "@/lib/tournament/super-match";
 
 // The day as one timeline: per hall, its rate bands, its stage zones and a
 // row per court with the estimated matches on it. Zones and matches can be
@@ -136,7 +137,11 @@ export function sideLabel(draft: PlanDraft, match: MatchInfo, slot: string): str
 
 /** A match in words, for running it: where it sits, who plays, the rubber. */
 export function matchText(draft: PlanDraft, match: MatchInfo): { where: string; sides: string; rubber: string | null } {
-  const where = match.stage === "group" ? `Group ${match.group} · Wave ${match.wave}` : knockoutName(match.code);
+  const where = match.super
+    ? `${match.stage === "group" ? `Group ${match.group}` : knockoutName(match.code)} · Super match`
+    : match.stage === "group"
+      ? `Group ${match.group} · Wave ${match.wave}`
+      : knockoutName(match.code);
   // Once the draw places entries, their names replace the slots.
   const sides = `${sideLabel(draft, match, match.home)} v ${sideLabel(draft, match, match.away)}`;
   const rubber = match.rubber
@@ -194,6 +199,41 @@ export function localSegments(draft: PlanDraft, schedule: EstimatedSchedule | nu
       };
     }),
   );
+}
+
+/** A super match as one of the day's games; `courtId` is empty while it waits in the side panel. */
+function superSegment(draft: PlanDraft, match: SuperMatch, courtId: string, from: number, to: number): LocalSegment {
+  const info = superMatchInfo(match);
+  return {
+    id: match.id,
+    courtId,
+    from,
+    to,
+    stage: match.stage,
+    label: ["Super match", categoryName(draft, match.categoryId)].filter(Boolean).join(" · "),
+    match: info,
+    moved: false,
+    borrowed: false,
+    late: false,
+    details: [{ from, to, match: info }],
+    matches: 1,
+  };
+}
+
+/**
+ * The day's games with the super matches the desk has put on a court. They
+ * aren't on the estimate's schedule: each sits on its court ahead of the
+ * games still to be played there.
+ */
+export function withSuperMatches(draft: PlanDraft, segments: LocalSegment[]): LocalSegment[] {
+  if (!superMatchOn(draft) || segments.length === 0) return segments;
+  const placed = placedSuperMatches(draft, segments, (iso) => minutesOfDay(formatClock(iso, draft.frame.timeZone)));
+  return placed.length === 0 ? segments : [...segments, ...placed.map((p) => superSegment(draft, p.match, p.courtId, p.from, p.to))];
+}
+
+/** The super matches waiting to be put on a court, as cards for the side panel. */
+export function waitingSuperMatches(draft: PlanDraft): LocalSegment[] {
+  return unplacedSuperMatches(draft).map((match) => superSegment(draft, match, "", 0, 0));
 }
 
 /** A knockout match's short name for the court: "QF 1", "SF 2", "Final", "R16 · 3". */
@@ -900,7 +940,8 @@ export function Timeline({
       return { target: null, refusal: `Stays in the ${stageName}` };
     }
     const others = segments
-      .filter((s) => s.courtId === courtId && s.id !== segment.id)
+      // A super match isn't on the schedule, so nothing is placed against it.
+      .filter((s) => s.courtId === courtId && s.id !== segment.id && !s.match.super)
       .sort((a, b) => a.from - b.from);
     const next = others.find((s) => (s.from + s.to) / 2 > minute);
     return { target: { courtId, before: next?.id ?? null }, refusal: null };
@@ -941,7 +982,8 @@ export function Timeline({
   }
 
   /** While Live: a game that has started (on court or finished) can't be moved. */
-  const stuck = (segment: LocalSegment) => readOnly || (live ? live.state(segment.id) !== "waiting" : false);
+  // A super match isn't on the schedule: it is put on a court (and taken off) from the side panel.
+  const stuck = (segment: LocalSegment) => readOnly || Boolean(segment.match.super) || (live ? live.state(segment.id) !== "waiting" : false);
 
   function focusPill(id: string) {
     document.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(id)}"]`)?.focus();
