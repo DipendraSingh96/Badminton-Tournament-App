@@ -161,6 +161,13 @@ describe("a super match in a group", () => {
     // A game still to be played on that court, due earlier: the super match goes ahead of it.
     const waiting = [{ id: "c1:ko:SF1:r1", courtId, from: 660, to: 690 }];
     expect(placedSuperMatches(draft, waiting, () => 700)[0]!.from).toBeLessThan(660);
+    // A game on court there finishes first: the super match is next, between it and the waiting game.
+    const busy = [{ id: "c1:ko:SF2:r1", courtId, from: 640, to: 660 }, ...waiting];
+    draft.results["c1:ko:SF2:r1"] = { state: "onCourt", games: [], startedAt: LATER, finishedAt: null };
+    const next = placedSuperMatches(draft, busy, () => 700)[0]!.from;
+    expect(next).toBeGreaterThan(640);
+    expect(next).toBeLessThan(660);
+    delete draft.results["c1:ko:SF2:r1"];
     // Taken off again while it waits, and that can be reversed.
     expect(unplaceSuperMatch(draft, { matchId: id, now: LATER })).toBe(true);
     expect(unplacedSuperMatches(draft).map((m) => m.id)).toEqual([id]);

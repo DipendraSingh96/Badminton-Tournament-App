@@ -1585,8 +1585,8 @@ function Editor({
     if (current?.id === segment.id) return `That game is already next on Court ${number}.`;
     // The schedule's games aren't put in front of a super match: it is played, or taken off, first.
     if (current?.match.super && !segment.match.super) return `Court ${number} has a super match waiting. Play it, or take it off the court, first.`;
-    // A super match is extra to the schedule: it goes on a court with nothing it could play now.
-    if (segment.match.super && !day.open.has(courtId)) return `Court ${number} has a game to play. A super match goes on an empty court.`;
+    // A super match can't wait: it goes on any court, to be played there next. A game on court finishes first, and the court's waiting games follow it.
+    if (segment.match.super) return current?.match.super ? `Court ${number} already has a super match to play.` : null;
     if (current && gameState(liveDraft.results, current.id) === "onCourt") return `Court ${number} is playing. A game can go on it once that one finishes.`;
     return null;
   }

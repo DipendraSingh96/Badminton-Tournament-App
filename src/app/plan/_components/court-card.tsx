@@ -362,7 +362,8 @@ export function CourtCard({
         // Every court takes the drop, so one that can't have the game can say why.
         onDragOver: (e: React.DragEvent) => {
           e.preventDefault();
-          e.dataTransfer.dropEffect = takesIt ? "move" : "none";
+          // (A drop effect of "none" would stop the drop ever arriving, and with it the reason.)
+          e.dataTransfer.dropEffect = "move";
         },
         onDrop: (e: React.DragEvent) => {
           e.preventDefault();

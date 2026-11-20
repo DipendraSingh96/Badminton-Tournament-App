@@ -256,7 +256,8 @@ function GamesTab({
         onDragOver={(e) => {
           if (!dragging) return;
           e.preventDefault();
-          e.dataTransfer.dropEffect = takesIt ? "move" : "none";
+          // (A drop effect of "none" would stop the drop ever arriving, and with it the reason.)
+          e.dataTransfer.dropEffect = "move";
         }}
         onDrop={(e) => {
           if (!dragging) return;
@@ -316,7 +317,7 @@ function GamesTab({
             <li key={s.id}>{labelled(s, false, false, putOn)}</li>
           ))}
         </ol>
-        <p className="text-xs text-muted-foreground">Level on every tiebreak before it. Drag it onto an empty court to play it; its result settles the place.</p>
+        <p className="text-xs text-muted-foreground">Level on every tiebreak before it. Drag it onto a court: it is played there next, ahead of the games waiting on that court. Its result settles the place.</p>
       </div>
     );
   const narrowed = (label: string, body: ReactNode) => (
@@ -703,11 +704,11 @@ function GameBody({
     return (
       <>
         <p className="text-sm text-muted-foreground">
-          {home} and {away} are level on every tiebreak before the super match. Put it on an empty court to play it
+          {home} and {away} are level on every tiebreak before the super match. Put it on a court to play it there next
           {rules ? `: one game to ${rules.pointsPerGame}${rules.deuce.type === "standard" ? `, won by two, up to ${rules.deuce.max}` : ""}.` : "."}
         </p>
         {superLineUp}
-        {courtsSelect ?? <p className="text-sm text-tight-text">No court is empty yet. It can go on as soon as one is.</p>}
+        {courtsSelect}
       </>
     );
   }

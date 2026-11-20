@@ -101,9 +101,8 @@ export interface PlacedSuperMatch {
 
 /**
  * The super matches that have been put on a court, timed for the day's
- * games: each goes ahead of its court's games that aren't finished (it was
- * put on an empty court, to be played now), for the length of the day's
- * shortest game. `games` are the schedule's; `minuteOf` reads a stored time
+ * games: each goes ahead of its court's games still waiting (and after one
+ * already on court there), for the length of the day's shortest game. `games` are the schedule's; `minuteOf` reads a stored time
  * as minutes since midnight in the tournament's time zone.
  */
 export function placedSuperMatches(
@@ -119,10 +118,11 @@ export function placedSuperMatches(
   for (const match of placed) {
     const { courtId, at } = draft.superCourts[match.id]!;
     const put = minuteOf(at) ?? 0;
-    const ahead = [...games, ...out.map((p) => ({ id: p.match.id, courtId: p.courtId, from: p.from, to: p.to }))]
-      .filter((g) => g.courtId === courtId && draft.results[g.id]?.state !== "finished")
-      .reduce((min, g) => Math.min(min, g.from), Infinity);
-    const from = Math.min(put, ahead - 0.5);
+    const there = [...games, ...out.map((p) => ({ id: p.match.id, courtId: p.courtId, from: p.from, to: p.to }))].filter((g) => g.courtId === courtId);
+    // Ahead of the court's games still waiting; after one already on court there, which finishes first.
+    const waiting = there.filter((g) => !draft.results[g.id]).reduce((min, g) => Math.min(min, g.from), Infinity);
+    const playing = there.filter((g) => draft.results[g.id]?.state === "onCourt").reduce((max, g) => Math.max(max, g.from), -Infinity);
+    const from = Math.max(Math.min(put, waiting - 0.5), playing + 0.25);
     out.push({ match, courtId, from, to: from + length });
   }
   return out;
