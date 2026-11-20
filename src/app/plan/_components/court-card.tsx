@@ -3,7 +3,7 @@
 import type { Timing } from "@/lib/tournament/live";
 import { TimingDot, courtAttention, useLiveAttention } from "./attention";
 import { CaretDownIcon, CaretUpIcon, CopyIcon, PushPinIcon, TrashIcon } from "@phosphor-icons/react";
-import { createContext, useContext, useState, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CourtGroups } from "@/engine";
@@ -373,7 +373,23 @@ export function CourtCard({
         },
       }
     : {};
-  const flash = `${dragged ? "" : courtAttention(attention, court.id)} ${live?.state === "waiting" ? "!bg-held" : ""} ${
+  // A game has just started on this court: it stands out for three seconds.
+  const [justStarted, setJustStarted] = useState(false);
+  const stateBefore = useRef(live?.state);
+  const stateNow = live?.state;
+  useEffect(() => {
+    const before = stateBefore.current;
+    stateBefore.current = stateNow;
+    if (stateNow !== "onCourt" || before === undefined || before === "onCourt") return;
+    const on = window.setTimeout(() => setJustStarted(true), 0);
+    const off = window.setTimeout(() => setJustStarted(false), 3000);
+    return () => {
+      window.clearTimeout(on);
+      window.clearTimeout(off);
+      setJustStarted(false);
+    };
+  }, [stateNow]);
+  const flash = `${dragged ? "" : courtAttention(attention, court.id) || (justStarted ? "court-news" : "")} ${live?.state === "waiting" ? "!bg-held" : ""} ${
     takesIt ? "ring-[3px] ring-primary ring-offset-2 ring-offset-background" : dragged ? "opacity-50" : ""
   }`;
   const top = live ? (live.top ?? (groups ? groupText(groups) : null)) : null;

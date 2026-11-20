@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type TouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { followBoard, type Followed } from "@/lib/supabase/shared-boards";
 import type { BoardBracket, BoardCourt, BoardGame, BoardMatch, BoardTable } from "@/lib/tournament/audience";
@@ -15,7 +15,44 @@ import { cn } from "@/lib/utils";
 const REFRESH_MS = 15_000;
 const STALE_MS = 120_000;
 
+/** How far a finger travels sideways before it counts as a swipe to the next page. */
+const SWIPE_PX = 60;
+/** How long a court that has just started a game stands out. */
+const STARTED_MS = 3000;
+
 const subscribeNothing = () => () => {};
+
+/** Something under the finger scrolls sideways by itself (a wide table): a swipe there is that scroll, not a change of page. */
+function scrollsSideways(from: Element | null, within: Element): boolean {
+  for (let el = from; el && el !== within; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+  }
+  return false;
+}
+
+/**
+ * The courts where a game has just started, each for three seconds: between
+ * two refreshes the court went on court, or a different game is on it.
+ */
+function useStartedCourts(board: PublicBoard): readonly string[] {
+  const [started, setStarted] = useState<readonly string[]>([]);
+  const last = useRef<Map<string, string> | null>(null);
+  const playing = board.halls.flatMap((h) => h.courts).flatMap((c) => (c.state === "onCourt" && c.game ? [[c.courtId, c.game.id] as const] : []));
+  const key = playing.map(([court, game]) => `${court}=${game}`).join("|");
+  useEffect(() => {
+    const before = last.current;
+    const now = new Map(playing);
+    last.current = now;
+    // The first look at the day isn't news.
+    if (!before) return;
+    const fresh = [...now].filter(([court, game]) => before.get(court) !== game).map(([court]) => court);
+    if (fresh.length === 0) return;
+    const on = window.setTimeout(() => setStarted((list) => [...list, ...fresh]), 0);
+    window.setTimeout(() => setStarted((list) => list.filter((c) => !fresh.includes(c))), STARTED_MS);
+    return () => window.clearTimeout(on);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return started;
+}
 
 type Tab = "results" | "courts" | "next" | "groups" | "knockout";
 
@@ -106,9 +143,30 @@ function Board({ board, updatedAt, now, failed }: { board: PublicBoard; updatedA
   // The chosen page while it is still there; otherwise the first (what matters most at this point of the day).
   const tab = tabs.some((t) => t.value === chosen) ? chosen! : (tabs[0]?.value ?? "courts");
   const stale = board.stage === "live" && now - updatedAt > STALE_MS;
+  const started = useStartedCourts(board);
+  // A swipe left or right goes to the next or the previous page.
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  function onTouchStart(event: TouchEvent<HTMLElement>) {
+    const at = event.touches[0];
+    touch.current = at && event.touches.length === 1 && !scrollsSideways(event.target as Element, event.currentTarget) ? { x: at.clientX, y: at.clientY } : null;
+  }
+  function onTouchEnd(event: TouchEvent<HTMLElement>) {
+    const from = touch.current;
+    const at = event.changedTouches[0];
+    touch.current = null;
+    if (!from || !at) return;
+    const dx = at.clientX - from.x;
+    const dy = at.clientY - from.y;
+    // Mostly sideways, and far enough: anything else is a scroll or a tap.
+    if (Math.abs(dx) < SWIPE_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const next = tabs[tabs.findIndex((t) => t.value === tab) + (dx < 0 ? 1 : -1)];
+    if (!next) return;
+    setChosen(next.value);
+    window.scrollTo({ top: 0 });
+  }
 
   return (
-    <main className="workspace-dots min-h-[100dvh] pb-12 text-sm">
+    <main className="workspace-dots min-h-[100dvh] pb-12 text-sm" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={() => (touch.current = null)}>
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         {board.rehearsal ? (
           <p role="status" data-rehearsal className="bg-tight px-4 py-1.5 text-center text-xs font-semibold text-tight-foreground">
@@ -135,6 +193,7 @@ function Board({ board, updatedAt, now, failed }: { board: PublicBoard; updatedA
                 <button
                   key={t.value}
                   type="button"
+                  data-follow-tab={t.value}
                   aria-current={tab === t.value ? "page" : undefined}
                   onClick={() => setChosen(t.value)}
                   className="-mb-px shrink-0 border-b-2 border-transparent py-2 text-base font-semibold whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:border-primary aria-[current=page]:text-foreground"
@@ -150,7 +209,7 @@ function Board({ board, updatedAt, now, failed }: { board: PublicBoard; updatedA
       <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-4 pt-4">
         {tabs.length === 0 ? <p className="text-muted-foreground">Nothing to show yet. The draw appears here once it is made.</p> : null}
         {tab === "results" ? <Results placings={board.placings} /> : null}
-        {tab === "courts" ? <Courts board={board} /> : null}
+        {tab === "courts" ? <Courts board={board} started={started} /> : null}
         {tab === "next" ? <UpNext games={board.upNext} /> : null}
         {tab === "groups" ? <Groups tables={board.tables} /> : null}
         {tab === "knockout" ? <Knockout brackets={board.brackets} /> : null}
@@ -183,14 +242,20 @@ function SideName({ side, strong = false }: { side: BoardGame["sides"][number]; 
 
 const COURT_STATE: Record<BoardCourt["state"], string> = { onCourt: "On court", upNext: "Next", free: "Free", done: "Done for today" };
 
-function Courts({ board }: { board: PublicBoard }) {
+function Courts({ board, started }: { board: PublicBoard; started: readonly string[] }) {
   return (
     <>
       {board.halls.map((hall) => (
         <Section key={hall.id} title={board.halls.length > 1 ? hall.name : "Courts"}>
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {hall.courts.map((court) => (
-              <li key={court.courtId} data-follow-court={court.number} className="flex flex-col gap-2 rounded-lg bg-card p-3">
+              <li
+                key={court.courtId}
+                data-follow-court={court.number}
+                data-started={started.includes(court.courtId) || undefined}
+                // A game has just started here: the court stands out for three seconds.
+                className={cn("flex flex-col gap-2 rounded-lg bg-card p-3", started.includes(court.courtId) && "court-news")}
+              >
                 <p className="flex items-baseline justify-between gap-2">
                   <span className="font-display text-lg leading-none font-bold">Court {court.number}</span>
                   <span className={cn("text-xs font-semibold", court.state === "onCourt" ? "text-primary" : "text-muted-foreground")}>
