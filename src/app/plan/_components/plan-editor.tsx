@@ -1012,6 +1012,10 @@ function Editor({
   // The time shown beside the Live panel's tabs: the cursor's.
   const liveMinute = clockLocked ? clockMinute : (playhead ?? range?.start ?? null);
   const liveTime = liveMinute === null ? null : clock(Math.round(liveMinute));
+  // The clock the desk reads in the side panel: the real time whatever the hour, while the timeline's cursor
+  // (and the day's working-out) stays held inside the day. A simulated day, or the developer's cursor, shows its own time.
+  const wallMinute = minutesOfDay(formatClock(new Date(clockTick * 60000).toISOString(), draft.frame.timeZone));
+  const panelTime = clockLocked && wallMinute !== null ? clock(wallMinute) : liveTime;
   // The day as it is really going: every Live page reads its times from this, not from the plan.
   const courtIds = useMemo(() => draft.frame.halls.flatMap((h) => h.courts.map((c) => c.id)), [draft.frame.halls]);
   const day = useMemo(() => liveDay(liveDraft, segments, { now: liveMinute, minuteOf, courtIds }), [liveDraft, segments, liveMinute, minuteOf, courtIds]);
@@ -1859,11 +1863,11 @@ function Editor({
               // The Live side panel, on every Live page: the games to run, and the entries.
               railShown ? (
                 <Rail name="Side panel" open="Show panel" onOpen={() => foldWorkbench(false)}>
-                  {liveTime ? (
+                  {panelTime ? (
                     // Hours over minutes: larger than it could be on one line of the rail.
-                    <span role="timer" aria-label={`The time is ${liveTime}`} className="flex flex-col items-center font-display text-2xl leading-none font-bold tabular-nums">
-                      <span>{liveTime.split(":")[0]}</span>
-                      <span>{liveTime.split(":")[1]}</span>
+                    <span role="timer" aria-label={`The time is ${panelTime}`} className="flex flex-col items-center font-display text-2xl leading-none font-bold tabular-nums">
+                      <span>{panelTime.split(":")[0]}</span>
+                      <span>{panelTime.split(":")[1]}</span>
                     </span>
                   ) : null}
                   <span className={RAIL_TEXT}>Games</span>
@@ -1920,7 +1924,7 @@ function Editor({
                     onFilter={filterLive}
                     entryId={liveEntry}
                     onEntry={setLiveEntry}
-                    time={liveTime}
+                    time={panelTime}
                     onFold={() => foldWorkbench(true)}
                   />
                 </aside>
