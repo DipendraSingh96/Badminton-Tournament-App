@@ -459,7 +459,8 @@ function GameCard({
   // A waiting game drags from anywhere on it (closed: an open one is being worked on).
   // Even when no court can take it now: dropped on one, it is told why.
   const movable = state === "waiting" && !open;
-  const tinted = staged && !open;
+  // A super match keeps its own colour wherever its card is: in a list, or on its court.
+  const tinted = (staged || Boolean(segment.match.super)) && !open;
   // It can't start: a player hasn't checked in. Greyed out, until they are or it is given as a walkover.
   const held = state === "waiting" && Boolean(attention?.held.has(id));
   // On court: how its time is going, as a dot (in its court's frame; on the card itself when it stands alone).
