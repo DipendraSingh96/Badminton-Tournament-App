@@ -387,7 +387,9 @@ export interface PlanDraft {
   decided: Record<string, string[]>;
   /**
    * Live: the court each super match was put on, and when, by the super
-   * match's id. Its score is kept in `results` like any game's.
+   * match's id (an empty court id once the desk has taken it back off, so
+   * it isn't put on a court by itself again). Its score is kept in
+   * `results` like any game's.
    */
   superCourts: Record<string, { courtId: string; at: string }>;
   /** Live: every controlled change, oldest first. */

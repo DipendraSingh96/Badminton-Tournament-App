@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gameWinner } from "@/engine";
-import { awardMatch, goLive, moveGame, placeSuperMatch, reverseChange, unplaceSuperMatch } from "./changes";
+import { awardMatch, goLive, moveGame, placeDueSuperMatches, placeSuperMatch, reverseChange, startReadyGames, startTournament, unplaceSuperMatch } from "./changes";
 import { emptyEntry, type PlanDraft } from "./draft";
 import { completeDraft } from "./draft.test-helpers";
 import { SUPER_LINE_UP, entryForSlot, entrySlot, matchPlayers, sidePlayers, superPlayersPerSide, groupStatus, groupSuperId, groupTable, knockoutOutcome, knockoutSuperId, levelKnockoutTies, matchRef, superScore } from "./entries";
@@ -190,6 +190,47 @@ describe("a super match in a group", () => {
     expect(superMatches(draft).map((m) => m.id)).toEqual([id]);
     expect(unplaceSuperMatch(draft, { matchId: id, now: LATER })).toBe(false);
     expect(placeSuperMatch(draft, { matchId: id, courtId, now: LATER })).toBe(false);
+  });
+
+  it("goes by itself onto the court its group finished on, and that court's next game waits for it", () => {
+    const draft = live();
+    startTournament(draft, { now: NOW, at: "09:00", late: 0 });
+    const [first, second] = draft.frame.halls[0]!.courts.map((c) => c.id);
+    const game = (id: string, courtId: string, from: number, home: string, away: string) => ({ id, courtId, from, to: from + 15, match: { categoryId: "c1", home, away } });
+    // Group A on the first court, with a group B game waiting behind it there; the rest of B on the second.
+    const games = [
+      game(group("A", 1, 2), first!, 540, "A1", "A2"),
+      game(group("A", 1, 3), first!, 555, "A1", "A3"),
+      game(group("A", 2, 3), first!, 570, "A2", "A3"),
+      game(group("B", 2, 3), first!, 585, "B2", "B3"),
+      game(group("B", 1, 2), second!, 540, "B1", "B2"),
+      game(group("B", 1, 3), second!, 555, "B1", "B3"),
+    ];
+    for (const entry of draft.entries) for (const player of entry.players) player.attendance = "arrived";
+    play(draft, group("A", 1, 2), [21, 19]);
+    play(draft, group("A", 1, 3), [19, 21]);
+    expect(placeDueSuperMatches(draft, games, LATER)).toBe(0);
+    play(draft, group("A", 2, 3), [21, 10]);
+    play(draft, group("B", 1, 2), [12, 21]);
+    play(draft, group("B", 1, 3), [9, 21]);
+    const id = groupSuperId("c1", "A", "e1", "e2");
+    // The day moves on: the super match is put on Court 1, and the group B game waiting there is not started over it.
+    startReadyGames(draft, games, LATER);
+    expect(draft.superCourts[id]).toEqual({ courtId: first, at: LATER });
+    expect(draft.log.at(-1)).toMatchObject({ kind: "move", text: "Group A, super match, Entry 1 v Entry 2: put on Court 1" });
+    expect(draft.results[group("B", 2, 3)]).toBeUndefined();
+    // Once it is one of the day's games it is first on that court, and starts.
+    const withIt = [...games, ...placedSuperMatches(draft, games, () => 600).map((p) => ({ id: p.match.id, courtId: p.courtId, from: p.from, to: p.to, match: superMatchInfo(p.match) }))];
+    startReadyGames(draft, withIt, LATER);
+    expect(draft.results[id]).toMatchObject({ state: "onCourt" });
+    expect(draft.results[group("B", 2, 3)]).toBeUndefined();
+    // Not placed twice; and one the desk takes off a court stays off until the desk puts it somewhere.
+    expect(placeDueSuperMatches(draft, withIt, LATER)).toBe(0);
+    delete draft.results[id];
+    expect(unplaceSuperMatch(draft, { matchId: id, now: LATER })).toBe(true);
+    expect(placeDueSuperMatches(draft, games, LATER)).toBe(0);
+    expect(unplacedSuperMatches(draft).map((m) => m.id)).toEqual([id]);
+    expect(placedSuperMatches(draft, games, () => 600)).toEqual([]);
   });
 
   it("can be given as a walkover, scored at its own points", () => {

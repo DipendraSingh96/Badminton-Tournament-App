@@ -25,6 +25,7 @@ import {
   type MatchRef,
 } from "./entries";
 import { courtQueues, finishGame, gameState, startGame, type ScheduledGame } from "./live";
+import { superMatches } from "./super-match";
 
 // Controlled changes: the few things the desk may change while the tournament
 // is Live. Each one writes a log entry with what it replaced, so it can be
@@ -499,14 +500,15 @@ export function placeSuperMatch(draft: PlanDraft, change: { matchId: string; cou
 export function unplaceSuperMatch(draft: PlanDraft, change: { matchId: string; now: string }): boolean {
   const ref = matchRef(draft, change.matchId);
   const placed = draft.superCourts[change.matchId];
-  if (!ref?.super || !placed || draft.results[change.matchId]) return false;
+  if (!ref?.super || !placed?.courtId || draft.results[change.matchId]) return false;
   const key = `superCourts/${change.matchId}`;
   logged(
     draft,
     { kind: "move", text: `${ref.label}, ${sideText(draft, ref, 0)} v ${sideText(draft, ref, 1)}: taken off Court ${courtNo(draft, placed.courtId) ?? "?"}`, now: change.now },
     [key],
     () => {
-      delete draft.superCourts[change.matchId];
+      // Kept, with no court: the desk took it off, so it waits in the side panel until the desk puts it somewhere.
+      draft.superCourts[change.matchId] = { courtId: "", at: change.now };
     },
   );
   return true;
@@ -614,6 +616,31 @@ export function playingNow(draft: PlanDraft, games: PlayableGame[]): Set<string>
 }
 
 /**
+ * A super match can't wait: as soon as the table (or a level knockout
+ * match-up) makes one, it goes by itself onto the court where the last game
+ * that led to it was played, to be played there next, ahead of the games
+ * waiting on that court. Logged like a placing by hand. One the desk has
+ * placed or taken off a court is left alone. Returns how many were placed.
+ */
+export function placeDueSuperMatches(draft: PlanDraft, games: PlayableGame[], now: string): number {
+  let placed = 0;
+  for (const match of superMatches(draft)) {
+    if (draft.superCourts[match.id] || draft.results[match.id]) continue;
+    // The games it came from: its group's, or the knockout match-up's; the one that finished last says which court.
+    let last: { courtId: string; at: string } | null = null;
+    for (const game of games) {
+      const ref = matchRef(draft, game.id);
+      if (!ref || ref.super || ref.categoryId !== match.categoryId) continue;
+      if (match.code ? ref.code !== match.code : ref.stage !== "group" || groupLetter(ref.group ?? -1) !== match.group) continue;
+      const at = draft.results[game.id]?.finishedAt;
+      if (at && (!last || at > last.at)) last = { courtId: game.courtId, at };
+    }
+    if (last && placeSuperMatch(draft, { matchId: match.id, courtId: last.courtId, now })) placed += 1;
+  }
+  return placed;
+}
+
+/**
  * Once the tournament has started, games start by themselves: each court's
  * next game goes on court as soon as its sides are known, its players have
  * all checked in and none of them is on another court. Returns how many
@@ -621,10 +648,19 @@ export function playingNow(draft: PlanDraft, games: PlayableGame[]): Set<string>
  */
 export function startReadyGames(draft: PlanDraft, games: PlayableGame[], now: string): number {
   if (!draft.startedAt) return 0;
+  placeDueSuperMatches(draft, games, now);
+  // A court with a super match the day's games don't hold yet (just put there) waits for it: nothing else is started on it.
+  const listed = new Set(games.map((g) => g.id));
+  const kept = new Set(
+    Object.entries(draft.superCourts)
+      .filter(([id, placed]) => placed.courtId && !draft.results[id] && !listed.has(id))
+      .map(([, placed]) => placed.courtId),
+  );
   const playing = playingNow(draft, games);
   let started = 0;
   for (const queue of courtQueues(games, draft.results).values()) {
     const game = queue.current;
+    if (kept.has(queue.courtId) && game && gameState(draft.results, game.id) === "waiting") continue;
     if (!game || gameState(draft.results, game.id) !== "waiting" || holding(draft, game, playing) !== "ready") continue;
     const sides: [string, string] = [
       entryForSlot(draft, game.match.categoryId, game.match.home)!.id,

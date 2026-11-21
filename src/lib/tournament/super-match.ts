@@ -110,7 +110,7 @@ export function placedSuperMatches(
   games: { id: string; courtId: string; from: number; to: number }[],
   minuteOf: (iso: string) => number | null,
 ): PlacedSuperMatch[] {
-  const placed = superMatches(draft).filter((m) => draft.superCourts[m.id]);
+  const placed = superMatches(draft).filter((m) => draft.superCourts[m.id]?.courtId);
   if (placed.length === 0) return [];
   const shortest = games.reduce((min, g) => Math.min(min, g.to - g.from), Infinity);
   const length = Number.isFinite(shortest) && shortest > 0 ? shortest : 1;
@@ -130,5 +130,6 @@ export function placedSuperMatches(
 
 /** The super matches waiting in the side panel: made by the table, not yet put on a court. */
 export function unplacedSuperMatches(draft: PlanDraft): SuperMatch[] {
-  return superMatches(draft).filter((m) => !draft.superCourts[m.id] && !draft.results[m.id]);
+  // (One taken back off its court keeps a note with no court, so it isn't put straight back.)
+  return superMatches(draft).filter((m) => !draft.superCourts[m.id]?.courtId && !draft.results[m.id]);
 }
